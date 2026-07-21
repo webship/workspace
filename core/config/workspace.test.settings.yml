@@ -1,0 +1,7 @@
+doc:
+  name: test
+  path: /home/rajab/workspace/test
+web:
+  url: http://localhost/test
+database:
+  prefix: test_

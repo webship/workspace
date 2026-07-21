@@ -1,0 +1,7 @@
+doc:
+  name: products
+  path: /home/rajab/workspace/products
+web:
+  url: http://localhost/products
+database:
+  prefix: products_

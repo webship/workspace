@@ -1,0 +1,7 @@
+doc:
+  name: sandboxes
+  path: /home/rajab/workspace/sandboxes
+web:
+  url: http://localhost/sandboxes
+database:
+  prefix: sandboxes_

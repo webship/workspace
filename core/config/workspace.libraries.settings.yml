@@ -1,0 +1,7 @@
+doc:
+  name: libraries
+  path: /home/rajab/workspace/libraries
+web:
+  url: http://localhost/libraries
+database:
+  prefix: libraries_

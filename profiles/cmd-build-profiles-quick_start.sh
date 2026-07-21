@@ -1,0 +1,25 @@
+#!/bin/usr/env bash
+
+echo "*---------------------------------------------------*";
+echo "| Build Quick Start                                 |";
+echo "*---------------------------------------------------*";
+echo "| https://www.drupal.org/project/quick_start        |";
+echo "*---------------------------------------------------*";
+
+# Bootstrap.
+source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+
+# Load workspace settings and extra lists.
+eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.profiles.settings.yml);
+if [ -d "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/quick_start" ]; then
+  (cd "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/quick_start" && ddev delete -y -O 2>/dev/null) ;
+  rm -rf "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/quick_start" ;
+fi
+
+mkdir -p "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/quick_start" ;
+cd "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/quick_start" ;
+
+ddev config --project-type=drupal --docroot=web --project-name=quick_start --auto ;
+ddev start ;
+
+ddev composer create-project drupalcoders/quick_start_distribution:dev-master . --no-dev --no-interaction --prefer-dist;

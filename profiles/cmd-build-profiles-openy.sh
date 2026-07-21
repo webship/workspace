@@ -1,0 +1,25 @@
+#!/bin/usr/env bash
+
+echo "*---------------------------------------------------*";
+echo "| Build OpenY                                       |";
+echo "*---------------------------------------------------*";
+echo "| https://www.drupal.org/project/openy              |";
+echo "*---------------------------------------------------*";
+
+# Bootstrap.
+source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+
+# Load workspace settings and extra lists.
+eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.profiles.settings.yml);
+if [ -d "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/openy" ]; then
+  (cd "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/openy" && ddev delete -y -O 2>/dev/null) ;
+  rm -rf "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/openy" ;
+fi
+
+mkdir -p "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/openy" ;
+cd "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/openy" ;
+
+ddev config --project-type=drupal --docroot=web --project-name=openy --auto ;
+ddev start ;
+
+ddev composer create-project ymcatwincities/openy-project . --no-interaction --no-dev;

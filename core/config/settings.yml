@@ -1,0 +1,38 @@
+root: /home/rajab/workspace
+path: /home/rajab/workspace/core
+scripts: /home/rajab/workspace/core/scripts
+config: /home/rajab/workspace/core/config
+assets: /home/rajab/workspace/core/assets
+host: 127.0.0.1
+web: http://127.0.0.1/core
+protocol: http
+backups: /home/rajab/workspace/backups
+database:
+  username: root
+  password: 123___
+  host: localhost
+  port: 3306
+  namespace: Drupal\\\\Core\\\\Database\\\\Driver\\\\mysql
+  driver: mysql
+  collation: utf8mb4_general_ci
+account:
+  name: webmaster
+  pass: d
+  mail: info@webship.co
+config_sync_directory: ../config/sync
+automated_testing:
+  wd_host: 127.0.0.1:4444/wd/hub
+openai:
+  api_key: sk-change-this
+  api_org: org-change-this
+workspaces:
+  - products
+  - dev
+  - test
+  - demos
+  - sandboxes
+  - profiles
+  - modules
+  - themes
+  - libraries
+  - forked

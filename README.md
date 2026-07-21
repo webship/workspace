@@ -1,0 +1,149 @@
+# Webship Workspace
+
+Helps Drupal developers manage the base-code development work cycle for custom recipes/distributions/profiles/starter-kit templates, on top of [DDEV](https://ddev.com) — no host-level Apache, PHP, or MySQL required.
+
+## Layout
+
+Each of the folders below holds a set of `cmd-*.sh` scripts. Running one builds a fresh Drupal project into a subdirectory named after the project, wired up with its own DDEV environment (own containers, own database — nothing shared on the host).
+
+```
+    ~/workspace/products    Custom distributions/profiles base code
+    ~/workspace/dev         Development, enhancements, and optimization work
+    ~/workspace/test        Testing and functional automated testing
+    ~/workspace/demos       Demo templates and default content
+    ~/workspace/sandboxes   Private custom content templates
+    ~/workspace/projects    Development on a project based on a distribution/profile
+    ~/workspace/profiles    Other contrib or private installation profiles
+    ~/workspace/themes      Other contrib or private themes
+    ~/workspace/modules     Other contrib or private modules
+    ~/workspace/libraries   Other contrib or private libraries
+    ~/workspace/forked      Forked/customized copies of any of the above
+```
+
+### `core/`
+
+Where the shared configs and script libraries live.
+
+```
+    ~/workspace/core/scripts
+    ~/workspace/core/config
+    ~/workspace/core/assets
+```
+
+## Setup
+
+```
+git clone --branch '11.0.x' https://github.com/webship/workspace.git ~/workspace
+cd ~/workspace
+```
+
+Edit the settings file for your system:
+```
+vim ~/workspace/core/config/settings.yml
+```
+
+You'll see something like:
+```yaml
+root: /home/YOUR_USER/workspace
+path: /home/YOUR_USER/workspace/core
+scripts: /home/YOUR_USER/workspace/core/scripts
+config: /home/YOUR_USER/workspace/core/config
+assets: /home/YOUR_USER/workspace/core/assets
+host: 127.0.0.1
+web: http://127.0.0.1/core
+protocol: http
+backups: /home/YOUR_USER/workspace/backups
+database:
+  username: root
+  password: CHANGE_ME
+  host: localhost
+  port: 3306
+  namespace: Drupal\\Core\\Database\\Driver\\mysql
+  driver: mysql
+  collation: utf8mb4_general_ci
+account:
+  name: DRUPAL_WEBMASTER_NAME
+  pass: DRUPAL_WEBMASTER_PASSWORD
+  mail: DRUPAL_WEBMASTER_EMAIL
+config_sync_directory: ../config/sync
+workspaces:
+  - products
+  - dev
+  - test
+  - demos
+  - sandboxes
+  - profiles
+  - modules
+  - themes
+  - libraries
+  - forked
+```
+
+`database.*` is no longer used by the build scripts (each DDEV project manages its own isolated database), but is kept for anything custom you add that still needs those values.
+
+Install the global shell variables:
+```
+cd ~/workspace/core/scripts/install
+bash install.sh
+```
+
+Close all terminal windows and open a new one. Test that it's ready:
+```
+echo ${WEBSHIP_WORKSPACE_CONFIG}
+```
+It should print `~/workspace/core/config`.
+
+Make sure [DDEV](https://ddev.readthedocs.io/en/stable/users/install/) and Docker are installed — that's the only runtime dependency now; there's nothing to install at the OS/package level.
+
+## Building a project
+
+```
+cd ~/workspace/dev/
+bash cmd-drupal11-0-x-recommended-project.sh drupal11c1 --install
+```
+
+### Varbase 10.1.x distribution, for example:
+```
+cd ~/workspace/dev/
+bash cmd-varbase10-1-x-project.sh varbase10c1 --install --add-users
+```
+
+Each of these scripts creates the project folder, runs `ddev config` + `ddev start`, then `ddev composer create-project` and `ddev drush site:install` inside that project's own containers.
+
+## Removing / backing up a project
+
+```
+cd ~/workspace/dev/
+bash cmd-tools-remove.sh myproject
+bash cmd-tools-backup-dev.sh myproject
+```
+
+`cmd-tools-remove.sh` runs `ddev delete -y -O` before removing the folder. `cmd-tools-backup-*.sh` tars the project folder and runs `ddev export-db` for the database dump — no host MySQL client involved.
+
+## Create your own custom script
+
+```
+cd ~/workspace/dev/
+vim cmd-example.sh
+```
+
+```bash
+#!/bin/usr/env bash
+
+# Bootstrap.
+source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+
+# Load workspace settings and extra lists.
+eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.dev.settings.yml);
+
+echo "*---------------------------------------------------------------------------------------*";
+echo "|  Build a Drupal project via DDEV";
+echo "*---------------------------------------------------------------------------------------*";
+```
+
+Have your own YAML files, read them in as arrays of variables, and use them however you like:
+```
+eval $(parse_yaml ${path_to_the_yml_file}/name-of-file.yml);
+```
+
+Have a look at the other `cmd-*.sh` scripts under `themes/`, `profiles/`, or `test/` for more examples — use whatever naming or scripting style works for you.
