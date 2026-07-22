@@ -57,3 +57,7 @@ and the repo github.com/webship/workspace (branch `1.0.x`).
 - Stale ddev registry entries ("project directory missing") come from
   pre-migration paths — `ddev stop --unlist <name>`.
 - Dark mode: toolbar toggle, light default, persisted in localStorage.
+- When testing the dashboard or its AI assistant, use natural human-like
+  phrasing ("can you back up my d114test site please", "what's running?"),
+  not robotic command strings — tests should prove the system understands
+  people, and the workspace agents follow the same rule.

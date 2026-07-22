@@ -902,7 +902,8 @@ async function handleAction(pathname, form, res) {
     // Pull the interface directives out of the reply text.
     const directive = {};
     reply = reply.split('\n').filter((line) => {
-      const nav = line.match(/^\s*NAVIGATE:(\/[a-z0-9_-]+)\s*$/);
+      // Accepts /<workspace> and /<workspace>/backups
+      const nav = line.match(/^\s*NAVIGATE:(\/[a-z0-9_-]+(?:\/backups)?)\s*$/);
       if (nav) { directive.navigate = nav[1]; return false; }
       const open = line.match(/^\s*OPEN:(https?:\/\/\S+)\s*$/);
       if (open) { directive.open = open[1]; return false; }
