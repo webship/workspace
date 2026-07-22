@@ -129,7 +129,7 @@ function pageShell(title, body, crumbs = []) {
 <nav class="uk-navbar-container toolbar" uk-navbar>
   <div class="uk-navbar-left">
     <a class="uk-navbar-item uk-logo toolbar-logo" href="/">
-      <img src="/logo.png" alt="workspace" width="34" height="34"> <span>workspace</span>
+      <img src="/logo.png" alt="workspace" width="46" height="46"> <span>workspace</span>
     </a>
     ${crumbHtml}
   </div>
@@ -148,7 +148,7 @@ const AI_MARK = `<svg class="ai-mark" viewBox="0 0 24 24" xmlns="http://www.w3.o
 
 // The AI assistant panel — included on EVERY page. `floating` renders it as
 // the bottom-right widget with a launcher button; inline renders it in flow.
-function assistantHtml({ floating }) {
+function assistantHtml({ floating, context = 'home' }) {
   const panel = `
     <div class="uk-card uk-card-default assistant-panel">
       <div class="assistant-head">
@@ -180,6 +180,7 @@ function assistantHtml({ floating }) {
               hx-post="/actions/chat" hx-target="#chat-log" hx-swap="beforeend"
               hx-indicator="#chat-typing"
               hx-on::after-request="this.reset()">
+          <input type="hidden" name="context" value="${esc(context)}">
           <input type="text" name="message" class="uk-input" placeholder="Ask me anything… (or use voice)" autocomplete="off" required>
           <button type="button" class="uk-button uk-button-default mic-btn" title="Voice input" aria-label="Voice input"><span uk-icon="icon: microphone; ratio: .9"></span></button>
           <button type="submit" class="uk-button uk-button-primary send-btn" title="Send" aria-label="Send"><span uk-icon="icon: comment; ratio: .8"></span><span class="qa-label"> Send</span></button>
@@ -189,7 +190,7 @@ function assistantHtml({ floating }) {
 
   if (floating) {
     return `
-      <div class="assistant-float" id="assistant-float">${panel}</div>
+      <div class="assistant-float open" id="assistant-float">${panel}</div>
       <button class="assistant-launcher uk-button uk-button-primary" onclick="document.getElementById('assistant-float').classList.toggle('open')" title="Workspace AI Assistant">${AI_MARK}</button>`;
   }
   return panel;
@@ -218,10 +219,10 @@ function homePage() {
   return pageShell('workspace', `
 <main class="uk-container uk-container-xlarge uk-margin-top uk-margin-bottom">
   <div class="uk-grid uk-grid-medium uk-flex-top" uk-grid>
-    <div class="uk-width-1-3@m uk-width-1-4@l">
-      ${assistantHtml({ floating: false })}
+    <div class="uk-width-1-3@m">
+      ${assistantHtml({ floating: false, context: 'home' })}
     </div>
-    <div class="uk-width-2-3@m uk-width-3-4@l">
+    <div class="uk-width-2-3@m">
       <div class="uk-card uk-card-default uk-card-body">
         <h2 class="uk-text-center uk-margin-remove-bottom">Workspaces</h2>
         <p class="uk-text-meta uk-text-center uk-margin-small-bottom">Browse and manage your development environments</p>
@@ -352,7 +353,7 @@ function backupsPage(key) {
   </div>
 </main>
 
-${assistantHtml({ floating: true })}`, [{ label: 'Workspaces', href: '/' }, { label: meta.label, href: `/${key}` }, { label: 'Backups' }]);
+${assistantHtml({ floating: true, context: `backups:${key}` })}`, [{ label: 'Workspaces', href: '/' }, { label: meta.label, href: `/${key}` }, { label: 'Backups' }]);
 }
 
 async function workspacePage(key) {
@@ -395,7 +396,7 @@ async function workspacePage(key) {
   </div>
 </main>
 
-${assistantHtml({ floating: true })}`, [{ label: 'Workspaces', href: '/' }, { label: meta.label }]);
+${assistantHtml({ floating: true, context: `workspace:${key}` })}`, [{ label: 'Workspaces', href: '/' }, { label: meta.label }]);
 }
 
 /* ---------------- HTMX fragments/actions ---------------- */
@@ -556,10 +557,26 @@ async function handleAction(pathname, form, res) {
     // docker are all available) and steers the interface afterwards through
     // NAVIGATE/OPEN/REFRESH directives that ui.js executes in the browser.
     const workspaceNames = Object.keys(loadWorkspaces()).join(', ');
+    // Live page context: the assistant always knows which page the user is
+    // on and what that page currently shows (computed fresh per message).
+    let pageContext = 'The user is on the dashboard home page showing all workspace cards.';
+    const ctx = String(form.context || '');
+    const ctxMatch = ctx.match(/^(workspace|backups):([a-z0-9_-]+)$/);
+    if (ctxMatch && isValidWorkspace(ctxMatch[2])) {
+      const cKey = ctxMatch[2];
+      const cMeta = loadWorkspaces()[cKey];
+      if (ctxMatch[1] === 'workspace') {
+        const projs = listProjects(cMeta.dir);
+        pageContext = `The user is on the "${cMeta.label}" workspace page (/${cKey}, folder ${cMeta.dir}). Projects currently listed: ${projs.join(', ') || '(none)'} . Builder scripts available: ${findBuilderScripts(cMeta.dir).join(', ') || '(none)'}.`;
+      } else {
+        pageContext = `The user is on the "${cMeta.label}" backups page (/${cKey}/backups). Backups currently listed: ${listBackups(cKey).map((b) => b.file).join(', ') || '(none)'}.`;
+      }
+    }
     const system = [
       `You are the Workspace AI Assistant embedded in the web dashboard at https://workspace.ddev.site, managing the webship/workspace tooling rooted at ${ROOT}.`,
       `You run inside the dashboard's container with Bash access: the whole workspace tree is at ${ROOT}, and the ddev + docker CLIs manage sibling DDEV projects.`,
       `Workspaces (folders under ${ROOT}): ${workspaceNames}.`,
+      pageContext,
       'How to act:',
       `- Inspect: ls ${ROOT}/<workspace> ; ddev list ; each builder script has a "# workspace-name:" header naming what it builds.`,
       `- Build a new project: cd ${ROOT}/<workspace> && bash cmd-<...>-project.sh <project_name> --install`,

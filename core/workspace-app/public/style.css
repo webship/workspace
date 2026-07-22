@@ -288,7 +288,7 @@ body.uk-background-muted { background: var(--surface) !important; color: var(--i
   position: fixed;
   right: 22px;
   bottom: 94px;
-  width: min(430px, calc(100vw - 44px));
+  width: min(500px, calc(100vw - 44px));
   max-height: min(640px, calc(100vh - 130px));
   overflow-y: auto;
   z-index: 30;
@@ -465,7 +465,9 @@ html.htmx-busy .global-working { display: block; }
   text-transform: none;
 }
 
-.toolbar-logo img { border-radius: 6px; }
+.toolbar-logo img { border-radius: 8px; }
+
+.toolbar-logo span { font-size: 20px; }
 
 .toolbar .uk-breadcrumb {
   padding-left: 6px;

@@ -23,8 +23,9 @@ const PRESENTATION = {
   libraries:  { icon: 'album',       subtitle: 'Third-Party Libraries' },
   forked:     { icon: 'git-branch',  subtitle: 'Forked / Customized Copies' },
   docs:       { icon: 'file-text',   subtitle: 'Documentation Projects' },
-  agents:     { icon: 'happy',       subtitle: 'AI Automation' },
-  skills:     { icon: 'star',        subtitle: 'AI Skill Definitions' },
+  agents:     { icon: 'happy',       subtitle: 'AI Automation', label: 'AI Agents' },
+  skills:     { icon: 'star',        subtitle: 'AI Skill Definitions', label: 'AI Skills' },
+  prompts:    { icon: 'pencil',      subtitle: 'Reusable AI Prompts' },
   recipes:    { icon: 'list',        subtitle: 'Development Recipes' },
   components: { icon: 'thumbnails',  subtitle: 'Reusable Components' },
 };
@@ -63,7 +64,7 @@ function loadWorkspaces() {
       backupsDir: path.join(backupsRoot, doc.name || name),
       icon: pres.icon,
       subtitle: pres.subtitle,
-      label: name.charAt(0).toUpperCase() + name.slice(1),
+      label: pres.label || name.charAt(0).toUpperCase() + name.slice(1),
     };
   }
   return map;
