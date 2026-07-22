@@ -61,9 +61,9 @@ function ddevProjectName(projectDir) {
 const jobs = new Map();
 let jobSeq = 0;
 
-function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000 } = {}) {
+function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000, echoLine = '' } = {}) {
   const id = `${++jobSeq}-${Math.random().toString(36).slice(2, 8)}`;
-  const job = { title, buf: '', done: false, ok: null };
+  const job = { title, buf: echoLine ? `$ ${echoLine}\n\n` : '', done: false, ok: null };
   jobs.set(id, job);
   // stdin 'ignore' — see run(): docker exec -i hangs on an open stdin pipe.
   const child = spawn(cmd, args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -450,13 +450,7 @@ function humanSize(bytes) {
 // Parse a builder's argparse schema (from the arg-<distribution>.sh file it
 // sources) into structured fields for the Arguments UI: booleans
 // (action=store_true) and value flags with their defaults.
-function parseBuilderArgs(dir, script) {
-  try {
-    const src = fs.readFileSync(path.join(dir, script), 'utf8');
-    const dm = src.match(/distributions\/([a-z_]+)\.yml/);
-    if (!dm) return [];
-    const argFile = path.join(ROOT, 'core', 'scripts', 'args', `arg-${dm[1]}.sh`);
-    const argSrc = fs.readFileSync(argFile, 'utf8');
+function parseArgparseText(argSrc) {
     const out = [];
     for (const block of argSrc.split('parser.add_argument(').slice(1)) {
       const flags = [...block.matchAll(/'(--?[a-zA-Z0-9_-]+)'/g)].map((m) => m[1]);
@@ -471,6 +465,21 @@ function parseBuilderArgs(dir, script) {
       out.push({ flag: long, bool, def, help: hm ? hm[1].replace(/\\'/g, "'") : '' });
     }
     return out;
+}
+
+// Read a builder's arguments straight from the cmd- script: if the script
+// carries its own inline argparse heredoc, parse that; otherwise follow the
+// distribution it loads to the shared arg-<distribution>.sh file it sources.
+function parseBuilderArgs(dir, script) {
+  try {
+    const src = fs.readFileSync(path.join(dir, script), 'utf8');
+    if (/argparse "\$@"/.test(src) && src.includes('parser.add_argument(')) {
+      return parseArgparseText(src);
+    }
+    const dm = src.match(/distributions\/([a-z_]+)\.yml/);
+    if (!dm) return [];
+    const argFile = path.join(ROOT, 'core', 'scripts', 'args', `arg-${dm[1]}.sh`);
+    return parseArgparseText(fs.readFileSync(argFile, 'utf8'));
   } catch (_) {
     return [];
   }
@@ -688,7 +697,9 @@ async function handleAction(pathname, form, res) {
     }
     // Full distribution builds (composer create-project + install) can far
     // exceed the default 15m on a cold composer cache.
-    const id = startJob(`🏗️ Build <strong>${esc(projectName)}</strong> (${esc(builderLabel(dir, script))})`, 'bash', [script, projectName, ...flags], dir, { timeoutMs: 60 * 60 * 1000 });
+    // Echo the exact final command as the first terminal line.
+    const finalCmd = `bash ${script} ${projectName}${flags.length ? ' ' + flags.join(' ') : ''}`;
+    const id = startJob(`🏗️ Build <strong>${esc(projectName)}</strong> (${esc(builderLabel(dir, script))})`, 'bash', [script, projectName, ...flags], dir, { timeoutMs: 60 * 60 * 1000, echoLine: finalCmd });
     return send(jobFragment(id).html);
   }
 
