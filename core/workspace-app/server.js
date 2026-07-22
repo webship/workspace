@@ -210,7 +210,7 @@ function homePage() {
           <div class="icon"><span uk-icon="icon: ${w.icon}; ratio: 1.4" class="uk-text-primary"></span></div>
           <h4 class="uk-card-title uk-margin-remove uk-text-bold">${esc(w.label)}</h4>
           <p class="uk-text-meta uk-margin-remove">${esc(w.subtitle)}</p>
-          <span class="uk-label ${hasBuilders ? 'uk-label-success' : ''} uk-margin-small-top">${projectCount} project${projectCount === 1 ? '' : 's'}${hasBuilders ? ' · buildable' : ''}</span>
+          <span class="uk-label ${hasBuilders ? 'uk-label-success' : ''} uk-margin-small-top">${projectCount} ${projectCount === 1 ? w.noun : w.nounPlural}${hasBuilders ? ' · buildable' : ''}</span>
         </a>
         ${backupCount ? `<a class="ws-backups" href="/${esc(w.key)}/backups" title="View the ${backupCount} backup${backupCount === 1 ? '' : 's'} for ${esc(w.label)}"><span uk-icon="icon: album; ratio: .65"></span> ${backupCount}</a>` : ''}
       </div>`;
@@ -247,6 +247,7 @@ async function ddevStatusMap() {
 }
 
 async function projectRowsHtml(key, dir) {
+  const meta = loadWorkspaces()[key];
   const projects = listProjects(dir);
   const canBackup = !!findBackupScript(dir);
   const canRemove = !!findRemoveScript(dir);
@@ -276,9 +277,10 @@ async function projectRowsHtml(key, dir) {
     </div>`;
   }).join('');
 
+  const heading = meta.nounPlural.charAt(0).toUpperCase() + meta.nounPlural.slice(1);
   return `
-    <h3 class="uk-margin-small-bottom">Projects <span class="uk-badge">${projects.length}</span></h3>
-    ${rows || '<p class="uk-text-meta">No projects yet.</p>'}`;
+    <h3 class="uk-margin-small-bottom">${esc(heading)} <span class="uk-badge">${projects.length}</span></h3>
+    ${rows || `<p class="uk-text-meta">No ${esc(meta.nounPlural)} yet.</p>`}`;
 }
 
 // Backup archives for a workspace: ${backups}/<workspace>/*.tar.gz created by
@@ -374,7 +376,7 @@ async function workspacePage(key) {
   </div>
   <div class="uk-card uk-card-default uk-card-body">
     ${builders.length ? `
-      <h3 class="uk-margin-small-bottom">Build a new project</h3>
+      <h3 class="uk-margin-small-bottom">Build a new ${esc(meta.noun)}</h3>
       <form class="uk-grid uk-grid-small uk-margin-bottom" uk-grid hx-post="/actions/build" hx-target="#webship-workspace-output" hx-swap="innerHTML">
         <input type="hidden" name="workspace" value="${esc(key)}">
         <div class="uk-width-2-5@s"><select class="uk-select" name="script">${builderOptions}</select></div>

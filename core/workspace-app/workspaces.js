@@ -10,24 +10,26 @@ const ROOT = process.env.WEBSHIP_WORKSPACE_ROOT || path.join(process.env.HOME, '
 // and the filesystem, so a new workspace added there shows up with no code change.
 // `icon` is a UIKit icon name (https://getuikit.com/docs/icon), rendered
 // with the vendored uikit-icons.min.js.
+// `noun` is what one item in the folder is called (only real projects are
+// "projects"); `plural` overrides irregular plurals.
 const PRESENTATION = {
-  products:   { icon: 'cart',        subtitle: 'Internal & External Products' },
-  dev:        { icon: 'code',        subtitle: 'Development Projects' },
-  test:       { icon: 'check',       subtitle: 'Testing Environment' },
-  demos:      { icon: 'desktop',     subtitle: 'Demo Sites' },
-  sandboxes:  { icon: 'future',      subtitle: 'Experimental Projects' },
-  projects:   { icon: 'folder',      subtitle: 'Client Projects' },
-  profiles:   { icon: 'world',       subtitle: 'Distros' },
-  themes:     { icon: 'paint-bucket', subtitle: 'Contrib & Private Themes' },
-  modules:    { icon: 'grid',        subtitle: 'Contrib & Private Modules' },
-  libraries:  { icon: 'album',       subtitle: 'Third-Party Libraries' },
-  forked:     { icon: 'git-branch',  subtitle: 'Forked / Customized Copies' },
-  docs:       { icon: 'file-text',   subtitle: 'Documentation Projects' },
-  agents:     { icon: 'happy',       subtitle: 'AI Automation', label: 'AI Agents' },
-  skills:     { icon: 'star',        subtitle: 'AI Skill Definitions', label: 'AI Skills' },
-  prompts:    { icon: 'pencil',      subtitle: 'Reusable AI Prompts' },
-  recipes:    { icon: 'list',        subtitle: 'Development Recipes' },
-  components: { icon: 'thumbnails',  subtitle: 'Reusable Components' },
+  products:   { icon: 'cart',        subtitle: 'Internal & External Products', noun: 'product' },
+  dev:        { icon: 'code',        subtitle: 'Development Projects', noun: 'project' },
+  test:       { icon: 'check',       subtitle: 'Testing Environment', noun: 'project' },
+  demos:      { icon: 'desktop',     subtitle: 'Demo Sites', noun: 'demo' },
+  sandboxes:  { icon: 'future',      subtitle: 'Experimental Projects', noun: 'sandbox', plural: 'sandboxes' },
+  projects:   { icon: 'folder',      subtitle: 'Client Projects', noun: 'project' },
+  profiles:   { icon: 'world',       subtitle: 'Distros', noun: 'profile' },
+  themes:     { icon: 'paint-bucket', subtitle: 'Contrib & Private Themes', noun: 'theme' },
+  modules:    { icon: 'grid',        subtitle: 'Contrib & Private Modules', noun: 'module' },
+  libraries:  { icon: 'album',       subtitle: 'Third-Party Libraries', noun: 'library', plural: 'libraries' },
+  forked:     { icon: 'git-branch',  subtitle: 'Forked / Customized Copies', noun: 'fork' },
+  docs:       { icon: 'file-text',   subtitle: 'Documentation Projects', noun: 'doc' },
+  agents:     { icon: 'happy',       subtitle: 'AI Automation', label: 'AI Agents', noun: 'agent' },
+  skills:     { icon: 'star',        subtitle: 'AI Skill Definitions', label: 'AI Skills', noun: 'skill' },
+  prompts:    { icon: 'pencil',      subtitle: 'Reusable AI Prompts', noun: 'prompt' },
+  recipes:    { icon: 'list',        subtitle: 'Development Recipes', noun: 'recipe' },
+  components: { icon: 'thumbnails',  subtitle: 'Reusable Components', noun: 'component' },
 };
 
 function loadYaml(file) {
@@ -65,6 +67,8 @@ function loadWorkspaces() {
       icon: pres.icon,
       subtitle: pres.subtitle,
       label: pres.label || name.charAt(0).toUpperCase() + name.slice(1),
+      noun: pres.noun || 'item',
+      nounPlural: pres.plural || `${pres.noun || 'item'}s`,
     };
   }
   return map;
