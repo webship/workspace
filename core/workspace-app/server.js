@@ -126,12 +126,16 @@ function pageShell(title, body, crumbs = []) {
   <div class="global-working-bar"></div>
   <div class="global-working-pill"><div uk-spinner="ratio: .5"></div> Working…</div>
 </div>
-<nav class="uk-navbar-container toolbar" uk-navbar>
-  <div class="uk-navbar-left">
-    <a class="uk-navbar-item uk-logo toolbar-logo" href="/">
-      <img src="/logo.png" alt="workspace" width="46" height="46"> <span>workspace</span>
-    </a>
-    ${crumbHtml}
+<nav class="uk-navbar-container toolbar">
+  <div class="uk-container uk-container-xlarge">
+    <div uk-navbar>
+      <div class="uk-navbar-left">
+        <a class="uk-navbar-item uk-logo toolbar-logo" href="/">
+          <img src="/logo.png" alt="workspace" width="46" height="46"> <span>workspace</span>
+        </a>
+        ${crumbHtml}
+      </div>
+    </div>
   </div>
 </nav>
 ${body}
@@ -217,7 +221,7 @@ function homePage() {
   }).join('');
 
   return pageShell('workspace', `
-<main class="uk-container uk-container-xlarge uk-margin-top uk-margin-bottom">
+<main class="uk-container uk-container-xlarge page-body">
   <div class="uk-grid uk-grid-medium uk-flex-top" uk-grid>
     <div class="uk-width-1-3@m">
       ${assistantHtml({ floating: false, context: 'home' })}
@@ -338,7 +342,7 @@ function backupsPage(key) {
   const meta = loadWorkspaces()[key];
 
   return pageShell(`${meta.label} Backups · workspace`, `
-<main class="uk-container uk-container-small uk-margin-top uk-margin-bottom webship-workspace-page">
+<main class="uk-container uk-container-small page-body webship-workspace-page">
   <div class="uk-flex uk-flex-middle page-heading">
     <span class="page-heading-icon"><span uk-icon="icon: album; ratio: 1.1"></span></span>
     <div>
@@ -366,7 +370,7 @@ async function workspacePage(key) {
   const builderOptions = builders.map((s) => `<option value="${esc(s)}">${esc(builderLabel(dir, s))}</option>`).join('');
 
   return pageShell(`${meta.label} · workspace`, `
-<main class="uk-container uk-container-small uk-margin-top uk-margin-bottom webship-workspace-page">
+<main class="uk-container uk-container-small page-body webship-workspace-page">
   <div class="uk-flex uk-flex-middle page-heading">
     <span class="page-heading-icon"><span uk-icon="icon: ${meta.icon}; ratio: 1.1"></span></span>
     <div>
