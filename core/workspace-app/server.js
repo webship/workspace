@@ -101,7 +101,7 @@ function assistantHtml({ floating }) {
         <div class="uk-flex uk-flex-middle assistant-head-row">
           <span class="assistant-avatar">🤖</span>
           <div class="assistant-head-text">
-            <h3 class="uk-margin-remove">workspace AI Assistant</h3>
+            <h3 class="uk-margin-remove">Workspace AI Assistant</h3>
             <span class="uk-text-small">Ask me anything about your workspace projects</span>
           </div>
         </div>
@@ -140,7 +140,7 @@ function assistantHtml({ floating }) {
   if (floating) {
     return `
       <div class="assistant-float" id="assistant-float">${panel}</div>
-      <button class="assistant-launcher uk-button uk-button-primary" onclick="document.getElementById('assistant-float').classList.toggle('open')" title="workspace AI Assistant">🤖</button>`;
+      <button class="assistant-launcher uk-button uk-button-primary" onclick="document.getElementById('assistant-float').classList.toggle('open')" title="Workspace AI Assistant">🤖</button>`;
   }
   return panel;
 }
