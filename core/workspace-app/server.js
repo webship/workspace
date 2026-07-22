@@ -100,7 +100,13 @@ function listProjects(dir) {
 
 /* ---------------- shared page chrome ---------------- */
 
-function pageShell(title, body) {
+function pageShell(title, body, crumbs = []) {
+  const crumbHtml = crumbs.length ? `
+    <ul class="uk-breadcrumb uk-margin-remove uk-visible@s">
+      ${crumbs.map((c, i) => i === crumbs.length - 1
+        ? `<li><span>${esc(c.label)}</span></li>`
+        : `<li><a href="${esc(c.href)}">${esc(c.label)}</a></li>`).join('')}
+    </ul>` : '';
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -120,6 +126,14 @@ function pageShell(title, body) {
   <div class="global-working-bar"></div>
   <div class="global-working-pill"><div uk-spinner="ratio: .5"></div> Working…</div>
 </div>
+<nav class="uk-navbar-container toolbar" uk-navbar>
+  <div class="uk-navbar-left">
+    <a class="uk-navbar-item uk-logo toolbar-logo" href="/">
+      <img src="/logo.png" alt="workspace" width="34" height="34"> <span>workspace</span>
+    </a>
+    ${crumbHtml}
+  </div>
+</nav>
 ${body}
 <footer class="uk-section uk-section-xsmall uk-text-center uk-text-meta">
   webship/workspace · DDEV-only tooling · <a href="/">workspace.ddev.site</a>
@@ -202,23 +216,7 @@ function homePage() {
   }).join('');
 
   return pageShell('workspace', `
-<header class="uk-section uk-section-small uk-text-center hero">
-  <div class="uk-container">
-    <img class="site-logo" src="/logo.png" alt="workspace logo" width="96" height="96">
-    <h1 class="uk-heading-medium uk-margin-small-top uk-margin-small-bottom">workspace</h1>
-    <p class="uk-text-lead uk-width-2-3@m uk-margin-auto">
-      The <strong>workspace</strong> management system helps developers manage the base code
-      development work cycle for custom distributions and starter kit templates —
-      on your Linux development computer or servers with DDEV/Docker.
-    </p>
-    <div class="uk-margin-top">
-      <a class="uk-button uk-button-default uk-border-pill uk-margin-small-right" href="https://github.com/webship/workspace" target="_blank"><span uk-icon="file-text"></span> Complete README</a>
-      <button class="uk-button uk-button-default uk-border-pill" hx-get="/actions/status" hx-target="#chat-log" hx-swap="beforeend"><span uk-icon="heart"></span> Health Check</button>
-    </div>
-  </div>
-</header>
-
-<main class="uk-container uk-container-large uk-margin-bottom">
+<main class="uk-container uk-container-large uk-margin-top uk-margin-bottom">
   <div class="uk-grid uk-grid-medium uk-flex-top" uk-grid>
     <div class="uk-width-2-5@m">
       ${assistantHtml({ floating: false })}
@@ -337,18 +335,14 @@ function backupsPage(key) {
   const meta = loadWorkspaces()[key];
 
   return pageShell(`${meta.label} Backups · workspace`, `
-<header class="uk-section uk-section-small uk-text-center uk-position-relative hero">
-  <div class="uk-position-top-left uk-position-small">
-    <a class="uk-button uk-button-default uk-border-pill" href="/${esc(key)}"><span uk-icon="arrow-left"></span> ${esc(meta.label)}</a>
+<main class="uk-container uk-container-small uk-margin-top uk-margin-bottom webship-workspace-page">
+  <div class="uk-flex uk-flex-middle page-heading">
+    <span class="page-heading-icon"><span uk-icon="icon: album; ratio: 1.1"></span></span>
+    <div>
+      <h1 class="uk-margin-remove">${esc(meta.label)} Backups</h1>
+      <span class="uk-text-meta">Restore or delete archived projects from this workspace</span>
+    </div>
   </div>
-  <div class="uk-container">
-    <div class="logo logo-sm"><span uk-icon="icon: album; ratio: 1.8"></span></div>
-    <h1 class="uk-heading-small uk-margin-small-top uk-margin-remove-bottom">${esc(meta.label)} Backups</h1>
-    <p class="uk-text-lead uk-margin-small-top">Restore or delete archived projects from this workspace</p>
-  </div>
-</header>
-
-<main class="uk-container uk-container-small uk-margin-bottom webship-workspace-page">
   <div class="uk-card uk-card-default uk-card-body">
     <div id="webship-workspace-backups" hx-get="/fragments/${esc(key)}/backups" hx-trigger="refresh-projects from:body">
       ${backupRowsHtml(key)}
@@ -358,7 +352,7 @@ function backupsPage(key) {
   </div>
 </main>
 
-${assistantHtml({ floating: true })}`);
+${assistantHtml({ floating: true })}`, [{ label: 'Workspaces', href: '/' }, { label: meta.label, href: `/${key}` }, { label: 'Backups' }]);
 }
 
 async function workspacePage(key) {
@@ -369,18 +363,14 @@ async function workspacePage(key) {
   const builderOptions = builders.map((s) => `<option value="${esc(s)}">${esc(builderLabel(dir, s))}</option>`).join('');
 
   return pageShell(`${meta.label} · workspace`, `
-<header class="uk-section uk-section-small uk-text-center uk-position-relative hero">
-  <div class="uk-position-top-left uk-position-small">
-    <a class="uk-button uk-button-default uk-border-pill" href="/"><span uk-icon="arrow-left"></span> All workspaces</a>
+<main class="uk-container uk-container-small uk-margin-top uk-margin-bottom webship-workspace-page">
+  <div class="uk-flex uk-flex-middle page-heading">
+    <span class="page-heading-icon"><span uk-icon="icon: ${meta.icon}; ratio: 1.1"></span></span>
+    <div>
+      <h1 class="uk-margin-remove uk-text-capitalize">${esc(meta.label)}</h1>
+      <span class="uk-text-meta">${esc(meta.subtitle)}</span>
+    </div>
   </div>
-  <div class="uk-container">
-    <div class="logo logo-sm"><span uk-icon="icon: ${meta.icon}; ratio: 1.8"></span></div>
-    <h1 class="uk-heading-small uk-margin-small-top uk-margin-remove-bottom uk-text-capitalize">${esc(meta.label)}</h1>
-    <p class="uk-text-lead uk-margin-small-top">${esc(meta.subtitle)}</p>
-  </div>
-</header>
-
-<main class="uk-container uk-container-small uk-margin-bottom webship-workspace-page">
   <div class="uk-card uk-card-default uk-card-body">
     ${builders.length ? `
       <h3 class="uk-margin-small-bottom">Build a new project</h3>
@@ -405,7 +395,7 @@ async function workspacePage(key) {
   </div>
 </main>
 
-${assistantHtml({ floating: true })}`);
+${assistantHtml({ floating: true })}`, [{ label: 'Workspaces', href: '/' }, { label: meta.label }]);
 }
 
 /* ---------------- HTMX fragments/actions ---------------- */
