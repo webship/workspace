@@ -27,6 +27,22 @@ function build_distribution() {
 
   ddev composer create-project ${distribution_project_template}:${site_version} . --no-interaction;
 
+  # Some project templates (e.g. varbase 11) ship their own .ddev config that
+  # changes the docroot/database/webimage packages after our initial ddev
+  # config. Re-align: keep the database type we already provisioned, drop
+  # optional apt extras (avoids third-party repo key failures), and restart
+  # so the webserver serves the template's real docroot.
+  ddev config --database=mariadb:10.11 --webimage-extra-packages="" ;
+  ddev restart ;
+
+  # The template may define a different webroot than the distribution config
+  # assumed — trust the project's own .ddev config from here on.
+  actual_docroot=$(grep '^docroot:' .ddev/config.yaml | awk '{print $2}') ;
+  if [ -n "${actual_docroot}" ] && [ "${actual_docroot}" != "${distribution_webroot}" ]; then
+    echo "Template webroot is '${actual_docroot}' (distribution config said '${distribution_webroot}') — using the template's." ;
+    distribution_webroot=${actual_docroot} ;
+  fi
+
   # Change the minimum stablility to dev for development
   ddev composer config minimum-stability dev ;
 
