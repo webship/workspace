@@ -29,7 +29,9 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 function run(cmd, args, cwd, { timeoutMs = 15 * 60 * 1000 } = {}) {
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { cwd, env: process.env });
+    // stdin must be closed ('ignore') — ddev wraps commands in `docker exec -i`,
+    // which hangs indefinitely on an open-but-silent stdin pipe.
+    const child = spawn(cmd, args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
@@ -63,7 +65,8 @@ function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000 } = {}) {
   const id = `${++jobSeq}-${Math.random().toString(36).slice(2, 8)}`;
   const job = { title, buf: '', done: false, ok: null };
   jobs.set(id, job);
-  const child = spawn(cmd, args, { cwd, env: process.env });
+  // stdin 'ignore' — see run(): docker exec -i hangs on an open stdin pipe.
+  const child = spawn(cmd, args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
   const append = (d) => { job.buf = (job.buf + d.toString()).slice(-30000); };
   child.stdout.on('data', append);
   child.stderr.on('data', append);
@@ -843,7 +846,9 @@ async function handleAction(pathname, form, res) {
     // (Bash + read tools inside this container, where ~/workspace, ddev and
     // docker are all available) and steers the interface afterwards through
     // NAVIGATE/OPEN/REFRESH directives that ui.js executes in the browser.
-    const workspaceNames = Object.keys(loadWorkspaces()).join(', ');
+    const workspaceNames = Object.values(loadWorkspaces())
+      .map((w) => `${w.key} (${w.subtitle})`)
+      .join('; ');
     // Live page context: the assistant always knows which page the user is
     // on and what that page currently shows (computed fresh per message).
     let pageContext = 'The user is on the dashboard home page showing all workspace cards.';
@@ -863,6 +868,7 @@ async function handleAction(pathname, form, res) {
       `You are the Workspace AI Assistant embedded in the web dashboard at https://workspace.ddev.site, managing the webship/workspace tooling rooted at ${ROOT}.`,
       `You run inside the dashboard's container with Bash access: the whole workspace tree is at ${ROOT}, and the ddev + docker CLIs manage sibling DDEV projects.`,
       `Workspaces (folders under ${ROOT}): ${workspaceNames}.`,
+      'The components workspace holds Drupal SDC components, React components, code components for Drupal Canvas, and HTMX and web components.',
       pageContext,
       'How to act:',
       `- Inspect: ls ${ROOT}/<workspace> ; ddev list ; each builder script has a "# workspace-name:" header naming what it builds.`,

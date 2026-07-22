@@ -29,7 +29,7 @@ const PRESENTATION = {
   skills:     { icon: 'star',        subtitle: 'AI Skill Definitions', label: 'AI Skills', noun: 'skill', kind: 'files' },
   prompts:    { icon: 'pencil',      subtitle: 'Reusable AI Prompts', noun: 'prompt', kind: 'files' },
   recipes:    { icon: 'list',        subtitle: 'Development Recipes', noun: 'recipe' },
-  components: { icon: 'thumbnails',  subtitle: 'Reusable Components', noun: 'component' },
+  components: { icon: 'thumbnails',  subtitle: 'SDC, React, Canvas Code, HTMX & Web Components', noun: 'component' },
 };
 
 function loadYaml(file) {
