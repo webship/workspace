@@ -107,6 +107,7 @@ function pageShell(title, body) {
 <meta charset="utf-8">
 <title>${esc(title)}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="/logo.png">
 <link rel="stylesheet" href="/vendor/uikit.min.css">
 <link rel="stylesheet" href="/style.css">
 <script src="/vendor/uikit.min.js"></script>
@@ -203,7 +204,7 @@ function homePage() {
   return pageShell('workspace', `
 <header class="uk-section uk-section-small uk-text-center hero">
   <div class="uk-container">
-    <div class="logo"><span uk-icon="icon: settings; ratio: 2.2"></span></div>
+    <img class="site-logo" src="/logo.png" alt="workspace logo" width="96" height="96">
     <h1 class="uk-heading-medium uk-margin-small-top uk-margin-small-bottom">workspace</h1>
     <p class="uk-text-lead uk-width-2-3@m uk-margin-auto">
       The <strong>workspace</strong> management system helps developers manage the base code

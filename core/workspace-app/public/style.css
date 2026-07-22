@@ -437,3 +437,12 @@ html.htmx-busy .global-working { display: block; }
   max-height: 320px;
   overflow-y: auto;
 }
+
+/* VDO drop logo on the home hero */
+.site-logo {
+  display: block;
+  margin: 0 auto;
+  width: 96px;
+  height: 96px;
+  filter: drop-shadow(0 8px 18px rgba(35, 41, 70, .25));
+}
