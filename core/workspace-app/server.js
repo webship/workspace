@@ -10,6 +10,7 @@ const { spawn } = require('child_process');
 const querystring = require('querystring');
 const {
   ROOT,
+  hubDomain,
   loadWorkspaces,
   isValidWorkspace,
   workspaceDir,
@@ -22,6 +23,12 @@ const {
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 const SCRIPT_RE = /^cmd-[a-zA-Z0-9_.-]+\.sh$/;
+
+// Default navigation scheme: workspace subdomains under the hub domain
+// (workspace.ddev.site locally; hub_domain in settings.yml for a public
+// remote-hub deployment).
+const HOME_URL = () => `https://${hubDomain()}`;
+const wsUrl = (key, sub = '') => `https://${key}.${hubDomain()}${sub}`;
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -266,7 +273,7 @@ function pageShell(title, body, crumbs = [], context = 'home') {
   <div class="toolbar-inner">
     <div uk-navbar>
       <div class="uk-navbar-left">
-        <a class="uk-navbar-item uk-logo toolbar-logo" href="/">
+        <a class="uk-navbar-item uk-logo toolbar-logo" href="${HOME_URL()}">
           <img src="/logo.png" alt="workspace" width="46" height="46"> <span>workspace</span>
         </a>
         ${crumbHtml}
@@ -356,13 +363,13 @@ function homePage() {
     const backupCount = listBackups(w.key).length;
     return `
       <div class="uk-position-relative">
-        <a class="uk-card uk-card-default uk-card-hover uk-card-body uk-card-small uk-text-center uk-display-block uk-link-reset workspace-card" href="/${esc(w.key)}">
+        <a class="uk-card uk-card-default uk-card-hover uk-card-body uk-card-small uk-text-center uk-display-block uk-link-reset workspace-card" href="${wsUrl(w.key)}">
           <div class="icon"><span uk-icon="icon: ${w.icon}; ratio: 1.4" class="uk-text-primary"></span></div>
           <h4 class="uk-card-title uk-margin-remove uk-text-bold">${esc(w.label)}</h4>
           <p class="uk-text-meta uk-margin-remove">${esc(w.subtitle)}</p>
           <span class="uk-label ${hasBuilders ? 'uk-label-success' : ''} uk-margin-small-top">${projectCount} ${projectCount === 1 ? w.noun : w.nounPlural}${hasBuilders ? ' · buildable' : ''}</span>
         </a>
-        ${backupCount ? `<a class="ws-backups" href="/${esc(w.key)}/backups" title="View the ${backupCount} backup${backupCount === 1 ? '' : 's'} for ${esc(w.label)}"><span uk-icon="icon: album; ratio: .65"></span> ${backupCount}</a>` : ''}
+        ${backupCount ? `<a class="ws-backups" href="${wsUrl(w.key, '/backups')}" title="View the ${backupCount} backup${backupCount === 1 ? '' : 's'} for ${esc(w.label)}"><span uk-icon="icon: album; ratio: .65"></span> ${backupCount}</a>` : ''}
       </div>`;
   }).join('');
 
@@ -376,7 +383,13 @@ function homePage() {
 
 // One `ddev list` call → { name: { status, url } } so every project row can
 // show whether it's already started and ready to launch.
+let _statusCache = null;
+let _statusCacheAt = 0;
 async function ddevStatusMap() {
+  // 3s TTL: refresh-triggered re-renders right after an action reuse one
+  // `ddev list` call instead of forking it per fragment.
+  const now = Date.now();
+  if (_statusCache && now - _statusCacheAt < 3000) return _statusCache;
   const result = await run('ddev', ['list', '--json-output'], ROOT, { timeoutMs: 60 * 1000 });
   const map = {};
   try {
@@ -384,6 +397,8 @@ async function ddevStatusMap() {
       map[p.name] = { status: p.status, url: p.primary_url };
     }
   } catch (_) { /* leave empty on parse/daemon errors — rows fall back to "unknown" */ }
+  _statusCache = map;
+  _statusCacheAt = now;
   return map;
 }
 
@@ -407,11 +422,11 @@ async function projectRowsHtml(key, dir) {
     <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
       <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
         <span class="uk-text-bold">📁 ${esc(p)} ${statusBadge}
-          ${isDdev && running ? `<a class="proj-alias uk-text-meta" href="https://${esc(p)}.${esc(key)}.workspace.ddev.site" target="_blank" title="Hierarchical alias for this project's site">${esc(p)}.${esc(key)}.workspace.ddev.site</a>` : ''}</span>
+          ${isDdev && running ? `<a class="proj-alias uk-text-meta" href="https://${esc(ddevName)}.ddev.site" target="_blank" title="Canonical DDEV URL">${esc(ddevName)}.ddev.site</a>` : ''}</span>
         <div class="project-actions">
           ${isDdev && !running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-start" ${vals()}><span uk-icon="icon: play; ratio: .7"></span> Start</button>` : ''}
           ${isDdev && running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-stop" ${vals()}><span uk-icon="icon: ban; ratio: .7"></span> Stop</button>` : ''}
-          ${isDdev && running ? `<a class="uk-button uk-button-primary uk-button-small" href="https://${esc(ddevName)}.ddev.site" target="_blank"><span uk-icon="icon: forward; ratio: .7"></span> Launch</a>` : ''}
+          ${isDdev && running ? `<a class="uk-button uk-button-primary uk-button-small" href="https://${esc(p)}.${esc(key)}.${hubDomain()}" target="_blank" title="https://${esc(p)}.${esc(key)}.${hubDomain()}"><span uk-icon="icon: forward; ratio: .7"></span> Launch</a>` : ''}
           ${canBackup ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Backup</button>` : ''}
           ${canRemove ? `<button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/remove" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Remove</button>` : ''}
         </div>
@@ -563,7 +578,7 @@ function backupsPage(key) {
 
     <div id="webship-workspace-output"></div>
   </div>
-</main>`, [{ label: 'Workspaces', href: '/' }, { label: meta.label, href: `/${key}` }, { label: 'Backups' }], `backups:${key}`);
+</main>`, [{ label: 'Workspaces', href: HOME_URL() }, { label: meta.label, href: wsUrl(key) }, { label: 'Backups' }], `backups:${key}`);
 }
 
 async function workspacePage(key) {
@@ -619,12 +634,12 @@ async function workspacePage(key) {
 
     ${listBackups(key).length ? `
     <p class="uk-margin-top uk-text-center">
-      <a class="uk-button uk-button-default uk-border-pill" href="/${esc(key)}/backups"><span uk-icon="icon: album; ratio: .8"></span> Backups (${listBackups(key).length})</a>
+      <a class="uk-button uk-button-default uk-border-pill" href="${wsUrl(key, '/backups')}"><span uk-icon="icon: album; ratio: .8"></span> Backups (${listBackups(key).length})</a>
     </p>` : ''}
 
     <div id="webship-workspace-output"></div>
   </div>
-</main>`, [{ label: 'Workspaces', href: '/' }, { label: meta.label }], `workspace:${key}`);
+</main>`, [{ label: 'Workspaces', href: HOME_URL() }, { label: meta.label }], `workspace:${key}`);
 }
 
 /* ---------------- HTMX fragments/actions ---------------- */
@@ -964,6 +979,7 @@ async function handleAction(pathname, form, res) {
       `You run inside the dashboard's container with Bash access: the whole workspace tree is at ${ROOT}, and the ddev + docker CLIs manage sibling DDEV projects.`,
       `Workspaces (folders under ${ROOT}): ${workspaceNames}.`,
       'The components workspace holds Drupal SDC components, React components, code components for Drupal Canvas, and HTMX and web components.',
+      `Default domain scheme (hub domain: ${hubDomain()}): each workspace has <workspace>.${hubDomain()} (its dashboard page), and every running project has https://<project>.<workspace>.${hubDomain()} (its real site) — prefer these hierarchical URLs in OPEN directives; the canonical https://<project>.ddev.site also works.`,
       pageContext,
       'How to act:',
       `- Inspect: ls ${ROOT}/<workspace> ; ddev list ; each builder script has a "# workspace-name:" header naming what it builds.`,
@@ -1000,8 +1016,8 @@ async function handleAction(pathname, form, res) {
     const directive = {};
     reply = reply.split('\n').filter((line) => {
       // Accepts /<workspace> and /<workspace>/backups
-      const nav = line.match(/^\s*NAVIGATE:(\/[a-z0-9_-]+(?:\/backups)?)\s*$/);
-      if (nav) { directive.navigate = nav[1]; return false; }
+      const nav = line.match(/^\s*NAVIGATE:\/([a-z0-9_-]+)(\/backups)?\s*$/);
+      if (nav) { directive.navigate = isValidWorkspace(nav[1]) ? wsUrl(nav[1], nav[2] || '') : HOME_URL(); return false; }
       const open = line.match(/^\s*OPEN:(https?:\/\/\S+)\s*$/);
       if (open) { directive.open = open[1]; return false; }
       if (/^\s*REFRESH\s*$/.test(line)) { directive.refresh = true; return false; }
@@ -1055,7 +1071,7 @@ const server = http.createServer(async (req, res) => {
   // Workspace subdomains: <ws>.workspace.ddev.site serves that workspace's
   // pages — / maps to the workspace page and /backups to its backups page.
   // Absolute paths (/actions, /fragments, /files, assets) work unchanged.
-  const hostMatch = String(req.headers.host || '').match(/^([a-z0-9_-]+)\.workspace\.ddev\.site(?::\d+)?$/);
+  const hostMatch = String(req.headers.host || '').match(new RegExp(`^([a-z0-9_-]+)\\.${hubDomain().replace(/\./g, '\\.')}(?::\\d+)?$`));
   if (hostMatch && isValidWorkspace(hostMatch[1])) {
     if (pathname === '/') pathname = `/${hostMatch[1]}`;
     else if (pathname === '/backups' || pathname === '/backups/') pathname = `/${hostMatch[1]}/backups`;

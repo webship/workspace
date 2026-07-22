@@ -119,6 +119,29 @@ actions, and an AI assistant on every page. See
 [`core/workspace-app/README.md`](core/workspace-app/README.md) for details
 (including the one per-machine docker-group tweak).
 
+### Domains
+
+The dashboard manages a hierarchical domain scheme by default:
+
+- `https://workspace.ddev.site` — the dashboard home
+- `https://<workspace>.workspace.ddev.site` — that workspace's page
+  (e.g. `dev.workspace.ddev.site`, `test.workspace.ddev.site`)
+- `https://<project>.<workspace>.workspace.ddev.site` — the project's real
+  site (e.g. `varbase11demo.dev.workspace.ddev.site`); the **Launch**
+  button uses these, and the canonical `https://<project>.ddev.site`
+  always keeps working
+
+No per-project configuration is needed — wildcard hostnames + an nginx
+tier in `core/workspace-app/.ddev/` route everything with valid TLS.
+
+All navigation links and the Launch buttons follow this scheme by
+default. The hub base domain is configurable (`hub_domain:` in
+`core/config/settings.yml`) — the same system is designed to run as one
+**remote development workspace hub on a public domain**, e.g.
+`workspace.example.com` → `dev.workspace.example.com` →
+`myproject.dev.workspace.example.com` (add matching `additional_fqdns`,
+DNS wildcards, and nginx server_names).
+
 ### Examples
 
 Things you can do from the dashboard UI:

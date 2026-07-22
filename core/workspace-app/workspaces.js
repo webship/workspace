@@ -44,9 +44,30 @@ function loadSettings() {
   return loadYaml(path.join(CONFIG_DIR, 'settings.yml'));
 }
 
-// Rebuilt on every call — cheap (a handful of small YAML files) and always fresh,
-// so adding a workspace to settings.yml is picked up without restarting the server.
+// The hub's base domain. Locally this is workspace.ddev.site; set
+// `hub_domain:` in settings.yml (plus matching additional_fqdns + DNS +
+// nginx server_names) to run the whole system as a remote development
+// workspace hub on a public domain, e.g. workspace.example.com →
+// dev.workspace.example.com → myproject.dev.workspace.example.com.
+function hubDomain() {
+  return loadSettings().hub_domain || 'workspace.ddev.site';
+}
+
+// Rebuilt with a 2s TTL memo: still effectively live (a settings.yml edit
+// shows up on the next page load) without re-reading ~17 YAML files for the
+// many helper calls within a single request.
+let _wsCache = null;
+let _wsCacheAt = 0;
 function loadWorkspaces() {
+  const now = Date.now();
+  if (_wsCache && now - _wsCacheAt < 2000) return _wsCache;
+  const map = _loadWorkspacesFresh();
+  _wsCache = map;
+  _wsCacheAt = now;
+  return map;
+}
+
+function _loadWorkspacesFresh() {
   const settings = loadSettings();
   const names = Array.isArray(settings.workspaces) ? settings.workspaces : [];
   const backupsRoot = settings.backups || path.join(ROOT, 'backups');
@@ -137,6 +158,7 @@ function builderLabel(dir, script) {
 
 module.exports = {
   ROOT,
+  hubDomain,
   CONFIG_DIR,
   loadWorkspaces,
   isValidWorkspace,

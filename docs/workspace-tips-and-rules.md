@@ -61,3 +61,7 @@ and the repo github.com/webship/workspace (branch `1.0.x`).
   phrasing ("can you back up my d114test site please", "what's running?"),
   not robotic command strings — tests should prove the system understands
   people, and the workspace agents follow the same rule.
+- Default domain scheme: `<workspace>.workspace.ddev.site` opens that
+  workspace's dashboard page; `<project>.<workspace>.workspace.ddev.site`
+  serves the project's real site (Launch uses these; canonical
+  `<project>.ddev.site` keeps working). Zero per-project config.
