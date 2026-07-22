@@ -25,10 +25,6 @@ openai:
   api_key: sk-change-this
   api_org: org-change-this
 workspaces:
-  - agents
-  - skills
-  - prompts
-  - docs
   - products
   - dev
   - test
@@ -41,3 +37,7 @@ workspaces:
   - forked
   - recipes
   - components
+  - agents
+  - skills
+  - prompts
+  - docs
