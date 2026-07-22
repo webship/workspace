@@ -1,6 +1,6 @@
 doc:
   name: test
-  path: /home/rajab/workspace/test
+  path: /home/YOUR_USER/workspace/test
 web:
   url: http://localhost/test
 database:

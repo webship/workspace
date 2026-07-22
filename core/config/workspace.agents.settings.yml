@@ -1,0 +1,7 @@
+doc:
+  name: agents
+  path: /home/YOUR_USER/workspace/agents
+web:
+  url: http://localhost/agents
+database:
+  prefix: agents_

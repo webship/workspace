@@ -1,6 +1,6 @@
 doc:
   name: forked
-  path: /home/rajab/workspace/forked
+  path: /home/YOUR_USER/workspace/forked
 web:
   url: http://localhost/forked
 database:

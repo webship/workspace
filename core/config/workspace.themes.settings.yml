@@ -1,6 +1,6 @@
 doc:
   name: themes
-  path: /home/rajab/workspace/themes
+  path: /home/YOUR_USER/workspace/themes
 web:
   url: http://localhost/themes
 database:

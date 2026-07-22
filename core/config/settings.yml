@@ -1,15 +1,14 @@
-root: /home/rajab/workspace
-path: /home/rajab/workspace/core
-scripts: /home/rajab/workspace/core/scripts
-config: /home/rajab/workspace/core/config
-assets: /home/rajab/workspace/core/assets
+root: /home/YOUR_USER/workspace
+path: /home/YOUR_USER/workspace/core
+scripts: /home/YOUR_USER/workspace/core/scripts
+config: /home/YOUR_USER/workspace/core/config
 host: 127.0.0.1
 web: http://127.0.0.1/core
 protocol: http
-backups: /home/rajab/workspace/backups
+backups: /home/YOUR_USER/workspace/backups
 database:
   username: root
-  password: 123___
+  password: CHANGE_ME
   host: localhost
   port: 3306
   namespace: Drupal\\\\Core\\\\Database\\\\Driver\\\\mysql
@@ -17,7 +16,7 @@ database:
   collation: utf8mb4_general_ci
 account:
   name: webmaster
-  pass: d
+  pass: CHANGE_ME
   mail: info@webship.co
 config_sync_directory: ../config/sync
 automated_testing:
@@ -36,3 +35,8 @@ workspaces:
   - themes
   - libraries
   - forked
+  - docs
+  - agents
+  - skills
+  - recipes
+  - components

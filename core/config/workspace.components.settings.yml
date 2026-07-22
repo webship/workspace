@@ -1,0 +1,7 @@
+doc:
+  name: components
+  path: /home/YOUR_USER/workspace/components
+web:
+  url: http://localhost/components
+database:
+  prefix: components_

@@ -1,0 +1,7 @@
+doc:
+  name: skills
+  path: /home/YOUR_USER/workspace/skills
+web:
+  url: http://localhost/skills
+database:
+  prefix: skills_

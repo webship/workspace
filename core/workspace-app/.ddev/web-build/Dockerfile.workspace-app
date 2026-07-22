@@ -1,0 +1,24 @@
+# Docker-outside-of-Docker: install a docker CLI (talks to the host's
+# docker.sock, bind-mounted in via docker-compose.dood.yaml) and the ddev
+# binary itself, so cmd-*.sh scripts run from inside this container can
+# manage sibling ddev projects exactly like they do on the host.
+RUN apt-get update -o Acquire::AllowInsecureRepositories=true || true \
+    && apt-get install -y --no-install-recommends --allow-unauthenticated docker.io curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://github.com/ddev/ddev/releases/download/v1.24.7/ddev_linux-amd64.v1.24.7.tar.gz \
+    -o /tmp/ddev.tar.gz \
+    && tar -xzf /tmp/ddev.tar.gz -C /tmp \
+    && mv /tmp/ddev /usr/local/bin/ddev \
+    && chmod +x /usr/local/bin/ddev \
+    && rm -rf /tmp/ddev.tar.gz
+
+# The host's /var/run/docker.sock (bind-mounted in) is owned by root:docker
+# with the HOST's docker group GID — find yours with `getent group docker`
+# and adjust the 984 below if it differs. It must be the web user's PRIMARY
+# group, not just a supplementary one: supervisord (which launches
+# web_extra_daemons) drops privileges without calling initgroups(), so
+# supplementary groups from /etc/group never apply to the daemon process —
+# only the primary GID from passwd does. ($username is provided by DDEV's
+# base image build args and matches your host username.)
+RUN groupmod -g 984 docker && usermod -g 984 $username

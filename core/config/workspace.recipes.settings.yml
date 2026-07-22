@@ -1,0 +1,7 @@
+doc:
+  name: recipes
+  path: /home/YOUR_USER/workspace/recipes
+web:
+  url: http://localhost/recipes
+database:
+  prefix: recipes_

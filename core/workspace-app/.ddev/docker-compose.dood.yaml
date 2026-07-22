@@ -1,0 +1,20 @@
+services:
+  web:
+    volumes:
+      # Docker-outside-of-Docker: talk to the host's real docker daemon so
+      # `ddev`/bash cmd-*.sh scripts run from inside this container manage
+      # sibling ddev projects exactly like they would on the host.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Bind the whole workspace tree at the SAME absolute path the host
+      # uses, so WEBSHIP_WORKSPACE_ROOT and every cmd-*.sh script's
+      # references resolve identically whether run on the host or in here.
+      # ${HOME} is interpolated on the HOST when ddev invokes docker compose.
+      - ${HOME}/workspace:${HOME}/workspace
+    environment:
+      - WEBSHIP_WORKSPACE_ROOT=${HOME}/workspace
+      - WEBSHIP_WORKSPACE_PATH=${HOME}/workspace/core
+      - WEBSHIP_WORKSPACE_SCRIPTS=${HOME}/workspace/core/scripts
+      - WEBSHIP_WORKSPACE_CONFIG=${HOME}/workspace/core/config
+      # Without this, the `ddev` binary can't find its global config/project
+      # registry and fails with "Could not connect to a Docker provider".
+      - HOME=${HOME}

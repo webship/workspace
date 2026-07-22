@@ -18,6 +18,11 @@ Each of the folders below holds a set of `cmd-*.sh` scripts. Running one builds 
     ~/workspace/modules     Other contrib or private modules
     ~/workspace/libraries   Other contrib or private libraries
     ~/workspace/forked      Forked/customized copies of any of the above
+    ~/workspace/docs        Documentation projects/repos
+    ~/workspace/agents      AI agent definition repos
+    ~/workspace/skills      AI skill definition repos
+    ~/workspace/recipes     Drupal recipe packages
+    ~/workspace/components  Reusable SDC/component library repos
 ```
 
 ### `core/`
@@ -27,13 +32,12 @@ Where the shared configs and script libraries live.
 ```
     ~/workspace/core/scripts
     ~/workspace/core/config
-    ~/workspace/core/assets
 ```
 
 ## Setup
 
 ```
-git clone --branch '11.0.x' https://github.com/webship/workspace.git ~/workspace
+git clone --branch '1.0.x' https://github.com/webship/workspace.git ~/workspace
 cd ~/workspace
 ```
 
@@ -48,7 +52,6 @@ root: /home/YOUR_USER/workspace
 path: /home/YOUR_USER/workspace/core
 scripts: /home/YOUR_USER/workspace/core/scripts
 config: /home/YOUR_USER/workspace/core/config
-assets: /home/YOUR_USER/workspace/core/assets
 host: 127.0.0.1
 web: http://127.0.0.1/core
 protocol: http
@@ -77,6 +80,11 @@ workspaces:
   - themes
   - libraries
   - forked
+  - docs
+  - agents
+  - skills
+  - recipes
+  - components
 ```
 
 `database.*` is no longer used by the build scripts (each DDEV project manages its own isolated database), but is kept for anything custom you add that still needs those values.
@@ -94,6 +102,22 @@ echo ${WEBSHIP_WORKSPACE_CONFIG}
 It should print `~/workspace/core/config`.
 
 Make sure [DDEV](https://ddev.readthedocs.io/en/stable/users/install/) and Docker are installed — that's the only runtime dependency now; there's nothing to install at the OS/package level.
+
+## Web dashboard (workspace.ddev.site)
+
+A visual dashboard + AI assistant for the whole workspace lives in
+`core/workspace-app` (basic Node.js + HTMX, served through DDEV):
+
+```
+cd ~/workspace/core/workspace-app
+ddev start
+```
+
+Then open **https://workspace.ddev.site** — workspace cards with live project
+counts, per-workspace pages (`/dev`, `/test`, …) with build/backup/remove
+actions, and an AI assistant on every page. See
+[`core/workspace-app/README.md`](core/workspace-app/README.md) for details
+(including the one per-machine docker-group tweak).
 
 ## Building a project
 

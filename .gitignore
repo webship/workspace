@@ -25,3 +25,5 @@
 /nbproject
 /nbproject/
 /nbproject/private/
+# Node dependencies (workspace-app)
+node_modules/
