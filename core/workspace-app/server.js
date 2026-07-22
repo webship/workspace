@@ -376,7 +376,13 @@ function homePage() {
 
 // One `ddev list` call → { name: { status, url } } so every project row can
 // show whether it's already started and ready to launch.
+let _statusCache = null;
+let _statusCacheAt = 0;
 async function ddevStatusMap() {
+  // 3s TTL: refresh-triggered re-renders right after an action reuse one
+  // `ddev list` call instead of forking it per fragment.
+  const now = Date.now();
+  if (_statusCache && now - _statusCacheAt < 3000) return _statusCache;
   const result = await run('ddev', ['list', '--json-output'], ROOT, { timeoutMs: 60 * 1000 });
   const map = {};
   try {
@@ -384,6 +390,8 @@ async function ddevStatusMap() {
       map[p.name] = { status: p.status, url: p.primary_url };
     }
   } catch (_) { /* leave empty on parse/daemon errors — rows fall back to "unknown" */ }
+  _statusCache = map;
+  _statusCacheAt = now;
   return map;
 }
 
@@ -407,11 +415,11 @@ async function projectRowsHtml(key, dir) {
     <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
       <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
         <span class="uk-text-bold">📁 ${esc(p)} ${statusBadge}
-          ${isDdev && running ? `<a class="proj-alias uk-text-meta" href="https://${esc(p)}.${esc(key)}.workspace.ddev.site" target="_blank" title="Hierarchical alias for this project's site">${esc(p)}.${esc(key)}.workspace.ddev.site</a>` : ''}</span>
+          ${isDdev && running ? `<a class="proj-alias uk-text-meta" href="https://${esc(ddevName)}.ddev.site" target="_blank" title="Canonical DDEV URL">${esc(ddevName)}.ddev.site</a>` : ''}</span>
         <div class="project-actions">
           ${isDdev && !running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-start" ${vals()}><span uk-icon="icon: play; ratio: .7"></span> Start</button>` : ''}
           ${isDdev && running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-stop" ${vals()}><span uk-icon="icon: ban; ratio: .7"></span> Stop</button>` : ''}
-          ${isDdev && running ? `<a class="uk-button uk-button-primary uk-button-small" href="https://${esc(ddevName)}.ddev.site" target="_blank"><span uk-icon="icon: forward; ratio: .7"></span> Launch</a>` : ''}
+          ${isDdev && running ? `<a class="uk-button uk-button-primary uk-button-small" href="https://${esc(p)}.${esc(key)}.workspace.ddev.site" target="_blank" title="https://${esc(p)}.${esc(key)}.workspace.ddev.site"><span uk-icon="icon: forward; ratio: .7"></span> Launch</a>` : ''}
           ${canBackup ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Backup</button>` : ''}
           ${canRemove ? `<button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/remove" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Remove</button>` : ''}
         </div>
@@ -964,6 +972,7 @@ async function handleAction(pathname, form, res) {
       `You run inside the dashboard's container with Bash access: the whole workspace tree is at ${ROOT}, and the ddev + docker CLIs manage sibling DDEV projects.`,
       `Workspaces (folders under ${ROOT}): ${workspaceNames}.`,
       'The components workspace holds Drupal SDC components, React components, code components for Drupal Canvas, and HTMX and web components.',
+      'Default domain scheme: each workspace has <workspace>.workspace.ddev.site (its dashboard page), and every running project has https://<project>.<workspace>.workspace.ddev.site (its real site) — prefer these hierarchical URLs in OPEN directives; the canonical https://<project>.ddev.site also works.',
       pageContext,
       'How to act:',
       `- Inspect: ls ${ROOT}/<workspace> ; ddev list ; each builder script has a "# workspace-name:" header naming what it builds.`,
