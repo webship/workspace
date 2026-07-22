@@ -92,49 +92,40 @@ ${body}
 // the bottom-right widget with a 🤖 launcher; inline renders it in the flow.
 function assistantHtml({ floating }) {
   const panel = `
-    <div class="uk-card uk-card-default uk-card-body assistant-panel">
-      <div class="uk-flex uk-flex-between uk-flex-middle uk-margin-small-bottom">
-        <h3 class="uk-card-title uk-margin-remove">🤖 workspace AI Assistant</h3>
-        <span class="uk-label uk-label-success">DDEV Mode ✓</span>
-      </div>
-      <p class="uk-text-meta uk-margin-small">Ask me anything about workspace, DDEV, or Drupal development tasks!</p>
-      <div class="uk-margin-small quick-actions">
-        <form hx-post="/actions/quick-build" hx-target="#chat-log" hx-swap="beforeend" class="qa-form uk-flex uk-flex-middle">
-          <input type="hidden" name="script" value="cmd-drupal11-0-x-recommended-project.sh">
-          <input type="hidden" name="flags" value="--install">
-          <input type="text" name="projectName" placeholder="name…" class="uk-input uk-form-small uk-form-width-small qa-name" required pattern="[a-zA-Z0-9_-]+">
-          <button type="submit" class="uk-button uk-button-primary uk-button-small"><span uk-icon="icon: plus; ratio: .7"></span> New Drupal 11</button>
-        </form>
-        <form hx-post="/actions/quick-build" hx-target="#chat-log" hx-swap="beforeend" class="qa-form uk-flex uk-flex-middle">
-          <input type="hidden" name="script" value="cmd-varbase10-1-x-project.sh">
-          <input type="hidden" name="flags" value="--install --add-users">
-          <input type="text" name="projectName" placeholder="name…" class="uk-input uk-form-small uk-form-width-small qa-name" required pattern="[a-zA-Z0-9_-]+">
-          <button type="submit" class="uk-button uk-button-primary uk-button-small"><span uk-icon="icon: bolt; ratio: .7"></span> New Varbase</button>
-        </form>
-        <button class="uk-button uk-button-default uk-button-small" hx-get="/actions/status" hx-target="#chat-log" hx-swap="beforeend"><span uk-icon="icon: heart; ratio: .7"></span> Status</button>
-      </div>
-      <div class="uk-background-muted uk-padding-small uk-panel-scrollable chat-log" id="chat-log">
-        <div class="msg assistant">
-          <p><strong>Hi!</strong> I can help you:</p>
-          <ul class="uk-list uk-list-bullet uk-margin-remove">
-            <li>Show you all available commands in any workspace</li>
-            <li>Give step-by-step instructions with code examples</li>
-          </ul>
-          <p>💡 <strong>Try these examples:</strong></p>
-          <ul class="uk-list uk-list-bullet uk-margin-remove">
-            <li>"Create a new Varbase project"</li>
-            <li>"Show me all available commands"</li>
-            <li>"What's the system status?"</li>
-          </ul>
+    <div class="uk-card uk-card-default assistant-panel">
+      <div class="assistant-head">
+        <div class="uk-flex uk-flex-middle assistant-head-row">
+          <span class="assistant-avatar">🤖</span>
+          <div class="assistant-head-text">
+            <h3 class="uk-margin-remove">workspace AI Assistant</h3>
+            <span class="uk-text-small">Ask me anything about workspace, DDEV, or Drupal</span>
+          </div>
         </div>
       </div>
-      <form class="uk-flex uk-margin-small-top chat-input"
-            hx-post="/actions/chat" hx-target="#chat-log" hx-swap="beforeend"
-            hx-on::after-request="this.reset()">
-        <input type="text" name="message" class="uk-input" placeholder="Ask me anything about workspace, DDEV, or Drupal... (or use voice)" autocomplete="off" required>
-        <button type="button" class="uk-button uk-button-default uk-margin-small-left mic-btn" title="Voice input"><span uk-icon="icon: microphone; ratio: .9"></span></button>
-        <button type="submit" class="uk-button uk-button-primary uk-margin-small-left"><span uk-icon="icon: comment; ratio: .8"></span> Send</button>
-      </form>
+      <div class="uk-card-body assistant-body">
+        <div class="chat-log" id="chat-log">
+          <div class="msg assistant">
+            <p><strong>Hi!</strong> I can help you:</p>
+            <ul class="uk-list uk-list-bullet uk-margin-remove">
+              <li>Show you all available commands in any workspace</li>
+              <li>Give step-by-step instructions with code examples</li>
+            </ul>
+            <p>💡 <strong>Try these examples:</strong></p>
+            <ul class="uk-list uk-list-bullet uk-margin-remove">
+              <li>"Create a new Varbase project"</li>
+              <li>"Show me all available commands"</li>
+              <li>"What's the system status?"</li>
+            </ul>
+          </div>
+        </div>
+        <form class="chat-input"
+              hx-post="/actions/chat" hx-target="#chat-log" hx-swap="beforeend"
+              hx-on::after-request="this.reset()">
+          <input type="text" name="message" class="uk-input" placeholder="Ask me anything… (or use voice)" autocomplete="off" required>
+          <button type="button" class="uk-button uk-button-default mic-btn" title="Voice input" aria-label="Voice input"><span uk-icon="icon: microphone; ratio: .9"></span></button>
+          <button type="submit" class="uk-button uk-button-primary send-btn" title="Send" aria-label="Send"><span uk-icon="icon: comment; ratio: .8"></span><span class="qa-label"> Send</span></button>
+        </form>
+      </div>
     </div>`;
 
   if (floating) {
@@ -297,11 +288,28 @@ function resultFragment(result, intro) {
     </div>`;
 }
 
+// Append-only audit trail of every action the dashboard executes — request
+// logs don't survive container restarts, so destructive operations (remove,
+// build) must be attributable after the fact from this file.
+const AUDIT_LOG = path.join(__dirname, 'actions.log');
+function audit(pathname, form, result) {
+  const line = JSON.stringify({
+    time: new Date().toISOString(),
+    action: pathname,
+    workspace: form.workspace,
+    projectName: form.projectName,
+    script: form.script,
+    ok: result === undefined ? undefined : !!result,
+  });
+  try { fs.appendFileSync(AUDIT_LOG, line + '\n'); } catch (_) { /* never block the action */ }
+}
+
 async function handleAction(pathname, form, res) {
   const send = (html, status = 200) => {
     res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(html);
   };
+  if (pathname !== '/actions/status' && pathname !== '/actions/chat') audit(pathname, form);
 
   const workspace = form.workspace || 'dev';
   if (pathname !== '/actions/chat' && pathname !== '/actions/status' && !isValidWorkspace(workspace)) {
