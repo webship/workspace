@@ -406,3 +406,25 @@ html.htmx-busy .global-working { display: block; }
 }
 
 .assistant-launcher .ai-mark { width: 28px; height: 28px; }
+
+/* Small backups indicator on workspace cards (home page) */
+.workspace-card { position: relative; }
+
+.ws-backups {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 2;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--brand-2);
+  background: #f1eefb;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.ws-backups:hover { background: var(--brand-2); color: #fff; text-decoration: none; }

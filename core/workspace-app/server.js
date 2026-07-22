@@ -152,14 +152,16 @@ function homePage() {
   const cards = Object.values(workspaces).map((w) => {
     const projectCount = listProjects(w.dir).length;
     const hasBuilders = findBuilderScripts(w.dir).length > 0;
+    const backupCount = listBackups(w.key).length;
     return `
-      <div>
+      <div class="uk-position-relative">
         <a class="uk-card uk-card-default uk-card-hover uk-card-body uk-card-small uk-text-center uk-display-block uk-link-reset workspace-card" href="/${esc(w.key)}">
           <div class="icon"><span uk-icon="icon: ${w.icon}; ratio: 1.4" class="uk-text-primary"></span></div>
           <h4 class="uk-card-title uk-margin-remove uk-text-bold">${esc(w.label)}</h4>
           <p class="uk-text-meta uk-margin-remove">${esc(w.subtitle)}</p>
           <span class="uk-label ${hasBuilders ? 'uk-label-success' : ''} uk-margin-small-top">${projectCount} project${projectCount === 1 ? '' : 's'}${hasBuilders ? ' · buildable' : ''}</span>
         </a>
+        ${backupCount ? `<a class="ws-backups" href="/${esc(w.key)}#webship-workspace-backups" title="View the ${backupCount} backup${backupCount === 1 ? '' : 's'} for ${esc(w.label)}"><span uk-icon="icon: album; ratio: .65"></span> ${backupCount}</a>` : ''}
       </div>`;
   }).join('');
 
@@ -280,6 +282,11 @@ function backupRowsHtml(key) {
                   hx-vals='{"workspace":"${esc(key)}","file":"${esc(b.file)}","confirm":"yes"}'
                   hx-target="#webship-workspace-output" hx-swap="innerHTML"
                   hx-trigger="confirmed-remove"><span uk-icon="icon: history; ratio: .7"></span> Restore</button>
+          <button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0"
+                  hx-post="/actions/backup-delete"
+                  hx-vals='{"workspace":"${esc(key)}","file":"${esc(b.file)}","confirm":"yes"}'
+                  hx-target="#webship-workspace-output" hx-swap="innerHTML"
+                  hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete</button>
         </div>
       </div>
     </div>`).join('');
@@ -357,6 +364,7 @@ function audit(pathname, form, result) {
     workspace: form.workspace,
     projectName: form.projectName,
     script: form.script,
+    file: form.file,
     ok: result === undefined ? undefined : !!result,
   });
   try { fs.appendFileSync(AUDIT_LOG, line + '\n'); } catch (_) { /* never block the action */ }
@@ -445,6 +453,23 @@ async function handleAction(pathname, form, res) {
     res.setHeader('HX-Trigger', 'refresh-projects');
     const stripped = { ...result, stdout: (result.stdout + dbNote).trim(), stderr: result.stderr };
     return send(resultFragment(stripped, `♻️ Restore <strong>${esc(projectName)}</strong> from <code>${esc(file)}</code> ${result.ok ? 'finished.' : 'failed.'}`));
+  }
+
+  if (pathname === '/actions/backup-delete') {
+    const meta = loadWorkspaces()[workspace];
+    const file = String(form.file || '');
+    if (form.confirm !== 'yes') return send('<div class="msg error">Deleting a backup requires confirmation.</div>', 400);
+    if (!/^[a-z]+---[a-zA-Z0-9_-]+--[0-9_-]+\.tar\.gz$/.test(file)) return send('<div class="msg error">Unrecognized backup filename.</div>', 400);
+    const archive = path.join(meta.backupsDir, file);
+    if (!fs.existsSync(archive)) return send('<div class="msg error">Backup file not found.</div>', 404);
+    const removed = [];
+    for (const f of [archive,
+      path.join(meta.backupsDir, file.replace(/\.tar\.gz$/, '-db.sql.gz')),
+      path.join(meta.backupsDir, file.replace(/\.tar\.gz$/, '-db.sql'))]) {
+      if (fs.existsSync(f)) { fs.unlinkSync(f); removed.push(path.basename(f)); }
+    }
+    res.setHeader('HX-Trigger', 'refresh-projects');
+    return send(`<div class="msg assistant"><p>🗑️ Deleted backup:</p><pre>${esc(removed.join('\n'))}</pre></div>`);
   }
 
   if (pathname === '/actions/ddev-start' || pathname === '/actions/ddev-stop') {
