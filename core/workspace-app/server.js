@@ -369,8 +369,6 @@ function homePage() {
   return pageShell('workspace', `
 <main class="uk-container uk-container-large page-body">
   <div class="uk-card uk-card-default uk-card-body">
-    <h2 class="uk-text-center uk-margin-remove-bottom">Workspaces</h2>
-    <p class="uk-text-meta uk-text-center uk-margin-small-bottom">Browse and manage your development environments</p>
     <div class="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-3@m uk-child-width-1-4@l" uk-grid>${cards}</div>
   </div>
 </main>`, [], 'home');
