@@ -92,14 +92,18 @@ ${body}
 </html>`;
 }
 
+// The assistant's logo mark: a large + small four-point sparkle (inline SVG,
+// inherits currentColor) — used in the panel header and the floating launcher.
+const AI_MARK = `<svg class="ai-mark" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor" aria-hidden="true"><path d="M10.5 2l1.9 6.1 6.1 1.9-6.1 1.9-1.9 6.1-1.9-6.1L2.5 10l6.1-1.9L10.5 2z"/><path d="M18.5 13.5l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z"/></svg>`;
+
 // The AI assistant panel — included on EVERY page. `floating` renders it as
-// the bottom-right widget with a 🤖 launcher; inline renders it in the flow.
+// the bottom-right widget with a launcher button; inline renders it in flow.
 function assistantHtml({ floating }) {
   const panel = `
     <div class="uk-card uk-card-default assistant-panel">
       <div class="assistant-head">
         <div class="uk-flex uk-flex-middle assistant-head-row">
-          <span class="assistant-avatar">🤖</span>
+          <span class="assistant-avatar">${AI_MARK}</span>
           <div class="assistant-head-text">
             <h3 class="uk-margin-remove">Workspace AI Assistant</h3>
             <span class="uk-text-small">Ask me anything about your workspace projects</span>
@@ -136,7 +140,7 @@ function assistantHtml({ floating }) {
   if (floating) {
     return `
       <div class="assistant-float" id="assistant-float">${panel}</div>
-      <button class="assistant-launcher uk-button uk-button-primary" onclick="document.getElementById('assistant-float').classList.toggle('open')" title="Workspace AI Assistant">🤖</button>`;
+      <button class="assistant-launcher uk-button uk-button-primary" onclick="document.getElementById('assistant-float').classList.toggle('open')" title="Workspace AI Assistant">${AI_MARK}</button>`;
   }
   return panel;
 }
@@ -240,6 +244,51 @@ async function projectRowsHtml(key, dir) {
     ${rows || '<p class="uk-text-meta">No projects yet.</p>'}`;
 }
 
+// Backup archives for a workspace: ${backups}/<workspace>/*.tar.gz created by
+// the cmd-tool*-backup-*.sh scripts, newest first.
+function listBackups(key) {
+  const meta = loadWorkspaces()[key];
+  try {
+    return fs.readdirSync(meta.backupsDir)
+      .filter((f) => f.endsWith('.tar.gz'))
+      .map((f) => {
+        const st = fs.statSync(path.join(meta.backupsDir, f));
+        return { file: f, size: st.size, mtime: st.mtime };
+      })
+      .sort((a, b) => b.mtime - a.mtime);
+  } catch (_) {
+    return [];
+  }
+}
+
+function humanSize(bytes) {
+  if (bytes > 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+  if (bytes > 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+}
+
+function backupRowsHtml(key) {
+  const backups = listBackups(key);
+  const rows = backups.map((b) => `
+    <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
+      <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
+        <span><span uk-icon="icon: album; ratio: .8"></span> <span class="uk-text-bold">${esc(b.file)}</span>
+          <span class="uk-text-meta">· ${humanSize(b.size)} · ${b.mtime.toISOString().slice(0, 16).replace('T', ' ')}</span></span>
+        <div class="project-actions">
+          <button class="uk-button uk-button-secondary uk-button-small arm-step" data-armed="0"
+                  hx-post="/actions/restore"
+                  hx-vals='{"workspace":"${esc(key)}","file":"${esc(b.file)}","confirm":"yes"}'
+                  hx-target="#webship-workspace-output" hx-swap="innerHTML"
+                  hx-trigger="confirmed-remove"><span uk-icon="icon: history; ratio: .7"></span> Restore</button>
+        </div>
+      </div>
+    </div>`).join('');
+
+  return `
+    <h3 class="uk-margin-small-bottom uk-margin-top">Backups <span class="uk-badge">${backups.length}</span></h3>
+    ${rows || '<p class="uk-text-meta">No backups yet — use a project\'s Backup button to create one.</p>'}`;
+}
+
 async function workspacePage(key) {
   const workspaces = loadWorkspaces();
   const meta = workspaces[key];
@@ -273,6 +322,10 @@ async function workspacePage(key) {
 
     <div id="webship-workspace-projects" hx-get="/fragments/${esc(key)}/projects" hx-trigger="refresh-projects from:body">
       ${await projectRowsHtml(key, dir)}
+    </div>
+
+    <div id="webship-workspace-backups" hx-get="/fragments/${esc(key)}/backups" hx-trigger="refresh-projects from:body">
+      ${backupRowsHtml(key)}
     </div>
 
     <div id="webship-workspace-output"></div>
@@ -351,6 +404,47 @@ async function handleAction(pathname, form, res) {
     // HX-Trigger tells the page to refresh its project list.
     res.setHeader('HX-Trigger', 'refresh-projects');
     return send(resultFragment(result, `🗑️ Remove <strong>${esc(form.projectName)}</strong> ${result.ok ? 'finished' : 'failed'}.`));
+  }
+
+  if (pathname === '/actions/restore') {
+    const meta = loadWorkspaces()[workspace];
+    const file = String(form.file || '');
+    if (form.confirm !== 'yes') return send('<div class="msg error">Restore requires confirmation.</div>', 400);
+    // Backup filenames come from the backup scripts: <ws>---<project>--<stamp>.tar.gz
+    const m = file.match(/^([a-z]+)---([a-zA-Z0-9_-]+)--([0-9_-]+)\.tar\.gz$/);
+    if (!m) return send('<div class="msg error">Unrecognized backup filename.</div>', 400);
+    const projectName = m[2];
+    const archive = path.join(meta.backupsDir, file);
+    if (!fs.existsSync(archive)) return send('<div class="msg error">Backup file not found.</div>', 404);
+    const targetDir = path.join(meta.dir, projectName);
+    if (fs.existsSync(targetDir)) {
+      return send(`<div class="msg error">'${esc(projectName)}' already exists in this workspace — remove it first, then restore.</div>`, 409);
+    }
+
+    // The archives were created from inside the workspace folder, so they
+    // extract back to <workspace>/<project>/.
+    const result = await run('tar', ['-xzf', archive], meta.dir, { timeoutMs: 10 * 60 * 1000 });
+    let dbNote = '';
+    if (result.ok) {
+      // If a matching DB dump sits next to the archive and the restored
+      // project is a DDEV project, bring it up and import the database.
+      const dbCandidates = [`${file.replace(/\.tar\.gz$/, '')}-db.sql.gz`, `${file.replace(/\.tar\.gz$/, '')}-db.sql`];
+      const dbFile = dbCandidates.map((f) => path.join(meta.backupsDir, f)).find((f) => fs.existsSync(f));
+      if (dbFile && ddevProjectName(targetDir)) {
+        const up = await run('ddev', ['start', '-y'], targetDir, { timeoutMs: 10 * 60 * 1000 });
+        if (up.ok) {
+          const imp = await run('ddev', ['import-db', `--file=${dbFile}`], targetDir, { timeoutMs: 10 * 60 * 1000 });
+          dbNote = imp.ok ? ' Database dump imported.' : ` Files restored, but the DB import failed: ${imp.stderr.slice(-300)}`;
+        } else {
+          dbNote = ' Files restored, but ddev start failed before the DB import.';
+        }
+      } else if (dbFile) {
+        dbNote = ' A DB dump exists alongside this backup, but the project is not a DDEV project — import it manually.';
+      }
+    }
+    res.setHeader('HX-Trigger', 'refresh-projects');
+    const stripped = { ...result, stdout: (result.stdout + dbNote).trim(), stderr: result.stderr };
+    return send(resultFragment(stripped, `♻️ Restore <strong>${esc(projectName)}</strong> from <code>${esc(file)}</code> ${result.ok ? 'finished.' : 'failed.'}`));
   }
 
   if (pathname === '/actions/ddev-start' || pathname === '/actions/ddev-stop') {
@@ -480,6 +574,11 @@ const server = http.createServer(async (req, res) => {
       if (fragMatch && isValidWorkspace(fragMatch[1])) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(await projectRowsHtml(fragMatch[1], workspaceDir(fragMatch[1])));
+      }
+      const backupsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/backups$/);
+      if (backupsMatch && isValidWorkspace(backupsMatch[1])) {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(backupRowsHtml(backupsMatch[1]));
       }
       const wsKey = pathname.replace(/^\/+|\/+$/g, '');
       if (isValidWorkspace(wsKey)) {
