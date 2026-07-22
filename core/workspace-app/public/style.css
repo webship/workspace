@@ -709,3 +709,9 @@ html.dark .editor-card .editor-area { background: #12162a; color: #e8eaf6; borde
   .assistant-side .chat-log { max-height: 320px; }
   .app-content { margin-left: 0; }
 }
+
+/* Markdown tables etc. inside chat replies */
+.chat-log .msg table { border-collapse: collapse; margin: 6px 0; font-size: 13px; }
+.chat-log .msg th, .chat-log .msg td { border: 1px solid var(--line); padding: 4px 8px; }
+.chat-log .msg code { background: rgba(109, 91, 208, .1); padding: 1px 4px; border-radius: 4px; font-size: 12px; }
+html.dark .chat-log .msg th, html.dark .chat-log .msg td { border-color: #2f3556; }

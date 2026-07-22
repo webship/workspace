@@ -915,7 +915,21 @@ async function handleAction(pathname, form, res) {
     const activeTriggers = Object.fromEntries(Object.entries(triggers).filter(([, v]) => v !== undefined));
     if (Object.keys(activeTriggers).length) res.setHeader('HX-Trigger', JSON.stringify(activeTriggers));
 
-    return send(`${userHtml}<div class="msg assistant">${esc(reply)}</div>`);
+    // Render the reply's markdown (tables, bold, code, lists) — gfm-raw_html
+    // strips raw HTML passthrough, so model output can't inject markup.
+    let replyHtml = `<p>${esc(reply)}</p>`;
+    const mdResult = await new Promise((resolve) => {
+      const child = spawn('pandoc', ['-f', 'gfm-raw_html', '-t', 'html'], { stdio: ['pipe', 'pipe', 'pipe'] });
+      let out = '';
+      child.stdout.on('data', (d) => { out += d; });
+      child.on('close', (code) => resolve(code === 0 ? out : null));
+      child.on('error', () => resolve(null));
+      child.stdin.write(reply);
+      child.stdin.end();
+    });
+    if (mdResult) replyHtml = mdResult;
+
+    return send(`${userHtml}<div class="msg assistant">${replyHtml}</div>`);
   }
 
   send('<div class="msg error">Unknown action.</div>', 404);
