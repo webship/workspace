@@ -95,3 +95,10 @@ document.addEventListener('htmx:afterSwap', (e) => {
     log.scrollTop = log.scrollHeight;
   }
 });
+
+// Dark mode toggle (light is the default; choice persists in localStorage).
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.theme-toggle')) return;
+  const dark = document.documentElement.classList.toggle('dark');
+  try { localStorage.setItem('ws-theme', dark ? 'dark' : 'light'); } catch (_) { /* private mode */ }
+});
