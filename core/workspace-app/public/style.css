@@ -271,7 +271,7 @@ body.uk-background-muted { background: var(--surface) !important; color: var(--i
 
 .assistant-launcher {
   position: fixed;
-  right: 22px;
+  left: 22px;
   bottom: 22px;
   width: 60px;
   height: 60px;
@@ -286,7 +286,7 @@ body.uk-background-muted { background: var(--surface) !important; color: var(--i
 .assistant-float {
   display: none;
   position: fixed;
-  right: 22px;
+  left: 22px;
   bottom: 94px;
   width: min(500px, calc(100vw - 44px));
   max-height: min(640px, calc(100vh - 130px));
@@ -341,7 +341,7 @@ html.htmx-busy .global-working { display: block; }
 
 .global-working-pill {
   position: fixed;
-  left: 18px;
+  right: 18px;
   bottom: 18px;
   z-index: 50;
   background: #fff;
@@ -551,7 +551,7 @@ footer.uk-section { padding-top: 20px; padding-bottom: 26px; }
     width: auto;
     bottom: 86px;
   }
-  .assistant-launcher { right: 14px; bottom: 14px; }
+  .assistant-launcher { left: 14px; bottom: 14px; }
   .toolbar-logo span { font-size: 17px; }
 }
 
@@ -656,7 +656,7 @@ html.dark .editor-card .editor-area { background: #12162a; color: #e8eaf6; borde
  * (launcher) restores normal centering. */
 @media (min-width: 1200px) {
   body:has(.assistant-float.open) .page-body.webship-workspace-page {
-    margin-left: auto;
-    margin-right: 540px;
+    margin-right: auto;
+    margin-left: 540px;
   }
 }

@@ -169,7 +169,7 @@ function listItems(key) {
       items.push({ name: e.name, editable: true });
     } else if (e.isFile() && e.name.endsWith('.md') && e.name !== 'README.md') {
       items.push({ name: e.name.replace(/\.md$/, ''), editable: true });
-    } else if (key === 'docs' && e.isFile() && /\.(pdf|html)$/.test(e.name)) {
+    } else if (key === 'docs' && e.isFile() && /\.(pdf|html|png)$/.test(e.name)) {
       items.push({ name: e.name, editable: false, artifact: true });
     }
   }
@@ -186,7 +186,7 @@ function itemRowsHtml(key) {
       return `
       <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
         <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
-          <span class="uk-text-bold"><span uk-icon="icon: file-pdf; ratio: .8"></span> ${esc(it.name)}</span>
+          <span class="uk-text-bold"><span uk-icon="icon: ${it.name.endsWith('.png') ? 'image' : it.name.endsWith('.html') ? 'world' : 'file-pdf'}; ratio: .8"></span> ${esc(it.name)}</span>
           <div class="project-actions">
             <a class="uk-button uk-button-primary uk-button-small" href="/files/${esc(key)}/${esc(it.name)}" target="_blank"><span uk-icon="icon: download; ratio: .7"></span> Open</a>
             <button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/delete-item" hx-vals='{"workspace":"${esc(key)}","name":"${esc(it.name)}","confirm":"yes"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete</button>
@@ -201,7 +201,7 @@ function itemRowsHtml(key) {
         <div class="project-actions">
           <button class="uk-button uk-button-default uk-button-small" hx-get="/fragments/${esc(key)}/edit/${encodeURIComponent(it.name)}" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: pencil; ratio: .7"></span> Edit</button>
           ${installable ? `<button class="uk-button uk-button-primary uk-button-small" hx-post="/actions/install-item" ${vals} hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: push; ratio: .7"></span> Install</button>` : ''}
-          ${key === 'docs' ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/make-pdf" ${vals} hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: file-pdf; ratio: .7"></span> Make PDF</button>` : ''}
+          ${key === 'docs' ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/make-pdf" ${vals} hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: file-pdf; ratio: .7"></span> PDF</button><button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/make-html" ${vals} hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: world; ratio: .7"></span> HTML</button>` : ''}
           <button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/delete-item" hx-vals='{"workspace":"${esc(key)}","name":"${esc(it.name)}","confirm":"yes"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete</button>
         </div>
       </div>
@@ -516,8 +516,11 @@ async function workspacePage(key) {
 
     <p class="uk-margin-top">
       <button class="uk-button uk-button-primary" hx-get="/fragments/${esc(key)}/new" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: plus; ratio: .8"></span> New ${esc(meta.noun)}</button>
+      ${INSTALL_TARGETS[key] ? `
+      <button class="uk-button uk-button-secondary" hx-get="/fragments/${esc(key)}/ai-form" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: bolt; ratio: .8"></span> Generate with AI</button>` : ''}
       ${key === 'docs' ? `
-      <button class="uk-button uk-button-secondary" hx-get="/fragments/docs/site-doc-form" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: bolt; ratio: .8"></span> Generate site doc (AI)</button>` : ''}
+      <button class="uk-button uk-button-secondary" hx-get="/fragments/docs/site-doc-form" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: bolt; ratio: .8"></span> Generate site doc (AI)</button>
+      <button class="uk-button uk-button-secondary" hx-get="/fragments/docs/screenshot-form" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: image; ratio: .8"></span> Screenshot a site</button>` : ''}
     </p>` : `
     <div id="webship-workspace-projects" hx-get="/fragments/${esc(key)}/projects" hx-trigger="refresh-projects from:body">
       ${await projectRowsHtml(key, dir)}
@@ -730,6 +733,53 @@ async function handleAction(pathname, form, res) {
     return send(`<div class="msg assistant">🗑️ Deleted: ${esc(removed.join(', ') || '(nothing found)')}</div>`);
   }
 
+  if (pathname === '/actions/generate-item') {
+    const target = INSTALL_TARGETS[workspace];
+    const meta = loadWorkspaces()[workspace];
+    if (!target || meta.kind !== 'files') return send('<div class="msg error">AI generation is for agents, skills, and prompts.</div>', 400);
+    const name = String(form.name || '');
+    const description = String(form.description || '').slice(0, 2000);
+    if (!NAME_RE.test(name)) return send('<div class="msg error">Invalid name.</div>', 400);
+    if (!description.trim()) return send('<div class="msg error">Describe what it should do.</div>', 400);
+
+    const SPECS = {
+      agents: `a Claude Code CLI subagent definition markdown file. It MUST start with YAML frontmatter delimited by --- lines containing: name: ${name}, a one-paragraph description: telling Claude when to invoke this agent (starting "Use this agent to"), and a tools: list (only the tools it truly needs from Bash, Read, Write, Edit, Glob, Grep, WebFetch). After the frontmatter: a # ${name} heading, a role statement, and concrete ## Instructions the agent follows. Study ${ROOT} with your tools first if the description references this workspace.`,
+      skills: `a Claude Code CLI skill (SKILL.md) markdown file. It MUST start with YAML frontmatter delimited by --- lines containing: name: ${name} and a one-line description: saying what the skill does and when to use it. After the frontmatter: a # ${name} heading and precise step-by-step ## Instructions. Study ${ROOT} with your tools first if the description references this workspace.`,
+      prompts: `a reusable prompt file for a Claude Code CLI slash command (/${name}). Plain markdown, no frontmatter: just the complete, well-structured prompt text a user would run repeatedly. Make it specific and actionable.`,
+    };
+    const file = itemFile(workspace, name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const genPrompt = `Write ${SPECS[workspace]}\n\nWhat it should do: ${description}\n\nOutput ONLY the raw file content — no surrounding commentary, no code fences.`;
+    const shellLine = `set -e; echo "Generating ${meta.noun} '${name}' with AI…"; claude -p ${JSON.stringify(genPrompt)} --allowedTools Read Glob Grep --disallowedTools Write Edit Bash --no-session-persistence > ${JSON.stringify(file)}; echo "Written: ${path.relative(ROOT, file)}"; head -20 ${JSON.stringify(file)}`;
+    const id = startJob(`🤖 Generate ${esc(meta.noun)} <strong>${esc(name)}</strong>`, 'bash', ['-c', shellLine], meta.dir, { timeoutMs: 5 * 60 * 1000 });
+    return send(jobFragment(id).html);
+  }
+
+  if (pathname === '/actions/make-html') {
+    if (workspace !== 'docs') return send('<div class="msg error">HTML is generated in the docs workspace.</div>', 400);
+    const name = String(form.name || '');
+    if (!NAME_RE.test(name)) return send('<div class="msg error">Invalid name.</div>', 400);
+    const meta = loadWorkspaces()[workspace];
+    if (!fs.existsSync(itemFile('docs', name))) return send('<div class="msg error">Doc not found.</div>', 404);
+    const id = startJob(`🌐 Render <strong>${esc(name)}.html</strong>`, 'bash',
+      ['-c', `set -e; cd '${meta.dir}'; pandoc '${name}.md' -o '${name}.html' --standalone --metadata title='${name}' && echo "HTML written: ${name}.html"`],
+      meta.dir, { timeoutMs: 2 * 60 * 1000 });
+    return send(jobFragment(id).html);
+  }
+
+  if (pathname === '/actions/screenshot') {
+    if (workspace !== 'docs') return send('<div class="msg error">Screenshots are saved in the docs workspace.</div>', 400);
+    const name = String(form.name || '');
+    const url = String(form.url || '');
+    if (!NAME_RE.test(name)) return send('<div class="msg error">Invalid name.</div>', 400);
+    if (!/^https?:\/\/[a-zA-Z0-9.:\/_-]+$/.test(url)) return send('<div class="msg error">Invalid URL.</div>', 400);
+    const meta = loadWorkspaces()[workspace];
+    const id = startJob(`📸 Screenshot <strong>${esc(name)}.png</strong> of ${esc(url)}`, 'bash',
+      ['-c', `set -e; cd '${meta.dir}'; wkhtmltoimage --width 1440 --quality 80 ${JSON.stringify(url)} '${name}.png' && echo "Screenshot written: ${name}.png"`],
+      meta.dir, { timeoutMs: 3 * 60 * 1000 });
+    return send(jobFragment(id).html);
+  }
+
   if (pathname === '/actions/make-pdf') {
     if (workspace !== 'docs') return send('<div class="msg error">PDFs are generated in the docs workspace.</div>', 400);
     const name = String(form.name || '');
@@ -824,6 +874,8 @@ async function handleAction(pathname, form, res) {
       `- Build a new project: cd ${ROOT}/<workspace> && bash cmd-<...>-project.sh <project_name> --install`,
       `- Start/stop an existing project: cd ${ROOT}/<workspace>/<project> && ddev start -y (or ddev stop -y)`,
       `- Backup: run the folder's cmd-tool*-backup-*.sh <project_name> from inside ${ROOT}/<workspace>.`,
+      `- Create/edit AI agents, skills, prompts, docs: write markdown files with Bash redirection — agents: ${ROOT}/agents/<name>.md (YAML frontmatter: name, description, tools), skills: ${ROOT}/skills/<name>/SKILL.md, prompts: ${ROOT}/prompts/<name>.md, docs: ${ROOT}/docs/<name>.md. Install into Claude Code by copying: agents → ~/.claude/agents/, skills → ~/.claude/skills/<name>/, prompts → ~/.claude/commands/.`,
+      `- Docs tooling: render PDF with: pandoc <doc>.md -o <doc>.pdf --pdf-engine=wkhtmltopdf ; render HTML with: pandoc <doc>.md -o <doc>.html --standalone ; capture a site screenshot with: wkhtmltoimage --width 1440 <url> ${ROOT}/docs/<name>.png`,
       '- NEVER delete or remove anything unless the user explicitly asked for that in this exact message.',
       'After acting, end your reply with directives, each alone on its own line, so the interface can react:',
       'NAVIGATE:/<workspace>   (go to that workspace page, e.g. NAVIGATE:/dev)',
@@ -926,6 +978,37 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(editorFormHtml(key, name, fs.readFileSync(file, 'utf8'), false));
       }
+      const aiFormMatch = pathname.match(/^\/fragments\/(agents|skills|prompts)\/ai-form$/);
+      if (aiFormMatch) {
+        const key = aiFormMatch[1];
+        const meta = loadWorkspaces()[key];
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(`
+          <div class="uk-card uk-card-default uk-card-body uk-margin-top editor-card">
+            <h3 class="uk-margin-small-bottom">Generate a ${esc(meta.noun)} with AI</h3>
+            <form hx-post="/actions/generate-item" hx-target="#webship-workspace-output" hx-swap="innerHTML">
+              <input type="hidden" name="workspace" value="${esc(key)}">
+              <input class="uk-input uk-margin-small-bottom" name="name" placeholder="${esc(meta.noun)}-name" required pattern="[a-zA-Z0-9_-]+">
+              <textarea class="uk-textarea" name="description" rows="4" placeholder="Describe what this ${esc(meta.noun)} should do — e.g. 'reviews cmd-*.sh scripts for DDEV-only compliance and reports violations'" required></textarea>
+              <div class="uk-margin-small-top">
+                <button type="submit" class="uk-button uk-button-primary"><span uk-icon="icon: bolt; ratio: .8"></span> Generate</button>
+              </div>
+            </form>
+          </div>`);
+      }
+      if (pathname === '/fragments/docs/screenshot-form') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(`
+          <div class="uk-card uk-card-default uk-card-body uk-margin-top editor-card">
+            <h3 class="uk-margin-small-bottom">Screenshot a site → docs/&lt;name&gt;.png</h3>
+            <form class="uk-grid uk-grid-small" uk-grid hx-post="/actions/screenshot" hx-target="#webship-workspace-output" hx-swap="innerHTML">
+              <input type="hidden" name="workspace" value="docs">
+              <div class="uk-width-1-3@s"><input class="uk-input" name="name" placeholder="shot-name" required pattern="[a-zA-Z0-9_-]+"></div>
+              <div class="uk-width-1-2@s"><input class="uk-input" name="url" placeholder="https://mysite.ddev.site" required></div>
+              <div class="uk-width-1-6@s"><button type="submit" class="uk-button uk-button-primary uk-width-1-1">Capture</button></div>
+            </form>
+          </div>`);
+      }
       if (pathname === '/fragments/docs/site-doc-form') {
         const wsOptions = Object.values(loadWorkspaces())
           .filter((w) => w.kind !== 'files')
@@ -949,7 +1032,7 @@ const server = http.createServer(async (req, res) => {
         if (name.includes('..') || name.includes('/')) { res.writeHead(400); return res.end('bad name'); }
         const file = path.join(workspaceDir(fileMatch[1]), name);
         if (!fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); return res.end('not found'); }
-        const type = { '.pdf': 'application/pdf', '.html': 'text/html; charset=utf-8', '.md': 'text/plain; charset=utf-8' }[path.extname(file)] || 'application/octet-stream';
+        const type = { '.pdf': 'application/pdf', '.html': 'text/html; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.png': 'image/png' }[path.extname(file)] || 'application/octet-stream';
         res.writeHead(200, { 'Content-Type': type, 'Content-Disposition': 'inline' });
         return fs.createReadStream(file).pipe(res);
       }
