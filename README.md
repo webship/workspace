@@ -119,6 +119,32 @@ actions, and an AI assistant on every page. See
 [`core/workspace-app/README.md`](core/workspace-app/README.md) for details
 (including the one per-machine docker-group tweak).
 
+### Examples
+
+Things you can do from the dashboard UI:
+
+- `/dev` → pick **"Drupal 11.4.0 (recommended project)"** from the Build
+  dropdown, name it `blog1`, press **Build** — and watch the real terminal
+  output stream until the site is installed at `https://blog1.ddev.site`.
+- Press **Stop** / **Start** / **Launch** on any project row (buttons follow
+  the live DDEV status), **Backup** to archive it, or open
+  `/dev/backups` to **Restore** an archive (files + automatic DB import).
+- `/agents` → **Generate with AI** → describe the agent you want; then
+  **Install** it into `~/.claude/agents/` for Claude Code.
+- `/docs` → write a doc, press **PDF** or **HTML** to render it, or
+  **Screenshot a site** to capture any URL into `docs/`.
+
+Things you can ask the Workspace AI Assistant (it really does them):
+
+- "Build a Drupal 11.4 site named d114test"
+- "Create a Drupal CMS 2.1 site called cms1"
+- "Create a Varbase 11 project called demo1 and open it"
+- "can you back up my d114test site please, then show me the backups page"
+- "what's running right now?"
+- "Generate an agent that reviews cmd- scripts and save it as cmd-linter"
+- "Write a doc about demo1 and make a PDF"
+
+
 ## Building a project
 
 ```
