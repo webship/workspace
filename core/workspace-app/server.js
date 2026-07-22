@@ -314,9 +314,13 @@ function assistantHtml({ context = 'home' } = {}) {
             <p><strong>Hi!</strong> I can actually do things for you — build, start, back up, and open your projects, then take you there.</p>
             <p>💡 <strong>Try these examples:</strong></p>
             <ul class="uk-list uk-list-bullet uk-margin-remove">
-              <li>"Create a new Varbase project called demo1 and open it"</li>
-              <li>"Start natshahcom in dev and launch it"</li>
+              <li>"Build a Drupal 11.4 site named d114test"</li>
+              <li>"Create a Drupal CMS 2.1 site called cms1"</li>
+              <li>"Create a Varbase 11 project called demo1 and open it"</li>
               <li>"What's running right now?"</li>
+              <li>"Back up every project in dev"</li>
+              <li>"Generate an agent that reviews cmd- scripts"</li>
+              <li>"Write a doc about demo1 and make a PDF"</li>
             </ul>
           </div>
         </div>
@@ -596,7 +600,9 @@ async function handleAction(pathname, form, res) {
     if (!SCRIPT_RE.test(script) || !findBuilderScripts(dir).includes(script)) return send('<div class="msg error">Unknown build script.</div>', 400);
     if (!NAME_RE.test(projectName)) return send('<div class="msg error">Invalid project name.</div>', 400);
     const flags = String(form.flags || '--install').split(' ').filter((f) => /^--[a-zA-Z0-9=_.,-]*$/.test(f));
-    const id = startJob(`🏗️ Build <strong>${esc(projectName)}</strong> (${esc(builderLabel(dir, script))})`, 'bash', [script, projectName, ...flags], dir);
+    // Full distribution builds (composer create-project + install) can far
+    // exceed the default 15m on a cold composer cache.
+    const id = startJob(`🏗️ Build <strong>${esc(projectName)}</strong> (${esc(builderLabel(dir, script))})`, 'bash', [script, projectName, ...flags], dir, { timeoutMs: 60 * 60 * 1000 });
     return send(jobFragment(id).html);
   }
 

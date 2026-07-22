@@ -25,7 +25,7 @@ function build_distribution() {
   ddev config --project-type=drupal --docroot=${distribution_webroot} --project-name=${PROJECT_NAME} --auto ;
   ddev start ;
 
-  ddev composer create-project ${distribution_project_template}:${site_version} . --no-interaction -vvv;
+  ddev composer create-project ${distribution_project_template}:${site_version} . --no-interaction;
 
   # Change the minimum stablility to dev for development
   ddev composer config minimum-stability dev ;
