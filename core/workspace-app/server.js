@@ -406,7 +406,8 @@ async function projectRowsHtml(key, dir) {
     return `
     <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
       <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
-        <span class="uk-text-bold">📁 ${esc(p)} ${statusBadge}</span>
+        <span class="uk-text-bold">📁 ${esc(p)} ${statusBadge}
+          ${isDdev && running ? `<a class="proj-alias uk-text-meta" href="https://${esc(p)}.${esc(key)}.workspace.ddev.site" target="_blank" title="Hierarchical alias for this project's site">${esc(p)}.${esc(key)}.workspace.ddev.site</a>` : ''}</span>
         <div class="project-actions">
           ${isDdev && !running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-start" ${vals()}><span uk-icon="icon: play; ratio: .7"></span> Start</button>` : ''}
           ${isDdev && running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-stop" ${vals()}><span uk-icon="icon: ban; ratio: .7"></span> Stop</button>` : ''}
@@ -1049,7 +1050,16 @@ function serveStatic(pathname, res) {
 /* ---------------- server ---------------- */
 
 const server = http.createServer(async (req, res) => {
-  const { pathname } = new URL(req.url, 'http://localhost');
+  let { pathname } = new URL(req.url, 'http://localhost');
+
+  // Workspace subdomains: <ws>.workspace.ddev.site serves that workspace's
+  // pages — / maps to the workspace page and /backups to its backups page.
+  // Absolute paths (/actions, /fragments, /files, assets) work unchanged.
+  const hostMatch = String(req.headers.host || '').match(/^([a-z0-9_-]+)\.workspace\.ddev\.site(?::\d+)?$/);
+  if (hostMatch && isValidWorkspace(hostMatch[1])) {
+    if (pathname === '/') pathname = `/${hostMatch[1]}`;
+    else if (pathname === '/backups' || pathname === '/backups/') pathname = `/${hostMatch[1]}/backups`;
+  }
 
   try {
     if (req.method === 'GET') {

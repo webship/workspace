@@ -4,7 +4,24 @@ docroot: public
 php_version: "8.3"
 webserver_type: nginx-fpm
 xdebug_enabled: false
-additional_hostnames: []
+additional_hostnames:
+- "*.workspace"
+- "*.products.workspace"
+- "*.dev.workspace"
+- "*.test.workspace"
+- "*.demos.workspace"
+- "*.sandboxes.workspace"
+- "*.profiles.workspace"
+- "*.modules.workspace"
+- "*.themes.workspace"
+- "*.libraries.workspace"
+- "*.forked.workspace"
+- "*.recipes.workspace"
+- "*.components.workspace"
+- "*.agents.workspace"
+- "*.skills.workspace"
+- "*.prompts.workspace"
+- "*.docs.workspace"
 additional_fqdns: []
 database:
     type: mariadb

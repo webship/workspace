@@ -728,3 +728,7 @@ html.dark .chat-log .msg th, html.dark .chat-log .msg td { border-color: #2f3556
 }
 .builder-args .arg-row code { min-width: 190px; }
 .builder-args .arg-value { max-width: 340px; }
+
+/* Hierarchical project-domain alias on running rows */
+.proj-alias { display: block; font-size: 11px; margin-top: 2px; color: var(--brand-2) !important; }
+.proj-alias:hover { text-decoration: underline; }
