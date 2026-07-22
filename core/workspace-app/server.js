@@ -232,7 +232,7 @@ function editorFormHtml(key, name, content, isNew) {
 
 /* ---------------- shared page chrome ---------------- */
 
-function pageShell(title, body, crumbs = []) {
+function pageShell(title, body, crumbs = [], context = 'home') {
   const crumbHtml = crumbs.length ? `
     <ul class="uk-breadcrumb uk-margin-remove uk-visible@s">
       ${crumbs.map((c, i) => i === crumbs.length - 1
@@ -260,7 +260,7 @@ function pageShell(title, body, crumbs = []) {
   <div class="global-working-pill"><div uk-spinner="ratio: .5"></div> Working…</div>
 </div>
 <nav class="uk-navbar-container toolbar">
-  <div class="uk-container uk-container-xlarge">
+  <div class="toolbar-inner">
     <div uk-navbar>
       <div class="uk-navbar-left">
         <a class="uk-navbar-item uk-logo toolbar-logo" href="/">
@@ -277,10 +277,15 @@ function pageShell(title, body, crumbs = []) {
     </div>
   </div>
 </nav>
+<aside class="assistant-side">
+  ${assistantHtml({ context })}
+</aside>
+<div class="app-content">
 ${body}
 <footer class="uk-section uk-section-xsmall uk-text-center uk-text-meta">
   webship/workspace · DDEV-only tooling · <a href="/">workspace.ddev.site</a>
 </footer>
+</div>
 </body>
 </html>`;
 }
@@ -291,7 +296,7 @@ const AI_MARK = `<svg class="ai-mark" viewBox="0 0 24 24" xmlns="http://www.w3.o
 
 // The AI assistant panel — included on EVERY page. `floating` renders it as
 // the bottom-right widget with a launcher button; inline renders it in flow.
-function assistantHtml({ floating, context = 'home' }) {
+function assistantHtml({ context = 'home' } = {}) {
   const panel = `
     <div class="uk-card uk-card-default assistant-panel">
       <div class="assistant-head">
@@ -331,11 +336,6 @@ function assistantHtml({ floating, context = 'home' }) {
       </div>
     </div>`;
 
-  if (floating) {
-    return `
-      <div class="assistant-float open" id="assistant-float">${panel}</div>
-      <button class="assistant-launcher uk-button uk-button-primary" onclick="document.getElementById('assistant-float').classList.toggle('open')" title="Workspace AI Assistant">${AI_MARK}</button>`;
-  }
   return panel;
 }
 
@@ -360,20 +360,13 @@ function homePage() {
   }).join('');
 
   return pageShell('workspace', `
-<main class="uk-container uk-container-xlarge page-body">
-  <div class="uk-grid uk-grid-medium uk-flex-top" uk-grid>
-    <div class="uk-width-1-3@m">
-      ${assistantHtml({ floating: false, context: 'home' })}
-    </div>
-    <div class="uk-width-2-3@m">
-      <div class="uk-card uk-card-default uk-card-body">
-        <h2 class="uk-text-center uk-margin-remove-bottom">Workspaces</h2>
-        <p class="uk-text-meta uk-text-center uk-margin-small-bottom">Browse and manage your development environments</p>
-        <div class="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-3@m uk-child-width-1-4@l" uk-grid>${cards}</div>
-      </div>
-    </div>
+<main class="uk-container uk-container-large page-body">
+  <div class="uk-card uk-card-default uk-card-body">
+    <h2 class="uk-text-center uk-margin-remove-bottom">Workspaces</h2>
+    <p class="uk-text-meta uk-text-center uk-margin-small-bottom">Browse and manage your development environments</p>
+    <div class="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-3@m uk-child-width-1-4@l" uk-grid>${cards}</div>
   </div>
-</main>`);
+</main>`, [], 'home');
 }
 
 // One `ddev list` call → { name: { status, url } } so every project row can
@@ -496,9 +489,7 @@ function backupsPage(key) {
 
     <div id="webship-workspace-output"></div>
   </div>
-</main>
-
-${assistantHtml({ floating: true, context: `backups:${key}` })}`, [{ label: 'Workspaces', href: '/' }, { label: meta.label, href: `/${key}` }, { label: 'Backups' }]);
+</main>`, [{ label: 'Workspaces', href: '/' }, { label: meta.label, href: `/${key}` }, { label: 'Backups' }], `backups:${key}`);
 }
 
 async function workspacePage(key) {
@@ -555,9 +546,7 @@ async function workspacePage(key) {
 
     <div id="webship-workspace-output"></div>
   </div>
-</main>
-
-${assistantHtml({ floating: true, context: `workspace:${key}` })}`, [{ label: 'Workspaces', href: '/' }, { label: meta.label }]);
+</main>`, [{ label: 'Workspaces', href: '/' }, { label: meta.label }], `workspace:${key}`);
 }
 
 /* ---------------- HTMX fragments/actions ---------------- */

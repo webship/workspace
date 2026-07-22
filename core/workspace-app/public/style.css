@@ -660,3 +660,52 @@ html.dark .editor-card .editor-area { background: #12162a; color: #e8eaf6; borde
     margin-left: 540px;
   }
 }
+
+/* ---------- Full-height left assistant sidebar (all pages) ---------- */
+
+.assistant-side {
+  position: fixed;
+  top: 65px;
+  left: 0;
+  bottom: 0;
+  width: 400px;
+  padding: 16px 8px 16px 16px;
+  display: flex;
+  z-index: 30;
+}
+
+.assistant-side .assistant-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+}
+
+.assistant-side .assistant-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.assistant-side .chat-log {
+  flex: 1;
+  max-height: none;
+  min-height: 0;
+}
+
+.app-content { margin-left: 400px; }
+
+/* Toolbar spans full width; its content aligns with the shell */
+.toolbar-inner { padding: 0 24px; }
+
+/* Stack on tablets/phones: sidebar becomes a normal block above content */
+@media (max-width: 959px) {
+  .assistant-side {
+    position: static;
+    width: auto;
+    padding: 14px 14px 0;
+  }
+  .assistant-side .chat-log { max-height: 320px; }
+  .app-content { margin-left: 0; }
+}
