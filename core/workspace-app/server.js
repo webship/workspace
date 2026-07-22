@@ -216,16 +216,16 @@ function homePage() {
   }).join('');
 
   return pageShell('workspace', `
-<main class="uk-container uk-container-large uk-margin-top uk-margin-bottom">
+<main class="uk-container uk-container-xlarge uk-margin-top uk-margin-bottom">
   <div class="uk-grid uk-grid-medium uk-flex-top" uk-grid>
-    <div class="uk-width-2-5@m">
+    <div class="uk-width-1-3@m uk-width-1-4@l">
       ${assistantHtml({ floating: false })}
     </div>
-    <div class="uk-width-3-5@m">
+    <div class="uk-width-2-3@m uk-width-3-4@l">
       <div class="uk-card uk-card-default uk-card-body">
         <h2 class="uk-text-center uk-margin-remove-bottom">Workspaces</h2>
         <p class="uk-text-meta uk-text-center uk-margin-small-bottom">Browse and manage your development environments</p>
-        <div class="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-3@m" uk-grid>${cards}</div>
+        <div class="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-3@m uk-child-width-1-4@l" uk-grid>${cards}</div>
       </div>
     </div>
   </div>
