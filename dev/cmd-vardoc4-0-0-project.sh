@@ -1,5 +1,7 @@
 #!/bin/usr/env bash
 
+# workspace-name: Vardoc 4.0.0
+
 # Bootstrap.
 source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 

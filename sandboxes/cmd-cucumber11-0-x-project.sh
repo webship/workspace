@@ -1,5 +1,7 @@
 #!/bin/usr/env bash
 
+# workspace-name: Cucumber 11.0.x
+
 # Bootstrap.
 source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 

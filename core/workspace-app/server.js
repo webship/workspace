@@ -15,8 +15,8 @@ const {
   workspaceDir,
   findBackupScript,
   findRemoveScript,
-  findFilemodeScript,
   findBuilderScripts,
+  builderLabel,
 } = require('./workspaces');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -40,6 +40,19 @@ function run(cmd, args, cwd, { timeoutMs = 15 * 60 * 1000 } = {}) {
   });
 }
 
+// A project's real DDEV name (from its .ddev/config.yaml), or null if it
+// isn't a DDEV project. The name usually equals the folder name (the build
+// scripts pass --project-name=<folder>), but not necessarily.
+function ddevProjectName(projectDir) {
+  try {
+    const cfg = fs.readFileSync(path.join(projectDir, '.ddev', 'config.yaml'), 'utf8');
+    const m = cfg.match(/^name:\s*(\S+)/m);
+    return m ? m[1] : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function listProjects(dir) {
   try {
     return fs.readdirSync(dir, { withFileTypes: true })
@@ -59,15 +72,17 @@ function pageShell(title, body) {
 <meta charset="utf-8">
 <title>${esc(title)}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/vendor/uikit.min.css">
 <link rel="stylesheet" href="/style.css">
+<script src="/vendor/uikit.min.js"></script>
+<script src="/vendor/uikit-icons.min.js"></script>
 <script src="/htmx.min.js"></script>
 <script src="/ui.js" defer></script>
 </head>
-<body>
-<div class="bg-glow"></div>
+<body class="uk-background-muted">
 ${body}
-<footer class="footer">
-  <span>webship/workspace · DDEV-only tooling · <a href="/">workspace.ddev.site</a></span>
+<footer class="uk-section uk-section-xsmall uk-text-center uk-text-meta">
+  webship/workspace · DDEV-only tooling · <a href="/">workspace.ddev.site</a>
 </footer>
 </body>
 </html>`;
@@ -77,56 +92,56 @@ ${body}
 // the bottom-right widget with a 🤖 launcher; inline renders it in the flow.
 function assistantHtml({ floating }) {
   const panel = `
-    <div class="assistant-panel">
-      <div class="assistant-header">
-        <span class="ah-title"><span class="bot">🤖</span> workspace AI Assistant</span>
-        <span class="ddev-badge">DDEV Mode ✓</span>
+    <div class="uk-card uk-card-default uk-card-body assistant-panel">
+      <div class="uk-flex uk-flex-between uk-flex-middle uk-margin-small-bottom">
+        <h3 class="uk-card-title uk-margin-remove">🤖 workspace AI Assistant</h3>
+        <span class="uk-label uk-label-success">DDEV Mode ✓</span>
       </div>
-      <p class="assistant-tagline">Ask me anything about workspace, DDEV, or Drupal development tasks!</p>
-      <div class="quick-actions">
-        <form hx-post="/actions/quick-build" hx-target="#chat-log" hx-swap="beforeend" class="qa-form">
+      <p class="uk-text-meta uk-margin-small">Ask me anything about workspace, DDEV, or Drupal development tasks!</p>
+      <div class="uk-margin-small quick-actions">
+        <form hx-post="/actions/quick-build" hx-target="#chat-log" hx-swap="beforeend" class="qa-form uk-flex uk-flex-middle">
           <input type="hidden" name="script" value="cmd-drupal11-0-x-recommended-project.sh">
           <input type="hidden" name="flags" value="--install">
-          <input type="text" name="projectName" placeholder="name…" class="qa-name" required pattern="[a-zA-Z0-9_-]+">
-          <button type="submit">➕ New Drupal 11</button>
+          <input type="text" name="projectName" placeholder="name…" class="uk-input uk-form-small uk-form-width-small qa-name" required pattern="[a-zA-Z0-9_-]+">
+          <button type="submit" class="uk-button uk-button-primary uk-button-small"><span uk-icon="icon: plus; ratio: .7"></span> New Drupal 11</button>
         </form>
-        <form hx-post="/actions/quick-build" hx-target="#chat-log" hx-swap="beforeend" class="qa-form">
+        <form hx-post="/actions/quick-build" hx-target="#chat-log" hx-swap="beforeend" class="qa-form uk-flex uk-flex-middle">
           <input type="hidden" name="script" value="cmd-varbase10-1-x-project.sh">
           <input type="hidden" name="flags" value="--install --add-users">
-          <input type="text" name="projectName" placeholder="name…" class="qa-name" required pattern="[a-zA-Z0-9_-]+">
-          <button type="submit">🚀 New Varbase</button>
+          <input type="text" name="projectName" placeholder="name…" class="uk-input uk-form-small uk-form-width-small qa-name" required pattern="[a-zA-Z0-9_-]+">
+          <button type="submit" class="uk-button uk-button-primary uk-button-small"><span uk-icon="icon: bolt; ratio: .7"></span> New Varbase</button>
         </form>
-        <button hx-get="/actions/status" hx-target="#chat-log" hx-swap="beforeend">💚 Status</button>
+        <button class="uk-button uk-button-default uk-button-small" hx-get="/actions/status" hx-target="#chat-log" hx-swap="beforeend"><span uk-icon="icon: heart; ratio: .7"></span> Status</button>
       </div>
-      <div class="chat-log" id="chat-log">
+      <div class="uk-background-muted uk-padding-small uk-panel-scrollable chat-log" id="chat-log">
         <div class="msg assistant">
           <p><strong>Hi!</strong> I can help you:</p>
-          <ul>
+          <ul class="uk-list uk-list-bullet uk-margin-remove">
             <li>Show you all available commands in any workspace</li>
             <li>Give step-by-step instructions with code examples</li>
           </ul>
           <p>💡 <strong>Try these examples:</strong></p>
-          <ul>
+          <ul class="uk-list uk-list-bullet uk-margin-remove">
             <li>"Create a new Varbase project"</li>
             <li>"Show me all available commands"</li>
             <li>"What's the system status?"</li>
           </ul>
         </div>
       </div>
-      <form class="chat-input"
+      <form class="uk-flex uk-margin-small-top chat-input"
             hx-post="/actions/chat" hx-target="#chat-log" hx-swap="beforeend"
             hx-on::after-request="this.reset()">
-        <input type="text" name="message" placeholder="Ask me anything about workspace, DDEV, or Drupal..." autocomplete="off" required>
-        <button type="submit">Send ➤</button>
+        <input type="text" name="message" class="uk-input" placeholder="Ask me anything about workspace, DDEV, or Drupal..." autocomplete="off" required>
+        <button type="submit" class="uk-button uk-button-primary uk-margin-small-left"><span uk-icon="icon: comment; ratio: .8"></span> Send</button>
       </form>
     </div>`;
 
   if (floating) {
     return `
-      <div class="assistant-float assistant-card" id="assistant-float">${panel}</div>
-      <button class="assistant-launcher" onclick="document.getElementById('assistant-float').classList.toggle('open')" title="workspace AI Assistant">🤖</button>`;
+      <div class="assistant-float" id="assistant-float">${panel}</div>
+      <button class="assistant-launcher uk-button uk-button-primary" onclick="document.getElementById('assistant-float').classList.toggle('open')" title="workspace AI Assistant">🤖</button>`;
   }
-  return `<div class="assistant-card">${panel}</div>`;
+  return panel;
 }
 
 /* ---------------- pages ---------------- */
@@ -137,93 +152,134 @@ function homePage() {
     const projectCount = listProjects(w.dir).length;
     const hasBuilders = findBuilderScripts(w.dir).length > 0;
     return `
-      <a class="workspace-card" href="/${esc(w.key)}">
-        <div class="icon">${w.icon}</div>
-        <div class="label">${esc(w.label)}</div>
-        <div class="subtitle">${esc(w.subtitle)}</div>
-        <div class="count${hasBuilders ? ' buildable' : ''}">${projectCount} project${projectCount === 1 ? '' : 's'}${hasBuilders ? ' · buildable' : ''}</div>
-      </a>`;
+      <div>
+        <a class="uk-card uk-card-default uk-card-hover uk-card-body uk-card-small uk-text-center uk-display-block uk-link-reset workspace-card" href="/${esc(w.key)}">
+          <div class="icon"><span uk-icon="icon: ${w.icon}; ratio: 1.4" class="uk-text-primary"></span></div>
+          <h4 class="uk-card-title uk-margin-remove uk-text-bold">${esc(w.label)}</h4>
+          <p class="uk-text-meta uk-margin-remove">${esc(w.subtitle)}</p>
+          <span class="uk-label ${hasBuilders ? 'uk-label-success' : ''} uk-margin-small-top">${projectCount} project${projectCount === 1 ? '' : 's'}${hasBuilders ? ' · buildable' : ''}</span>
+        </a>
+      </div>`;
   }).join('');
 
   return pageShell('workspace', `
-<header class="hero">
-  <div class="logo"><span>🛠️</span></div>
-  <h1>workspace</h1>
-  <p class="subtitle">
-    The <strong>workspace</strong> management system helps developers manage the base code
-    development work cycle for custom distributions and starter kit templates —
-    on your Linux development computer or servers with DDEV/Docker.
-  </p>
-  <nav class="pill-links">
-    <a class="pill" href="https://github.com/webship/workspace" target="_blank"><span class="pi">📄</span> Complete README</a>
-    <button class="pill" hx-get="/actions/status" hx-target="#chat-log" hx-swap="beforeend"><span class="pi">💚</span> Health Check</button>
-  </nav>
+<header class="uk-section uk-section-small uk-text-center hero">
+  <div class="uk-container">
+    <div class="logo"><span uk-icon="icon: settings; ratio: 2.2"></span></div>
+    <h1 class="uk-heading-medium uk-margin-small-top uk-margin-small-bottom">workspace</h1>
+    <p class="uk-text-lead uk-width-2-3@m uk-margin-auto">
+      The <strong>workspace</strong> management system helps developers manage the base code
+      development work cycle for custom distributions and starter kit templates —
+      on your Linux development computer or servers with DDEV/Docker.
+    </p>
+    <div class="uk-margin-top">
+      <a class="uk-button uk-button-default uk-border-pill uk-margin-small-right" href="https://github.com/webship/workspace" target="_blank"><span uk-icon="file-text"></span> Complete README</a>
+      <button class="uk-button uk-button-default uk-border-pill" hx-get="/actions/status" hx-target="#chat-log" hx-swap="beforeend"><span uk-icon="heart"></span> Health Check</button>
+    </div>
+  </div>
 </header>
 
-<main class="layout">
-  ${assistantHtml({ floating: false })}
-  <section class="workspaces-card">
-    <h2>Workspaces</h2>
-    <p class="workspaces-sub">Browse and manage your development environments</p>
-    <div class="workspace-grid">${cards}</div>
-  </section>
+<main class="uk-container uk-container-large uk-margin-bottom">
+  <div class="uk-grid uk-grid-medium uk-flex-top" uk-grid>
+    <div class="uk-width-2-5@m">
+      ${assistantHtml({ floating: false })}
+    </div>
+    <div class="uk-width-3-5@m">
+      <div class="uk-card uk-card-default uk-card-body">
+        <h2 class="uk-text-center uk-margin-remove-bottom">Workspaces</h2>
+        <p class="uk-text-meta uk-text-center uk-margin-small-bottom">Browse and manage your development environments</p>
+        <div class="uk-grid uk-grid-small uk-child-width-1-2@s" uk-grid>${cards}</div>
+      </div>
+    </div>
+  </div>
 </main>`);
 }
 
-function projectRowsHtml(key, dir) {
+// One `ddev list` call → { name: { status, url } } so every project row can
+// show whether it's already started and ready to launch.
+async function ddevStatusMap() {
+  const result = await run('ddev', ['list', '--json-output'], ROOT, { timeoutMs: 60 * 1000 });
+  const map = {};
+  try {
+    for (const p of JSON.parse(result.stdout).raw || []) {
+      map[p.name] = { status: p.status, url: p.primary_url };
+    }
+  } catch (_) { /* leave empty on parse/daemon errors — rows fall back to "unknown" */ }
+  return map;
+}
+
+async function projectRowsHtml(key, dir) {
   const projects = listProjects(dir);
   const canBackup = !!findBackupScript(dir);
   const canRemove = !!findRemoveScript(dir);
-  const canFilemode = !!findFilemodeScript(dir);
+  const statuses = await ddevStatusMap();
 
-  const rows = projects.map((p) => `
-    <div class="project-row">
-      <span class="project-name">📁 ${esc(p)}</span>
-      <span class="project-actions">
-        ${canBackup ? `<button class="secondary" hx-post="/actions/backup" hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"}' hx-target="#webship-workspace-output" hx-swap="innerHTML">💾 Backup</button>` : ''}
-        ${canFilemode ? `<button class="secondary" hx-post="/actions/filemode" hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"}' hx-target="#webship-workspace-output" hx-swap="innerHTML">🔧 Filemode</button>` : ''}
-        ${canRemove ? `<button class="danger arm-step" data-armed="0" hx-post="/actions/remove" hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}","confirm":"yes"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" hx-trigger="confirmed-remove">🗑️ Remove</button>` : ''}
-      </span>
-    </div>`).join('');
+  const rows = projects.map((p) => {
+    const ddevName = ddevProjectName(path.join(dir, p));
+    const isDdev = ddevName !== null;
+    const status = isDdev ? (statuses[ddevName]?.status || 'stopped') : null;
+    const running = status === 'running';
+    const statusBadge = !isDdev ? '' : running
+      ? '<span class="uk-label uk-label-success">🟢 Running</span>'
+      : `<span class="uk-label">⚪ ${esc(status)}</span>`;
+    const vals = (extra = '') => `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
+    return `
+    <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
+      <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
+        <span class="uk-text-bold">📁 ${esc(p)} ${statusBadge}</span>
+        <div class="project-actions">
+          ${isDdev && !running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-start" ${vals()}><span uk-icon="icon: play; ratio: .7"></span> Start</button>` : ''}
+          ${isDdev && running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-stop" ${vals()}><span uk-icon="icon: ban; ratio: .7"></span> Stop</button>` : ''}
+          ${isDdev && running ? `<a class="uk-button uk-button-primary uk-button-small" href="https://${esc(ddevName)}.ddev.site" target="_blank"><span uk-icon="icon: forward; ratio: .7"></span> Launch</a>` : ''}
+          ${canBackup ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Backup</button>` : ''}
+          ${canRemove ? `<button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/remove" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Remove</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 
   return `
-    <h3>Projects <span class="count-chip">${projects.length}</span></h3>
-    ${rows || '<p class="webship-workspace-meta">No projects yet.</p>'}`;
+    <h3 class="uk-margin-small-bottom">Projects <span class="uk-badge">${projects.length}</span></h3>
+    ${rows || '<p class="uk-text-meta">No projects yet.</p>'}`;
 }
 
-function workspacePage(key) {
+async function workspacePage(key) {
   const workspaces = loadWorkspaces();
   const meta = workspaces[key];
   const dir = meta.dir;
   const builders = findBuilderScripts(dir);
-  const builderOptions = builders.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  const builderOptions = builders.map((s) => `<option value="${esc(s)}">${esc(builderLabel(dir, s))}</option>`).join('');
 
   return pageShell(`${meta.label} · workspace`, `
-<header class="hero hero-compact">
-  <a class="back-link" href="/">← All workspaces</a>
-  <div class="logo logo-sm"><span>${meta.icon}</span></div>
-  <h1>${esc(meta.label)}</h1>
-  <p class="subtitle">${esc(meta.subtitle)}</p>
+<header class="uk-section uk-section-small uk-text-center uk-position-relative hero">
+  <div class="uk-position-top-left uk-position-small">
+    <a class="uk-button uk-button-default uk-border-pill" href="/"><span uk-icon="arrow-left"></span> All workspaces</a>
+  </div>
+  <div class="uk-container">
+    <div class="logo logo-sm"><span uk-icon="icon: ${meta.icon}; ratio: 1.8"></span></div>
+    <h1 class="uk-heading-small uk-margin-small-top uk-margin-remove-bottom uk-text-capitalize">${esc(meta.label)}</h1>
+    <p class="uk-text-lead uk-margin-small-top">${esc(meta.subtitle)}</p>
+  </div>
 </header>
 
-<main class="webship-workspace-page">
-  <section class="workspaces-card">
+<main class="uk-container uk-container-small uk-margin-bottom webship-workspace-page">
+  <div class="uk-card uk-card-default uk-card-body">
     ${builders.length ? `
-      <h3>Build a new project</h3>
-      <form class="build-row" hx-post="/actions/build" hx-target="#webship-workspace-output" hx-swap="innerHTML">
+      <h3 class="uk-margin-small-bottom">Build a new project</h3>
+      <form class="uk-grid uk-grid-small uk-margin-bottom" uk-grid hx-post="/actions/build" hx-target="#webship-workspace-output" hx-swap="innerHTML">
         <input type="hidden" name="workspace" value="${esc(key)}">
-        <select name="script">${builderOptions}</select>
-        <input name="projectName" placeholder="new-project-name" required pattern="[a-zA-Z0-9_-]+">
-        <button type="submit" class="primary">Build</button>
+        <div class="uk-width-2-5@s"><select class="uk-select" name="script">${builderOptions}</select></div>
+        <div class="uk-width-2-5@s"><input class="uk-input" name="projectName" placeholder="new-project-name" required pattern="[a-zA-Z0-9_-]+"></div>
+        <div class="uk-width-1-5@s"><button type="submit" class="uk-button uk-button-primary uk-width-1-1">Build</button></div>
       </form>
     ` : ''}
 
     <div id="webship-workspace-projects" hx-get="/fragments/${esc(key)}/projects" hx-trigger="refresh-projects from:body">
-      ${projectRowsHtml(key, dir)}
+      ${await projectRowsHtml(key, dir)}
     </div>
 
     <div id="webship-workspace-output"></div>
-  </section>
+  </div>
 </main>
 
 ${assistantHtml({ floating: true })}`);
@@ -271,15 +327,6 @@ async function handleAction(pathname, form, res) {
     return send(resultFragment(result, `💾 Backup <strong>${esc(form.projectName)}</strong> ${result.ok ? 'finished' : 'failed'}.`));
   }
 
-  if (pathname === '/actions/filemode') {
-    const dir = workspaceDir(workspace);
-    const script = findFilemodeScript(dir);
-    if (!script) return send('<div class="msg error">No filemode script in this workspace.</div>', 400);
-    if (!NAME_RE.test(String(form.projectName || ''))) return send('<div class="msg error">Invalid project name.</div>', 400);
-    const result = await run('bash', [script, form.projectName], dir);
-    return send(resultFragment(result, `🔧 Filemode fix on <strong>${esc(form.projectName)}</strong> ${result.ok ? 'done' : 'failed'}.`));
-  }
-
   if (pathname === '/actions/remove') {
     const dir = workspaceDir(workspace);
     const script = findRemoveScript(dir);
@@ -290,6 +337,19 @@ async function handleAction(pathname, form, res) {
     // HX-Trigger tells the page to refresh its project list.
     res.setHeader('HX-Trigger', 'refresh-projects');
     return send(resultFragment(result, `🗑️ Remove <strong>${esc(form.projectName)}</strong> ${result.ok ? 'finished' : 'failed'}.`));
+  }
+
+  if (pathname === '/actions/ddev-start' || pathname === '/actions/ddev-stop') {
+    const projectName = String(form.projectName || '');
+    if (!NAME_RE.test(projectName)) return send('<div class="msg error">Invalid project name.</div>', 400);
+    const projectDir = path.join(workspaceDir(workspace), projectName);
+    if (!ddevProjectName(projectDir)) return send('<div class="msg error">Not a DDEV project.</div>', 400);
+    const verb = pathname === '/actions/ddev-start' ? 'start' : 'stop';
+    const result = await run('ddev', [verb, '-y'], projectDir, { timeoutMs: 5 * 60 * 1000 });
+    const stripped = { ...result, stdout: result.stdout.replace(/\x1b\[[0-9;]*m/g, ''), stderr: result.stderr.replace(/\x1b\[[0-9;]*m/g, '') };
+    // Refresh the project list so status badges + Start/Stop/Launch buttons update.
+    res.setHeader('HX-Trigger', 'refresh-projects');
+    return send(resultFragment(stripped, `${verb === 'start' ? '▶️' : '⏹️'} <code>ddev ${verb}</code> on <strong>${esc(projectName)}</strong> ${result.ok ? 'finished' : 'failed'}.`));
   }
 
   if (pathname === '/actions/status') {
@@ -364,12 +424,12 @@ const server = http.createServer(async (req, res) => {
       const fragMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/projects$/);
       if (fragMatch && isValidWorkspace(fragMatch[1])) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(projectRowsHtml(fragMatch[1], workspaceDir(fragMatch[1])));
+        return res.end(await projectRowsHtml(fragMatch[1], workspaceDir(fragMatch[1])));
       }
       const wsKey = pathname.replace(/^\/+|\/+$/g, '');
       if (isValidWorkspace(wsKey)) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(workspacePage(wsKey));
+        return res.end(await workspacePage(wsKey));
       }
       if (serveStatic(pathname, res)) return;
       res.writeHead(404, { 'Content-Type': 'text/plain' });

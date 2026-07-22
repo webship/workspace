@@ -1,5 +1,7 @@
 #!/bin/usr/env bash
 
+# workspace-name: Drupal 11.0.x (recommended project)
+
 # Bootstrap.
 source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 

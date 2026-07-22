@@ -8,23 +8,25 @@ const ROOT = process.env.WEBSHIP_WORKSPACE_ROOT || path.join(process.env.HOME, '
 // Presentational-only (icon/subtitle) — everything functional (paths, script names,
 // which workspaces exist) is read live from settings.yml / workspace.<name>.settings.yml
 // and the filesystem, so a new workspace added there shows up with no code change.
+// `icon` is a UIKit icon name (https://getuikit.com/docs/icon), rendered
+// with the vendored uikit-icons.min.js.
 const PRESENTATION = {
-  products:   { icon: '📦', subtitle: 'Internal & External Products' },
-  dev:        { icon: '💻', subtitle: 'Development Projects' },
-  test:       { icon: '🧪', subtitle: 'Testing Environment' },
-  demos:      { icon: '🖥️', subtitle: 'Demo Sites' },
-  sandboxes:  { icon: '🎲', subtitle: 'Experimental Projects' },
-  projects:   { icon: '📁', subtitle: 'Client Projects' },
-  profiles:   { icon: '🌐', subtitle: 'Distros' },
-  themes:     { icon: '🎨', subtitle: 'Drupal Themes' },
-  modules:    { icon: '🧩', subtitle: 'Drupal Modules' },
-  libraries:  { icon: '📚', subtitle: 'Third-Party Libraries' },
-  forked:     { icon: '🍴', subtitle: 'Forked / Customized Copies' },
-  docs:       { icon: '📄', subtitle: 'Documentation Projects' },
-  agents:     { icon: '🤖', subtitle: 'AI Automation' },
-  skills:     { icon: '🧠', subtitle: 'AI Skill Definitions' },
-  recipes:    { icon: '📖', subtitle: 'Development Recipes' },
-  components: { icon: '🧱', subtitle: 'Reusable Components' },
+  products:   { icon: 'cart',        subtitle: 'Internal & External Products' },
+  dev:        { icon: 'code',        subtitle: 'Development Projects' },
+  test:       { icon: 'check',       subtitle: 'Testing Environment' },
+  demos:      { icon: 'desktop',     subtitle: 'Demo Sites' },
+  sandboxes:  { icon: 'future',      subtitle: 'Experimental Projects' },
+  projects:   { icon: 'folder',      subtitle: 'Client Projects' },
+  profiles:   { icon: 'world',       subtitle: 'Distros' },
+  themes:     { icon: 'paint-bucket', subtitle: 'Drupal Themes' },
+  modules:    { icon: 'grid',        subtitle: 'Drupal Modules' },
+  libraries:  { icon: 'album',       subtitle: 'Third-Party Libraries' },
+  forked:     { icon: 'git-branch',  subtitle: 'Forked / Customized Copies' },
+  docs:       { icon: 'file-text',   subtitle: 'Documentation Projects' },
+  agents:     { icon: 'happy',       subtitle: 'AI Automation' },
+  skills:     { icon: 'star',        subtitle: 'AI Skill Definitions' },
+  recipes:    { icon: 'list',        subtitle: 'Development Recipes' },
+  components: { icon: 'thumbnails',  subtitle: 'Reusable Components' },
 };
 
 function loadYaml(file) {
@@ -52,7 +54,7 @@ function loadWorkspaces() {
     const doc = wsSettings.doc || {};
     const database = wsSettings.database || {};
     const dir = doc.path || path.join(ROOT, name);
-    const pres = PRESENTATION[name] || { icon: '📂', subtitle: name };
+    const pres = PRESENTATION[name] || { icon: 'folder', subtitle: name };
 
     map[name] = {
       key: name,
@@ -116,6 +118,17 @@ function findBuilderScripts(dir) {
     .sort();
 }
 
+// Human-readable label for a builder script: the `# workspace-name: ...`
+// header near the top of the cmd-*.sh file, falling back to the filename.
+function builderLabel(dir, script) {
+  try {
+    const head = fs.readFileSync(path.join(dir, script), 'utf8').slice(0, 500);
+    const m = head.match(/^# workspace-name:\s*(.+)$/m);
+    if (m) return m[1].trim();
+  } catch (_) { /* fall through */ }
+  return script;
+}
+
 module.exports = {
   ROOT,
   CONFIG_DIR,
@@ -126,4 +139,5 @@ module.exports = {
   findRemoveScript,
   findFilemodeScript,
   findBuilderScripts,
+  builderLabel,
 };

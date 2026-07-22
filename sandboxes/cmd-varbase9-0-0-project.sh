@@ -1,5 +1,7 @@
 #!/bin/usr/env bash
 
+# workspace-name: Varbase 9.0.0
+
 # Bootstrap.
 source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
