@@ -62,6 +62,12 @@ with Docker-outside-of-Docker so it can manage sibling DDEV projects:
 ## Security note
 
 This app executes shell scripts with real side effects (build, backup,
-**delete**) and has host-Docker access. It binds only to the DDEV-internal
-port and is meant for local development machines — do not expose
-`workspace.ddev.site` beyond localhost without adding authentication.
+**delete**) and has host-Docker access. The AI assistant runs in **agent
+mode**: its `claude -p` calls are allowed Bash/Read/Glob/Grep inside the
+container (Write/Edit stay disallowed, and its instructions forbid deleting
+anything unasked), so a chat message can really build, start, stop, back up
+and open projects — and steer the page afterwards via NAVIGATE/OPEN/REFRESH
+directives. Every action and chat message is appended to `actions.log`.
+It binds only to the DDEV-internal port and is meant for local development
+machines — do not expose `workspace.ddev.site` beyond localhost without
+adding authentication.

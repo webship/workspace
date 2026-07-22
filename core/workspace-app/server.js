@@ -109,16 +109,12 @@ function assistantHtml({ floating }) {
       <div class="uk-card-body assistant-body">
         <div class="chat-log" id="chat-log">
           <div class="msg assistant">
-            <p><strong>Hi!</strong> I can help you:</p>
-            <ul class="uk-list uk-list-bullet uk-margin-remove">
-              <li>Show you all available commands in any workspace</li>
-              <li>Give step-by-step instructions with code examples</li>
-            </ul>
+            <p><strong>Hi!</strong> I can actually do things for you — build, start, back up, and open your projects, then take you there.</p>
             <p>💡 <strong>Try these examples:</strong></p>
             <ul class="uk-list uk-list-bullet uk-margin-remove">
-              <li>"Create a new Varbase project"</li>
-              <li>"Show me all available commands"</li>
-              <li>"What's the system status?"</li>
+              <li>"Create a new Varbase project called demo1 and open it"</li>
+              <li>"Start natshahcom in dev and launch it"</li>
+              <li>"What's running right now?"</li>
             </ul>
           </div>
         </div>
@@ -391,21 +387,62 @@ async function handleAction(pathname, form, res) {
   if (pathname === '/actions/chat') {
     const message = String(form.message || '').trim();
     if (!message) return send('<div class="msg error">Empty message.</div>', 400);
+    audit(pathname, { workspace: '-', projectName: message.slice(0, 120) });
     const userHtml = `<div class="msg user">${esc(message)}</div>`;
+
+    // Agent mode: the assistant can actually run the workspace tooling
+    // (Bash + read tools inside this container, where ~/workspace, ddev and
+    // docker are all available) and steers the interface afterwards through
+    // NAVIGATE/OPEN/REFRESH directives that ui.js executes in the browser.
+    const workspaceNames = Object.keys(loadWorkspaces()).join(', ');
+    const system = [
+      `You are the Workspace AI Assistant embedded in the web dashboard at https://workspace.ddev.site, managing the webship/workspace tooling rooted at ${ROOT}.`,
+      `You run inside the dashboard's container with Bash access: the whole workspace tree is at ${ROOT}, and the ddev + docker CLIs manage sibling DDEV projects.`,
+      `Workspaces (folders under ${ROOT}): ${workspaceNames}.`,
+      'How to act:',
+      `- Inspect: ls ${ROOT}/<workspace> ; ddev list ; each builder script has a "# workspace-name:" header naming what it builds.`,
+      `- Build a new project: cd ${ROOT}/<workspace> && bash cmd-<...>-project.sh <project_name> --install`,
+      `- Start/stop an existing project: cd ${ROOT}/<workspace>/<project> && ddev start -y (or ddev stop -y)`,
+      `- Backup: run the folder's cmd-tool*-backup-*.sh <project_name> from inside ${ROOT}/<workspace>.`,
+      '- NEVER delete or remove anything unless the user explicitly asked for that in this exact message.',
+      'After acting, end your reply with directives, each alone on its own line, so the interface can react:',
+      'NAVIGATE:/<workspace>   (go to that workspace page, e.g. NAVIGATE:/dev)',
+      'OPEN:<https url>        (open a site in a new tab, e.g. after ddev start)',
+      'REFRESH                 (refresh the visible project list)',
+      'Keep replies short and factual; report real command results, never invented ones.',
+    ].join('\n');
+
     const args = [
       '-p', message,
       '--output-format', 'json',
-      '--permission-mode', 'plan',
-      '--disallowedTools', 'Bash', 'Write', 'Edit', 'NotebookEdit', 'WebFetch', 'Agent',
+      '--append-system-prompt', system,
+      '--allowedTools', 'Bash', 'Read', 'Glob', 'Grep',
+      '--disallowedTools', 'Write', 'Edit', 'NotebookEdit', 'WebFetch', 'Agent',
       '--no-session-persistence',
     ];
-    const result = await run('claude', args, ROOT, { timeoutMs: 120 * 1000 });
+    const result = await run('claude', args, ROOT, { timeoutMs: 15 * 60 * 1000 });
     let reply = result.stdout.trim();
     try {
       const parsed = JSON.parse(result.stdout);
       reply = parsed.result || parsed.response || reply;
     } catch (_) { /* raw text fallback */ }
     if (!reply) reply = result.stderr.trim() || 'No response from the assistant.';
+
+    // Pull the interface directives out of the reply text.
+    const directive = {};
+    reply = reply.split('\n').filter((line) => {
+      const nav = line.match(/^\s*NAVIGATE:(\/[a-z0-9_-]+)\s*$/);
+      if (nav) { directive.navigate = nav[1]; return false; }
+      const open = line.match(/^\s*OPEN:(https?:\/\/\S+)\s*$/);
+      if (open) { directive.open = open[1]; return false; }
+      if (/^\s*REFRESH\s*$/.test(line)) { directive.refresh = true; return false; }
+      return true;
+    }).join('\n').trim();
+
+    const triggers = { 'refresh-projects': directive.refresh ? {} : undefined, 'assistant-directive': (directive.navigate || directive.open) ? directive : undefined };
+    const activeTriggers = Object.fromEntries(Object.entries(triggers).filter(([, v]) => v !== undefined));
+    if (Object.keys(activeTriggers).length) res.setHeader('HX-Trigger', JSON.stringify(activeTriggers));
+
     return send(`${userHtml}<div class="msg assistant">${esc(reply)}</div>`);
   }
 

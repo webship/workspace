@@ -53,6 +53,15 @@ document.addEventListener('click', (e) => {
   rec.start();
 });
 
+// Interface directives from the Workspace AI Assistant (HX-Trigger events):
+// after the agent creates/starts/launches something, it can steer the page —
+// open the new site in a tab and/or navigate to the relevant workspace page.
+document.body.addEventListener('assistant-directive', (e) => {
+  const d = e.detail || {};
+  if (d.open) window.open(d.open, '_blank');
+  if (d.navigate) setTimeout(() => { location.href = d.navigate; }, 900);
+});
+
 // Global "system is working" indicator: count in-flight HTMX requests and
 // toggle html.htmx-busy, which shows the top progress bar + Working… pill.
 let activeRequests = 0;
