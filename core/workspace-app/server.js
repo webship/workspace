@@ -536,9 +536,10 @@ async function workspacePage(key) {
       <h3 class="uk-margin-small-bottom">Build a new ${esc(meta.noun)}</h3>
       <form class="uk-grid uk-grid-small uk-margin-bottom" uk-grid hx-post="/actions/build" hx-target="#webship-workspace-output" hx-swap="innerHTML">
         <input type="hidden" name="workspace" value="${esc(key)}">
-        <div class="uk-width-2-5@s"><select class="uk-select" name="script">${builderOptions}</select></div>
-        <div class="uk-width-2-5@s"><input class="uk-input" name="projectName" placeholder="new-project-name" required pattern="[a-zA-Z0-9_-]+"></div>
-        <div class="uk-width-1-5@s"><button type="submit" class="uk-button uk-button-primary uk-width-1-1">Build</button></div>
+        <div class="uk-width-1-3@s"><select class="uk-select" name="script">${builderOptions}</select></div>
+        <div class="uk-width-1-4@s"><input class="uk-input" name="projectName" placeholder="new-project-name" required pattern="[a-zA-Z0-9_-]+"></div>
+        <div class="uk-width-1-4@s"><input class="uk-input" name="flags" placeholder="--install --add-users" title="Arguments passed to the cmd- script (space-separated --flags; --install is the default)"></div>
+        <div class="uk-width-1-6@s"><button type="submit" class="uk-button uk-button-primary uk-width-1-1">Build</button></div>
       </form>
     ` : ''}
 
@@ -600,7 +601,7 @@ async function handleAction(pathname, form, res) {
     const projectName = String(form.projectName || '');
     if (!SCRIPT_RE.test(script) || !findBuilderScripts(dir).includes(script)) return send('<div class="msg error">Unknown build script.</div>', 400);
     if (!NAME_RE.test(projectName)) return send('<div class="msg error">Invalid project name.</div>', 400);
-    const flags = String(form.flags || '--install').split(' ').filter((f) => /^--[a-zA-Z0-9=_.,-]*$/.test(f));
+    const flags = String(form.flags || '--install').trim().split(/\s+/).filter((f) => /^--[a-zA-Z0-9=_.,:@^~\/-]*$/.test(f));
     // Full distribution builds (composer create-project + install) can far
     // exceed the default 15m on a cold composer cache.
     const id = startJob(`🏗️ Build <strong>${esc(projectName)}</strong> (${esc(builderLabel(dir, script))})`, 'bash', [script, projectName, ...flags], dir, { timeoutMs: 60 * 60 * 1000 });

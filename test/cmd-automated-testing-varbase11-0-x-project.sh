@@ -23,10 +23,25 @@ ARGPARSE_DESCRIPTION="Build a ${distribution_title} ${site_version} project and 
 argparse "$@" <<ARGEOF || exit 1
 parser.add_argument('PROJECT_NAME',
                     help='The name of the project.')
-parser.add_argument('TESTING_TAGS',
-                    default='',
+parser.add_argument('TESTING_PATH',
+                    default='tests/features',
                     nargs='?',
-                    help='Optional cucumber tags to filter, e.g. "@critical"')
+                    help='Feature path to run. default [ tests/features ]')
+parser.add_argument('-t', '--tags',
+                    default='',
+                    help='Optional cucumber tags filter, e.g. --tags "@critical"')
+parser.add_argument('-r', '--run',
+                    action='store_true',
+                    default=False,
+                    help='Run with a real visible browser (headed).')
+parser.add_argument('-b', '--run-no-headless',
+                    action='store_true',
+                    default=False,
+                    help='Alias for --run: real, no-headless browser.')
+parser.add_argument('-l', '--run-headless',
+                    action='store_true',
+                    default=False,
+                    help='Run headless (the default).')
 parser.add_argument('-s', '--skip-build',
                     action='store_true',
                     default=False,
@@ -52,9 +67,18 @@ npm install --no-audit --no-fund ;
 npx playwright install chromium ;
 
 export LAUNCH_URL="https://${PROJECT_NAME}.ddev.site" ;
-echo "Running webship-js suite against ${LAUNCH_URL}" ;
-if [ -n "${TESTING_TAGS}" ]; then
-  npm test -- --tags "${TESTING_TAGS}" ;
+
+# Headed vs headless: --run / --run-no-headless show the browser;
+# headless is the default (and what --run-headless selects).
+if [ "${RUN}" == 'yes' ] || [ "${RUN_NO_HEADLESS}" == 'yes' ]; then
+  export HEADLESS=false ;
 else
-  npm test ;
+  export HEADLESS=true ;
+fi
+
+echo "Running webship-js suite against ${LAUNCH_URL} (HEADLESS=${HEADLESS}, path=${TESTING_PATH})" ;
+if [ -n "${TAGS}" ]; then
+  npm test -- "${TESTING_PATH}" --tags "${TAGS}" ;
+else
+  npm test -- "${TESTING_PATH}" ;
 fi
