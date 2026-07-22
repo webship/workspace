@@ -13,6 +13,11 @@ RUN curl -fsSL https://github.com/ddev/ddev/releases/download/v1.24.7/ddev_linux
     && chmod +x /usr/local/bin/ddev \
     && rm -rf /tmp/ddev.tar.gz
 
+# Claude Code CLI for the AI assistant chat (/actions/chat shells out to
+# `claude -p`). Auth comes from the host's ~/.claude + ~/.claude.json,
+# bind-mounted in via docker-compose.dood.yaml.
+RUN npm install -g @anthropic-ai/claude-code
+
 # The host's /var/run/docker.sock (bind-mounted in) is owned by root:docker
 # with the HOST's docker group GID — find yours with `getent group docker`
 # and adjust the 984 below if it differs. It must be the web user's PRIMARY

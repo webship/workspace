@@ -25,6 +25,34 @@ document.addEventListener('click', (e) => {
   window.htmx && window.htmx.trigger(btn, 'confirmed-remove');
 });
 
+// Voice input: mic button uses the browser's Web Speech API to dictate into
+// the chat input. Hidden automatically where the API isn't supported.
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!SpeechRecognition) {
+    document.querySelectorAll('.mic-btn').forEach((b) => { b.hidden = true; });
+  }
+});
+
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.mic-btn');
+  if (!btn || !SpeechRecognition) return;
+  const input = btn.closest('form').querySelector('input[name="message"]');
+  const rec = new SpeechRecognition();
+  rec.lang = document.documentElement.lang || 'en-US';
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  btn.classList.add('listening');
+  rec.onresult = (ev) => {
+    input.value = ev.results[0][0].transcript;
+    input.focus();
+  };
+  rec.onerror = () => { /* mic denied or no speech — just stop listening */ };
+  rec.onend = () => btn.classList.remove('listening');
+  rec.start();
+});
+
 // Keep the chat log scrolled to the latest message after every HTMX swap.
 document.addEventListener('htmx:afterSwap', (e) => {
   const log = document.getElementById('chat-log');

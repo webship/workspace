@@ -154,3 +154,15 @@
 
 /* UIKit icons inside the round hero logo render white on the blue circle */
 .logo { color: #fff; }
+
+/* Mic button while recording */
+.mic-btn.listening {
+  background: #f0506e !important;
+  color: #fff !important;
+  border-color: #f0506e !important;
+  animation: mic-pulse 1.2s infinite;
+}
+
+@keyframes mic-pulse {
+  50% { box-shadow: 0 0 0 6px rgba(240, 80, 110, .25); }
+}

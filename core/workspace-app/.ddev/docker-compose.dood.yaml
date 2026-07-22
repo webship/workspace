@@ -10,6 +10,9 @@ services:
       # references resolve identically whether run on the host or in here.
       # ${HOME} is interpolated on the HOST when ddev invokes docker compose.
       - ${HOME}/workspace:${HOME}/workspace
+      # Claude Code auth/config for the AI assistant chat.
+      - ${HOME}/.claude:${HOME}/.claude
+      - ${HOME}/.claude.json:${HOME}/.claude.json
     environment:
       - WEBSHIP_WORKSPACE_ROOT=${HOME}/workspace
       - WEBSHIP_WORKSPACE_PATH=${HOME}/workspace/core

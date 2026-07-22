@@ -51,9 +51,13 @@ with Docker-outside-of-Docker so it can manage sibling DDEV projects:
 - **docker group GID**: the Dockerfile assumes the host's `docker` group is
   GID `984`. Check yours with `getent group docker` and adjust the `groupmod`
   line if it differs, then `ddev restart`.
-- **Chat**: the assistant chat shells out to the `claude` CLI; without it
-  installed and authenticated on the host the chat replies with an error, but
-  everything else works.
+- **Chat**: the assistant chat shells out to the `claude` CLI **inside the
+  container** (installed in the web image via `npm install -g
+  @anthropic-ai/claude-code`); it authenticates through your host's
+  `~/.claude` + `~/.claude.json`, which are bind-mounted in. If you've never
+  logged in to Claude Code on the host, run `claude` there once first.
+- **Voice input**: the mic button uses the browser's Web Speech API
+  (Chrome/Edge; hidden automatically on browsers without support).
 
 ## Security note
 
