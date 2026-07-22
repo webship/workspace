@@ -877,7 +877,7 @@ async function handleAction(pathname, form, res) {
       `- Docs tooling: render PDF with: pandoc <doc>.md -o <doc>.pdf --pdf-engine=wkhtmltopdf ; render HTML with: pandoc <doc>.md -o <doc>.html --standalone ; capture a site screenshot with: wkhtmltoimage --width 1440 <url> ${ROOT}/docs/<name>.png`,
       '- NEVER delete or remove anything unless the user explicitly asked for that in this exact message.',
       'After acting, end your reply with directives, each alone on its own line, so the interface can react:',
-      'NAVIGATE:/<workspace>   (go to that workspace page, e.g. NAVIGATE:/dev)',
+      'NAVIGATE:/<workspace>   (go to that workspace page, e.g. NAVIGATE:/dev — or its backups page: NAVIGATE:/dev/backups)',
       'OPEN:<https url>        (open a site in a new tab, e.g. after ddev start)',
       'REFRESH                 (refresh the visible project list)',
       'Keep replies short and factual; report real command results, never invented ones.',
