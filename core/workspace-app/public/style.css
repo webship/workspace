@@ -640,3 +640,23 @@ html.dark .project-row:hover { border-color: #46508a; }
 html.dark .global-working-pill { background: #1c2136; border-color: #2b3049; color: #b9aef8; }
 
 html.dark footer.uk-section, html.dark footer.uk-section a { color: #6f77a3; }
+
+/* Item editor */
+.editor-card .editor-area {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+html.dark .editor-card .editor-area { background: #12162a; color: #e8eaf6; border-color: #2b3049; }
+
+/* When the floating assistant is open on a wide screen, shift the page
+ * content left so the widget never covers buttons; collapsing the widget
+ * (launcher) restores normal centering. */
+@media (min-width: 1200px) {
+  body:has(.assistant-float.open) .page-body.webship-workspace-page {
+    margin-left: auto;
+    margin-right: 540px;
+  }
+}

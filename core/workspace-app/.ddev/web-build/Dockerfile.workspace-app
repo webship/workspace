@@ -4,6 +4,7 @@
 # manage sibling ddev projects exactly like they do on the host.
 RUN apt-get update -o Acquire::AllowInsecureRepositories=true || true \
     && apt-get install -y --no-install-recommends --allow-unauthenticated docker.io curl ca-certificates \
+       pandoc wkhtmltopdf \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://github.com/ddev/ddev/releases/download/v1.24.7/ddev_linux-amd64.v1.24.7.tar.gz \

@@ -98,6 +98,138 @@ function listProjects(dir) {
   }
 }
 
+/* ---------------- file-item workspaces (agents, skills, prompts, docs) --- */
+
+// Where each editable kind installs into the live Claude Code CLI setup.
+const INSTALL_TARGETS = {
+  agents: path.join(process.env.HOME, '.claude', 'agents'),
+  skills: path.join(process.env.HOME, '.claude', 'skills'),
+  prompts: path.join(process.env.HOME, '.claude', 'commands'),
+};
+
+const ITEM_TEMPLATES = {
+  agents: (name) => `---
+name: ${name}
+description: Use this agent to <when to invoke it>.
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+---
+
+# ${name}
+
+You are the specialist agent for <what this agent does>.
+
+## Instructions
+
+- <how to work>
+`,
+  skills: (name) => `---
+name: ${name}
+description: <what this skill does and when to use it>
+---
+
+# ${name}
+
+## Instructions
+
+- <steps the skill follows>
+`,
+  prompts: (name) => `<Write the reusable prompt here — installing it makes it available in Claude Code as /${name}>
+`,
+  docs: (name) => `# ${name}
+
+<Write the document here — Markdown; use "Make PDF" to render a PDF next to it.>
+`,
+};
+
+// The file that holds an item's content, given its display name.
+function itemFile(key, name) {
+  const dir = workspaceDir(key);
+  if (key === 'skills') return path.join(dir, name, 'SKILL.md');
+  return path.join(dir, `${name}.md`);
+}
+
+// Items in a file-kind workspace: .md files (and for skills, folders with a
+// SKILL.md); docs also lists generated .pdf/.html outputs as artifacts.
+function listItems(key) {
+  const dir = workspaceDir(key);
+  let entries = [];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch (_) {
+    return [];
+  }
+  const items = [];
+  for (const e of entries) {
+    if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+    if (key === 'skills' && e.isDirectory() && fs.existsSync(path.join(dir, e.name, 'SKILL.md'))) {
+      items.push({ name: e.name, editable: true });
+    } else if (e.isFile() && e.name.endsWith('.md') && e.name !== 'README.md') {
+      items.push({ name: e.name.replace(/\.md$/, ''), editable: true });
+    } else if (key === 'docs' && e.isFile() && /\.(pdf|html)$/.test(e.name)) {
+      items.push({ name: e.name, editable: false, artifact: true });
+    }
+  }
+  return items.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function itemRowsHtml(key) {
+  const meta = loadWorkspaces()[key];
+  const items = listItems(key);
+  const installable = !!INSTALL_TARGETS[key];
+  const rows = items.map((it) => {
+    const vals = `hx-vals='{"workspace":"${esc(key)}","name":"${esc(it.name)}"}'`;
+    if (it.artifact) {
+      return `
+      <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
+        <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
+          <span class="uk-text-bold"><span uk-icon="icon: file-pdf; ratio: .8"></span> ${esc(it.name)}</span>
+          <div class="project-actions">
+            <a class="uk-button uk-button-primary uk-button-small" href="/files/${esc(key)}/${esc(it.name)}" target="_blank"><span uk-icon="icon: download; ratio: .7"></span> Open</a>
+            <button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/delete-item" hx-vals='{"workspace":"${esc(key)}","name":"${esc(it.name)}","confirm":"yes"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete</button>
+          </div>
+        </div>
+      </div>`;
+    }
+    return `
+    <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
+      <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
+        <span class="uk-text-bold"><span uk-icon="icon: file-edit; ratio: .8"></span> ${esc(it.name)}</span>
+        <div class="project-actions">
+          <button class="uk-button uk-button-default uk-button-small" hx-get="/fragments/${esc(key)}/edit/${encodeURIComponent(it.name)}" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: pencil; ratio: .7"></span> Edit</button>
+          ${installable ? `<button class="uk-button uk-button-primary uk-button-small" hx-post="/actions/install-item" ${vals} hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: push; ratio: .7"></span> Install</button>` : ''}
+          ${key === 'docs' ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/make-pdf" ${vals} hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: file-pdf; ratio: .7"></span> Make PDF</button>` : ''}
+          <button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/delete-item" hx-vals='{"workspace":"${esc(key)}","name":"${esc(it.name)}","confirm":"yes"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const heading = meta.nounPlural.charAt(0).toUpperCase() + meta.nounPlural.slice(1);
+  return `
+    <h3 class="uk-margin-small-bottom">${esc(heading)} <span class="uk-badge">${items.length}</span></h3>
+    ${rows || `<p class="uk-text-meta">No ${esc(meta.nounPlural)} yet — create one below.</p>`}`;
+}
+
+function editorFormHtml(key, name, content, isNew) {
+  const meta = loadWorkspaces()[key];
+  return `
+    <div class="uk-card uk-card-default uk-card-body uk-margin-top editor-card">
+      <h3 class="uk-margin-small-bottom">${isNew ? `New ${esc(meta.noun)}` : `Edit ${esc(name)}`}</h3>
+      <form hx-post="/actions/save-item" hx-target="#webship-workspace-output" hx-swap="innerHTML">
+        <input type="hidden" name="workspace" value="${esc(key)}">
+        <input class="uk-input uk-margin-small-bottom" name="name" value="${esc(name)}" placeholder="${esc(meta.noun)}-name" required pattern="[a-zA-Z0-9_-]+" ${isNew ? '' : 'readonly'}>
+        <textarea class="uk-textarea editor-area" name="content" rows="16" spellcheck="false">${esc(content)}</textarea>
+        <div class="uk-margin-small-top">
+          <button type="submit" class="uk-button uk-button-primary"><span uk-icon="icon: check; ratio: .8"></span> Save</button>
+        </div>
+      </form>
+    </div>`;
+}
+
 /* ---------------- shared page chrome ---------------- */
 
 function pageShell(title, body, crumbs = []) {
@@ -212,8 +344,8 @@ function assistantHtml({ floating, context = 'home' }) {
 function homePage() {
   const workspaces = loadWorkspaces();
   const cards = Object.values(workspaces).map((w) => {
-    const projectCount = listProjects(w.dir).length;
-    const hasBuilders = findBuilderScripts(w.dir).length > 0;
+    const projectCount = w.kind === 'files' ? listItems(w.key).length : listProjects(w.dir).length;
+    const hasBuilders = w.kind === 'files' ? false : findBuilderScripts(w.dir).length > 0;
     const backupCount = listBackups(w.key).length;
     return `
       <div class="uk-position-relative">
@@ -373,8 +505,23 @@ async function workspacePage(key) {
   const workspaces = loadWorkspaces();
   const meta = workspaces[key];
   const dir = meta.dir;
-  const builders = findBuilderScripts(dir);
+  const isFiles = meta.kind === 'files';
+  const builders = isFiles ? [] : findBuilderScripts(dir);
   const builderOptions = builders.map((s) => `<option value="${esc(s)}">${esc(builderLabel(dir, s))}</option>`).join('');
+
+  const listSection = isFiles ? `
+    <div id="webship-workspace-projects" hx-get="/fragments/${esc(key)}/items" hx-trigger="refresh-projects from:body">
+      ${itemRowsHtml(key)}
+    </div>
+
+    <p class="uk-margin-top">
+      <button class="uk-button uk-button-primary" hx-get="/fragments/${esc(key)}/new" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: plus; ratio: .8"></span> New ${esc(meta.noun)}</button>
+      ${key === 'docs' ? `
+      <button class="uk-button uk-button-secondary" hx-get="/fragments/docs/site-doc-form" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: bolt; ratio: .8"></span> Generate site doc (AI)</button>` : ''}
+    </p>` : `
+    <div id="webship-workspace-projects" hx-get="/fragments/${esc(key)}/projects" hx-trigger="refresh-projects from:body">
+      ${await projectRowsHtml(key, dir)}
+    </div>`;
 
   return pageShell(`${meta.label} · workspace`, `
 <main class="uk-container uk-container-small page-body webship-workspace-page">
@@ -396,9 +543,7 @@ async function workspacePage(key) {
       </form>
     ` : ''}
 
-    <div id="webship-workspace-projects" hx-get="/fragments/${esc(key)}/projects" hx-trigger="refresh-projects from:body">
-      ${await projectRowsHtml(key, dir)}
-    </div>
+    ${listSection}
 
     ${listBackups(key).length ? `
     <p class="uk-margin-top uk-text-center">
@@ -527,6 +672,90 @@ async function handleAction(pathname, form, res) {
     }
     res.setHeader('HX-Trigger', 'refresh-projects');
     return send(`<div class="msg assistant"><p>🗑️ Deleted backup:</p><pre>${esc(removed.join('\n'))}</pre></div>`);
+  }
+
+  if (pathname === '/actions/save-item') {
+    const meta = loadWorkspaces()[workspace];
+    if (meta.kind !== 'files') return send('<div class="msg error">Not an editable workspace.</div>', 400);
+    const name = String(form.name || '');
+    if (!NAME_RE.test(name)) return send('<div class="msg error">Invalid name (letters, numbers, _ and - only).</div>', 400);
+    const content = String(form.content || '').replace(/\r\n/g, '\n');
+    if (content.length > 500000) return send('<div class="msg error">Content too large.</div>', 400);
+    const file = itemFile(workspace, name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, content);
+    res.setHeader('HX-Trigger', 'refresh-projects');
+    return send(`<div class="msg assistant">✅ Saved <strong>${esc(name)}</strong> (${esc(path.relative(ROOT, file))}).</div>`);
+  }
+
+  if (pathname === '/actions/install-item') {
+    const meta = loadWorkspaces()[workspace];
+    const target = INSTALL_TARGETS[workspace];
+    if (!target || meta.kind !== 'files') return send('<div class="msg error">This workspace has no install target.</div>', 400);
+    const name = String(form.name || '');
+    if (!NAME_RE.test(name)) return send('<div class="msg error">Invalid name.</div>', 400);
+    const src = itemFile(workspace, name);
+    if (!fs.existsSync(src)) return send('<div class="msg error">Item not found.</div>', 404);
+    fs.mkdirSync(target, { recursive: true });
+    let dest;
+    if (workspace === 'skills') {
+      dest = path.join(target, name, 'SKILL.md');
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+    } else {
+      dest = path.join(target, `${name}.md`);
+    }
+    fs.copyFileSync(src, dest);
+    const usage = workspace === 'prompts' ? ` — available in Claude Code as <code>/${esc(name)}</code>` : '';
+    return send(`<div class="msg assistant">✅ Installed <strong>${esc(name)}</strong> to <code>${esc(dest.replace(process.env.HOME, '~'))}</code>${usage}. Restart Claude Code sessions to pick it up.</div>`);
+  }
+
+  if (pathname === '/actions/delete-item') {
+    const meta = loadWorkspaces()[workspace];
+    if (meta.kind !== 'files') return send('<div class="msg error">Not an editable workspace.</div>', 400);
+    if (form.confirm !== 'yes') return send('<div class="msg error">Deleting requires confirmation.</div>', 400);
+    const name = String(form.name || '');
+    if (!/^[a-zA-Z0-9_.-]+$/.test(name) || name.includes('..')) return send('<div class="msg error">Invalid name.</div>', 400);
+    const removed = [];
+    if (/\.(pdf|html)$/.test(name)) {
+      const f = path.join(meta.dir, name);
+      if (fs.existsSync(f)) { fs.unlinkSync(f); removed.push(name); }
+    } else if (workspace === 'skills') {
+      const d = path.join(meta.dir, name);
+      if (fs.existsSync(path.join(d, 'SKILL.md'))) { fs.rmSync(d, { recursive: true }); removed.push(name); }
+    } else {
+      const f = itemFile(workspace, name);
+      if (fs.existsSync(f)) { fs.unlinkSync(f); removed.push(`${name}.md`); }
+    }
+    res.setHeader('HX-Trigger', 'refresh-projects');
+    return send(`<div class="msg assistant">🗑️ Deleted: ${esc(removed.join(', ') || '(nothing found)')}</div>`);
+  }
+
+  if (pathname === '/actions/make-pdf') {
+    if (workspace !== 'docs') return send('<div class="msg error">PDFs are generated in the docs workspace.</div>', 400);
+    const name = String(form.name || '');
+    if (!NAME_RE.test(name)) return send('<div class="msg error">Invalid name.</div>', 400);
+    const meta = loadWorkspaces()[workspace];
+    const md = itemFile('docs', name);
+    if (!fs.existsSync(md)) return send('<div class="msg error">Doc not found.</div>', 404);
+    const id = startJob(`📄 Render <strong>${esc(name)}.pdf</strong>`, 'bash',
+      ['-c', `set -e; cd '${meta.dir}'; pandoc '${name}.md' -o '${name}.pdf' --pdf-engine=wkhtmltopdf --metadata title='${name}' -V margin-top=18mm -V margin-bottom=18mm -V margin-left=16mm -V margin-right=16mm && echo "PDF written: ${name}.pdf"`],
+      meta.dir, { timeoutMs: 5 * 60 * 1000 });
+    return send(jobFragment(id).html);
+  }
+
+  if (pathname === '/actions/generate-doc') {
+    const srcWs = String(form.sourceWorkspace || '');
+    const projectName = String(form.projectName || '');
+    const docName = String(form.docName || '');
+    if (!isValidWorkspace(srcWs)) return send('<div class="msg error">Unknown source workspace.</div>', 400);
+    if (!NAME_RE.test(projectName) || !NAME_RE.test(docName)) return send('<div class="msg error">Invalid names.</div>', 400);
+    const projectDir = path.join(workspaceDir(srcWs), projectName);
+    if (!fs.existsSync(projectDir)) return send('<div class="msg error">Site/project not found.</div>', 404);
+    const docsDir = workspaceDir('docs');
+    const prompt = `Write comprehensive documentation (Markdown, no code fences around the whole document) about the site/project at ${projectDir}. Inspect the real files (composer.json, .ddev/config.yaml, README, directory layout) with your tools. Cover: what it is, the stack and versions, how to start it with ddev, its URL, notable modules/packages, and folder structure. Start with a # title.`;
+    const shellLine = `set -e; echo "Generating documentation for ${projectName}…"; claude -p ${JSON.stringify(prompt)} --allowedTools Read Glob Grep Bash --disallowedTools Write Edit --no-session-persistence > '${docsDir}/${docName}.md'; echo "Markdown written: ${docName}.md"; cd '${docsDir}'; pandoc '${docName}.md' -o '${docName}.pdf' --pdf-engine=wkhtmltopdf --metadata title='${docName}' -V margin-top=18mm -V margin-bottom=18mm -V margin-left=16mm -V margin-right=16mm; echo "PDF written: ${docName}.pdf"`;
+    const id = startJob(`🤖 Generate site doc <strong>${esc(docName)}</strong> from ${esc(srcWs)}/${esc(projectName)}`, 'bash', ['-c', shellLine], docsDir);
+    return send(jobFragment(id).html);
   }
 
   if (pathname === '/actions/ddev-start' || pathname === '/actions/ddev-stop') {
@@ -675,6 +904,54 @@ const server = http.createServer(async (req, res) => {
         if (frag.done) res.setHeader('HX-Trigger', 'refresh-projects');
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(frag.html);
+      }
+      const itemsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/items$/);
+      if (itemsMatch && isValidWorkspace(itemsMatch[1])) {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(itemRowsHtml(itemsMatch[1]));
+      }
+      const newMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/new$/);
+      if (newMatch && isValidWorkspace(newMatch[1]) && loadWorkspaces()[newMatch[1]].kind === 'files') {
+        const key = newMatch[1];
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(editorFormHtml(key, '', (ITEM_TEMPLATES[key] || ITEM_TEMPLATES.docs)('my-' + loadWorkspaces()[key].noun), true));
+      }
+      const editMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/edit\/([a-zA-Z0-9_%.-]+)$/);
+      if (editMatch && isValidWorkspace(editMatch[1])) {
+        const key = editMatch[1];
+        const name = decodeURIComponent(editMatch[2]);
+        if (!NAME_RE.test(name)) { res.writeHead(400); return res.end('bad name'); }
+        const file = itemFile(key, name);
+        if (!fs.existsSync(file)) { res.writeHead(404); return res.end('not found'); }
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(editorFormHtml(key, name, fs.readFileSync(file, 'utf8'), false));
+      }
+      if (pathname === '/fragments/docs/site-doc-form') {
+        const wsOptions = Object.values(loadWorkspaces())
+          .filter((w) => w.kind !== 'files')
+          .map((w) => `<option value="${esc(w.key)}">${esc(w.label)}</option>`).join('');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(`
+          <div class="uk-card uk-card-default uk-card-body uk-margin-top editor-card">
+            <h3 class="uk-margin-small-bottom">Generate site documentation (AI → Markdown + PDF)</h3>
+            <form class="uk-grid uk-grid-small" uk-grid hx-post="/actions/generate-doc" hx-target="#webship-workspace-output" hx-swap="innerHTML">
+              <input type="hidden" name="workspace" value="docs">
+              <div class="uk-width-1-4@s"><select class="uk-select" name="sourceWorkspace">${wsOptions}</select></div>
+              <div class="uk-width-1-4@s"><input class="uk-input" name="projectName" placeholder="site/project name" required pattern="[a-zA-Z0-9_-]+"></div>
+              <div class="uk-width-1-4@s"><input class="uk-input" name="docName" placeholder="doc-name" required pattern="[a-zA-Z0-9_-]+"></div>
+              <div class="uk-width-1-4@s"><button type="submit" class="uk-button uk-button-primary uk-width-1-1">Generate</button></div>
+            </form>
+          </div>`);
+      }
+      const fileMatch = pathname.match(/^\/files\/([a-z0-9_-]+)\/([a-zA-Z0-9_%.-]+)$/);
+      if (fileMatch && isValidWorkspace(fileMatch[1])) {
+        const name = decodeURIComponent(fileMatch[2]);
+        if (name.includes('..') || name.includes('/')) { res.writeHead(400); return res.end('bad name'); }
+        const file = path.join(workspaceDir(fileMatch[1]), name);
+        if (!fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); return res.end('not found'); }
+        const type = { '.pdf': 'application/pdf', '.html': 'text/html; charset=utf-8', '.md': 'text/plain; charset=utf-8' }[path.extname(file)] || 'application/octet-stream';
+        res.writeHead(200, { 'Content-Type': type, 'Content-Disposition': 'inline' });
+        return fs.createReadStream(file).pipe(res);
       }
       const fragMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/projects$/);
       if (fragMatch && isValidWorkspace(fragMatch[1])) {

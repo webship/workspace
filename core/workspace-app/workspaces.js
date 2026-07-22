@@ -24,10 +24,10 @@ const PRESENTATION = {
   modules:    { icon: 'grid',        subtitle: 'Contrib & Private Modules', noun: 'module' },
   libraries:  { icon: 'album',       subtitle: 'Third-Party Libraries', noun: 'library', plural: 'libraries' },
   forked:     { icon: 'git-branch',  subtitle: 'Forked / Customized Copies', noun: 'fork' },
-  docs:       { icon: 'file-text',   subtitle: 'Documentation Projects', noun: 'doc' },
-  agents:     { icon: 'happy',       subtitle: 'AI Automation', label: 'AI Agents', noun: 'agent' },
-  skills:     { icon: 'star',        subtitle: 'AI Skill Definitions', label: 'AI Skills', noun: 'skill' },
-  prompts:    { icon: 'pencil',      subtitle: 'Reusable AI Prompts', noun: 'prompt' },
+  docs:       { icon: 'file-text',   subtitle: 'Documentation Projects', noun: 'doc', kind: 'files' },
+  agents:     { icon: 'happy',       subtitle: 'AI Automation', label: 'AI Agents', noun: 'agent', kind: 'files' },
+  skills:     { icon: 'star',        subtitle: 'AI Skill Definitions', label: 'AI Skills', noun: 'skill', kind: 'files' },
+  prompts:    { icon: 'pencil',      subtitle: 'Reusable AI Prompts', noun: 'prompt', kind: 'files' },
   recipes:    { icon: 'list',        subtitle: 'Development Recipes', noun: 'recipe' },
   components: { icon: 'thumbnails',  subtitle: 'Reusable Components', noun: 'component' },
 };
@@ -69,6 +69,7 @@ function loadWorkspaces() {
       label: pres.label || name.charAt(0).toUpperCase() + name.slice(1),
       noun: pres.noun || 'item',
       nounPlural: pres.plural || `${pres.noun || 'item'}s`,
+      kind: pres.kind || 'projects',
     };
   }
   return map;
