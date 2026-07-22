@@ -161,7 +161,7 @@ function homePage() {
           <p class="uk-text-meta uk-margin-remove">${esc(w.subtitle)}</p>
           <span class="uk-label ${hasBuilders ? 'uk-label-success' : ''} uk-margin-small-top">${projectCount} project${projectCount === 1 ? '' : 's'}${hasBuilders ? ' · buildable' : ''}</span>
         </a>
-        ${backupCount ? `<a class="ws-backups" href="/${esc(w.key)}#webship-workspace-backups" title="View the ${backupCount} backup${backupCount === 1 ? '' : 's'} for ${esc(w.label)}"><span uk-icon="icon: album; ratio: .65"></span> ${backupCount}</a>` : ''}
+        ${backupCount ? `<a class="ws-backups" href="/${esc(w.key)}/backups" title="View the ${backupCount} backup${backupCount === 1 ? '' : 's'} for ${esc(w.label)}"><span uk-icon="icon: album; ratio: .65"></span> ${backupCount}</a>` : ''}
       </div>`;
   }).join('');
 
@@ -296,6 +296,35 @@ function backupRowsHtml(key) {
     ${rows || '<p class="uk-text-meta">No backups yet — use a project\'s Backup button to create one.</p>'}`;
 }
 
+// Dedicated backups page: /<workspace>/backups
+function backupsPage(key) {
+  const meta = loadWorkspaces()[key];
+
+  return pageShell(`${meta.label} Backups · workspace`, `
+<header class="uk-section uk-section-small uk-text-center uk-position-relative hero">
+  <div class="uk-position-top-left uk-position-small">
+    <a class="uk-button uk-button-default uk-border-pill" href="/${esc(key)}"><span uk-icon="arrow-left"></span> ${esc(meta.label)}</a>
+  </div>
+  <div class="uk-container">
+    <div class="logo logo-sm"><span uk-icon="icon: album; ratio: 1.8"></span></div>
+    <h1 class="uk-heading-small uk-margin-small-top uk-margin-remove-bottom">${esc(meta.label)} Backups</h1>
+    <p class="uk-text-lead uk-margin-small-top">Restore or delete archived projects from this workspace</p>
+  </div>
+</header>
+
+<main class="uk-container uk-container-small uk-margin-bottom webship-workspace-page">
+  <div class="uk-card uk-card-default uk-card-body">
+    <div id="webship-workspace-backups" hx-get="/fragments/${esc(key)}/backups" hx-trigger="refresh-projects from:body">
+      ${backupRowsHtml(key)}
+    </div>
+
+    <div id="webship-workspace-output"></div>
+  </div>
+</main>
+
+${assistantHtml({ floating: true })}`);
+}
+
 async function workspacePage(key) {
   const workspaces = loadWorkspaces();
   const meta = workspaces[key];
@@ -331,9 +360,10 @@ async function workspacePage(key) {
       ${await projectRowsHtml(key, dir)}
     </div>
 
-    <div id="webship-workspace-backups" hx-get="/fragments/${esc(key)}/backups" hx-trigger="refresh-projects from:body">
-      ${backupRowsHtml(key)}
-    </div>
+    ${listBackups(key).length ? `
+    <p class="uk-margin-top uk-text-center">
+      <a class="uk-button uk-button-default uk-border-pill" href="/${esc(key)}/backups"><span uk-icon="icon: album; ratio: .8"></span> Backups (${listBackups(key).length})</a>
+    </p>` : ''}
 
     <div id="webship-workspace-output"></div>
   </div>
@@ -604,6 +634,11 @@ const server = http.createServer(async (req, res) => {
       if (backupsMatch && isValidWorkspace(backupsMatch[1])) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(backupRowsHtml(backupsMatch[1]));
+      }
+      const backupsPageMatch = pathname.match(/^\/([a-z0-9_-]+)\/backups\/?$/);
+      if (backupsPageMatch && isValidWorkspace(backupsPageMatch[1])) {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(backupsPage(backupsPageMatch[1]));
       }
       const wsKey = pathname.replace(/^\/+|\/+$/g, '');
       if (isValidWorkspace(wsKey)) {
