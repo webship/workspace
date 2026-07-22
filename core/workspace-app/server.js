@@ -447,6 +447,65 @@ function humanSize(bytes) {
   return Math.max(1, Math.round(bytes / 1024)) + ' KB';
 }
 
+// Parse a builder's argparse schema (from the arg-<distribution>.sh file it
+// sources) into structured fields for the Arguments UI: booleans
+// (action=store_true) and value flags with their defaults.
+function parseBuilderArgs(dir, script) {
+  try {
+    const src = fs.readFileSync(path.join(dir, script), 'utf8');
+    const dm = src.match(/distributions\/([a-z_]+)\.yml/);
+    if (!dm) return [];
+    const argFile = path.join(ROOT, 'core', 'scripts', 'args', `arg-${dm[1]}.sh`);
+    const argSrc = fs.readFileSync(argFile, 'utf8');
+    const out = [];
+    for (const block of argSrc.split('parser.add_argument(').slice(1)) {
+      const flags = [...block.matchAll(/'(--?[a-zA-Z0-9_-]+)'/g)].map((m) => m[1]);
+      const long = flags.find((f) => f.startsWith('--'));
+      if (!long) continue; // positional (PROJECT_NAME etc.)
+      const bool = /action='store_true'/.test(block.split('parser.add_argument')[0]);
+      const dm2 = block.match(/default=(?:"([^"]*)"|'([^']*)'|(False|True))/);
+      let def = dm2 ? (dm2[1] ?? dm2[2] ?? dm2[3]) : '';
+      if (def === 'False') def = false; else if (def === 'True') def = true;
+      if (def === '_none_') def = '';
+      const hm = block.match(/help='((?:[^'\\]|\\.)*)'/);
+      out.push({ flag: long, bool, def, help: hm ? hm[1].replace(/\\'/g, "'") : '' });
+    }
+    return out;
+  } catch (_) {
+    return [];
+  }
+}
+
+// The collapsed Arguments group for one builder script.
+function builderArgsHtml(key, script) {
+  const dir = workspaceDir(key);
+  if (!SCRIPT_RE.test(script) || !findBuilderScripts(dir).includes(script)) return '';
+  const args = parseBuilderArgs(dir, script);
+  if (!args.length) return '';
+  const rows = args.map((a) => {
+    const name = (a.bool ? 'argb:' : 'argv:') + a.flag;
+    if (a.bool) {
+      return `
+        <label class="arg-row" title="${esc(a.help)}">
+          <input class="uk-checkbox" type="checkbox" name="${esc(name)}" ${a.def === true || a.flag === '--install' ? 'checked' : ''}>
+          <code>${esc(a.flag)}</code> <span class="uk-text-meta">${esc(a.help)}</span>
+        </label>`;
+    }
+    return `
+      <label class="arg-row" title="${esc(a.help)}">
+        <code>${esc(a.flag)}</code>
+        <input class="uk-input uk-form-small arg-value" type="text" name="${esc(name)}" value="${esc(String(a.def || ''))}" placeholder="${esc(a.help.slice(0, 60))}">
+      </label>`;
+  }).join('');
+  return `
+    <ul uk-accordion class="uk-margin-small-top builder-args">
+      <li>
+        <a class="uk-accordion-title" href>Arguments <span class="uk-text-meta">(${args.length} for this builder)</span></a>
+        <div class="uk-accordion-content">${rows}</div>
+      </li>
+    </ul>`;
+}
+
 function backupRowsHtml(key) {
   const backups = listBackups(key);
   const rows = backups.map((b) => `
@@ -534,12 +593,15 @@ async function workspacePage(key) {
   <div class="uk-card uk-card-default uk-card-body">
     ${builders.length ? `
       <h3 class="uk-margin-small-bottom">Build a new ${esc(meta.noun)}</h3>
-      <form class="uk-grid uk-grid-small uk-margin-bottom" uk-grid hx-post="/actions/build" hx-target="#webship-workspace-output" hx-swap="innerHTML">
+      <form hx-post="/actions/build" hx-target="#webship-workspace-output" hx-swap="innerHTML">
         <input type="hidden" name="workspace" value="${esc(key)}">
-        <div class="uk-width-1-3@s"><select class="uk-select" name="script">${builderOptions}</select></div>
-        <div class="uk-width-1-4@s"><input class="uk-input" name="projectName" placeholder="new-project-name" required pattern="[a-zA-Z0-9_-]+"></div>
-        <div class="uk-width-1-4@s"><input class="uk-input" name="flags" placeholder="--install --add-users" title="Arguments passed to the cmd- script (space-separated --flags; --install is the default)"></div>
-        <div class="uk-width-1-6@s"><button type="submit" class="uk-button uk-button-primary uk-width-1-1">Build</button></div>
+        <div class="uk-grid uk-grid-small" uk-grid>
+          <div class="uk-width-2-5@s"><select class="uk-select" name="script"
+            hx-get="/fragments/${esc(key)}/builder-args" hx-trigger="change, load" hx-target="#builder-args" hx-swap="innerHTML" hx-include="this">${builderOptions}</select></div>
+          <div class="uk-width-2-5@s"><input class="uk-input" name="projectName" placeholder="new-project-name" required pattern="[a-zA-Z0-9_-]+"></div>
+          <div class="uk-width-1-5@s"><button type="submit" class="uk-button uk-button-primary uk-width-1-1">Build</button></div>
+        </div>
+        <div id="builder-args"></div>
       </form>
     ` : ''}
 
@@ -601,7 +663,29 @@ async function handleAction(pathname, form, res) {
     const projectName = String(form.projectName || '');
     if (!SCRIPT_RE.test(script) || !findBuilderScripts(dir).includes(script)) return send('<div class="msg error">Unknown build script.</div>', 400);
     if (!NAME_RE.test(projectName)) return send('<div class="msg error">Invalid project name.</div>', 400);
-    const flags = String(form.flags || '--install').trim().split(/\s+/).filter((f) => /^--[a-zA-Z0-9=_.,:@^~\/-]*$/.test(f));
+    // Structured Arguments UI fields (argb: checkboxes, argv: value inputs)
+    // take precedence; fall back to the legacy free-text `flags` (kept for
+    // the API and the AI assistant).
+    const schema = parseBuilderArgs(dir, script);
+    const schemaFlags = new Map(schema.map((a) => [a.flag, a]));
+    let flags = [];
+    let usedStructured = false;
+    for (const [k, v] of Object.entries(form)) {
+      if (k.startsWith('argb:')) {
+        usedStructured = true;
+        const flag = k.slice(5);
+        if (schemaFlags.has(flag)) flags.push(flag);
+      } else if (k.startsWith('argv:')) {
+        usedStructured = true;
+        const flag = k.slice(5);
+        const meta = schemaFlags.get(flag);
+        const val = String(v).trim();
+        if (meta && val && val !== String(meta.def)) flags.push(`${flag}=${val}`);
+      }
+    }
+    if (!usedStructured) {
+      flags = String(form.flags || '--install').trim().split(/\s+/).filter((f) => /^--[a-zA-Z0-9=_.,:@^~\/-]*$/.test(f));
+    }
     // Full distribution builds (composer create-project + install) can far
     // exceed the default 15m on a cold composer cache.
     const id = startJob(`🏗️ Build <strong>${esc(projectName)}</strong> (${esc(builderLabel(dir, script))})`, 'bash', [script, projectName, ...flags], dir, { timeoutMs: 60 * 60 * 1000 });
@@ -1050,6 +1134,12 @@ const server = http.createServer(async (req, res) => {
         const type = { '.pdf': 'application/pdf', '.html': 'text/html; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.png': 'image/png' }[path.extname(file)] || 'application/octet-stream';
         res.writeHead(200, { 'Content-Type': type, 'Content-Disposition': 'inline' });
         return fs.createReadStream(file).pipe(res);
+      }
+      const argsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/builder-args$/);
+      if (argsMatch && isValidWorkspace(argsMatch[1])) {
+        const script = new URL(req.url, 'http://localhost').searchParams.get('script') || '';
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(builderArgsHtml(argsMatch[1], script));
       }
       const fragMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/projects$/);
       if (fragMatch && isValidWorkspace(fragMatch[1])) {

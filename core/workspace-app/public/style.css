@@ -715,3 +715,16 @@ html.dark .editor-card .editor-area { background: #12162a; color: #e8eaf6; borde
 .chat-log .msg th, .chat-log .msg td { border: 1px solid var(--line); padding: 4px 8px; }
 .chat-log .msg code { background: rgba(109, 91, 208, .1); padding: 1px 4px; border-radius: 4px; font-size: 12px; }
 html.dark .chat-log .msg th, html.dark .chat-log .msg td { border-color: #2f3556; }
+
+/* Builder Arguments group */
+.builder-args { margin-bottom: 0; }
+.builder-args .uk-accordion-title { font-size: 15px; }
+.builder-args .arg-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.builder-args .arg-row code { min-width: 190px; }
+.builder-args .arg-value { max-width: 340px; }
