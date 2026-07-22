@@ -53,6 +53,41 @@ function ddevProjectName(projectDir) {
   }
 }
 
+/* Background jobs with live terminal output: long actions run detached while
+ * the page polls /fragments/job/<id> every second, streaming the command's
+ * real stdout/stderr into a terminal box until it exits. */
+const jobs = new Map();
+let jobSeq = 0;
+
+function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000 } = {}) {
+  const id = `${++jobSeq}-${Math.random().toString(36).slice(2, 8)}`;
+  const job = { title, buf: '', done: false, ok: null };
+  jobs.set(id, job);
+  const child = spawn(cmd, args, { cwd, env: process.env });
+  const append = (d) => { job.buf = (job.buf + d.toString()).slice(-30000); };
+  child.stdout.on('data', append);
+  child.stderr.on('data', append);
+  const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
+  child.on('close', (code) => { clearTimeout(timer); job.done = true; job.ok = code === 0; });
+  child.on('error', (err) => { clearTimeout(timer); job.buf += `\n${err.message}`; job.done = true; job.ok = false; });
+  setTimeout(() => jobs.delete(id), 30 * 60 * 1000);
+  return id;
+}
+
+function jobFragment(id) {
+  const job = jobs.get(id);
+  if (!job) return { html: '<div class="msg error">Job not found (expired).</div>', done: true };
+  const text = job.buf.replace(/\x1b\[[0-9;]*[mK]/g, '');
+  const status = job.done ? (job.ok ? '✅ finished' : '❌ failed') : '<span uk-spinner="ratio: .5"></span> running…';
+  const poll = job.done ? '' : ` hx-get="/fragments/job/${id}" hx-trigger="every 1s" hx-swap="outerHTML"`;
+  const html = `
+    <div class="msg ${job.done && !job.ok ? 'error' : 'assistant'} terminal" id="job-${id}"${poll}>
+      <p>${job.title} — ${status}</p>
+      <pre class="terminal-pre">${esc(text) || '…'}</pre>
+    </div>`;
+  return { html, done: job.done };
+}
+
 function listProjects(dir) {
   try {
     return fs.readdirSync(dir, { withFileTypes: true })
@@ -419,8 +454,8 @@ async function handleAction(pathname, form, res) {
     if (!SCRIPT_RE.test(script) || !findBuilderScripts(dir).includes(script)) return send('<div class="msg error">Unknown build script.</div>', 400);
     if (!NAME_RE.test(projectName)) return send('<div class="msg error">Invalid project name.</div>', 400);
     const flags = String(form.flags || '--install').split(' ').filter((f) => /^--[a-zA-Z0-9=_.,-]*$/.test(f));
-    const result = await run('bash', [script, projectName, ...flags], dir);
-    return send(resultFragment(result, `🏗️ Build <strong>${esc(projectName)}</strong> (${esc(script)}) ${result.ok ? 'finished' : 'failed'}.`));
+    const id = startJob(`🏗️ Build <strong>${esc(projectName)}</strong> (${esc(builderLabel(dir, script))})`, 'bash', [script, projectName, ...flags], dir);
+    return send(jobFragment(id).html);
   }
 
   if (pathname === '/actions/backup') {
@@ -428,8 +463,8 @@ async function handleAction(pathname, form, res) {
     const script = findBackupScript(dir);
     if (!script) return send('<div class="msg error">No backup script in this workspace.</div>', 400);
     if (!NAME_RE.test(String(form.projectName || ''))) return send('<div class="msg error">Invalid project name.</div>', 400);
-    const result = await run('bash', [script, form.projectName], dir);
-    return send(resultFragment(result, `💾 Backup <strong>${esc(form.projectName)}</strong> ${result.ok ? 'finished' : 'failed'}.`));
+    const id = startJob(`💾 Backup <strong>${esc(form.projectName)}</strong>`, 'bash', [script, form.projectName], dir);
+    return send(jobFragment(id).html);
   }
 
   if (pathname === '/actions/remove') {
@@ -438,10 +473,8 @@ async function handleAction(pathname, form, res) {
     if (!script) return send('<div class="msg error">No remove script in this workspace.</div>', 400);
     if (form.confirm !== 'yes') return send('<div class="msg error">Destructive action requires confirmation.</div>', 400);
     if (!NAME_RE.test(String(form.projectName || ''))) return send('<div class="msg error">Invalid project name.</div>', 400);
-    const result = await run('bash', [script, form.projectName], dir);
-    // HX-Trigger tells the page to refresh its project list.
-    res.setHeader('HX-Trigger', 'refresh-projects');
-    return send(resultFragment(result, `🗑️ Remove <strong>${esc(form.projectName)}</strong> ${result.ok ? 'finished' : 'failed'}.`));
+    const id = startJob(`🗑️ Remove <strong>${esc(form.projectName)}</strong>`, 'bash', [script, form.projectName], dir);
+    return send(jobFragment(id).html);
   }
 
   if (pathname === '/actions/restore') {
@@ -460,29 +493,18 @@ async function handleAction(pathname, form, res) {
     }
 
     // The archives were created from inside the workspace folder, so they
-    // extract back to <workspace>/<project>/.
-    const result = await run('tar', ['-xzf', archive], meta.dir, { timeoutMs: 10 * 60 * 1000 });
-    let dbNote = '';
-    if (result.ok) {
-      // If a matching DB dump sits next to the archive and the restored
-      // project is a DDEV project, bring it up and import the database.
-      const dbCandidates = [`${file.replace(/\.tar\.gz$/, '')}-db.sql.gz`, `${file.replace(/\.tar\.gz$/, '')}-db.sql`];
-      const dbFile = dbCandidates.map((f) => path.join(meta.backupsDir, f)).find((f) => fs.existsSync(f));
-      if (dbFile && ddevProjectName(targetDir)) {
-        const up = await run('ddev', ['start', '-y'], targetDir, { timeoutMs: 10 * 60 * 1000 });
-        if (up.ok) {
-          const imp = await run('ddev', ['import-db', `--file=${dbFile}`], targetDir, { timeoutMs: 10 * 60 * 1000 });
-          dbNote = imp.ok ? ' Database dump imported.' : ` Files restored, but the DB import failed: ${imp.stderr.slice(-300)}`;
-        } else {
-          dbNote = ' Files restored, but ddev start failed before the DB import.';
-        }
-      } else if (dbFile) {
-        dbNote = ' A DB dump exists alongside this backup, but the project is not a DDEV project — import it manually.';
-      }
+    // extract back to <workspace>/<project>/. Then, if a matching DB dump
+    // sits next to the archive, bring the project up and import it — all as
+    // one streaming job. (file/projectName are regex-validated above, so
+    // embedding them in the shell line is safe.)
+    const dbCandidates = [`${file.replace(/\.tar\.gz$/, '')}-db.sql.gz`, `${file.replace(/\.tar\.gz$/, '')}-db.sql`];
+    const dbFile = dbCandidates.map((f) => path.join(meta.backupsDir, f)).find((f) => fs.existsSync(f));
+    let shellLine = `set -e; echo "Extracting ${file}…"; tar -xzf '${archive}'`;
+    if (dbFile) {
+      shellLine += ` && if [ -f '${targetDir}/.ddev/config.yaml' ]; then cd '${targetDir}' && ddev start -y && echo "Importing database…" && ddev import-db --file='${dbFile}'; else echo "Not a DDEV project — import the DB dump manually: ${path.basename(dbFile)}"; fi`;
     }
-    res.setHeader('HX-Trigger', 'refresh-projects');
-    const stripped = { ...result, stdout: (result.stdout + dbNote).trim(), stderr: result.stderr };
-    return send(resultFragment(stripped, `♻️ Restore <strong>${esc(projectName)}</strong> from <code>${esc(file)}</code> ${result.ok ? 'finished.' : 'failed.'}`));
+    const id = startJob(`♻️ Restore <strong>${esc(projectName)}</strong> from <code>${esc(file)}</code>`, 'bash', ['-c', shellLine], meta.dir);
+    return send(jobFragment(id).html);
   }
 
   if (pathname === '/actions/backup-delete') {
@@ -508,11 +530,10 @@ async function handleAction(pathname, form, res) {
     const projectDir = path.join(workspaceDir(workspace), projectName);
     if (!ddevProjectName(projectDir)) return send('<div class="msg error">Not a DDEV project.</div>', 400);
     const verb = pathname === '/actions/ddev-start' ? 'start' : 'stop';
-    const result = await run('ddev', [verb, '-y'], projectDir, { timeoutMs: 5 * 60 * 1000 });
-    const stripped = { ...result, stdout: result.stdout.replace(/\x1b\[[0-9;]*m/g, ''), stderr: result.stderr.replace(/\x1b\[[0-9;]*m/g, '') };
-    // Refresh the project list so status badges + Start/Stop/Launch buttons update.
-    res.setHeader('HX-Trigger', 'refresh-projects');
-    return send(resultFragment(stripped, `${verb === 'start' ? '▶️' : '⏹️'} <code>ddev ${verb}</code> on <strong>${esc(projectName)}</strong> ${result.ok ? 'finished' : 'failed'}.`));
+    // `ddev start` accepts -y (skip confirmation); `ddev stop` has no such flag.
+    const args = verb === 'start' ? ['start', '-y'] : ['stop'];
+    const id = startJob(`${verb === 'start' ? '▶️' : '⏹️'} <code>ddev ${verb}</code> on <strong>${esc(projectName)}</strong>`, 'ddev', args, projectDir, { timeoutMs: 5 * 60 * 1000 });
+    return send(jobFragment(id).html);
   }
 
   if (pathname === '/actions/status') {
@@ -625,6 +646,15 @@ const server = http.createServer(async (req, res) => {
         return res.end(homePage());
       }
       if (pathname === '/actions/status') return handleAction(pathname, {}, res);
+      const jobMatch = pathname.match(/^\/fragments\/job\/([a-z0-9-]+)$/);
+      if (jobMatch) {
+        const frag = jobFragment(jobMatch[1]);
+        // When the job finishes, refresh the project/backup lists so status
+        // badges and buttons reflect the new state.
+        if (frag.done) res.setHeader('HX-Trigger', 'refresh-projects');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(frag.html);
+      }
       const fragMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/projects$/);
       if (fragMatch && isValidWorkspace(fragMatch[1])) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });

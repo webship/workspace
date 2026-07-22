@@ -65,17 +65,28 @@ document.body.addEventListener('assistant-directive', (e) => {
 // Global "system is working" indicator: count in-flight HTMX requests and
 // toggle html.htmx-busy, which shows the top progress bar + Working… pill.
 let activeRequests = 0;
-document.addEventListener('htmx:beforeRequest', () => {
+const isJobPoll = (e) => e.detail?.elt?.id?.startsWith('job-');
+document.addEventListener('htmx:beforeRequest', (e) => {
+  if (isJobPoll(e)) return; // 1s job polls would make the bar flicker forever
   activeRequests += 1;
   document.documentElement.classList.add('htmx-busy');
 });
-const requestDone = () => {
+const requestDone = (e) => {
+  if (isJobPoll(e)) return;
   activeRequests = Math.max(0, activeRequests - 1);
   if (activeRequests === 0) document.documentElement.classList.remove('htmx-busy');
 };
 document.addEventListener('htmx:afterRequest', requestDone);
 document.addEventListener('htmx:sendError', requestDone);
 document.addEventListener('htmx:responseError', requestDone);
+
+// Keep live terminal boxes scrolled to the newest output line.
+document.addEventListener('htmx:afterSwap', (e) => {
+  const pres = [];
+  if (e.target.classList?.contains('terminal')) pres.push(...e.target.querySelectorAll('.terminal-pre'));
+  e.target.querySelectorAll?.('.terminal .terminal-pre').forEach((p) => pres.push(p));
+  pres.forEach((p) => { p.scrollTop = p.scrollHeight; });
+});
 
 // Keep the chat log scrolled to the latest message after every HTMX swap.
 document.addEventListener('htmx:afterSwap', (e) => {

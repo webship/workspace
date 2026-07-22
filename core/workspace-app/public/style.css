@@ -428,3 +428,12 @@ html.htmx-busy .global-working { display: block; }
 }
 
 .ws-backups:hover { background: var(--brand-2); color: #fff; text-decoration: none; }
+
+/* Live terminal output boxes */
+.terminal .terminal-pre {
+  background: #10131f;
+  color: #c9f7d4;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  max-height: 320px;
+  overflow-y: auto;
+}
