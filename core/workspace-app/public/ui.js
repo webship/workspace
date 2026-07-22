@@ -53,6 +53,21 @@ document.addEventListener('click', (e) => {
   rec.start();
 });
 
+// Global "system is working" indicator: count in-flight HTMX requests and
+// toggle html.htmx-busy, which shows the top progress bar + Working… pill.
+let activeRequests = 0;
+document.addEventListener('htmx:beforeRequest', () => {
+  activeRequests += 1;
+  document.documentElement.classList.add('htmx-busy');
+});
+const requestDone = () => {
+  activeRequests = Math.max(0, activeRequests - 1);
+  if (activeRequests === 0) document.documentElement.classList.remove('htmx-busy');
+};
+document.addEventListener('htmx:afterRequest', requestDone);
+document.addEventListener('htmx:sendError', requestDone);
+document.addEventListener('htmx:responseError', requestDone);
+
 // Keep the chat log scrolled to the latest message after every HTMX swap.
 document.addEventListener('htmx:afterSwap', (e) => {
   const log = document.getElementById('chat-log');

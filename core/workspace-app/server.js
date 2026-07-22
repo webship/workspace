@@ -80,6 +80,10 @@ function pageShell(title, body) {
 <script src="/ui.js" defer></script>
 </head>
 <body class="uk-background-muted">
+<div class="global-working" aria-hidden="true">
+  <div class="global-working-bar"></div>
+  <div class="global-working-pill"><div uk-spinner="ratio: .5"></div> Working…</div>
+</div>
 ${body}
 <footer class="uk-section uk-section-xsmall uk-text-center uk-text-meta">
   webship/workspace · DDEV-only tooling · <a href="/">workspace.ddev.site</a>
@@ -118,8 +122,13 @@ function assistantHtml({ floating }) {
             </ul>
           </div>
         </div>
+        <div class="chat-typing htmx-indicator" id="chat-typing">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="chat-typing-label">assistant is thinking…</span>
+        </div>
         <form class="chat-input"
               hx-post="/actions/chat" hx-target="#chat-log" hx-swap="beforeend"
+              hx-indicator="#chat-typing"
               hx-on::after-request="this.reset()">
           <input type="text" name="message" class="uk-input" placeholder="Ask me anything… (or use voice)" autocomplete="off" required>
           <button type="button" class="uk-button uk-button-default mic-btn" title="Voice input" aria-label="Voice input"><span uk-icon="icon: microphone; ratio: .9"></span></button>
