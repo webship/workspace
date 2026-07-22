@@ -98,7 +98,7 @@ function assistantHtml({ floating }) {
           <span class="assistant-avatar">🤖</span>
           <div class="assistant-head-text">
             <h3 class="uk-margin-remove">workspace AI Assistant</h3>
-            <span class="uk-text-small">Ask me anything about workspace, DDEV, or Drupal</span>
+            <span class="uk-text-small">Ask me anything about your workspace projects</span>
           </div>
         </div>
       </div>
