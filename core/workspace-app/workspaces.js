@@ -44,6 +44,15 @@ function loadSettings() {
   return loadYaml(path.join(CONFIG_DIR, 'settings.yml'));
 }
 
+// The hub's base domain. Locally this is workspace.ddev.site; set
+// `hub_domain:` in settings.yml (plus matching additional_fqdns + DNS +
+// nginx server_names) to run the whole system as a remote development
+// workspace hub on a public domain, e.g. workspace.example.com →
+// dev.workspace.example.com → myproject.dev.workspace.example.com.
+function hubDomain() {
+  return loadSettings().hub_domain || 'workspace.ddev.site';
+}
+
 // Rebuilt with a 2s TTL memo: still effectively live (a settings.yml edit
 // shows up on the next page load) without re-reading ~17 YAML files for the
 // many helper calls within a single request.
@@ -149,6 +158,7 @@ function builderLabel(dir, script) {
 
 module.exports = {
   ROOT,
+  hubDomain,
   CONFIG_DIR,
   loadWorkspaces,
   isValidWorkspace,

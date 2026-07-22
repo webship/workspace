@@ -134,6 +134,14 @@ The dashboard manages a hierarchical domain scheme by default:
 No per-project configuration is needed — wildcard hostnames + an nginx
 tier in `core/workspace-app/.ddev/` route everything with valid TLS.
 
+All navigation links and the Launch buttons follow this scheme by
+default. The hub base domain is configurable (`hub_domain:` in
+`core/config/settings.yml`) — the same system is designed to run as one
+**remote development workspace hub on a public domain**, e.g.
+`workspace.example.com` → `dev.workspace.example.com` →
+`myproject.dev.workspace.example.com` (add matching `additional_fqdns`,
+DNS wildcards, and nginx server_names).
+
 ### Examples
 
 Things you can do from the dashboard UI:
