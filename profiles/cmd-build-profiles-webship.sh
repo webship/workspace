@@ -22,4 +22,4 @@ cd "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/webship" ;
 ddev config --project-type=drupal --docroot=web --project-name=webship --auto ;
 ddev start ;
 
-ddev composer create-project webship/webship-project:9.1.x-dev . --stability dev --no-interaction;
+ddev composer create-project drupal/webship_project:11.0.x-dev . --stability dev --no-interaction;
