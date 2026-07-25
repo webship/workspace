@@ -2,8 +2,8 @@ distribution:
   name: webship
   title: Webship
   webroot: web
-  profile_repo: webship/webship
-  project_template: webship/webship-project
+  profile_repo: drupal/webship
+  project_template: drupal/webship_project
 users:
   - authenticated
   - content_editor
