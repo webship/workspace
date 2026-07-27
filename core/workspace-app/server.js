@@ -15,6 +15,7 @@ const {
   isValidWorkspace,
   workspaceDir,
   findBackupScript,
+  findSyncScript,
   findRemoveScript,
   findBuilderScripts,
   builderLabel,
@@ -601,6 +602,9 @@ async function workspacePage(key) {
       ${key === 'docs' ? `
       <button class="uk-button uk-button-secondary" hx-get="/fragments/docs/site-doc-form" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: bolt; ratio: .8"></span> Generate site doc (AI)</button>
       <button class="uk-button uk-button-secondary" hx-get="/fragments/docs/screenshot-form" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: image; ratio: .8"></span> Screenshot a site</button>` : ''}
+      ${findSyncScript(dir) ? `
+      <button class="uk-button uk-button-default" hx-post="/actions/sync-items" hx-vals='{"workspace":"${esc(key)}","source":"repo"}' hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: download; ratio: .8"></span> Sync from webship/ai-agents</button>
+      <button class="uk-button uk-button-default" hx-post="/actions/sync-items" hx-vals='{"workspace":"${esc(key)}","source":"claude"}' hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: home; ratio: .8"></span> Sync from ~/.claude</button>` : ''}
     </p>` : `
     <div id="webship-workspace-projects" hx-get="/fragments/${esc(key)}/projects" hx-trigger="refresh-projects from:body">
       ${await projectRowsHtml(key, dir)}
@@ -725,6 +729,19 @@ async function handleAction(pathname, form, res) {
     if (!script) return send('<div class="msg error">No backup script in this workspace.</div>', 400);
     if (!NAME_RE.test(String(form.projectName || ''))) return send('<div class="msg error">Invalid project name.</div>', 400);
     const id = startJob(`💾 Backup <strong>${esc(form.projectName)}</strong>`, 'bash', [script, form.projectName], dir);
+    return send(jobFragment(id).html);
+  }
+
+  if (pathname === '/actions/sync-items') {
+    const dir = workspaceDir(workspace);
+    const script = findSyncScript(dir);
+    if (!script) return send('<div class="msg error">No sync script in this workspace.</div>', 400);
+    // Only the two sources the script understands; reading ~/.claude keeps the
+    // script's own name filter, so client and third-party items stay out.
+    const source = form.source === 'claude' ? 'claude' : 'repo';
+    const label = source === 'claude' ? '~/.claude' : 'webship/ai-agents';
+    const id = startJob(`🔄 Sync <strong>${esc(workspace)}</strong> from ${esc(label)}`,
+      'bash', [script, '--source', source], dir);
     return send(jobFragment(id).html);
   }
 
