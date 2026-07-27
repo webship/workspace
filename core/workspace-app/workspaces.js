@@ -125,6 +125,10 @@ function findBackupScript(dir) {
   return findScript(dir, [/^cmd-tools?-backup-.*\.sh$/]);
 }
 
+function findSyncScript(dir) {
+  return findScript(dir, [/^cmd-tools?-sync-.*\.sh$/]);
+}
+
 function findRemoveScript(dir) {
   return findScript(dir, [/^cmd-tools-remove\.sh$/]);
 }
@@ -164,6 +168,7 @@ module.exports = {
   isValidWorkspace,
   workspaceDir,
   findBackupScript,
+  findSyncScript,
   findRemoveScript,
   findFilemodeScript,
   findBuilderScripts,

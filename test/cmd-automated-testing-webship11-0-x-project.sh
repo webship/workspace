@@ -1,9 +1,10 @@
 #!/bin/usr/env bash
 
-# workspace-name: Webship 11.0.x + Automated Testing (Playwright)
+# workspace-name: Webship 11.0.x + Automated Testing (webship-js)
 
-# Build a Webship 11.0.x project with DDEV, scaffold the full automated-testing
-# stack, then optionally run the Playwright (chromium) suite.
+# Build a Webship 11.0.x project with DDEV, install the site, scaffold the
+# automated-testing stack, then optionally run the webship-js (Playwright +
+# Cucumber-js) suite.
 #
 # Logic follows the webship/vdo-project 11.0.x automated-testing builders.
 # https://github.com/webship/vdo-project/issues/50
@@ -19,7 +20,15 @@ eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.test.settings.yml);
 # Set site version.
 site_version="11.0.x-dev";
 
-ARGPARSE_DESCRIPTION="Add new Webship ${site_version} ready Automated testing builds with DDEV, and install. Then run tests using Playwright (chromium)."
+# Distribution.
+distribution_name="webship";
+distribution_title="Webship";
+distribution_profile="webship";
+distribution_webroot="web";
+distribution_profile_repo="drupal/webship";
+distribution_project_template="drupal/webship_project";
+
+ARGPARSE_DESCRIPTION="Add new Webship ${site_version} ready Automated testing builds with DDEV, and install. Then run tests using webship-js (Playwright + Cucumber-js)."
 argparse "$@" <<EOF || exit 1
 parser.add_argument('PROJECT_NAME',
                     help='The name of the project.')
@@ -97,15 +106,58 @@ ddev config --project-type=drupal11 --docroot=web --php-version=8.4 --project-na
 ddev start ;
 
 # Create the Webship 11 project via composer inside DDEV.
-ddev composer create-project drupal/webship_project:${site_version} --no-interaction ;
+ddev composer create-project ${distribution_project_template}:${site_version} --no-interaction ;
 
-# Initialize the full automated testing scaffold (Playwright + yarn workspace).
-ddev init-full-automated-testing ;
+# The project template ships its own .ddev config that changes the database and
+# webimage packages after our initial ddev config. Re-align exactly as
+# build_distribution does: keep the database we already provisioned and drop the
+# optional apt extras, whose third-party repo keys break apt in the container.
+# Pin node 22 while doing it: webship_project's package.json requires node
+# >= 20, and DDEV's default is still 18, so yarn install would fail with
+# "The engine node is incompatible with this module".
+ddev config --database=mariadb:10.11 --webimage-extra-packages="" --nodejs-version=22 ;
+ddev restart ;
 
-# Install JS dependencies and Playwright browsers.
-ddev yarn install ;
-ddev npx playwright install-deps chromium ;
-ddev npx playwright install chromium ;
+# Install the site, then scaffold the testing stack. The in-repo ddev command
+# does both when the project template ships it; otherwise install with drush
+# and let the steps below set the JS side up.
+if ddev exec test -f .ddev/commands/web/init-full-automated-testing 2>/dev/null ; then
+  ddev init-full-automated-testing ;
+else
+  ddev drush site:install ${distribution_profile} --yes \
+    --account-name="${account_name}" --account-pass="${account_pass}" \
+    --account-mail="${account_mail}" --site-name="${PROJECT_NAME}" --locale=en \
+    install_configure_form.enable_update_status_emails=NULL ;
+fi
+
+# Point webship-js at this project's own URL, so the suite needs no manual
+# environment: its default LAUNCH_URL is http://localhost:8080. Written as a
+# merged config file rather than `ddev config`, which would also re-apply the
+# project template's own .ddev/config.yaml (a different database type) over
+# the containers this build already created.
+cat > .ddev/config.webship-js.yaml <<YAML
+web_environment:
+  - LAUNCH_URL=https://${PROJECT_NAME}.ddev.site
+YAML
+ddev restart ;
+
+# Install JS dependencies and the Playwright browser webship-js drives. Test
+# binaries are run from node_modules/.bin, never through npx: when a binary is
+# missing npx silently installs a same-named package from the registry.
+if ! ddev yarn install ; then
+  echo "yarn install failed — the webship-js suite cannot run in this build." ;
+  exit 1 ;
+fi
+
+# cucumber.js loads ts-node/register, which webship_project does not list as a
+# dependency yet — add it when it is missing so the runner can start.
+ddev exec test -d node_modules/ts-node || ddev yarn add -D ts-node ;
+
+# The chromium system libraries. install-deps runs apt, which fails while a
+# third-party repo with an expired signing key is enabled, so park those repos
+# for the run and put them back afterwards.
+ddev exec sudo sh -c 'mkdir -p /tmp/apt-off && mv /etc/apt/sources.list.d/php.list /tmp/apt-off/ 2>/dev/null ; apt-get update -qq >/dev/null 2>&1 ; ./node_modules/.bin/playwright install-deps chromium ; mv /tmp/apt-off/php.list /etc/apt/sources.list.d/ 2>/dev/null' ;
+ddev exec ./node_modules/.bin/playwright install chromium ;
 
 build_time=$( date '+%Y-%m-%d %H-%M-%S' );
 echo "// Built time: ${build_time}" >> ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/web/sites/default/settings.php 2>/dev/null || true ;
@@ -132,16 +184,18 @@ echo "-----------------------------------------";
 echo " Change directory to the project:"
 echo " cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}";
 echo "-----------------------------------------";
-echo " To run the full Playwright test suite (chromium):";
-echo " ddev yarn test:chromium";
+echo " To run the full webship-js suite (chromium is the default browser):";
+echo " ddev exec ./node_modules/.bin/cucumber-js --config cucumber.js";
 echo "-----------------------------------------";
 echo " To run a specific test path:";
-echo " ddev npx playwright test ${TESTING_PATH}";
+echo " ddev exec ./node_modules/.bin/cucumber-js --config cucumber.js ${TESTING_PATH}";
+echo "-----------------------------------------";
+echo " The HTML report is written to tests/reports/cucumber_report.html";
 echo "-----------------------------------------";
 cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name};
 
 ## Run the full automated test.
 if $run_automated_testing ; then
   cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} ;
-  ddev yarn test:chromium ;
+  ddev exec ./node_modules/.bin/cucumber-js --config cucumber.js ;
 fi
