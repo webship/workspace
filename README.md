@@ -127,7 +127,7 @@ The dashboard manages a hierarchical domain scheme by default:
 - `https://<workspace>.workspace.ddev.site` — that workspace's page
   (e.g. `dev.workspace.ddev.site`, `test.workspace.ddev.site`)
 - `https://<project>.<workspace>.workspace.ddev.site` — the project's real
-  site (e.g. `varbase11demo.dev.workspace.ddev.site`); the **Launch**
+  site (e.g. `webship11demo.dev.workspace.ddev.site`); the **Launch**
   button uses these, and the canonical `https://<project>.ddev.site`
   always keeps working
 
@@ -161,7 +161,7 @@ Things you can ask the Workspace AI Assistant (it really does them):
 
 - "Build a Drupal 11.4 site named d114test"
 - "Create a Drupal CMS 2.1 site called cms1"
-- "Create a Varbase 11 project called demo1 and open it"
+- "Create a Webship 11 project called demo1 and open it"
 - "can you back up my d114test site please, then show me the backups page"
 - "what's running right now?"
 - "Generate an agent that reviews cmd- scripts and save it as cmd-linter"
@@ -175,10 +175,10 @@ cd ~/workspace/dev/
 bash cmd-drupal11-0-x-recommended-project.sh drupal11c1 --install
 ```
 
-### Varbase 10.1.x distribution, for example:
+### Webship 11.0.0 distribution, for example:
 ```
 cd ~/workspace/dev/
-bash cmd-varbase10-1-x-project.sh varbase10c1 --install --add-users
+bash cmd-webship11-0-0-project.sh webship11c1 --install --add-users
 ```
 
 Each of these scripts creates the project folder, runs `ddev config` + `ddev start`, then `ddev composer create-project` and `ddev drush site:install` inside that project's own containers.

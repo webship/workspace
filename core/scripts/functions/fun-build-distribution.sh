@@ -27,7 +27,7 @@ function build_distribution() {
 
   ddev composer create-project ${distribution_project_template}:${site_version} . --no-interaction;
 
-  # Some project templates (e.g. varbase 11) ship their own .ddev config that
+  # Some project templates ship their own .ddev config that
   # changes the docroot/database/webimage packages after our initial ddev
   # config. Re-align: keep the database type we already provisioned, drop
   # optional apt extras (avoids third-party repo key failures), and restart

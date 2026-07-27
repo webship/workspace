@@ -9,9 +9,6 @@ profiles:
   - drupal_standard
   - drupal_minimal
   - drupal_demo_umami
-  - varbase
-  - vardoc
-  - uber_publisher
   - webship
   - cucumber
   - lightning

@@ -326,7 +326,7 @@ function assistantHtml({ context = 'home' } = {}) {
             <ul class="uk-list uk-list-bullet uk-margin-remove">
               <li>"Build a Drupal 11.4 site named d114test"</li>
               <li>"Create a Drupal CMS 2.1 site called cms1"</li>
-              <li>"Create a Varbase 11 project called demo1 and open it"</li>
+              <li>"Create a Webship 11 project called demo1 and open it"</li>
               <li>"What's running right now?"</li>
               <li>"Back up every project in dev"</li>
               <li>"Generate an agent that reviews cmd- scripts"</li>
