@@ -12,8 +12,9 @@
 #
 # Exit code: number of failing scripts (0 = all green).
 
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap-libraries.sh || exit 1
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/settings.yml)
+# Find the workspace tooling from this script, so a fresh clone needs no setup.
+WEBSHIP_WORKSPACE_SCRIPTS="${WEBSHIP_WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1
 
 pass=0; fail=0; failures=()
 

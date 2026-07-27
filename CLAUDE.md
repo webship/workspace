@@ -16,11 +16,9 @@ Critical dashboard rules:
 - Don't restart the node app while jobs run (in-memory job registry; running builds get orphaned). Restart with: `docker exec ddev-workspace-web sh -c 'pkill -f "node server.js"'` (supervisord respawns it).
 - Per-machine: docker group GID in `.ddev/web-build/Dockerfile.workspace-app`; host `claude` login for chat.
 
-## Environment variables (set in `~/.bashrc`)
+## Workspace location (self-locating, no setup)
 
-- `WEBSHIP_WORKSPACE_ROOT` = `~/workspace`, `WEBSHIP_WORKSPACE_PATH` = `~/workspace/core`, `WEBSHIP_WORKSPACE_SCRIPTS` = `~/workspace/core/scripts`, `WEBSHIP_WORKSPACE_CONFIG` = `~/workspace/core/config`
-
-Every `cmd-*.sh` script starts by sourcing `${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh`, which loads `core/config/settings.yml` and the relevant `workspace.<dir>.settings.yml`.
+Every `cmd-*.sh` resolves `WEBSHIP_WORKSPACE_SCRIPTS` from its own path and sources `${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh`, which derives `WEBSHIP_WORKSPACE_ROOT` / `_PATH` / `_CONFIG` and loads `core/config/settings.yml` plus the relevant `workspace.<dir>.settings.yml`. A fresh clone works with no env vars and no install step; exported `WEBSHIP_WORKSPACE_*` variables (or `root`/`path`/`scripts`/`config`/`backups` in `settings.yml`) still win as overrides. `settings.yml` carries no paths and no `database:` block.
 
 ## DDEV-only workflow
 
@@ -34,7 +32,7 @@ All project builds go through DDEV — never raw `composer`/`drush`/`mysql` agai
 
 ## Builders (`cmd-*-project.sh`)
 
-Families: Drupal (9/10/10.3/11/11.0.x/11.4.x/11.4.0 recommended-project), Drupal CMS (2.1.0/2.x — `distributions/drupal_cms.yml`), Webship(s). Every builder MUST carry a `# workspace-name: <Human Name>` header (shown in the dashboard Build dropdown). Cucumber builders were removed; the Vardot distributions (Varbase, Vardoc, Uber Publisher, CV) moved to gitlab.com/vardot/workspace. Validate everything with `bash core/scripts/tests/cmd-smoke-test.sh` (143 scripts; `--help` execution is safe only for argparse scripts).
+Families: Drupal (9/10/10.3/11/11.0.x/11.4.x/11.4.0 recommended-project), Drupal CMS (2.1.0/2.x), Webship(s). Each builder declares its own distribution values (`distribution_name`, title, webroot, profile_repo, project_template) — there is no `core/config/distributions/` — and each distribution's default user list lives in `set_<name>_users()` in `core/scripts/functions/fun-distribution-<name>.sh`. Every builder MUST carry a `# workspace-name: <Human Name>` header (shown in the dashboard Build dropdown). `test/cmd-automated-testing-webship11-0-x-project.sh` scaffolds the full Playwright automated-testing stack. Validate everything with `bash core/scripts/tests/cmd-smoke-test.sh` (`--help` execution is safe only for argparse scripts).
 
 ## Naming
 

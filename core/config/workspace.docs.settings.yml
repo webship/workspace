@@ -1,6 +1,5 @@
 doc:
   name: docs
-  path: /home/YOUR_USER/workspace/docs
 web:
   url: http://localhost/docs
 database:

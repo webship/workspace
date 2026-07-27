@@ -1,6 +1,5 @@
 doc:
   name: profiles
-  path: /home/YOUR_USER/workspace
 web:
   url: http://localhost/profiles
 database:

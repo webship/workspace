@@ -41,33 +41,26 @@ git clone --branch '1.0.x' https://github.com/webship/workspace.git ~/workspace
 cd ~/workspace
 ```
 
-Edit the settings file for your system:
+That's the whole setup. There is nothing to install and no shell variables to export: every script locates the workspace from its own path, so the clone works for the user running it, wherever it lives — `~/workspace`, `/srv/workspace`, a second checkout side by side.
+
+```
+cd ~/workspace/dev
+bash cmd-webship11-0-x-project.sh webship11c1 --install
+```
+
+Set your own webmaster account and any extras in the settings file:
 ```
 vim ~/workspace/core/config/settings.yml
 ```
 
-You'll see something like:
 ```yaml
-root: /home/YOUR_USER/workspace
-path: /home/YOUR_USER/workspace/core
-scripts: /home/YOUR_USER/workspace/core/scripts
-config: /home/YOUR_USER/workspace/core/config
 host: 127.0.0.1
 web: http://127.0.0.1/core
 protocol: http
-backups: /home/YOUR_USER/workspace/backups
-database:
-  username: root
-  password: CHANGE_ME
-  host: localhost
-  port: 3306
-  namespace: Drupal\\Core\\Database\\Driver\\mysql
-  driver: mysql
-  collation: utf8mb4_general_ci
 account:
-  name: DRUPAL_WEBMASTER_NAME
-  pass: DRUPAL_WEBMASTER_PASSWORD
-  mail: DRUPAL_WEBMASTER_EMAIL
+  name: webmaster
+  pass: CHANGE_ME
+  mail: info@webship.co
 config_sync_directory: ../config/sync
 workspaces:
   - products
@@ -80,26 +73,19 @@ workspaces:
   - themes
   - libraries
   - forked
-  - docs
-  - agents
-  - skills
   - recipes
   - components
+  - agents
+  - skills
+  - prompts
+  - docs
 ```
 
-`database.*` is no longer used by the build scripts (each DDEV project manages its own isolated database), but is kept for anything custom you add that still needs those values.
+Keep real passwords and API keys in your own copy — never commit them back.
 
-Install the global shell variables:
-```
-cd ~/workspace/core/scripts/install
-bash install.sh
-```
+No paths are listed: `root`, `path`, `scripts`, `config` and `backups` are derived from the checkout (`backups/` is created on first run). Add them to `settings.yml`, or export `WEBSHIP_WORKSPACE_ROOT` / `_PATH` / `_SCRIPTS` / `_CONFIG`, only to point the tooling somewhere else.
 
-Close all terminal windows and open a new one. Test that it's ready:
-```
-echo ${WEBSHIP_WORKSPACE_CONFIG}
-```
-It should print `~/workspace/core/config`.
+There is no `database:` section either: every DDEV project manages its own isolated database, and DDEV's `settings.ddev.php` owns the connection.
 
 Make sure [DDEV](https://ddev.readthedocs.io/en/stable/users/install/) and Docker are installed — that's the only runtime dependency now; there's nothing to install at the OS/package level.
 

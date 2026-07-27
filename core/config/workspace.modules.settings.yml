@@ -1,6 +1,5 @@
 doc:
   name: modules
-  path: /home/YOUR_USER/workspace/modules
 web:
   url: http://localhost/modules
 database:

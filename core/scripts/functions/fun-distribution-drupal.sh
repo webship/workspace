@@ -11,3 +11,15 @@ function enable_drupal_extra_components() {
   echo "Enable Drupal extra components.";
 
 }
+# The default set of users `add_users` creates for Drupal (--add-users).
+function set_drupal_users() {
+  users=(authenticated administrator);
+  user_authenticated_name="Authenticated user";
+  user_authenticated_mail="test.authenticated@webship.org";
+  user_authenticated_password="dD.123123ddd";
+  user_authenticated_role="_none_";
+  user_administrator_name="Administrator";
+  user_administrator_mail="test.administrator@webship.org";
+  user_administrator_password="dD.123123ddd";
+  user_administrator_role="administrator";
+}

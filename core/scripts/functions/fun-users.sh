@@ -1,10 +1,34 @@
 #!/bin/usr/env bash
 
+# Load the default user list of a distribution: `set_<distribution>_users` lives
+# in functions/fun-distribution-<distribution>.sh, next to that distribution's
+# install functions. Each cmd-*.sh sets distribution_name itself.
+function load_distribution_users () {
+  distribution_functions="${WEBSHIP_WORKSPACE_SCRIPTS}/functions/fun-distribution-${distribution_name}.sh" ;
+  if [ -f "${distribution_functions}" ]; then
+    source "${distribution_functions}" ;
+  fi
+
+  if declare -f set_${distribution_name}_users > /dev/null ; then
+    set_${distribution_name}_users ;
+  else
+    echo "No default user list for '${distribution_name}' — add set_${distribution_name}_users() to fun-distribution-${distribution_name}.sh." ;
+  fi
+
+  # Callers that only know the project (cmd-tools-add-users.sh) get the docroot
+  # from the project's own DDEV config.
+  if [ -z "${distribution_webroot}" ] && [ -f "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/.ddev/config.yaml" ]; then
+    distribution_webroot=$(grep '^docroot:' "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/.ddev/config.yaml" | awk '{print $2}') ;
+  fi
+}
+
 # Add users to a project.
 function add_users () {
 
   # Add Drush if it was not in the system.
   add_drush ;
+
+  load_distribution_users ;
 
   cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/${distribution_webroot}/;
 
@@ -41,6 +65,8 @@ function cancel_users () {
 
   # Add Drush if it was not in the system.
   add_drush ;
+
+  load_distribution_users ;
 
   cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/${distribution_webroot}/;
 

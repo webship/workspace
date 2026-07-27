@@ -7,6 +7,8 @@ echo "| https://www.drupal.org/project/university         |";
 echo "*---------------------------------------------------*";
 
 # Bootstrap.
+# Find the workspace tooling from this script, so a fresh clone needs no setup.
+WEBSHIP_WORKSPACE_SCRIPTS="${WEBSHIP_WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
 source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.
