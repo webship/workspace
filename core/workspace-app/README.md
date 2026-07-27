@@ -17,7 +17,7 @@ click-to-arm confirm.
   project list with per-project **Backup / Filemode / Remove** actions, plus a
   **Build** form listing that folder's `cmd-*-project.sh` builder scripts.
 - **AI Assistant** on every page (inline on home, floating 🤖 widget on
-  workspace pages): quick actions (New Drupal 11, New Varbase, Status) and a
+  workspace pages): quick actions (New Drupal 11, New Webship, Status) and a
   free-text chat backed by the local `claude` CLI in restricted, tool-free
   print mode.
 - All actions run the real `cmd-*.sh` scripts (and `ddev`) against

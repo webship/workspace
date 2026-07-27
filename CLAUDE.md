@@ -34,7 +34,7 @@ All project builds go through DDEV — never raw `composer`/`drush`/`mysql` agai
 
 ## Builders (`cmd-*-project.sh`)
 
-Families: Drupal (9/10/10.3/11/11.0.x/11.4.x/11.4.0 recommended-project), Drupal CMS (2.1.0/2.x — `distributions/drupal_cms.yml`), Varbase (9.1, 9.2, 10.0, 10.1, 11.0 lines), Vardoc, Uber Publisher, Webship(s). Every builder MUST carry a `# workspace-name: <Human Name>` header (shown in the dashboard Build dropdown). Cucumber builders were removed. Validate everything with `bash core/scripts/tests/cmd-smoke-test.sh` (218 scripts; `--help` execution is safe only for argparse scripts).
+Families: Drupal (9/10/10.3/11/11.0.x/11.4.x/11.4.0 recommended-project), Drupal CMS (2.1.0/2.x — `distributions/drupal_cms.yml`), Webship(s). Every builder MUST carry a `# workspace-name: <Human Name>` header (shown in the dashboard Build dropdown). Cucumber builders were removed; the Vardot distributions (Varbase, Vardoc, Uber Publisher, CV) moved to gitlab.com/vardot/workspace. Validate everything with `bash core/scripts/tests/cmd-smoke-test.sh` (143 scripts; `--help` execution is safe only for argparse scripts).
 
 ## Naming
 
