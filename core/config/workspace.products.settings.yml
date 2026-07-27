@@ -1,6 +1,5 @@
 doc:
   name: products
-  path: /home/YOUR_USER/workspace/products
 web:
   url: http://localhost/products
 database:

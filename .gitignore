@@ -27,3 +27,4 @@
 /nbproject/private/
 # Node dependencies (workspace-app)
 node_modules/
+.playwright-mcp/

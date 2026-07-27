@@ -1,6 +1,5 @@
 doc:
   name: projects
-  path: /home/YOUR_USER/workspace/projects
 web:
   url: http://localhost/projects
 database:

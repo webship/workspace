@@ -1,6 +1,5 @@
 doc:
   name: demos
-  path: /home/YOUR_USER/workspace/demos
 web:
   url: http://localhost/demos
 database:

@@ -1,6 +1,5 @@
 doc:
   name: sandboxes
-  path: /home/YOUR_USER/workspace/sandboxes
 web:
   url: http://localhost/sandboxes
 database:

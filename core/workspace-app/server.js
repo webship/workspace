@@ -492,7 +492,7 @@ function parseBuilderArgs(dir, script) {
     if (/argparse "\$@"/.test(src) && src.includes('parser.add_argument(')) {
       return parseArgparseText(src);
     }
-    const dm = src.match(/distributions\/([a-z_]+)\.yml/);
+    const dm = src.match(/distribution_name="([a-z_]+)"/);
     if (!dm) return [];
     const argFile = path.join(ROOT, 'core', 'scripts', 'args', `arg-${dm[1]}.sh`);
     return parseArgparseText(fs.readFileSync(argFile, 'utf8'));

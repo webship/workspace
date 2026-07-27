@@ -1,19 +1,9 @@
-root: /home/YOUR_USER/workspace
-path: /home/YOUR_USER/workspace/core
-scripts: /home/YOUR_USER/workspace/core/scripts
-config: /home/YOUR_USER/workspace/core/config
+# Paths are not listed here: the tooling locates itself from the checkout, for
+# whoever is running it. Add root/path/scripts/config/backups only to override
+# that (or export WEBSHIP_WORKSPACE_ROOT/PATH/SCRIPTS/CONFIG).
 host: 127.0.0.1
 web: http://127.0.0.1/core
 protocol: http
-backups: /home/YOUR_USER/workspace/backups
-database:
-  username: root
-  password: CHANGE_ME
-  host: localhost
-  port: 3306
-  namespace: Drupal\\\\Core\\\\Database\\\\Driver\\\\mysql
-  driver: mysql
-  collation: utf8mb4_general_ci
 account:
   name: webmaster
   pass: CHANGE_ME

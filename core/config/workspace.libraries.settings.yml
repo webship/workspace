@@ -1,6 +1,5 @@
 doc:
   name: libraries
-  path: /home/YOUR_USER/workspace/libraries
 web:
   url: http://localhost/libraries
 database:
