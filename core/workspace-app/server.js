@@ -45,6 +45,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 // remote-hub deployment).
 
 const { esc } = require('./html');
+const { readListState, setListCookies } = require('./lists');
 const { run, jobs, runningJobKey, startJob, jobFragment } = require('./jobs');
 const { assistantReply } = require('./assistant');
 const {
@@ -621,8 +622,10 @@ const server = http.createServer(async (req, res) => {
       }
       const itemsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/items$/);
       if (itemsMatch && isValidWorkspace(itemsMatch[1])) {
+        const itemsState = readListState(req);
+        setListCookies(res, itemsState);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(itemRowsHtml(itemsMatch[1]));
+        return res.end(itemRowsHtml(itemsMatch[1], itemsState));
       }
       const newMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/new$/);
       if (newMatch && isValidWorkspace(newMatch[1]) && loadWorkspaces()[newMatch[1]].kind === 'files') {
@@ -817,23 +820,27 @@ const server = http.createServer(async (req, res) => {
       }
       const fragMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/projects$/);
       if (fragMatch && isValidWorkspace(fragMatch[1])) {
+        const projState = readListState(req);
+        setListCookies(res, projState);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(await projectRowsHtml(fragMatch[1], workspaceDir(fragMatch[1])));
+        return res.end(await projectRowsHtml(fragMatch[1], workspaceDir(fragMatch[1]), projState));
       }
       const backupsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/backups$/);
       if (backupsMatch && isValidWorkspace(backupsMatch[1])) {
+        const backupState = readListState(req);
+        setListCookies(res, backupState);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(backupRowsHtml(backupsMatch[1]));
+        return res.end(backupRowsHtml(backupsMatch[1], backupState));
       }
       const backupsPageMatch = pathname.match(/^\/([a-z0-9_-]+)\/backups\/?$/);
       if (backupsPageMatch && isValidWorkspace(backupsPageMatch[1])) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(backupsPage(backupsPageMatch[1]));
+        return res.end(backupsPage(backupsPageMatch[1], readListState(req)));
       }
       const wsKey = pathname.replace(/^\/+|\/+$/g, '');
       if (isValidWorkspace(wsKey)) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(await workspacePage(wsKey));
+        return res.end(await workspacePage(wsKey, readListState(req)));
       }
       if (serveStatic(pathname, res)) return;
       res.writeHead(404, { 'Content-Type': 'text/plain' });

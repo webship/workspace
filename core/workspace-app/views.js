@@ -29,6 +29,14 @@ const { esc } = require('./html');
 const { run, jobFragment } = require('./jobs');
 const { assistantHtml } = require('./assistant');
 const { SETTINGS_FILE_RE, settingsFormHtml, listSettingsFiles, listEditorHtml } = require('./settings');
+const {
+  defaultListState,
+  searchSortPage,
+  listControlsHtml,
+  statusFilterHtml,
+  listPagerHtml,
+  emptyListHtml,
+} = require('./lists');
 
 /* ---------------- icons ------------------------------------------------ */
 
@@ -129,18 +137,24 @@ function listItems(key) {
     return [];
   }
   const items = [];
+  // A skill is a folder and the rest are files, so the timestamp comes from whichever one the item
+  // actually is. It is what "newest first" sorts on, and it is why editing a doc moves it to the
+  // top of its list rather than leaving it wherever the alphabet put it.
+  const stamp = (...parts) => {
+    try { return fs.statSync(path.join(dir, ...parts)).mtimeMs; } catch (_) { return 0; }
+  };
   for (const e of entries) {
     if (e.name.startsWith('.') || e.name === 'node_modules') continue;
     if (key === 'skills' && e.isDirectory() && fs.existsSync(path.join(dir, e.name, 'SKILL.md'))) {
-      items.push({ name: e.name, editable: true });
+      items.push({ name: e.name, editable: true, mtime: stamp(e.name, 'SKILL.md') });
     } else if (e.isFile() && e.name.endsWith('.md') && e.name !== 'README.md') {
-      items.push({ name: e.name.replace(/\.md$/, ''), editable: true });
+      items.push({ name: e.name.replace(/\.md$/, ''), editable: true, mtime: stamp(e.name) });
     } else if (key === 'docs' && e.isFile() && /\.(pdf|html|png)$/.test(e.name)) {
-      items.push({ name: e.name, editable: false, artifact: true });
+      items.push({ name: e.name, editable: false, artifact: true, mtime: stamp(e.name) });
     } else if (key === 'videos' && e.isFile() && VIDEO_RE.test(e.name)) {
-      items.push({ name: e.name, editable: false, artifact: true, video: true });
+      items.push({ name: e.name, editable: false, artifact: true, video: true, mtime: stamp(e.name) });
     } else if (key === 'videos' && e.isFile() && /\.(jpg|jpeg|png)$/i.test(e.name)) {
-      items.push({ name: e.name, editable: false, artifact: true });
+      items.push({ name: e.name, editable: false, artifact: true, mtime: stamp(e.name) });
     }
   }
   return items.sort((a, b) => a.name.localeCompare(b.name));
@@ -227,15 +241,20 @@ function testRunHtml(key, project) {
         ? '<p class="uk-text-meta">No screenshots or recordings — nothing failed, or the run was configured not to keep them.</p>' : ''}
     </div>`;
 }
-function itemRowsHtml(key) {
+function itemRowsHtml(key, state = defaultListState()) {
   const meta = loadWorkspaces()[key];
-  const items = listItems(key);
+  const all = listItems(key);
+  const url = `/fragments/${key}/items`;
+  // The same container the projects list uses on the other kind of workspace page — one id, so the
+  // `refresh-projects` event reloads whichever list this workspace has.
+  const target = '#webship-workspace-projects';
+  const page = searchSortPage(all, state);
   // A prompt is a copy-paste invocation, not something a CLI loads from a directory: installing it
   // into ~/.claude/commands made it a slash command whose placeholders nobody had filled in. It is
   // run — handed to the assistant — or cloned and adapted instead.
   const installable = !!INSTALL_TARGETS[key] && key !== 'prompts';
   const runnable = key === 'prompts';
-  const rows = items.map((it) => {
+  const rows = page.slice.map((it) => {
     const vals = `hx-vals='{"workspace":"${esc(key)}","name":"${esc(it.name)}"}'`;
     if (it.artifact) {
       return `
@@ -267,9 +286,16 @@ function itemRowsHtml(key) {
   }).join('');
 
   const heading = meta.nounPlural.charAt(0).toUpperCase() + meta.nounPlural.slice(1);
+  // The badge counts what the whole workspace holds, not what this page shows — the pager already
+  // says which slice of it you are looking at, and a heading that changed as you paged would be
+  // reporting the pager back to you.
+  const pager = listPagerHtml(url, target, page, state, meta.nounPlural);
   return `
-    <h3 class="uk-margin-small-bottom">${esc(heading)} <span class="uk-badge">${items.length}</span></h3>
-    ${rows || `<p class="uk-text-meta">No ${esc(meta.nounPlural)} yet — create one below.</p>`}`;
+    <h3 class="uk-margin-small-bottom">${esc(heading)} <span class="uk-badge">${all.length}</span></h3>
+    ${all.length ? listControlsHtml(url, target, state, meta.nounPlural) : ''}
+    ${pager}
+    ${rows || emptyListHtml(state, meta.nounPlural, `No ${esc(meta.nounPlural)} yet — create one below.`)}
+    ${page.pages > 1 ? pager : ''}`;
 }
 function editorFormHtml(key, name, content, isNew) {
   const meta = loadWorkspaces()[key];
@@ -514,18 +540,49 @@ async function ddevStatusMap() {
   _statusCacheAt = now;
   return map;
 }
-async function projectRowsHtml(key, dir) {
+async function projectRowsHtml(key, dir, state = defaultListState()) {
   const meta = loadWorkspaces()[key];
-  const projects = listProjects(dir);
+  const names = listProjects(dir);
   const canBackup = !!findBackupScript(dir);
   const canRemove = !!findRemoveScript(dir);
   const canTest = fs.existsSync(path.join(dir, 'cmd-tools-testing.sh'));
   const statuses = await ddevStatusMap();
+  const url = `/fragments/${key}/projects`;
+  const target = '#webship-workspace-projects';
 
-  const rows = projects.map((p) => {
-    const ddevName = ddevProjectName(path.join(dir, p));
+  // Resolve each project's DDEV name and status once, here: the filter needs it, the sort needs the
+  // timestamp, and the row needs both — three passes over the same stat calls otherwise.
+  const projects = names.map((name) => {
+    const ddevName = ddevProjectName(path.join(dir, name));
+    let mtime = 0;
+    try { mtime = fs.statSync(path.join(dir, name)).mtimeMs; } catch (_) { /* vanished mid-render */ }
+    return {
+      name,
+      ddevName,
+      mtime,
+      status: ddevName !== null ? (statuses[ddevName]?.status || 'stopped') : null,
+    };
+  });
+
+  const filtered = projects.filter((p) => {
+    switch (state && state.status) {
+      case 'running': return p.status === 'running';
+      case 'stopped': return p.ddevName !== null && p.status !== 'running';
+      case 'noddev':  return p.ddevName === null;
+      // Only this filter opens directories, and only when it is the one asked for: a test report is
+      // a file on disk, so an unfiltered page must not pay for the check on every row.
+      case 'tested':  return projectTestRuns(dir, p.name).length > 0;
+      default:        return true;
+    }
+  });
+
+  const page = searchSortPage(filtered, state);
+
+  const rows = page.slice.map((row) => {
+    const p = row.name;
+    const { ddevName } = row;
     const isDdev = ddevName !== null;
-    const status = isDdev ? (statuses[ddevName]?.status || 'stopped') : null;
+    const status = row.status;
     const running = status === 'running';
     const statusBadge = !isDdev ? '' : running
       ? '<span class="uk-label uk-label-success">🟢 Running</span>'
@@ -571,9 +628,13 @@ async function projectRowsHtml(key, dir) {
   }).join('');
 
   const heading = meta.nounPlural.charAt(0).toUpperCase() + meta.nounPlural.slice(1);
+  const pager = listPagerHtml(url, target, page, state, meta.nounPlural);
   return `
     <h3 class="uk-margin-small-bottom">${esc(heading)} <span class="uk-badge">${projects.length}</span></h3>
-    ${rows || `<p class="uk-text-meta">No ${esc(meta.nounPlural)} yet.</p>`}`;
+    ${projects.length ? listControlsHtml(url, target, state, meta.nounPlural, statusFilterHtml(url, target, state)) : ''}
+    ${pager}
+    ${rows || emptyListHtml(state, meta.nounPlural, `No ${esc(meta.nounPlural)} yet.`)}
+    ${page.pages > 1 ? pager : ''}`;
 }
 function humanSize(bytes) {
   if (bytes > 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
@@ -645,9 +706,15 @@ function builderArgsHtml(key, script) {
       </li>
     </ul>`;
 }
-function backupRowsHtml(key) {
+function backupRowsHtml(key, state = defaultListState()) {
   const backups = listBackups(key);
-  const rows = backups.map((b) => `
+  const url = `/fragments/${key}/backups`;
+  const target = '#webship-workspace-backups';
+  // An archive's name is its only text and its date is what you look for, so the search and the
+  // sort work off the filename and the mtime the archive already carries. Only `name` is added:
+  // mtime stays the Date the row prints, and subtracting two Dates sorts them correctly anyway.
+  const page = searchSortPage(backups.map((b) => ({ ...b, name: b.file })), state);
+  const rows = page.slice.map((b) => `
     <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
       <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
         <span><span uk-icon="icon: album; ratio: .8"></span> <span class="uk-text-bold">${esc(b.file)}</span>
@@ -667,12 +734,16 @@ function backupRowsHtml(key) {
       </div>
     </div>`).join('');
 
+  const pager = listPagerHtml(url, target, page, state, 'backups');
   return `
     <h3 class="uk-margin-small-bottom uk-margin-top">Backups <span class="uk-badge">${backups.length}</span></h3>
-    ${rows || '<p class="uk-text-meta">No backups yet — use a project\'s Backup button to create one.</p>'}`;
+    ${backups.length ? listControlsHtml(url, target, state, 'backups') : ''}
+    ${pager}
+    ${rows || emptyListHtml(state, 'backups', 'No backups yet — use a project\'s Backup button to create one.')}
+    ${page.pages > 1 ? pager : ''}`;
 }
 // Dedicated backups page: /<workspace>/backups
-function backupsPage(key) {
+function backupsPage(key, state = defaultListState()) {
   const meta = loadWorkspaces()[key];
 
   return pageShell(`${meta.label} Backups · workspace`, `
@@ -686,14 +757,14 @@ function backupsPage(key) {
   </div>
   <div class="uk-card uk-card-default uk-card-body">
     <div id="webship-workspace-backups" hx-get="/fragments/${esc(key)}/backups" hx-trigger="refresh-projects from:body">
-      ${backupRowsHtml(key)}
+      ${backupRowsHtml(key, state)}
     </div>
 
     <div id="webship-workspace-output"></div>
   </div>
 </main>`, [{ label: 'Workspaces', href: HOME_URL() }, { label: meta.label, href: wsUrl(key) }, { label: 'Backups' }], `backups:${key}`);
 }
-async function workspacePage(key) {
+async function workspacePage(key, state = defaultListState()) {
   const workspaces = loadWorkspaces();
   const meta = workspaces[key];
   const dir = meta.dir;
@@ -703,7 +774,7 @@ async function workspacePage(key) {
 
   const listSection = isFiles ? `
     <div id="webship-workspace-projects" hx-get="/fragments/${esc(key)}/items" hx-trigger="refresh-projects from:body">
-      ${itemRowsHtml(key)}
+      ${itemRowsHtml(key, state)}
     </div>
 
     <p class="uk-margin-top">
@@ -718,7 +789,7 @@ async function workspacePage(key) {
       <button class="uk-button uk-button-default" hx-post="/actions/sync-items" hx-vals='{"workspace":"${esc(key)}","source":"claude"}' hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: home; ratio: .8"></span> Sync from ~/.claude</button>` : ''}
     </p>` : `
     <div id="webship-workspace-projects" hx-get="/fragments/${esc(key)}/projects" hx-trigger="refresh-projects from:body">
-      ${await projectRowsHtml(key, dir)}
+      ${await projectRowsHtml(key, dir, state)}
     </div>`;
 
   return pageShell(`${meta.label} · workspace`, `
