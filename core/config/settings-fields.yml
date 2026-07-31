@@ -8,7 +8,6 @@ hints:
   web: "Base URL used when a script has to print one."
   protocol: "http or https, for those URLs."
   config_sync_directory: "Drupal's config sync directory, relative to the docroot."
-  automated_testing.wd_host: "WebDriver endpoint for the automated-testing stack."
   contributor.name: "Who contributions are credited to — the name commits, issues and merge requests are authored as. Never hardcode a person in a script; the tooling reads it from here."
   contributor.email: "The address those contributions are authored as, unless a forge block below overrides it."
   git.github.use_gh_cli: "Use the gh CLI's own login when it works, and fall back to the token below only when it does not."
