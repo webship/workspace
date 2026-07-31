@@ -41,8 +41,13 @@ for ws in "${workspaces[@]}"; do
       fi
     fi
 
-    # 3. Builder scripts must have the human-readable name header
-    if [ -z "$err" ] && [[ "$(basename "$f")" == cmd-*-project.sh ]] && [[ "$(basename "$f")" != cmd-automated-testing-* ]] && [[ "$(basename "$f")" != cmd-bulk-* ]]; then
+    # 3. Builder scripts must have the human-readable name header.
+    #    A builder is cmd-<distribution><version>-project.sh. cmd-tool-*/cmd-tools-* are the
+    #    workspace's own tools — projects/cmd-tool-backup-project.sh ends in -project.sh too,
+    #    and is not a builder.
+    if [ -z "$err" ] && [[ "$(basename "$f")" == cmd-*-project.sh ]] \
+       && [[ "$(basename "$f")" != cmd-tool-* ]] && [[ "$(basename "$f")" != cmd-tools-* ]] \
+       && [[ "$(basename "$f")" != cmd-automated-testing-* ]] && [[ "$(basename "$f")" != cmd-bulk-* ]]; then
       if ! grep -q "^# workspace-name:" "$f"; then
         err="missing '# workspace-name:' header"
       fi
