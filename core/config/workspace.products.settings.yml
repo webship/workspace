@@ -1,6 +1,2 @@
 doc:
   name: products
-web:
-  url: http://localhost/products
-database:
-  prefix: products_

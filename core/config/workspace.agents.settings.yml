@@ -1,6 +1,2 @@
 doc:
   name: agents
-web:
-  url: http://localhost/agents
-database:
-  prefix: agents_

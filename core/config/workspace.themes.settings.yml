@@ -1,9 +1,5 @@
 doc:
   name: themes
-web:
-  url: http://localhost/themes
-database:
-  prefix: themes_
 vdo_drupal:
   template_drupal_theme_name: template_drupal
 themes:

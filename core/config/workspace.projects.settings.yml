@@ -1,6 +1,2 @@
 doc:
   name: projects
-web:
-  url: http://localhost/projects
-database:
-  prefix: projects_

@@ -1,6 +1,2 @@
 doc:
   name: recipes
-web:
-  url: http://localhost/recipes
-database:
-  prefix: recipes_

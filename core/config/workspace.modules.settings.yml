@@ -1,9 +1,5 @@
 doc:
   name: modules
-web:
-  url: http://localhost/modules
-database:
-  prefix: modules_
 modules:
   - ace_editor
   - adminimal_admin_toolbar

@@ -76,7 +76,6 @@ function _loadWorkspacesFresh() {
   for (const name of names) {
     const wsSettings = loadYaml(path.join(CONFIG_DIR, `workspace.${name}.settings.yml`));
     const doc = wsSettings.doc || {};
-    const database = wsSettings.database || {};
     const dir = doc.path || path.join(ROOT, name);
     // The hardcoded table is the default; a workspace's own file overrides it, so a workspace
     // added to the tree can carry its icon and description without a code change — which is
@@ -87,7 +86,6 @@ function _loadWorkspacesFresh() {
     map[name] = {
       key: name,
       dir,
-      dbPrefix: database.prefix || `${name}_`,
       backupsDir: path.join(backupsRoot, doc.name || name),
       icon: pres.icon,
       subtitle: pres.subtitle,

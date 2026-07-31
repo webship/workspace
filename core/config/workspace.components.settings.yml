@@ -1,6 +1,2 @@
 doc:
   name: components
-web:
-  url: http://localhost/components
-database:
-  prefix: components_
