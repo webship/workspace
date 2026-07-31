@@ -50,7 +50,7 @@ const { assistantReply } = require('./assistant');
 const {
   INSTALL_TARGETS, VIDEO_RE, ITEM_TEMPLATES, NAME_RE, SCRIPT_RE,
   itemFile, listItems, testingStackOf, projectTestRuns, testRunHtml,
-  itemRowsHtml, editorFormHtml, settingsPage, pageShell, homePage,
+  itemRowsHtml, editorFormHtml, settingsPage, pageShell, homePage, workspaceCardsHtml,
   projectRowsHtml, parseBuilderArgs, builderArgsHtml, backupRowsHtml,
   backupsPage, workspacePage, resultFragment, HOME_URL, wsUrl,
 } = require('./views');
@@ -216,12 +216,23 @@ async function handleAction(pathname, form, res) {
     // The submitted order has to be the same set, or a dropped row would delete a workspace.
     const same = wanted.length === block.items.length && wanted.every((n) => block.items.includes(n));
     if (!same) return send('<div class="msg error">That order does not match the list — reload and try again.</div>', 409);
+    // The order the page was rendered from comes back with the drag, so a save on top of someone
+    // else's edit is refused rather than silently discarding it.
+    const was = String(form.was || '');
+    if (was && was !== block.items.join(',')) {
+      return send('<div class="msg error">The order changed since this page was loaded — reload and try again.</div>', 409);
+    }
     try {
       writeListBlock(file, key, wanted);
     } catch (err) {
       return send(`<div class="msg error">Could not write ${esc(file)}: ${esc(err.message)}</div>`, 500);
     }
     invalidateWorkspaces();
+    // The drag happened either on the settings list or on the home cards; each gets its own
+    // markup back, so the thing you dragged is the thing that re-renders.
+    if (form.view === 'home') {
+      return send(workspaceCardsHtml('<div class="msg assistant">✅ Order saved.</div>'));
+    }
     return send(listEditorHtml(file, key, '<div class="msg assistant">Order saved.</div>'));
   }
 

@@ -1098,3 +1098,74 @@ body.toast-resizing .toast-grip { pointer-events: auto; }
 /* A slightly lighter stroke at large sizes: 1.75 reads heavy at 28px+. */
 .workspace-card .icon .tabler-icon,
 .page-heading-icon .tabler-icon { stroke-width: 1.6; }
+
+/* The drag handle on a workspace card. */
+.ws-list > .uk-sortable-drag { background: var(--subtle-brand); }
+
+.ws-list > .uk-sortable-placeholder { opacity: .35; }
+
+/* ---------- Reordering the workspace cards ---------- */
+
+/* The handle, not the card: the card is a link, so dragging it would fight navigation. Shown on
+   hover or focus only — a permanent grip on twenty cards is twenty pieces of furniture.
+   It sits INSIDE the card, because UIKit's grid puts a 15px padding-left on every grid child and
+   absolute positioning resolves against that padding box — anchored to the wrapper the grip drew
+   7px to the LEFT of the card it belongs to, out in the gutter. The card is the containing block
+   (.workspace-card is position: relative), so `left` here means the card's own edge. */
+.ws-card-handle {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  color: var(--text-subtle);
+  background: var(--subtle-light);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity .12s ease, color .12s ease;
+  touch-action: none;
+}
+
+.ws-card-wrap:hover .ws-card-handle,
+.ws-card-handle:focus-visible { opacity: 1; }
+
+.ws-card-handle:hover { color: var(--brand-primary); }
+
+.ws-card-handle:active { cursor: grabbing; }
+
+/* No floating clone. UIKit appends its drag element to <body> and positions it in document
+   coordinates — inside this grid that lands it about 1400px below the pointer, measured: the card
+   visibly shot out of the workspaces box while the placeholder stayed put. The placeholder IS
+   correctly positioned, so the drag reads as a gap moving between the cards, which is enough to
+   see where the card will land and cannot escape the container. */
+.uk-sortable-drag { display: none !important; }
+
+/* The gap has to look deliberate: an empty white slot reads as a broken card, so it is tinted
+   and outlined in brand. UIKit gives the placeholder no box of its own, hence the ::after. */
+/* UIKit hides its placeholder with `opacity: 0`, which takes the ::after slot with it — so the
+   gap rendered as blank white and the drop target was invisible. */
+#workspace-cards .uk-sortable-placeholder { position: relative; opacity: 1 !important; }
+
+#workspace-cards .uk-sortable-placeholder::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px dashed var(--brand-primary);
+  border-radius: 0.75rem;
+  background: var(--subtle-brand);
+  opacity: .75;
+}
+
+#workspace-cards .uk-sortable-placeholder .workspace-card,
+#workspace-cards .uk-sortable-placeholder .ws-backups { visibility: hidden; }
+
+/* While a drag is in progress the cards are targets, not links. */
+#workspace-cards.uk-sortable-empty .workspace-card,
+body.ws-dragging #workspace-cards .workspace-card { cursor: grabbing; }
+
+html.dark .ws-card-handle { background: #232941; color: #9aa4c2; }
