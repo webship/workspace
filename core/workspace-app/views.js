@@ -453,14 +453,20 @@ ${body}
 </body>
 </html>`;
 }
-function homePage() {
+function workspaceCardsHtml(message) {
+  return homePage(message, true);
+}
+
+function homePage(message, gridOnly) {
   const workspaces = loadWorkspaces();
   const cards = Object.values(workspaces).map((w) => {
     const projectCount = w.kind === 'files' ? listItems(w.key).length : listProjects(w.dir).length;
     const hasBuilders = w.kind === 'files' ? false : findBuilderScripts(w.dir).length > 0;
     const backupCount = listBackups(w.key).length;
     return `
-      <div class="uk-position-relative">
+      <div class="ws-card-wrap" data-ws="${esc(w.key)}">
+        <div class="uk-position-relative ws-card-inner">
+        <span class="ws-card-handle" title="Drag to reorder the workspaces — the order is saved in settings.yml"><span uk-icon="icon: table; ratio: .7"></span></span>
         <a class="uk-card uk-card-default uk-card-hover uk-card-body uk-card-small uk-text-center uk-display-block uk-link-reset workspace-card" href="${wsUrl(w.key)}">
           <div class="icon uk-text-primary">${iconHtml(w.icon, 1.4)}</div>
           <h4 class="uk-card-title uk-margin-remove uk-text-bold">${esc(w.label)}</h4>
@@ -468,13 +474,22 @@ function homePage() {
           <span class="uk-label ${hasBuilders ? 'uk-label-success' : ''} uk-margin-small-top">${projectCount} ${projectCount === 1 ? w.noun : w.nounPlural}${hasBuilders ? ' · buildable' : ''}</span>
         </a>
         ${backupCount ? `<a class="ws-backups" href="${wsUrl(w.key, '/backups')}" title="View the ${backupCount} backup${backupCount === 1 ? '' : 's'} for ${esc(w.label)}"><span uk-icon="icon: album; ratio: .65"></span> ${backupCount}</a>` : ''}
+        </div>
       </div>`;
   }).join('');
+
+  const grid = `<div id="workspace-cards-wrap">
+      <div id="workspace-cards" class="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-3@m uk-child-width-1-4@l"
+           uk-grid uk-sortable="handle: .ws-card-handle"
+           data-order="${esc(Object.keys(workspaces).join(','))}" data-file="settings.yml" data-key="workspaces">${cards}</div>
+      ${message || ''}
+    </div>`;
+  if (gridOnly) return grid;
 
   return pageShell('workspace', `
 <main class="uk-container uk-container-large page-body">
   <div class="uk-card uk-card-default uk-card-body">
-    <div class="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-3@m uk-child-width-1-4@l" uk-grid>${cards}</div>
+    ${grid}
   </div>
 </main>`, [], 'home');
 }
@@ -762,6 +777,7 @@ module.exports = {
   pageActionsHtml,
   pageShell,
   homePage,
+  workspaceCardsHtml,
   ddevStatusMap,
   projectRowsHtml,
   parseBuilderArgs,

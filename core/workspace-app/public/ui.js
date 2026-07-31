@@ -638,3 +638,28 @@ document.addEventListener('click', async (e) => {
   sel.removeAllRanges();
   sel.addRange(range);
 });
+
+// UIKit fires `moved` when a sortable item is dropped. The card grid posts the order it ended up
+// in — and the order it was rendered from, so the server can refuse a save that would land on top
+// of someone else's edit.
+document.body.addEventListener('moved', (e) => {
+  const grid = e.target.closest && e.target.closest('#workspace-cards');
+  if (!grid || !window.htmx) return;
+  const order = [...grid.querySelectorAll('.ws-card-wrap')].map((el) => el.dataset.ws).filter(Boolean);
+  window.htmx.ajax('POST', '/actions/list-order', {
+    target: '#workspace-cards-wrap',
+    swap: 'outerHTML',
+    values: {
+      order: order.join(','),
+      was: grid.dataset.order || '',
+      file: grid.dataset.file || 'settings.yml',
+      key: grid.dataset.key || 'workspaces',
+      view: 'home',
+    },
+  });
+});
+
+// A handle sits on top of a card that is a link: a click on it must not navigate.
+document.addEventListener('click', (e) => {
+  if (e.target.closest && e.target.closest('.ws-card-handle')) { e.preventDefault(); e.stopPropagation(); }
+}, true);
