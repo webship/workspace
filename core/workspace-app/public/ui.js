@@ -614,3 +614,27 @@ document.addEventListener('click', (e) => {
     toast.remove();
   }
 });
+
+// Run a prompt: fetch its text and put it in the assistant, rather than firing it. These prompts
+// carry placeholders — a project name, a version — so the useful thing is to arrive at a filled-in
+// prompt box with the cursor in it, not to send something with <project> still in it.
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest && e.target.closest('.run-prompt');
+  if (!btn) return;
+  e.preventDefault();
+  const res = await fetch(`/files/${btn.dataset.workspace}/${encodeURIComponent(btn.dataset.name)}.md`);
+  if (!res.ok) return;
+  const text = await res.text();
+  const el = document.getElementById('ws-deep-chat');
+  const input = el && el.shadowRoot && el.shadowRoot.querySelector('#text-input');
+  if (!input) return;
+  input.innerText = text.trim();
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.focus();
+  const range = document.createRange();
+  range.selectNodeContents(input);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+});

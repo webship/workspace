@@ -26,7 +26,7 @@ const PRESENTATION = {
   docs:       { icon: 'tabler:file-text',   subtitle: 'Documentation Projects', noun: 'doc', kind: 'files' },
   agents:     { icon: 'tabler:robot-face',       subtitle: 'AI Automation', label: 'AI Agents', noun: 'agent', kind: 'files' },
   skills:     { icon: 'tabler:star',        subtitle: 'AI Skill Definitions', label: 'AI Skills', noun: 'skill', kind: 'files' },
-  prompts:    { icon: 'tabler:pencil',      subtitle: 'Reusable AI Prompts', noun: 'prompt', kind: 'files' },
+  prompts:    { icon: 'tabler:pencil',      subtitle: 'Reusable AI Prompts', noun: 'prompt', label: 'AI Prompts', kind: 'files' },
   recipes:    { icon: 'tabler:list-check',        subtitle: 'Development Recipes', noun: 'recipe' },
 };
 

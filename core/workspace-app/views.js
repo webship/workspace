@@ -230,7 +230,11 @@ function testRunHtml(key, project) {
 function itemRowsHtml(key) {
   const meta = loadWorkspaces()[key];
   const items = listItems(key);
-  const installable = !!INSTALL_TARGETS[key];
+  // A prompt is a copy-paste invocation, not something a CLI loads from a directory: installing it
+  // into ~/.claude/commands made it a slash command whose placeholders nobody had filled in. It is
+  // run — handed to the assistant — or cloned and adapted instead.
+  const installable = !!INSTALL_TARGETS[key] && key !== 'prompts';
+  const runnable = key === 'prompts';
   const rows = items.map((it) => {
     const vals = `hx-vals='{"workspace":"${esc(key)}","name":"${esc(it.name)}"}'`;
     if (it.artifact) {
@@ -253,6 +257,8 @@ function itemRowsHtml(key) {
         <div class="project-actions">
           <button class="uk-button uk-button-default uk-button-small" hx-get="/fragments/${esc(key)}/edit/${encodeURIComponent(it.name)}" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: pencil; ratio: .7"></span> Edit</button>
           ${installable ? `<button class="uk-button uk-button-primary uk-button-small" hx-post="/actions/install-item" ${vals} hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: push; ratio: .7"></span> Install</button>` : ''}
+          ${runnable ? `<button class="uk-button uk-button-primary uk-button-small run-prompt" data-workspace="${esc(key)}" data-name="${esc(it.name)}" title="Put it in the assistant, ready to fill in and send"><span uk-icon="icon: play; ratio: .7"></span> Run</button>` : ''}
+          ${it.editable ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/clone-item" ${vals} hx-target="#webship-workspace-output" hx-swap="innerHTML" title="Copy it to a new name to adapt"><span uk-icon="icon: copy; ratio: .7"></span> Clone</button>` : ''}
           ${key === 'docs' ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/make-pdf" ${vals} hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: file-pdf; ratio: .7"></span> PDF</button><button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/make-html" ${vals} hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: world; ratio: .7"></span> HTML</button>` : ''}
           <button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/delete-item" hx-vals='{"workspace":"${esc(key)}","name":"${esc(it.name)}","confirm":"yes"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete</button>
         </div>
