@@ -1570,6 +1570,12 @@ const server = http.createServer(async (req, res) => {
           </div>`);
       }
 
+      if (pathname === '/settings' || pathname.startsWith('/settings/')) {
+        const wanted = decodeURIComponent(pathname.slice('/settings/'.length) || '');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(settingsPage(SETTINGS_FILE_RE.test(wanted) ? wanted : ''));
+      }
+
       const testsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/tests\/([a-zA-Z0-9_.-]+)$/);
       if (testsMatch && isValidWorkspace(testsMatch[1])) {
         const project = decodeURIComponent(testsMatch[2]);
