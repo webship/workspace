@@ -518,6 +518,7 @@ function pageShell(title, body, crumbs = [], context = 'home') {
 <script src="/vendor/uikit.min.js"></script>
 <script src="/vendor/uikit-icons.min.js"></script>
 <script src="/htmx.min.js"></script>
+<script type="module" src="/vendor/deep-chat.bundle.js"></script>
 <script src="/ui.js" defer></script>
 </head>
 <body class="uk-background-muted">
@@ -563,7 +564,155 @@ const AI_MARK = `<svg class="ai-mark" viewBox="0 0 24 24" xmlns="http://www.w3.o
 
 // The AI assistant panel — included on EVERY page. `floating` renders it as
 // the bottom-right widget with a launcher button; inline renders it in flow.
+
+/* ---------------- assistant reply (shared by both chat front-ends) ------ */
+
+// One reply, whichever UI asked for it: the HTMX pane and the deep-chat component send the same
+// message and context and get back the same rendered markdown plus the same interface directives.
+async function assistantReply(message, ctx) {
+const workspaceNames = Object.values(loadWorkspaces())
+      .map((w) => `${w.key} (${w.subtitle})`)
+      .join('; ');
+    // Live page context: the assistant always knows which page the user is
+    // on and what that page currently shows (computed fresh per message).
+    let pageContext = 'The user is on the dashboard home page showing all workspace cards.';
+    
+    const ctxMatch = ctx.match(/^(workspace|backups):([a-z0-9_-]+)$/);
+    if (ctxMatch && isValidWorkspace(ctxMatch[2])) {
+      const cKey = ctxMatch[2];
+      const cMeta = loadWorkspaces()[cKey];
+      if (ctxMatch[1] === 'workspace') {
+        const projs = listProjects(cMeta.dir);
+        pageContext = `The user is on the "${cMeta.label}" workspace page (/${cKey}, folder ${cMeta.dir}). Projects currently listed: ${projs.join(', ') || '(none)'} . Builder scripts available: ${findBuilderScripts(cMeta.dir).join(', ') || '(none)'}.`;
+      } else {
+        pageContext = `The user is on the "${cMeta.label}" backups page (/${cKey}/backups). Backups currently listed: ${listBackups(cKey).map((b) => b.file).join(', ') || '(none)'}.`;
+      }
+    }
+    const system = [
+      `You are the Workspace AI Assistant embedded in the web dashboard at https://workspace.ddev.site, managing the webship/workspace tooling rooted at ${ROOT}.`,
+      `You run inside the dashboard's container with Bash access: the whole workspace tree is at ${ROOT}, and the ddev + docker CLIs manage sibling DDEV projects.`,
+      `Workspaces (folders under ${ROOT}): ${workspaceNames}.`,
+      'The components workspace holds Drupal SDC components, React components, code components for Drupal Canvas, and HTMX and web components.',
+      `Default domain scheme (hub domain: ${hubDomain()}): each workspace has <workspace>.${hubDomain()} (its dashboard page), and every running project has https://<project>.<workspace>.${hubDomain()} (its real site) — prefer these hierarchical URLs in OPEN directives; the canonical https://<project>.ddev.site also works.`,
+      pageContext,
+      'How to act:',
+      `- Inspect: ls ${ROOT}/<workspace> ; ddev list ; each builder script has a "# workspace-name:" header naming what it builds.`,
+      `- Build a new project: cd ${ROOT}/<workspace> && bash cmd-<...>-project.sh <project_name> --install`,
+      `- Start/stop an existing project: cd ${ROOT}/<workspace>/<project> && ddev start -y (or ddev stop -y)`,
+      `- Backup: run the folder's cmd-tool*-backup-*.sh <project_name> from inside ${ROOT}/<workspace>.`,
+      `- Create/edit AI agents, skills, prompts, docs: write markdown files with Bash redirection — agents: ${ROOT}/agents/<name>.md (YAML frontmatter: name, description, tools), skills: ${ROOT}/skills/<name>/SKILL.md, prompts: ${ROOT}/prompts/<name>.md, docs: ${ROOT}/docs/<name>.md. Install into Claude Code by copying: agents → ~/.claude/agents/, skills → ~/.claude/skills/<name>/, prompts → ~/.claude/commands/.`,
+      `- Docs tooling: render PDF with: pandoc <doc>.md -o <doc>.pdf --pdf-engine=wkhtmltopdf ; render HTML with: pandoc <doc>.md -o <doc>.html --standalone ; capture a site screenshot with: wkhtmltoimage --width 1440 <url> ${ROOT}/docs/<name>.png`,
+      '- NEVER delete or remove anything unless the user explicitly asked for that in this exact message.',
+      'After acting, end your reply with directives, each alone on its own line, so the interface can react:',
+      'NAVIGATE:/<workspace>   (go to that workspace page, e.g. NAVIGATE:/dev — or its backups page: NAVIGATE:/dev/backups)',
+      'OPEN:<https url>        (open a site in a new tab, e.g. after ddev start)',
+      'REFRESH                 (refresh the visible project list)',
+      'Keep replies short and factual; report real command results, never invented ones.',
+    ].join('\n');
+
+    const args = [
+      '-p', message,
+      '--output-format', 'json',
+      '--append-system-prompt', system,
+      '--allowedTools', 'Bash', 'Read', 'Glob', 'Grep',
+      '--disallowedTools', 'Write', 'Edit', 'NotebookEdit', 'WebFetch', 'Agent',
+      '--no-session-persistence',
+    ];
+    const result = await run('claude', args, ROOT, { timeoutMs: 15 * 60 * 1000 });
+    let reply = result.stdout.trim();
+    try {
+      const parsed = JSON.parse(result.stdout);
+      reply = parsed.result || parsed.response || reply;
+    } catch (_) { /* raw text fallback */ }
+    if (!reply) reply = result.stderr.trim() || 'No response from the assistant.';
+
+    // Pull the interface directives out of the reply text.
+    const directive = {};
+    reply = reply.split('\n').filter((line) => {
+      // Accepts /<workspace> and /<workspace>/backups
+      const nav = line.match(/^\s*NAVIGATE:\/([a-z0-9_-]+)(\/backups)?\s*$/);
+      if (nav) { directive.navigate = isValidWorkspace(nav[1]) ? wsUrl(nav[1], nav[2] || '') : HOME_URL(); return false; }
+      const open = line.match(/^\s*OPEN:(https?:\/\/\S+)\s*$/);
+      if (open) { directive.open = open[1]; return false; }
+      if (/^\s*REFRESH\s*$/.test(line)) { directive.refresh = true; return false; }
+      return true;
+    }).join('\n').trim();
+
+    const triggers = { 'refresh-projects': directive.refresh ? {} : undefined, 'assistant-directive': (directive.navigate || directive.open) ? directive : undefined };
+    const activeTriggers = Object.fromEntries(Object.entries(triggers).filter(([, v]) => v !== undefined));
+    if (Object.keys(activeTriggers).length) res.setHeader('HX-Trigger', JSON.stringify(activeTriggers));
+
+    // Render the reply's markdown (tables, bold, code, lists) — gfm-raw_html
+    // strips raw HTML passthrough, so model output can't inject markup.
+    let replyHtml = `<p>${esc(reply)}</p>`;
+    const mdResult = await new Promise((resolve) => {
+      const child = spawn('pandoc', ['-f', 'gfm-raw_html', '-t', 'html'], { stdio: ['pipe', 'pipe', 'pipe'] });
+      let out = '';
+      child.stdout.on('data', (d) => { out += d; });
+      child.on('close', (code) => resolve(code === 0 ? out : null));
+      child.on('error', () => resolve(null));
+      child.stdin.write(reply);
+      child.stdin.end();
+    });
+    if (mdResult) replyHtml = mdResult;
+  return { replyHtml, directive };
+}
+
+const COMMAND_MENU_ORDER = ['products', 'dev', 'test', 'demos'];
+// The commands offered in the prompt box.
+//
+// Scoped to one workspace when the user is on a workspace page: on /dev the only
+// commands that can sensibly run are dev's own, and a list of every command in
+// the tree buries them. The home page keeps the full grouped list, because there
+// no workspace is implied.
+function commandMenuGroups(scope) {
+  const all = loadWorkspaces();
+  const keys = Object.keys(all);
+  const ordered = (scope && keys.includes(scope))
+    ? [scope]
+    : [...COMMAND_MENU_ORDER.filter((k) => keys.includes(k)),
+       ...keys.filter((k) => !COMMAND_MENU_ORDER.includes(k))];
+  const groups = [];
+  for (const key of ordered) {
+    const dir = all[key].dir;
+    let files = [];
+    try {
+      files = fs.readdirSync(dir).filter((f) => /^cmd-.*\.sh$/.test(f)).sort();
+    } catch (_) { continue; }
+    if (!files.length) continue;
+    groups.push({
+      key,
+      label: all[key].label,
+      items: files.map((f) => ({ file: f, label: builderLabel(dir, f) })),
+    });
+  }
+  return groups;
+}
+
+
 function assistantHtml({ context = 'home' } = {}) {
+  // "workspace:dev" / "backups:dev" — both mean the user is working in dev.
+  const scopeMatch = String(context).match(/^(?:workspace|backups):([a-z0-9_-]+)$/);
+  const scope = scopeMatch && isValidWorkspace(scopeMatch[1]) ? scopeMatch[1] : null;
+  // The settings page belongs to no workspace, so it gets no command list at all rather than every
+  // command in the tree: none of them edit those files.
+  const isSettings = context === 'settings';
+  const scopeLabel = scope ? loadWorkspaces()[scope].label : (isSettings ? 'Settings' : null);
+  const commandGroups = isSettings ? [] : commandMenuGroups(scope);
+  // Scoped to one workspace, the optgroup would repeat that workspace's name on every row for no
+  // information; flat reads better.
+  const commandOptions = scope
+    ? commandGroups.flatMap((g) => g.items.map((it) =>
+        `<option value="${esc(g.key)}/${esc(it.file)}">${esc(it.label === it.file ? it.file : `${it.label} — ${it.file}`)}</option>`)).join('')
+    : commandGroups.map((g) => `
+    <optgroup label="${esc(g.label)}">
+      ${g.items.map((it) => `<option value="${esc(g.key)}/${esc(it.file)}">${esc(it.label === it.file ? it.file : `${it.label} — ${it.file}`)}</option>`).join('')}
+    </optgroup>`).join('');
+  const autoOption = scopeLabel
+    ? `✨ Prompt mode: Auto — the agent decides (${scopeLabel})`
+    : '✨ Prompt mode: Auto — the agent decides';
+  const pickerLabel = isSettings ? 'Prompt mode — Settings'
+    : scope ? `Prompt mode — ${scopeLabel} commands` : 'Prompt mode';
   const panel = `
     <div class="uk-card uk-card-default assistant-panel">
       <div class="assistant-head">
@@ -576,34 +725,15 @@ function assistantHtml({ context = 'home' } = {}) {
         </div>
       </div>
       <div class="uk-card-body assistant-body">
-        <div class="chat-log" id="chat-log">
-          <div class="msg assistant">
-            <p><strong>Hi!</strong> I can actually do things for you — build, start, back up, and open your projects, then take you there.</p>
-            <p>💡 <strong>Try these examples:</strong></p>
-            <ul class="uk-list uk-list-bullet uk-margin-remove">
-              <li>"Build a Drupal 11.4 site named d114test"</li>
-              <li>"Create a Drupal CMS 2.1 site called cms1"</li>
-              <li>"Create a Webship 11 project called demo1 and open it"</li>
-              <li>"What's running right now?"</li>
-              <li>"Back up every project in dev"</li>
-              <li>"Generate an agent that reviews cmd- scripts"</li>
-              <li>"Write a doc about demo1 and make a PDF"</li>
-            </ul>
-          </div>
+        <deep-chat id="ws-deep-chat" class="ws-deep-chat"
+                   data-context="${esc(context)}"
+                   style="width:100%;height:100%;border:none;background-color:transparent;"></deep-chat>
+        <div class="chat-tools">
+          <select class="uk-select command-picker" aria-label="${esc(pickerLabel)}" title="${esc(pickerLabel)}">
+            <option value="">${esc(autoOption)}</option>
+            ${commandOptions}
+          </select>
         </div>
-        <div class="chat-typing htmx-indicator" id="chat-typing">
-          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-          <span class="chat-typing-label">assistant is thinking…</span>
-        </div>
-        <form class="chat-input"
-              hx-post="/actions/chat" hx-target="#chat-log" hx-swap="beforeend"
-              hx-indicator="#chat-typing"
-              hx-on::after-request="this.reset()">
-          <input type="hidden" name="context" value="${esc(context)}">
-          <input type="text" name="message" class="uk-input" placeholder="Ask me anything… (or use voice)" autocomplete="off" required>
-          <button type="button" class="uk-button uk-button-default mic-btn" title="Voice input" aria-label="Voice input"><span uk-icon="icon: microphone; ratio: .9"></span></button>
-          <button type="submit" class="uk-button uk-button-primary send-btn" title="Send" aria-label="Send"><span uk-icon="icon: comment; ratio: .8"></span><span class="qa-label"> Send</span></button>
-        </form>
       </div>
     </div>`;
 
@@ -1297,99 +1427,13 @@ async function handleAction(pathname, form, res) {
     const message = String(form.message || '').trim();
     if (!message) return send('<div class="msg error">Empty message.</div>', 400);
     audit(pathname, { workspace: '-', projectName: message.slice(0, 120) });
-    const userHtml = `<div class="msg user">${esc(message)}</div>`;
-
-    // Agent mode: the assistant can actually run the workspace tooling
-    // (Bash + read tools inside this container, where ~/workspace, ddev and
-    // docker are all available) and steers the interface afterwards through
-    // NAVIGATE/OPEN/REFRESH directives that ui.js executes in the browser.
-    const workspaceNames = Object.values(loadWorkspaces())
-      .map((w) => `${w.key} (${w.subtitle})`)
-      .join('; ');
-    // Live page context: the assistant always knows which page the user is
-    // on and what that page currently shows (computed fresh per message).
-    let pageContext = 'The user is on the dashboard home page showing all workspace cards.';
-    const ctx = String(form.context || '');
-    const ctxMatch = ctx.match(/^(workspace|backups):([a-z0-9_-]+)$/);
-    if (ctxMatch && isValidWorkspace(ctxMatch[2])) {
-      const cKey = ctxMatch[2];
-      const cMeta = loadWorkspaces()[cKey];
-      if (ctxMatch[1] === 'workspace') {
-        const projs = listProjects(cMeta.dir);
-        pageContext = `The user is on the "${cMeta.label}" workspace page (/${cKey}, folder ${cMeta.dir}). Projects currently listed: ${projs.join(', ') || '(none)'} . Builder scripts available: ${findBuilderScripts(cMeta.dir).join(', ') || '(none)'}.`;
-      } else {
-        pageContext = `The user is on the "${cMeta.label}" backups page (/${cKey}/backups). Backups currently listed: ${listBackups(cKey).map((b) => b.file).join(', ') || '(none)'}.`;
-      }
-    }
-    const system = [
-      `You are the Workspace AI Assistant embedded in the web dashboard at https://workspace.ddev.site, managing the webship/workspace tooling rooted at ${ROOT}.`,
-      `You run inside the dashboard's container with Bash access: the whole workspace tree is at ${ROOT}, and the ddev + docker CLIs manage sibling DDEV projects.`,
-      `Workspaces (folders under ${ROOT}): ${workspaceNames}.`,
-      'The components workspace holds Drupal SDC components, React components, code components for Drupal Canvas, and HTMX and web components.',
-      `Default domain scheme (hub domain: ${hubDomain()}): each workspace has <workspace>.${hubDomain()} (its dashboard page), and every running project has https://<project>.<workspace>.${hubDomain()} (its real site) — prefer these hierarchical URLs in OPEN directives; the canonical https://<project>.ddev.site also works.`,
-      pageContext,
-      'How to act:',
-      `- Inspect: ls ${ROOT}/<workspace> ; ddev list ; each builder script has a "# workspace-name:" header naming what it builds.`,
-      `- Build a new project: cd ${ROOT}/<workspace> && bash cmd-<...>-project.sh <project_name> --install`,
-      `- Start/stop an existing project: cd ${ROOT}/<workspace>/<project> && ddev start -y (or ddev stop -y)`,
-      `- Backup: run the folder's cmd-tool*-backup-*.sh <project_name> from inside ${ROOT}/<workspace>.`,
-      `- Create/edit AI agents, skills, prompts, docs: write markdown files with Bash redirection — agents: ${ROOT}/agents/<name>.md (YAML frontmatter: name, description, tools), skills: ${ROOT}/skills/<name>/SKILL.md, prompts: ${ROOT}/prompts/<name>.md, docs: ${ROOT}/docs/<name>.md. Install into Claude Code by copying: agents → ~/.claude/agents/, skills → ~/.claude/skills/<name>/, prompts → ~/.claude/commands/.`,
-      `- Docs tooling: render PDF with: pandoc <doc>.md -o <doc>.pdf --pdf-engine=wkhtmltopdf ; render HTML with: pandoc <doc>.md -o <doc>.html --standalone ; capture a site screenshot with: wkhtmltoimage --width 1440 <url> ${ROOT}/docs/<name>.png`,
-      '- NEVER delete or remove anything unless the user explicitly asked for that in this exact message.',
-      'After acting, end your reply with directives, each alone on its own line, so the interface can react:',
-      'NAVIGATE:/<workspace>   (go to that workspace page, e.g. NAVIGATE:/dev — or its backups page: NAVIGATE:/dev/backups)',
-      'OPEN:<https url>        (open a site in a new tab, e.g. after ddev start)',
-      'REFRESH                 (refresh the visible project list)',
-      'Keep replies short and factual; report real command results, never invented ones.',
-    ].join('\n');
-
-    const args = [
-      '-p', message,
-      '--output-format', 'json',
-      '--append-system-prompt', system,
-      '--allowedTools', 'Bash', 'Read', 'Glob', 'Grep',
-      '--disallowedTools', 'Write', 'Edit', 'NotebookEdit', 'WebFetch', 'Agent',
-      '--no-session-persistence',
-    ];
-    const result = await run('claude', args, ROOT, { timeoutMs: 15 * 60 * 1000 });
-    let reply = result.stdout.trim();
-    try {
-      const parsed = JSON.parse(result.stdout);
-      reply = parsed.result || parsed.response || reply;
-    } catch (_) { /* raw text fallback */ }
-    if (!reply) reply = result.stderr.trim() || 'No response from the assistant.';
-
-    // Pull the interface directives out of the reply text.
-    const directive = {};
-    reply = reply.split('\n').filter((line) => {
-      // Accepts /<workspace> and /<workspace>/backups
-      const nav = line.match(/^\s*NAVIGATE:\/([a-z0-9_-]+)(\/backups)?\s*$/);
-      if (nav) { directive.navigate = isValidWorkspace(nav[1]) ? wsUrl(nav[1], nav[2] || '') : HOME_URL(); return false; }
-      const open = line.match(/^\s*OPEN:(https?:\/\/\S+)\s*$/);
-      if (open) { directive.open = open[1]; return false; }
-      if (/^\s*REFRESH\s*$/.test(line)) { directive.refresh = true; return false; }
-      return true;
-    }).join('\n').trim();
+    const { replyHtml, directive } = await assistantReply(message, String(form.context || ''));
 
     const triggers = { 'refresh-projects': directive.refresh ? {} : undefined, 'assistant-directive': (directive.navigate || directive.open) ? directive : undefined };
     const activeTriggers = Object.fromEntries(Object.entries(triggers).filter(([, v]) => v !== undefined));
     if (Object.keys(activeTriggers).length) res.setHeader('HX-Trigger', JSON.stringify(activeTriggers));
 
-    // Render the reply's markdown (tables, bold, code, lists) — gfm-raw_html
-    // strips raw HTML passthrough, so model output can't inject markup.
-    let replyHtml = `<p>${esc(reply)}</p>`;
-    const mdResult = await new Promise((resolve) => {
-      const child = spawn('pandoc', ['-f', 'gfm-raw_html', '-t', 'html'], { stdio: ['pipe', 'pipe', 'pipe'] });
-      let out = '';
-      child.stdout.on('data', (d) => { out += d; });
-      child.on('close', (code) => resolve(code === 0 ? out : null));
-      child.on('error', () => resolve(null));
-      child.stdin.write(reply);
-      child.stdin.end();
-    });
-    if (mdResult) replyHtml = mdResult;
-
-    return send(`${userHtml}<div class="msg assistant">${replyHtml}</div>`);
+    return send(`<div class="msg user">${esc(message)}</div><div class="msg assistant">${replyHtml}</div>`);
   }
 
   send('<div class="msg error">Unknown action.</div>', 404);
@@ -1653,6 +1697,35 @@ const server = http.createServer(async (req, res) => {
       if (serveStatic(pathname, res)) return;
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       return res.end('Not found');
+    }
+
+    // deep-chat speaks JSON, not form-encoded HTMX fragments, so it gets its own route rather
+    // than going through handleAction: it posts { messages: [...] } and expects a Response object
+    // back ({ html }), with anything else in the JSON left for our own responseInterceptor.
+    if (req.method === 'POST' && pathname === '/actions/deep-chat') {
+      let raw = '';
+      req.on('data', (d) => { raw += d; if (raw.length > 1e6) req.destroy(); });
+      req.on('end', async () => {
+        const json = (o, status = 200) => {
+          res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify(o));
+        };
+        try {
+          const parsed = JSON.parse(raw || '{}');
+          const messages = Array.isArray(parsed.messages) ? parsed.messages : [];
+          // Only the newest user turn is the ask; deep-chat keeps the transcript for display.
+          const last = [...messages].reverse().find((m) => m.role !== 'ai');
+          const message = String((last && (last.text || last.message)) || '').trim();
+          if (!message) return json({ error: 'Empty message.' }, 400);
+          audit('/actions/chat', { workspace: '-', projectName: message.slice(0, 120) });
+          const { replyHtml, directive } = await assistantReply(message, String(parsed.context || ''));
+          // `html` is deep-chat's own field; `directive` is ours, read by the response interceptor.
+          return json({ html: `<div class="dc-reply">${replyHtml}</div>`, directive });
+        } catch (err) {
+          return json({ error: err.message || 'Assistant failed.' }, 500);
+        }
+      });
+      return;
     }
 
     if (req.method === 'POST' && pathname.startsWith('/actions/')) {
