@@ -464,7 +464,8 @@ function homePage(message, gridOnly) {
     const hasBuilders = w.kind === 'files' ? false : findBuilderScripts(w.dir).length > 0;
     const backupCount = listBackups(w.key).length;
     return `
-      <div class="uk-position-relative ws-card-wrap" data-ws="${esc(w.key)}">
+      <div class="ws-card-wrap" data-ws="${esc(w.key)}">
+        <div class="uk-position-relative ws-card-inner">
         <span class="ws-card-handle" title="Drag to reorder the workspaces — the order is saved in settings.yml"><span uk-icon="icon: table; ratio: .7"></span></span>
         <a class="uk-card uk-card-default uk-card-hover uk-card-body uk-card-small uk-text-center uk-display-block uk-link-reset workspace-card" href="${wsUrl(w.key)}">
           <div class="icon uk-text-primary">${iconHtml(w.icon, 1.4)}</div>
@@ -473,6 +474,7 @@ function homePage(message, gridOnly) {
           <span class="uk-label ${hasBuilders ? 'uk-label-success' : ''} uk-margin-small-top">${projectCount} ${projectCount === 1 ? w.noun : w.nounPlural}${hasBuilders ? ' · buildable' : ''}</span>
         </a>
         ${backupCount ? `<a class="ws-backups" href="${wsUrl(w.key, '/backups')}" title="View the ${backupCount} backup${backupCount === 1 ? '' : 's'} for ${esc(w.label)}"><span uk-icon="icon: album; ratio: .65"></span> ${backupCount}</a>` : ''}
+        </div>
       </div>`;
   }).join('');
 

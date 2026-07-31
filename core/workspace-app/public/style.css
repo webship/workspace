@@ -1112,6 +1112,11 @@ body.toast-resizing .toast-grip { pointer-events: auto; }
    absolute positioning resolves against that padding box — anchored to the wrapper the grip drew
    7px to the LEFT of the card it belongs to, out in the gutter. The card is the containing block
    (.workspace-card is position: relative), so `left` here means the card's own edge. */
+/* The grid child carries UIKit's gutter as padding, so a handle positioned against it lands
+   OUTSIDE the card by exactly that gutter. This inner box is the card's own footprint, and the
+   handle and the backups badge position against it instead. */
+.ws-card-inner { height: 100%; }
+
 .ws-card-handle {
   position: absolute;
   top: 0.5rem;
