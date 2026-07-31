@@ -778,7 +778,8 @@ function flashResults(root) {
   scope.querySelectorAll('.msg:not(.flash-toast)').forEach((msg) => {
     // The chat log, a job's own output and anything already promoted stay where they are: those
     // are content or a running thing to watch, not a result to read once.
-    if (msg.closest('.chat-log') || msg.closest('#flash-toasts') || msg.closest('.job-toast')) return;
+    if (msg.closest('.chat-log') || msg.closest('#flash-toasts') || msg.closest('.job-toast')
+        || msg.closest('#editor-modal')) return;
     if (!msg.textContent.trim()) return;
 
     msg.classList.add('flash-toast');
@@ -822,4 +823,30 @@ document.addEventListener('click', (e) => {
 document.body.addEventListener('htmx:beforeSwap', (e) => {
   const status = e.detail.xhr && e.detail.xhr.status;
   if (status >= 400 && status < 600) e.detail.shouldSwap = true;
+});
+
+/* ---------------- the one modal ----------------------------------------- */
+
+// Anything you OPEN — an editor, a video, a test report, a generator form — lands in one dialog.
+// It is shown when the CONTENT ARRIVES rather than on the click: opening first would flash an
+// empty dialog for as long as the fetch takes, which on a big document is long enough to see.
+document.body.addEventListener('htmx:afterSwap', (e) => {
+  if (e.target && e.target.id === 'editor-modal-body' && window.UIkit) {
+    window.UIkit.modal('#editor-modal').show();
+  }
+});
+
+// A save is the end of the dialog: the list behind it refreshes itself from the same response's
+// HX-Trigger, and the confirmation is a toast at the top, so there is nothing left to keep open.
+document.body.addEventListener('htmx:afterRequest', (e) => {
+  const inModal = e.target && e.target.closest && e.target.closest('#editor-modal-body');
+  const ok = e.detail && e.detail.xhr && e.detail.xhr.status >= 200 && e.detail.xhr.status < 300;
+  const saved = e.detail && e.detail.requestConfig && /\/actions\/(save-item|generate-item|save-doc)/.test(e.detail.requestConfig.path || '');
+  if (inModal && ok && saved && window.UIkit) window.UIkit.modal('#editor-modal').hide();
+});
+
+// A video left playing behind a closed dialog is a voice in an empty room.
+document.addEventListener('beforehide', (e) => {
+  if (!e.target || e.target.id !== 'editor-modal') return;
+  e.target.querySelectorAll('video, audio').forEach((m) => { try { m.pause(); } catch (_) { /* gone */ } });
 });
