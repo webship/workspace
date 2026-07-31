@@ -24,6 +24,7 @@ const {
   findBuilderScripts,
   builderLabel,
   CONFIG_DIR,
+  loadYaml,
 } = require('./workspaces');
 const { esc } = require('./html');
 const { run, jobFragment } = require('./jobs');
@@ -69,6 +70,15 @@ function iconHtml(name, ratio = 1) {
 }
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
+
+// The code editor's theme, as an attribute on <html> so it is in the document before any script
+// runs. 'auto' is the absence of the attribute: the editor then follows the page, which is what
+// most people want and what the editor does with no configuration at all.
+function editorThemeAttr() {
+  const choice = loadYaml(path.join(CONFIG_DIR, 'settings.yml')).style?.editor_theme;
+  return choice === 'light' || choice === 'dark' ? ` data-editor-theme="${choice}"` : '';
+}
+
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 const SCRIPT_RE = /^cmd-[a-zA-Z0-9_.-]+\.sh$/;
 const HOME_URL = () => `https://${hubDomain()}`;
@@ -304,8 +314,9 @@ function editorFormHtml(key, name, content, isNew) {
       <h3 class="uk-margin-small-bottom">${isNew ? `New ${esc(meta.noun)}` : `Edit ${esc(name)}`}</h3>
       <form hx-post="/actions/save-item" hx-target="#webship-workspace-output" hx-swap="innerHTML">
         <input type="hidden" name="workspace" value="${esc(key)}">
-        <input class="uk-input uk-margin-small-bottom" name="name" value="${esc(name)}" placeholder="${esc(meta.noun)}-name" required pattern="[a-zA-Z0-9_-]+" ${isNew ? '' : 'readonly'}>
-        <textarea class="uk-textarea editor-area" name="content" rows="16" spellcheck="false">${esc(content)}</textarea>
+        <input class="uk-input uk-margin-small-bottom" name="name" value="${esc(name)}" placeholder="${esc(meta.noun)}-name" required pattern="[a-zA-Z0-9_\\-]+" ${isNew ? '' : 'readonly'}>
+        <textarea class="uk-textarea editor-area" name="content" rows="16" spellcheck="false"
+                  data-ace="markdown" aria-label="${isNew ? `New ${esc(meta.noun)} content` : `Content of ${esc(name)}`}">${esc(content)}</textarea>
         <div class="uk-margin-small-top">
           <button type="submit" class="uk-button uk-button-primary"><span uk-icon="icon: check; ratio: .8"></span> Save</button>
         </div>
@@ -423,7 +434,7 @@ function pageShell(title, body, crumbs = [], context = 'home') {
         : `<li><a href="${esc(c.href)}">${esc(c.label)}</a></li>`).join('')}
     </ul>` : '';
   return `<!doctype html>
-<html lang="en">
+<html lang="en"${editorThemeAttr()}>
 <head>
 <meta charset="utf-8">
 <title>${esc(title)}</title>
@@ -809,7 +820,7 @@ async function workspacePage(key, state = defaultListState()) {
         <div class="uk-grid uk-grid-small" uk-grid>
           <div class="uk-width-2-5@s"><select class="uk-select" name="script"
             hx-get="/fragments/${esc(key)}/builder-args" hx-trigger="change, load" hx-target="#builder-args" hx-swap="innerHTML" hx-include="this">${builderOptions}</select></div>
-          <div class="uk-width-2-5@s"><input class="uk-input" name="projectName" placeholder="new-project-name" required pattern="[a-zA-Z0-9_-]+"></div>
+          <div class="uk-width-2-5@s"><input class="uk-input" name="projectName" placeholder="new-project-name" required pattern="[a-zA-Z0-9_\\-]+"></div>
           <div class="uk-width-1-5@s"><button type="submit" class="uk-button uk-button-primary uk-width-1-1">Build</button></div>
         </div>
         <div id="builder-args"></div>

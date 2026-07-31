@@ -663,3 +663,95 @@ document.body.addEventListener('moved', (e) => {
 document.addEventListener('click', (e) => {
   if (e.target.closest && e.target.closest('.ws-card-handle')) { e.preventDefault(); e.stopPropagation(); }
 }, true);
+
+/* ---------------- the code editor (Ace) --------------------------------- */
+
+// Ace (ajaxorg/ace, BSD-3, vendored) for the files that are code — the items in the file
+// workspaces are Markdown with a YAML frontmatter block, and a plain textarea gives you no
+// structure at all in a 200-line agent definition.
+//
+// It ATTACHES to a textarea marked data-ace="<mode>" and writes every change straight back into
+// it, so the form still posts the same field and no endpoint changed. If Ace fails to load, the
+// textarea is simply still there and still works — which is why this replaces rather than removes
+// it, and why the whole thing is wrapped in a catch that does nothing.
+//
+// Loaded on demand: half a megabyte of editor has no business on a page that is not editing.
+let acePromise = null;
+function loadAce() {
+  if (acePromise) return acePromise;
+  acePromise = new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = '/vendor/ace/ace.js';
+    el.onload = () => {
+      // Ace resolves its own mode and theme files from basePath. Only the vendored subset is
+      // there, so nothing may ask for a file that was not shipped.
+      window.ace.config.set('basePath', '/vendor/ace');
+      resolve(window.ace);
+    };
+    el.onerror = reject;
+    document.head.appendChild(el);
+  });
+  return acePromise;
+}
+
+// The vendored mode-markdown.js defines the shell and HTML modes inline as well, so these three
+// cost one file between them.
+const ACE_MODES = { md: 'markdown', markdown: 'markdown', sh: 'sh', bash: 'sh' };
+
+function aceTheme() {
+  // settings.yml's style.editor_theme can pin the editor independently of the page: 'auto' follows
+  // it, 'light' and 'dark' force it — a code editor is one place people want dark on a light page.
+  const forced = document.documentElement.dataset.editorTheme;
+  const dark = forced === 'dark' ? true
+    : forced === 'light' ? false
+    : document.documentElement.classList.contains('dark');
+  return dark ? 'ace/theme/tomorrow_night' : 'ace/theme/textmate';
+}
+
+function attachAce(root) {
+  const scope = root && root.querySelectorAll ? root : document;
+  // The scope element itself may BE the textarea's container after an htmx swap, so it is included
+  // rather than only its descendants — the same trap the job toasts fell into.
+  const fields = [...scope.querySelectorAll('textarea[data-ace]:not([data-ace-ready])')];
+  if (scope.matches && scope.matches('textarea[data-ace]:not([data-ace-ready])')) fields.push(scope);
+  if (!fields.length) return;
+  loadAce().then((ace) => {
+    fields.forEach((ta) => {
+      if (ta.dataset.aceReady) return;
+      ta.dataset.aceReady = '1';
+      const host = document.createElement('div');
+      host.className = 'ace-host';
+      // Sized from the textarea it replaces, so the form keeps the shape it had, within bounds
+      // that keep a long document from pushing Save off the screen.
+      host.style.height = `${Math.max(280, Math.min(640, (ta.rows || 16) * 21))}px`;
+      ta.parentNode.insertBefore(host, ta);
+      ta.style.display = 'none';               // kept in the DOM: it is what submits
+
+      const editor = ace.edit(host);
+      editor.session.setMode(`ace/mode/${ACE_MODES[ta.dataset.ace] || 'markdown'}`);
+      editor.setTheme(aceTheme());
+      editor.session.setValue(ta.value);
+      editor.session.setUseSoftTabs(true);
+      editor.session.setTabSize(2);
+      editor.session.setUseWrapMode(true);     // prose wraps; a Markdown paragraph is one line
+      editor.setShowPrintMargin(false);
+      editor.setOption('useWorker', false);    // no worker file is vendored
+      editor.session.on('change', () => { ta.value = editor.session.getValue(); });
+      ta._aceEditor = editor;
+    });
+  }).catch(() => { /* no Ace: the textarea is still there and still works */ });
+}
+
+document.addEventListener('DOMContentLoaded', () => attachAce());
+document.body.addEventListener('htmx:afterSwap', (e) => attachAce(e.target));
+
+// Follow the theme toggle, since the editor paints its own background and would otherwise sit as a
+// white slab on a dark page.
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.theme-toggle')) return;
+  setTimeout(() => {
+    document.querySelectorAll('textarea[data-ace-ready]').forEach((ta) => {
+      if (ta._aceEditor) ta._aceEditor.setTheme(aceTheme());
+    });
+  }, 50);
+});
