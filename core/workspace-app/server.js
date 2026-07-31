@@ -932,6 +932,10 @@ const server = http.createServer(async (req, res) => {
     // request. Report it and close the response that is already open.
     console.error('Request failed:', req.method, req.url, err && err.stack);
     if (res.headersSent) { try { res.end(); } catch (_) { /* already gone */ } return; }
+    if (req.headers['hx-request']) {
+      res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(`<div class="msg error">Server error: ${esc(err.message)}</div>`);
+    }
     res.writeHead(500, { 'Content-Type': 'text/plain' });
     res.end(`Server error: ${err.message}`);
   }

@@ -540,7 +540,12 @@ document.addEventListener('pointerdown', (e) => {
   const startX = e.clientX;
   const startY = e.clientY;
   const min = { w: 16 * 16, h: 5 * 16 };
-  const max = { w: toast.parentElement.clientWidth, h: window.innerHeight - 96 };
+  // The room actually available, not the stack. The stack used to size itself and every toast
+  // filled it, so dragging wider did nothing past 34rem — the clamp was the container it lives in
+  // rather than the space on screen. Measured from the stack's right edge to a margin on the left,
+  // which keeps it clear of the scrollbar that innerWidth would have counted as usable width.
+  const stackRight = toast.parentElement.getBoundingClientRect().right;
+  const max = { w: Math.max(min.w, stackRight - 16), h: window.innerHeight - 96 };
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   // The toast replaces ITSELF every second while the job runs, so the element under the pointer
   // is gone within a second of grabbing it. Everything below works from the id and re-queries the
@@ -754,4 +759,67 @@ document.addEventListener('click', (e) => {
       if (ta._aceEditor) ta._aceEditor.setTheme(aceTheme());
     });
   }, 50);
+});
+
+/* ---------------- result toasts ----------------------------------------- */
+
+// A short result becomes a toast at the top.
+//
+// "✅ Saved", "🗑️ Deleted", "that name is taken" used to render wherever the form happened to be —
+// which on the settings page is below sixty fields and off the screen, so a save looked like it had
+// done nothing. A job keeps its own stack at the bottom because that is something you WATCH; this
+// is something you read once and forget, so it leaves on its own.
+const FLASH_MS = { ok: 6000, error: 12000 };   // an error is left up long enough to actually read
+
+function flashResults(root) {
+  const stack = document.getElementById('flash-toasts');
+  if (!stack) return;
+  const scope = root && root.querySelectorAll ? root : document;
+  scope.querySelectorAll('.msg:not(.flash-toast)').forEach((msg) => {
+    // The chat log, a job's own output and anything already promoted stay where they are: those
+    // are content or a running thing to watch, not a result to read once.
+    if (msg.closest('.chat-log') || msg.closest('#flash-toasts') || msg.closest('.job-toast')) return;
+    if (!msg.textContent.trim()) return;
+
+    msg.classList.add('flash-toast');
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'flash-toast-close';
+    close.title = 'Dismiss';
+    close.setAttribute('aria-label', 'Dismiss');
+    close.innerHTML = '<span uk-icon="icon: close; ratio: .7"></span>';
+    msg.appendChild(close);
+    stack.appendChild(msg);
+
+    const ms = msg.classList.contains('error') ? FLASH_MS.error : FLASH_MS.ok;
+    // The countdown bar animates from this, so what you see and what the timer does are one number.
+    msg.style.setProperty('--flash-ms', `${ms}ms`);
+    let timer = setTimeout(() => msg.remove(), ms);
+    // Reading a long message must not race its own timer.
+    msg.addEventListener('mouseenter', () => { clearTimeout(timer); msg.classList.add('is-held'); });
+    msg.addEventListener('mouseleave', () => {
+      msg.classList.remove('is-held');
+      timer = setTimeout(() => msg.remove(), 2500);
+    });
+  });
+}
+
+document.body.addEventListener('htmx:afterSwap', (e) => flashResults(e.target));
+// An outerHTML swap REPLACES the element the event names, so the new message can land outside
+// e.target and never reach the stack — that is why a saved card order sometimes showed nothing at
+// all. A document-wide pass once htmx has settled catches it, and promoting is idempotent, so the
+// two cannot double up.
+document.body.addEventListener('htmx:afterSettle', () => flashResults(document));
+
+document.addEventListener('click', (e) => {
+  const close = e.target.closest && e.target.closest('.flash-toast-close');
+  if (close) close.closest('.flash-toast').remove();
+});
+
+// htmx swaps only 2xx by default, so every message the server sent WITH a failure status — "that
+// item is gone", "not a DDEV project", "already exists, remove it first" — was thrown away, and
+// the click looked like it had simply done nothing. The response is the explanation; show it.
+document.body.addEventListener('htmx:beforeSwap', (e) => {
+  const status = e.detail.xhr && e.detail.xhr.status;
+  if (status >= 400 && status < 600) e.detail.shouldSwap = true;
 });
