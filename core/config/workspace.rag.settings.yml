@@ -1,0 +1,18 @@
+doc:
+  name: rag
+
+# RAG both builds and holds: a vector database is a DDEV project, and the per-project index
+# manifests sit beside it as files.
+#
+# What this workspace is FOR, next to graphs/: a graph parses code deterministically and answers
+# "what depends on what". It reads no Markdown, no Twig and none of the Drupal wiring YAML. A RAG
+# index reads exactly those — the prose, the templates, the config — and answers "where is this
+# explained or configured". They are complements, not alternatives.
+presentation:
+  icon: database
+  # The folder is `rag`; the card says RAG, because that is what it is called — label is the
+  # presentational name and never the directory.
+  label: RAG
+  subtitle: Vector Databases & Project RAG Indexes
+  noun: instance
+  kind: projects

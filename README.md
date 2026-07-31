@@ -17,12 +17,13 @@ Each of the folders below holds a set of `cmd-*.sh` scripts. Running one builds 
     ~/workspace/themes      Other contrib or private themes
     ~/workspace/modules     Other contrib or private modules
     ~/workspace/libraries   Other contrib or private libraries
-    ~/workspace/forked      Forked/customized copies of any of the above
     ~/workspace/docs        Documentation projects/repos
     ~/workspace/agents      AI agent definition repos
     ~/workspace/skills      AI skill definition repos
+    ~/workspace/designs     Design instances, sources and exports
+    ~/workspace/graphs      Knowledge graphs of a project's code
+    ~/workspace/rag         Vector databases and project RAG indexes
     ~/workspace/recipes     Drupal recipe packages
-    ~/workspace/components  Reusable SDC/component library repos
 ```
 
 ### `core/`
@@ -72,9 +73,10 @@ workspaces:
   - modules
   - themes
   - libraries
-  - forked
   - recipes
-  - components
+  - designs
+  - graphs
+  - rag
   - agents
   - skills
   - prompts

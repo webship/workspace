@@ -5,7 +5,7 @@ This is `~/workspace` — the Drupal development workspace for Webship/VDO-style
 ## Layout
 
 - `core/` — shared tooling: `core/scripts` (bootstrap + build functions + `core/scripts/tests/cmd-smoke-test.sh`), `core/config` (`settings.yml` + `workspace.*.settings.yml` + `distributions/*.yml`), `core/workspace-app` (the web dashboard).
-- Workspace folders (driven by `settings.yml`'s `workspaces:` list, in display order): `agents/`, `skills/`, `prompts/`, `docs/`, `products/`, `dev/`, `test/`, `demos/`, `sandboxes/`, `profiles/`, `modules/`, `themes/`, `libraries/`, `forked/`, `recipes/`, `components/` — each holds `cmd-*.sh` scripts plus built content. `components/` = Drupal SDC, React, Drupal Canvas code, HTMX and web components. `agents/`/`skills/`/`prompts/`/`docs/` are file-item workspaces (markdown items, editable from the dashboard, installable into `~/.claude/{agents,skills,commands}`).
+- Workspace folders (driven by `settings.yml`'s `workspaces:` list, in display order): `agents/`, `skills/`, `prompts/`, `docs/`, `products/`, `dev/`, `test/`, `demos/`, `sandboxes/`, `profiles/`, `modules/`, `themes/`, `libraries/`, `recipes/`, `designs/`, `graphs/`, `rag/` — each holds `cmd-*.sh` scripts plus built content. `agents/`/`skills/`/`prompts/`/`docs/` are file-item workspaces (markdown items, editable from the dashboard, installable into `~/.claude/{agents,skills,commands}`).
 
 ## Web dashboard — https://workspace.ddev.site
 
