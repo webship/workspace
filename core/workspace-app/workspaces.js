@@ -31,6 +31,7 @@ const PRESENTATION = {
   recipes:    { icon: 'list',        subtitle: 'Development Recipes', noun: 'recipe' },
   videos:     { icon: 'play-circle', subtitle: 'Recorded Walkthroughs & Demos', noun: 'video', kind: 'files' },
   worklogs:   { icon: 'history',     subtitle: 'Session Worklogs', noun: 'worklog', kind: 'files' },
+  specs:      { icon: 'file-edit',   subtitle: 'Structured Prompts — Stories, Analyses & Canvases', noun: 'spec', kind: 'files' },
   components: { icon: 'thumbnails',  subtitle: 'SDC, React, Canvas Code, HTMX & Web Components', noun: 'component' },
 };
 
