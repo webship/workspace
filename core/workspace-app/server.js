@@ -13,6 +13,7 @@ const {
   CONFIG_DIR,
   hubDomain,
   loadWorkspaces,
+  invalidateWorkspaces,
   isValidWorkspace,
   workspaceDir,
   findBackupScript,
@@ -385,6 +386,19 @@ const FIELD_HINTS = {
   'protocol': 'http or https, for those URLs.',
   'config_sync_directory': "Drupal's config sync directory, relative to the docroot.",
   'automated_testing.wd_host': 'WebDriver endpoint for the automated-testing stack.',
+  'contributor.name': 'Who contributions are credited to — the name commits, issues and merge requests are authored as. Never hardcode a person in a script; the tooling reads it from here.',
+  'contributor.email': 'The address those contributions are authored as, unless a forge block below overrides it.',
+  'git.github.use_gh_cli': "Use the gh CLI's own login when it works, and fall back to the token below only when it does not.",
+  'sources.tooling.repo': "Where this workspace's own commands and dashboard are pulled from and proposed to.",
+  'sources.tooling.ref': 'Branch to read the tooling from.',
+  'sources.ai_items.repo': 'Where the shared agents, skills and prompts are synced from.',
+  'sources.ai_items.ref': 'Branch to read those from.',
+  'ai_providers.claude_code_cli.active': "Use this machine's own Claude Code login. Nothing is sent to a third-party API and there is no key to leak.",
+  'style.workspace_name': 'The word beside the wordmark in the toolbar.',
+  'style.mode': 'Default theme for a first visit. Anyone who has used the toggle keeps their own choice.',
+  'style.editor_theme': 'Theme for the code editor, separately from the page.',
+  'style.page_size': 'Rows a list shows before it pages.',
+  'style.page_sort': 'Default order for file lists.',
   'openai.api_key': 'API key for this provider. Leave the placeholder to skip it.',
   'openai.api_org': 'Organisation the key belongs to.',
   'doc.name': 'The folder this workspace lives in, under the workspace root.',
@@ -394,6 +408,11 @@ const FIELD_HINTS = {
 
 const FIELD_ENUMS = {
   protocol: [['http', 'http'], ['https', 'https']],
+  'style.mode': [['light', 'Light'], ['dark', 'Dark'], ['system', 'Follow the OS']],
+  'style.editor_theme': [['auto', 'Follow the page'], ['light', 'Light'], ['dark', 'Dark']],
+  'style.page_size': [['20', '20'], ['50', '50'], ['100', '100'], ['200', '200'], ['all', 'All']],
+  'style.page_sort': [['newest', 'Newest first'], ['oldest', 'Oldest first'],
+                      ['name', 'Name (A–Z)'], ['nameDesc', 'Name (Z–A)']],
 };
 
 // Lists whose ORDER is meaningful, not just their membership. `workspaces` is both what exists
@@ -448,7 +467,8 @@ function listEditorHtml(file, key, message) {
               hx-target="#list-editor" hx-swap="outerHTML" ${disabled ? 'disabled' : ''} title="${title}">
         <span uk-icon="icon: ${icon}; ratio: .7"></span></button>`;
     return `
-      <li class="ws-item">
+      <li class="ws-item" draggable="true" data-ws="${esc(name)}">
+        <span class="ws-handle" uk-icon="icon: menu; ratio: .7" title="Drag to reorder"></span>
         <span class="ws-order">${i + 1}</span>
         <span uk-icon="icon: ${esc(known ? known.icon : 'folder')}; ratio: .8"></span>
         <span class="ws-name">${esc(name)}</span>
@@ -457,7 +477,7 @@ function listEditorHtml(file, key, message) {
       </li>`;
   }).join('');
   return `
-    <div class="settings-row-block" id="list-editor">
+    <div class="settings-row-block" id="list-editor" data-file="${esc(file)}" data-key="${esc(key)}">
       <label class="settings-key">${esc(key)}${ordered ? ' <span class="uk-text-meta">— order is the card order</span>' : ''}</label>
       ${message || ''}
       <ul class="ws-list">${rows}</ul>
@@ -1391,6 +1411,26 @@ async function handleAction(pathname, form, res) {
     if (!NAME_RE.test(String(form.projectName || ''))) return send('<div class="msg error">Invalid project name.</div>', 400);
     const id = startJob(`💾 Backup <strong>${esc(form.projectName)}</strong>`, 'bash', [script, form.projectName], dir);
     return send(jobFragment(id).html);
+  }
+
+  if (pathname === '/actions/list-order') {
+    const file = String(form.file || '');
+    const key = String(form.key || '');
+    if (!SETTINGS_FILE_RE.test(file)) return send('<div class="msg error">Not a settings file.</div>', 400);
+    if (!/^[a-z][a-z0-9_]*$/.test(key)) return send('<div class="msg error">Not a list name.</div>', 400);
+    const block = readListBlock(file, key);
+    if (!block) return send(`<div class="msg error">${esc(key)} is not a list in ${esc(file)}.</div>`, 400);
+    const wanted = String(form.order || '').split(',').filter(Boolean);
+    // The submitted order has to be the same set, or a dropped row would delete a workspace.
+    const same = wanted.length === block.items.length && wanted.every((n) => block.items.includes(n));
+    if (!same) return send('<div class="msg error">That order does not match the list — reload and try again.</div>', 409);
+    try {
+      writeListBlock(file, key, wanted);
+    } catch (err) {
+      return send(`<div class="msg error">Could not write ${esc(file)}: ${esc(err.message)}</div>`, 500);
+    }
+    invalidateWorkspaces();
+    return send(listEditorHtml(file, key, '<div class="msg assistant">Order saved.</div>'));
   }
 
   if (pathname === '/actions/list-move') {

@@ -955,3 +955,6 @@ html.actions-collapsed .app-content { margin-right: 3.5rem; }
   .app-content { margin-right: 0; }
   html.actions-collapsed .app-content { margin-right: 0; }
 }
+
+.ws-handle { cursor: grab; opacity: .45; }
+.ws-item.is-dragging { opacity: .5; border-style: dashed; }

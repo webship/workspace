@@ -431,3 +431,41 @@ document.addEventListener('click', (e) => {
     });
   }
 })();
+
+// Reordering the workspaces list by dragging. The buttons stay — a drag is quick for a big move
+// and awkward for a single step, and neither is a substitute for the other. The order is posted
+// once, on drop, rather than as a run of swaps.
+document.addEventListener('dragstart', (e) => {
+  const item = e.target.closest && e.target.closest('.ws-item');
+  if (!item) return;
+  item.classList.add('is-dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', item.dataset.ws || '');
+});
+
+document.addEventListener('dragover', (e) => {
+  const list = e.target.closest && e.target.closest('.ws-list');
+  if (!list) return;
+  e.preventDefault();
+  const dragging = list.querySelector('.ws-item.is-dragging');
+  const over = e.target.closest('.ws-item');
+  if (!dragging || !over || over === dragging) return;
+  const box = over.getBoundingClientRect();
+  const after = e.clientY > box.top + box.height / 2;
+  list.insertBefore(dragging, after ? over.nextSibling : over);
+});
+
+document.addEventListener('dragend', (e) => {
+  const item = e.target.closest && e.target.closest('.ws-item');
+  if (!item) return;
+  item.classList.remove('is-dragging');
+  const editor = item.closest('#list-editor');
+  const list = item.closest('.ws-list');
+  if (!editor || !list) return;
+  const order = [...list.querySelectorAll('.ws-item')].map((li) => li.dataset.ws).join(',');
+  htmx.ajax('POST', '/actions/list-order', {
+    target: '#list-editor',
+    swap: 'outerHTML',
+    values: { file: editor.dataset.file, key: editor.dataset.key, order },
+  });
+});
