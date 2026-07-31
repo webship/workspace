@@ -13,21 +13,21 @@ const ROOT = process.env.WORKSPACE_ROOT || path.join(process.env.HOME, 'workspac
 // `noun` is what one item in the folder is called (only real projects are
 // "projects"); `plural` overrides irregular plurals.
 const PRESENTATION = {
-  products:   { icon: 'cart',        subtitle: 'Internal & External Products', noun: 'product' },
-  dev:        { icon: 'code',        subtitle: 'Development Projects', noun: 'project' },
-  test:       { icon: 'check',       subtitle: 'Testing Environment', noun: 'project' },
-  demos:      { icon: 'desktop',     subtitle: 'Demo Sites', noun: 'demo' },
-  sandboxes:  { icon: 'future',      subtitle: 'Experimental Projects', noun: 'sandbox', plural: 'sandboxes' },
-  projects:   { icon: 'folder',      subtitle: 'Client Projects', noun: 'project' },
-  profiles:   { icon: 'world',       subtitle: 'Distros', noun: 'profile' },
-  themes:     { icon: 'paint-bucket', subtitle: 'Contrib & Private Themes', noun: 'theme' },
-  modules:    { icon: 'grid',        subtitle: 'Contrib & Private Modules', noun: 'module' },
-  libraries:  { icon: 'album',       subtitle: 'Third-Party Libraries', noun: 'library', plural: 'libraries' },
-  docs:       { icon: 'file-text',   subtitle: 'Documentation Projects', noun: 'doc', kind: 'files' },
-  agents:     { icon: 'happy',       subtitle: 'AI Automation', label: 'AI Agents', noun: 'agent', kind: 'files' },
-  skills:     { icon: 'star',        subtitle: 'AI Skill Definitions', label: 'AI Skills', noun: 'skill', kind: 'files' },
-  prompts:    { icon: 'pencil',      subtitle: 'Reusable AI Prompts', noun: 'prompt', kind: 'files' },
-  recipes:    { icon: 'list',        subtitle: 'Development Recipes', noun: 'recipe' },
+  products:   { icon: 'tabler:shopping-cart',        subtitle: 'Internal & External Products', noun: 'product' },
+  dev:        { icon: 'tabler:code',        subtitle: 'Development Projects', noun: 'project' },
+  test:       { icon: 'tabler:checkbox',       subtitle: 'Testing Environment', noun: 'project' },
+  demos:      { icon: 'tabler:device-desktop',     subtitle: 'Demo Sites', noun: 'demo' },
+  sandboxes:  { icon: 'tabler:flask',      subtitle: 'Experimental Projects', noun: 'sandbox', plural: 'sandboxes' },
+  projects:   { icon: 'tabler:folder',      subtitle: 'Client Projects', noun: 'project' },
+  profiles:   { icon: 'tabler:world',       subtitle: 'Distros', noun: 'profile' },
+  themes:     { icon: 'tabler:paint', subtitle: 'Contrib & Private Themes', noun: 'theme' },
+  modules:    { icon: 'tabler:apps',        subtitle: 'Contrib & Private Modules', noun: 'module' },
+  libraries:  { icon: 'tabler:library',       subtitle: 'Third-Party Libraries', noun: 'library', plural: 'libraries' },
+  docs:       { icon: 'tabler:file-text',   subtitle: 'Documentation Projects', noun: 'doc', kind: 'files' },
+  agents:     { icon: 'tabler:robot-face',       subtitle: 'AI Automation', label: 'AI Agents', noun: 'agent', kind: 'files' },
+  skills:     { icon: 'tabler:star',        subtitle: 'AI Skill Definitions', label: 'AI Skills', noun: 'skill', kind: 'files' },
+  prompts:    { icon: 'tabler:pencil',      subtitle: 'Reusable AI Prompts', noun: 'prompt', kind: 'files' },
+  recipes:    { icon: 'tabler:list-check',        subtitle: 'Development Recipes', noun: 'recipe' },
 };
 
 function loadYaml(file) {

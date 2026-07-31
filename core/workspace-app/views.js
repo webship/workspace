@@ -30,6 +30,37 @@ const { run, jobFragment } = require('./jobs');
 const { assistantHtml } = require('./assistant');
 const { SETTINGS_FILE_RE, settingsFormHtml, listSettingsFiles, listEditorHtml } = require('./settings');
 
+/* ---------------- icons ------------------------------------------------ */
+
+// Two icon sets, one function. A bare name is UIKit's — every icon named before Tabler existed
+// keeps working — and `tabler:<name>` comes from the vendored sprite, which is 4,736 icons against
+// UIKit's few dozen. An unknown name falls back to a folder rather than rendering nothing, because
+// a workspace with no card icon looks broken and a wrong icon does not.
+let _tablerIcons = null;
+function tablerIcons() {
+  if (_tablerIcons) return _tablerIcons;
+  try {
+    const src = fs.readFileSync(path.join(PUBLIC_DIR, 'vendor', 'tabler-sprite.svg'), 'utf8');
+    _tablerIcons = new Set([...src.matchAll(/<symbol id="([a-z0-9-]+)"/g)].map((m) => m[1]));
+  } catch (_) {
+    // No sprite is survivable: every tabler: name falls back to the folder icon.
+    _tablerIcons = new Set();
+  }
+  return _tablerIcons;
+}
+
+function iconHtml(name, ratio = 1) {
+  const n = String(name || 'folder');
+  if (!n.startsWith('tabler:')) return `<span uk-icon="icon: ${esc(n)}; ratio: ${ratio}"></span>`;
+  const id = n.slice(7);
+  if (!tablerIcons().has(id)) return `<span uk-icon="icon: folder; ratio: ${ratio}"></span>`;
+  const px = Math.round(20 * ratio);
+  // A <use> into the sprite: the browser fetches the file once for the whole page.
+  return `<svg class="tabler-icon" width="${px}" height="${px}" aria-hidden="true">`
+    + `<use href="/vendor/tabler-sprite.svg#${esc(id)}"></use></svg>`;
+}
+
+const PUBLIC_DIR = path.join(__dirname, 'public');
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 const SCRIPT_RE = /^cmd-[a-zA-Z0-9_.-]+\.sh$/;
 const HOME_URL = () => `https://${hubDomain()}`;
@@ -425,7 +456,7 @@ function homePage() {
     return `
       <div class="uk-position-relative">
         <a class="uk-card uk-card-default uk-card-hover uk-card-body uk-card-small uk-text-center uk-display-block uk-link-reset workspace-card" href="${wsUrl(w.key)}">
-          <div class="icon"><span uk-icon="icon: ${w.icon}; ratio: 1.4" class="uk-text-primary"></span></div>
+          <div class="icon uk-text-primary">${iconHtml(w.icon, 1.4)}</div>
           <h4 class="uk-card-title uk-margin-remove uk-text-bold">${esc(w.label)}</h4>
           <p class="uk-text-meta uk-margin-remove">${esc(w.subtitle)}</p>
           <span class="uk-label ${hasBuilders ? 'uk-label-success' : ''} uk-margin-small-top">${projectCount} ${projectCount === 1 ? w.noun : w.nounPlural}${hasBuilders ? ' · buildable' : ''}</span>
@@ -672,7 +703,7 @@ async function workspacePage(key) {
   return pageShell(`${meta.label} · workspace`, `
 <main class="uk-container uk-container-small page-body webship-workspace-page">
   <div class="uk-flex uk-flex-middle page-heading">
-    <span class="page-heading-icon"><span uk-icon="icon: ${meta.icon}; ratio: 1.1"></span></span>
+    <span class="page-heading-icon">${iconHtml(meta.icon, 1.1)}</span>
     <div>
       <h1 class="uk-margin-remove uk-text-capitalize">${esc(meta.label)}</h1>
       <span class="uk-text-meta">${esc(meta.subtitle)}</span>

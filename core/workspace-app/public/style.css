@@ -1071,3 +1071,30 @@ body.toast-resizing .toast-grip { pointer-events: auto; }
 .job-toast { position: relative; }
 .job-toast[style*="height"] { display: flex; flex-direction: column; }
 .job-toast[style*="height"] .terminal-pre { flex: 1; max-height: none; }
+
+/* Tabler icons render as an <svg><use> into the vendored sprite, so they take their colour from
+   the text around them rather than from a fill. */
+/* Tabler icons come from the vendored sprite; UIKit's come from uk-icon. Both must
+   sit on the same baseline and take the current colour. */
+.tabler-icon { display: inline-block; vertical-align: middle; }
+/* Tabler icons come through <use> from an EXTERNAL sprite, and presentation
+   attributes on that file's root <svg> do NOT cross into this document — the symbol
+   inherits from the host <svg>, which had none, so every icon drew at the default
+   1px stroke and looked thin and wrong. Stating them here fixes every use at once
+   and keeps the sprite free of 4736 repetitions. */
+.tabler-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* And they are brand-coloured where the old uk-icon carried uk-text-primary: the
+   card tile, the page heading and the chooser's preview. Dropping that class when I
+   moved to <svg> is why they turned grey. */
+.workspace-card .icon .tabler-icon,
+.page-heading-icon .tabler-icon,
+.pres-icon .tabler-icon { color: var(--brand-primary); }
+/* A slightly lighter stroke at large sizes: 1.75 reads heavy at 28px+. */
+.workspace-card .icon .tabler-icon,
+.page-heading-icon .tabler-icon { stroke-width: 1.6; }

@@ -9,7 +9,7 @@ doc:
 # index reads exactly those — the prose, the templates, the config — and answers "where is this
 # explained or configured". They are complements, not alternatives.
 presentation:
-  icon: database
+  icon: tabler:database-search
   # The folder is `rag`; the card says RAG, because that is what it is called — label is the
   # presentational name and never the directory.
   label: RAG
