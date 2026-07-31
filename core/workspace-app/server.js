@@ -53,7 +53,7 @@ const { iconHtml, tablerIcons } = require('./icons');
 const { run, jobs, runningJobKey, startJob, jobFragment } = require('./jobs');
 const { assistantReply } = require('./assistant');
 const {
-  INSTALL_TARGETS, VIDEO_RE, ITEM_TEMPLATES, NAME_RE, SCRIPT_RE,
+  INSTALL_TARGETS, VIDEO_RE, REVIEWABLE_RE, humanSize, ITEM_TEMPLATES, NAME_RE, SCRIPT_RE,
   itemFile, listItems, testingStackOf, projectTestRuns, testRunHtml,
   itemRowsHtml, editorFormHtml, settingsPage, pageShell, homePage, workspaceCardsHtml,
   ddevStatusMap, projectRowsHtml, parseBuilderArgs, builderArgsHtml, backupRowsHtml,
@@ -755,6 +755,52 @@ const server = http.createServer(async (req, res) => {
             </form>
           </div>`);
       }
+      const reviewMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/review\/([a-zA-Z0-9_%.-]+)$/);
+      if (reviewMatch && isValidWorkspace(reviewMatch[1])) {
+        const key = reviewMatch[1];
+        const name = decodeURIComponent(reviewMatch[2]);
+        if (!/^[a-zA-Z0-9_.-]+$/.test(name) || name.includes('..')) { res.writeHead(400); return res.end('bad name'); }
+        const full = path.join(workspaceDir(key), name);
+        if (!fs.existsSync(full) || !fs.statSync(full).isFile() || !REVIEWABLE_RE.test(name)) {
+          res.writeHead(404); return res.end('not reviewable');
+        }
+        const st = fs.statSync(full);
+        const src = `/files/${encodeURIComponent(key)}/${encodeURIComponent(name)}`;
+        const ext = path.extname(name).toLowerCase();
+        let body;
+        if (ext === '.pdf') {
+          // <object>, not <iframe>: showing a PDF needs the browser's own viewer, and where there
+          // is none an iframe renders an empty white box with nothing said about why. <object>
+          // falls back to its children instead, so the reason is stated and the file is still
+          // reachable. Not sandboxed either way — the sandbox attribute disables that viewer.
+          body = `<object class="review-frame" type="application/pdf" data="${src}#view=FitH" title="${esc(name)}">
+              <div class="review-fallback">
+                <p>This browser has no built-in PDF viewer, so it cannot be shown here.</p>
+                <p><a class="uk-button uk-button-primary uk-button-small" href="${src}?download=1">Download it</a>
+                   <a class="uk-button uk-button-default uk-button-small" href="${src}" target="_blank">or open it in a tab</a></p>
+              </div>
+            </object>`;
+        } else if (/\.html?$/.test(ext)) {
+          // The dashboard generated this page, but it is still a whole document being framed:
+          // sandbox="" gives it a unique origin and no scripts, forms or navigation. Inline CSS,
+          // which is what pandoc --standalone emits, still applies.
+          body = `<iframe class="review-frame" src="${src}" title="${esc(name)}" sandbox="" referrerpolicy="no-referrer"></iframe>`;
+        } else {
+          body = `<img class="review-image" src="${src}" alt="${esc(name)}">`;
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(`
+    <div class="uk-card uk-card-default uk-card-body editor-card">
+      <h3 class="uk-margin-small-bottom">${esc(name)}</h3>
+      <p class="uk-text-meta">${humanSize(st.size)} · ${st.mtime.toISOString().slice(0, 16).replace('T', ' ')} · from <code>${esc(key)}/</code></p>
+      ${body}
+      <div class="uk-margin-small-top">
+        <a class="uk-button uk-button-primary" href="${src}?download=1"><span uk-icon="icon: download; ratio: .8"></span> Download</a>
+        <a class="uk-button uk-button-default" href="${src}" target="_blank"><span uk-icon="icon: link-external; ratio: .8"></span> Open in a tab</a>
+        <button type="button" class="uk-button uk-button-default uk-modal-close">Close</button>
+      </div>
+    </div>`);
+      }
       const fileMatch = pathname.match(/^\/files\/([a-z0-9_-]+)\/([a-zA-Z0-9_%.-]+)$/);
       if (fileMatch && isValidWorkspace(fileMatch[1])) {
         const name = decodeURIComponent(fileMatch[2]);
@@ -765,6 +811,12 @@ const server = http.createServer(async (req, res) => {
           '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime',
           '.webm': 'video/webm', '.ogg': 'video/ogg', '.ogv': 'video/ogg' }[path.extname(file).toLowerCase()] || 'application/octet-stream';
         const size = fs.statSync(file).size;
+        // The dialog offers a Download beside its viewer. Without this the link merely opens the
+        // file again, which is not what a button called Download does. Decided here rather than
+        // with setHeader, because writeHead's own headers win over anything set before it.
+        const disposition = new URL(req.url, 'http://localhost').searchParams.has('download')
+          ? `attachment; filename="${name.replace(/"/g, '')}"`
+          : 'inline';
         // A <video> seeks by asking for a byte range. Answering the whole file with a 200 makes the
         // browser download all of it before the first frame and disables scrubbing entirely, so a
         // range request gets the 206 it asked for.
@@ -792,7 +844,7 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': type,
           'Content-Length': size,
-          'Content-Disposition': 'inline',
+          'Content-Disposition': disposition,
           ...(VIDEO_RE.test(file) ? { 'Accept-Ranges': 'bytes' } : {}),
         });
         return fs.createReadStream(file).pipe(res);

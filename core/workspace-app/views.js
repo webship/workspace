@@ -57,6 +57,9 @@ const INSTALL_TARGETS = {
 };
 // What counts as a video, in one place: the listing, the row icon and the play modal.
 const VIDEO_RE = /\.(mp4|webm|ogg|ogv|mov|m4v)$/i;
+// What the browser can show inside the dialog rather than in a tab of its own. A .md artifact is
+// not here: it is edited, not reviewed.
+const REVIEWABLE_RE = /\.(pdf|html?|png|jpe?g|gif|webp|avif|svg)$/i;
 
 const ITEM_TEMPLATES = {
   agents: (name) => `---
@@ -238,7 +241,9 @@ function itemRowsHtml(key, state = defaultListState()) {
           <span class="uk-text-bold"><span uk-icon="icon: ${it.video ? 'play-circle' : /\.(png|jpe?g)$/i.test(it.name) ? 'image' : it.name.endsWith('.html') ? 'world' : 'file-pdf'}; ratio: .8"></span> ${esc(it.name)}</span>
           <div class="project-actions">
             ${it.video ? `<button class="uk-button uk-button-primary uk-button-small" hx-get="/fragments/${esc(key)}/play/${encodeURIComponent(it.name)}" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: play; ratio: .7"></span> Play</button>` : ''}
-            <a class="uk-button uk-button-${it.video ? 'default' : 'primary'} uk-button-small" href="/files/${esc(key)}/${esc(it.name)}" target="_blank"><span uk-icon="icon: download; ratio: .7"></span> Open</a>
+            ${REVIEWABLE_RE.test(it.name)
+              ? `<button class="uk-button uk-button-${it.video ? 'default' : 'primary'} uk-button-small" hx-get="/fragments/${esc(key)}/review/${encodeURIComponent(it.name)}" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: search; ratio: .7"></span> Open</button>`
+              : `<a class="uk-button uk-button-${it.video ? 'default' : 'primary'} uk-button-small" href="/files/${esc(key)}/${esc(it.name)}" target="_blank"><span uk-icon="icon: download; ratio: .7"></span> Open</a>`}
             <button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/delete-item" hx-vals='{"workspace":"${esc(key)}","name":"${esc(it.name)}","confirm":"yes"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete</button>
           </div>
         </div>
@@ -858,6 +863,8 @@ function resultFragment(result, intro) {
 module.exports = {
   INSTALL_TARGETS,
   VIDEO_RE,
+  REVIEWABLE_RE,
+  humanSize,
   ITEM_TEMPLATES,
   NAME_RE,
   SCRIPT_RE,
