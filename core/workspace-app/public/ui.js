@@ -293,7 +293,14 @@ document.addEventListener('click', (e) => {
         align-items: center;
         justify-content: center;
       }
-      .input-button.inside-end svg { width: 17px; height: 17px; filter: brightness(0) invert(1); }
+      /* deep-chat tints its icons with an inline filter, so the icon colour has to be forced the
+         same way the background was. On the blue square the arrow is white. */
+      .input-button.inside-end svg { width: 17px; height: 17px; filter: brightness(0) invert(1) !important; }
+      .input-button.inside-end.disabled-button svg { filter: none !important; }
+      .input-button.inside-end.disabled-button svg, .input-button.inside-end.disabled-button svg * {
+        stroke: #9aa0bd !important;
+        fill: none !important;
+      }
       .input-button.inside-end:hover { background-color: #1a74cf !important; }
       /* Disabled is the resting state — there is nothing to send until something is typed — so it
          has to read as inactive rather than as a broken blue button. */
@@ -313,13 +320,19 @@ document.addEventListener('click', (e) => {
         border-radius: 8px;
         background-color: #f2f3f9 !important;
       }
-      .input-button.outside-end svg { width: 16px; height: 16px; }
+      /* The microphone is a filled icon, so it is coloured rather than filtered — the same ink the
+         rest of the interface uses, not deep-chat's green tint. */
+      .input-button.outside-end svg { width: 16px; height: 16px; filter: none !important; }
+      .input-button.outside-end svg, .input-button.outside-end svg * { fill: #4a5069 !important; }
+      #input.is-dark .input-button.outside-end svg,
+      #input.is-dark .input-button.outside-end svg * { fill: #b9bedb !important; }
       .input-button.outside-end:hover { background-color: #e6e8f4 !important; }
       #input.is-dark .input-button.outside-end { background-color: #232a42 !important; }
       #input.is-dark .input-button.outside-end:hover { background-color: #2b3049 !important; }
       /* While it is listening it is the active control in the row, so it says so. */
       .input-button.outside-end.active-button { background-color: #1e87f0 !important; }
-      .input-button.outside-end.active-button svg { filter: brightness(0) invert(1); }
+      .input-button.outside-end.active-button svg,
+      .input-button.outside-end.active-button svg * { fill: #fff !important; }
 
       .command-picker {
         order: 2;
