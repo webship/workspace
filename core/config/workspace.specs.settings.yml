@@ -4,3 +4,11 @@ doc:
 # The design artifacts of changes: one folder per change, holding its story, its analysis and its
 # REASONS Canvas. They live here rather than in the projects they describe — a repository we ship
 # must not gain a spec directory because somebody planned a change to it.
+
+# How this workspace appears on the dashboard. Kept here rather than in the app's table, so the
+# workspace carries its own card.
+presentation:
+  icon: file-edit
+  subtitle: Structured Prompts — Stories, Analyses & Canvases
+  noun: spec
+  kind: files

@@ -1,2 +1,10 @@
 doc:
   name: videos
+
+# How this workspace appears on the dashboard. Kept here rather than in the app's table, so the
+# workspace carries its own card.
+presentation:
+  icon: play-circle
+  subtitle: Recorded Walkthroughs & Demos
+  noun: video
+  kind: files

@@ -29,9 +29,6 @@ const PRESENTATION = {
   skills:     { icon: 'star',        subtitle: 'AI Skill Definitions', label: 'AI Skills', noun: 'skill', kind: 'files' },
   prompts:    { icon: 'pencil',      subtitle: 'Reusable AI Prompts', noun: 'prompt', kind: 'files' },
   recipes:    { icon: 'list',        subtitle: 'Development Recipes', noun: 'recipe' },
-  videos:     { icon: 'play-circle', subtitle: 'Recorded Walkthroughs & Demos', noun: 'video', kind: 'files' },
-  worklogs:   { icon: 'history',     subtitle: 'Session Worklogs', noun: 'worklog', kind: 'files' },
-  specs:      { icon: 'file-edit',   subtitle: 'Structured Prompts — Stories, Analyses & Canvases', noun: 'spec', kind: 'files' },
   components: { icon: 'thumbnails',  subtitle: 'SDC, React, Canvas Code, HTMX & Web Components', noun: 'component' },
 };
 
@@ -81,7 +78,11 @@ function _loadWorkspacesFresh() {
     const doc = wsSettings.doc || {};
     const database = wsSettings.database || {};
     const dir = doc.path || path.join(ROOT, name);
-    const pres = PRESENTATION[name] || { icon: 'folder', subtitle: name };
+    // The hardcoded table is the default; a workspace's own file overrides it, so a workspace
+    // added to the tree can carry its icon and description without a code change — which is
+    // otherwise the difference between a real card and a folder icon.
+    const own = wsSettings.presentation || {};
+    const pres = { ...(PRESENTATION[name] || { icon: 'folder', subtitle: name }), ...own };
 
     map[name] = {
       key: name,
@@ -92,11 +93,18 @@ function _loadWorkspacesFresh() {
       subtitle: pres.subtitle,
       label: pres.label || name.charAt(0).toUpperCase() + name.slice(1),
       noun: pres.noun || 'item',
-      nounPlural: pres.plural || `${pres.noun || 'item'}s`,
+      nounPlural: pres.plural || pres.nounPlural || `${pres.noun || 'item'}s`,
       kind: pres.kind || 'projects',
     };
   }
   return map;
+}
+
+// After a write to settings.yml the 2s memo would serve the OLD list for up to two seconds —
+// long enough that a reordered card grid re-renders exactly as it was and the move looks lost.
+function invalidateWorkspaces() {
+  _wsCache = null;
+  _wsCacheAt = 0;
 }
 
 function isValidWorkspace(name) {
@@ -168,6 +176,7 @@ module.exports = {
   hubDomain,
   CONFIG_DIR,
   loadWorkspaces,
+  invalidateWorkspaces,
   isValidWorkspace,
   workspaceDir,
   findBackupScript,
