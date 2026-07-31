@@ -600,9 +600,6 @@ async function projectRowsHtml(key, dir, state = defaultListState()) {
         <span class="uk-text-bold">📁 ${esc(p)} ${statusBadge}
           ${isDdev && running ? `<a class="proj-alias uk-text-meta" href="https://${esc(ddevName)}.ddev.site" target="_blank" title="Canonical DDEV URL">${esc(ddevName)}.ddev.site</a>` : ''}</span>
         <div class="project-actions">
-          ${isDdev && !running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-start" ${vals()}><span uk-icon="icon: play; ratio: .7"></span> Start</button>` : ''}
-          ${isDdev && running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-stop" ${vals()}><span uk-icon="icon: ban; ratio: .7"></span> Stop</button>` : ''}
-          ${isDdev && running ? `<a class="uk-button uk-button-primary uk-button-small" href="https://${esc(p)}.${esc(key)}.${hubDomain()}" target="_blank" title="https://${esc(p)}.${esc(key)}.${hubDomain()}"><span uk-icon="icon: forward; ratio: .7"></span> Launch</a>` : ''}
           ${(() => {
             // The DDEV verbs, built from the same table the server dispatches on. Everything here
             // needs a `ddev` binary and a project it recognises, so a project without a .ddev
@@ -616,10 +613,20 @@ async function projectRowsHtml(key, dir, state = defaultListState()) {
                 const a = DDEV_ACTIONS[k];
                 return `<li><a href hx-post="${k}" ${vals()} title="${esc(a.label)}"><span uk-icon="icon: ${a.menuIcon}; ratio: .7"></span> ${esc(a.menuLabel)}</a></li>`;
               });
+            // Start, Stop and Launch head the menu. They are the three you reach for, so they
+            // come before the rest and are separated from it — a menu that opens on `restart` when
+            // what you want is `start` is a menu you have to read every time.
+            const site = `https://${esc(p)}.${esc(key)}.${hubDomain()}`;
+            const head = running
+              ? `<li><a href hx-post="/actions/ddev-stop" ${vals()}><span uk-icon="icon: ban; ratio: .7"></span> Stop</a></li>
+                 <li><a href="${site}" target="_blank" title="${site}"><span uk-icon="icon: forward; ratio: .7"></span> Launch</a></li>`
+              : `<li><a href hx-post="/actions/ddev-start" ${vals()}><span uk-icon="icon: play; ratio: .7"></span> Start</a></li>`;
             return `<div class="uk-inline act-menu">
-              <button class="uk-button uk-button-default uk-button-small" type="button" title="Restart, inspect and export this DDEV project"><span uk-icon="icon: cog; ratio: .7"></span> DDEV <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
+              <button class="uk-button uk-button-${running ? 'secondary' : 'default'} uk-button-small" type="button" title="Start, stop, launch and inspect this DDEV project"><span uk-icon="icon: cog; ratio: .7"></span> DDEV <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
               <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">
                 <li class="uk-nav-header">${esc(ddevName)}</li>
+                ${head}
+                <li class="uk-nav-divider"></li>
                 ${entries.join('')}
                 <li class="uk-nav-divider"></li>
                 <li><a href="https://${esc(ddevName)}.ddev.site" target="_blank"><span uk-icon="icon: link-external; ratio: .7"></span> Canonical URL</a></li>
