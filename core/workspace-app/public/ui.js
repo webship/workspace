@@ -175,11 +175,67 @@ document.addEventListener('click', (e) => {
     </div>` };
 
   // A build is minutes of work, so the component must not give up on the request.
+  // The look, in the dashboard's own palette rather than a stock preset: the user's turn carries
+  // the brand gradient the rest of the interface uses, and the assistant's sits on a plain surface
+  // so long technical replies stay readable.
+  el.messageStyles = {
+    default: {
+      shared: {
+        bubble: {
+          maxWidth: '92%',
+          borderRadius: '0.85rem',
+          padding: '0.6rem 0.85rem',
+          marginTop: '0.35rem',
+          marginBottom: '0.35rem',
+          fontSize: '0.95rem',
+          lineHeight: '1.5',
+        },
+      },
+      user: {
+        bubble: {
+          background: 'linear-gradient(135deg, #1e87f0, #6d5bd0 65%, #9b5cf6)',
+          color: '#fff',
+        },
+      },
+      ai: {
+        bubble: { backgroundColor: '#f6f7fc', color: '#232946' },
+      },
+    },
+    // Since 2.1.0 the loading bubble is styled through its own shape, not a plain bubble object.
+    loading: { message: { styles: { bubble: { backgroundColor: '#f6f7fc' } } } },
+    error: { bubble: { backgroundColor: '#fdeaee', color: '#c0304a', fontSize: '0.9rem' } },
+  };
+
+  el.submitButtonStyles = {
+    submit: {
+      container: {
+        default: { backgroundColor: '#1e87f0', borderRadius: '0.6rem' },
+        hover: { backgroundColor: '#1a74cf' },
+        click: { backgroundColor: '#155ea8' },
+      },
+      svg: { styles: { default: { filter: 'brightness(0) invert(1)', width: '1.1em' } } },
+    },
+    loading: { container: { default: { backgroundColor: '#f6f7fc' } } },
+  };
+
+  // Injected into the component's shadow root, which is the only way to reach what deep-chat
+  // renders inside itself: dark mode, and the typography of the markdown we return.
+  el.auxiliaryStyle = `
+    .dc-reply p { margin: 0 0 .5rem; }
+    .dc-reply p:last-child { margin-bottom: 0; }
+    .dc-reply pre { background: rgba(0,0,0,.06); padding: .5rem .65rem; border-radius: .5rem; overflow-x: auto; }
+    .dc-reply code { font-size: .88em; }
+    .dc-reply table { border-collapse: collapse; width: 100%; font-size: .9em; }
+    .dc-reply th, .dc-reply td { border: 1px solid rgba(0,0,0,.12); padding: .3rem .45rem; text-align: left; }
+    .dc-intro ul { margin: .25rem 0 0; padding-left: 1.1rem; }
+    .dc-intro li { margin: .15rem 0; }
+  `;
+
   el.requestBodyLimits = { maxMessages: 1 };
 
-  // Prompt mode: picking a command writes it into deep-chat's own input as a sentence and leaves
-  // the caret after it. deep-chat keeps its input in an open shadow root, so it is reachable —
-  // and writing there rather than submitting keeps the agent in charge of how the command runs.
+  // Prompt mode lives in deep-chat's own input toolbar, beside the send button, the way
+  // ai_agent_modes puts its compact selector in the message box toolbar. deep-chat builds that
+  // toolbar itself, so the select is rendered in the page and moved in once it exists.
   const picker = document.querySelector('.chat-tools .command-picker');
   if (picker) {
     picker.addEventListener('change', () => {
@@ -200,6 +256,107 @@ document.addEventListener('click', (e) => {
       sel.removeAllRanges();
       sel.addRange(range);
     });
+
+    // Styles do not cross a shadow boundary, so the select takes its own with it.
+    const shadowCss = `
+      /* The prompt is a card: the text on its own line, and a toolbar under it holding the mode
+         selector and the send button — the shape ai_agent_modes uses. deep-chat lays its input out
+         in one row, so the row is allowed to wrap and the text box is given the whole first line. */
+      #input {
+        box-sizing: border-box;
+        max-width: 100%;
+        flex-wrap: wrap;
+        align-items: center;
+        row-gap: 8px;
+        border: 1px solid #d8dae5;
+        border-radius: 12px;
+        padding: 8px 10px;
+        background-color: #fff;
+      }
+      #text-input-container { flex: 1 1 100%; }
+      #text-input {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        padding: 4px 2px !important;
+      }
+      /* deep-chat anchors its buttons absolutely inside zero-size containers, which floats them
+         over the text area. In a toolbar they have to take part in the row, so the containers get
+         a size and the buttons stop being positioned. */
+      .input-button-container {
+        order: 2;
+        position: static;
+        width: auto;
+        height: auto;
+        display: flex;
+        align-items: center;
+      }
+      .input-button-container > * { position: static !important; }
+      .input-button { position: static !important; margin: 0 !important; }
+
+      .command-picker {
+        order: 2;
+        box-sizing: border-box;
+        /* A select is as wide as its longest option unless it is told otherwise — 563px of one
+           here, in a 358px sidebar. Zero basis with min-width:0 makes it take the space that is
+           left instead of the space it wants. */
+        flex: 1 1 0;
+        width: 0;
+        min-width: 0;
+        height: 34px;
+        font-size: 14px;
+        line-height: 1;
+        padding: 0 28px 0 10px;
+        margin: 0 8px 0 0;
+        border: 1px solid #d8dae5;
+        border-radius: 8px;
+        background-color: #fff;
+        color: #333;
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23555' d='M4 6l4 4 4-4z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        background-size: 14px;
+      }
+      .command-picker:focus { outline: none; border-color: #1e87f0; box-shadow: 0 0 0 2px rgba(30,135,240,.15); }
+
+      .command-picker.is-dark { background-color: #1f2438; border-color: #2a2f4a; color: #e7e9f5; }
+      .command-picker.is-dark ~ * , .is-dark-input #input { }
+      #input.is-dark { background-color: #131624; border-color: #2b3049; }
+    `;
+
+    // The toolbar is built after the component upgrades, so wait for the send button rather than
+    // assuming it is there; give up quietly and leave the select where it is if it never appears.
+    let tries = 0;
+    const place = () => {
+      const sr = el.shadowRoot;
+      const submit = sr && sr.querySelector('.input-button.inside-end, .input-button.outside-end');
+      if (!submit) {
+        if (tries += 1, tries < 60) return setTimeout(place, 100);
+        return;
+      }
+      const style = document.createElement('style');
+      style.textContent = shadowCss;
+      sr.appendChild(style);
+      // Into the input row itself, not the small container the button sits in: the selector is
+      // sized against the row's free space, and a button container has none to give.
+      const buttonBox = submit.closest('.input-button-container') || submit.parentElement;
+      buttonBox.parentElement.insertBefore(picker, buttonBox);
+      const row = document.querySelector('.chat-tools');
+      if (row) row.remove();
+
+      // Dark mode is applied on <html>, which the shadow root cannot see, so it is mirrored on.
+      const inputRow = sr.querySelector('#input');
+      const syncTheme = () => {
+        const dark = document.documentElement.classList.contains('dark');
+        picker.classList.toggle('is-dark', dark);
+        if (inputRow) inputRow.classList.toggle('is-dark', dark);
+      };
+      syncTheme();
+      new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    };
+    place();
   }
   el.errorMessages = { displayServiceErrorMessages: true };
 })();

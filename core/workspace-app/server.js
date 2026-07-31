@@ -708,32 +708,44 @@ function assistantHtml({ context = 'home' } = {}) {
     <optgroup label="${esc(g.label)}">
       ${g.items.map((it) => `<option value="${esc(g.key)}/${esc(it.file)}">${esc(it.label === it.file ? it.file : `${it.label} — ${it.file}`)}</option>`).join('')}
     </optgroup>`).join('');
+  // Kept short: the select is only as wide as the sidebar, and the label is what it falls back to.
   const autoOption = scopeLabel
-    ? `✨ Prompt mode: Auto — the agent decides (${scopeLabel})`
-    : '✨ Prompt mode: Auto — the agent decides';
+    ? `✨ Auto — ${scopeLabel}`
+    : '✨ Auto — the agent decides';
   const pickerLabel = isSettings ? 'Prompt mode — Settings'
     : scope ? `Prompt mode — ${scopeLabel} commands` : 'Prompt mode';
+  // The panel names the page it is on, the way the placeholder and the picker do.
+  // "Dev AI Assistant", but "AI Agents Assistant" — a label that already says AI does not say it
+  // twice.
+  const assistantTitle = scopeLabel
+    ? `${scopeLabel} ${/^AI\b/.test(scopeLabel) ? 'Assistant' : 'AI Assistant'}`
+    : 'Workspace AI Assistant';
+  const assistantSubtitle = scope
+    ? `Ask about the ${scopeLabel} workspace — build, start, back up`
+    : isSettings
+      ? 'Ask about the workspace settings'
+      : 'Ask about any workspace — build, start, back up';
   const panel = `
     <div class="uk-card uk-card-default assistant-panel">
       <div class="assistant-head">
         <div class="uk-flex uk-flex-middle assistant-head-row">
           <span class="assistant-avatar">${AI_MARK}</span>
           <div class="assistant-head-text">
-            <h3 class="uk-margin-remove">Workspace AI Assistant</h3>
-            <span class="uk-text-small">Ask me anything about your workspace projects</span>
+            <h3 class="uk-margin-remove">${esc(assistantTitle)}</h3>
+            <span class="uk-text-small">${esc(assistantSubtitle)}</span>
           </div>
         </div>
       </div>
       <div class="uk-card-body assistant-body">
-        <deep-chat id="ws-deep-chat" class="ws-deep-chat"
-                   data-context="${esc(context)}"
-                   style="width:100%;height:100%;border:none;background-color:transparent;"></deep-chat>
         <div class="chat-tools">
           <select class="uk-select command-picker" aria-label="${esc(pickerLabel)}" title="${esc(pickerLabel)}">
             <option value="">${esc(autoOption)}</option>
             ${commandOptions}
           </select>
         </div>
+        <deep-chat id="ws-deep-chat" class="ws-deep-chat"
+                   data-context="${esc(context)}"
+                   style="width:100%;height:100%;border:none;background-color:transparent;"></deep-chat>
       </div>
     </div>`;
 
