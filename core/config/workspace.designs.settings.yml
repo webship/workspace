@@ -5,7 +5,7 @@ doc:
 # mockups sit in the same folder as files.
 presentation:
   # UIKit's own icon set, which is what the dashboard renders.
-  icon: paint-bucket
+  icon: tabler:palette
   subtitle: Design Instances, Sources & Exports
   noun: design
   kind: projects
