@@ -211,6 +211,85 @@ function testingStackOf(dir, project) {
   return 'none';
 }
 
+/* ---------------- test runs and their evidence ------------------------- */
+
+// A crashed run leaves 0-byte recordings and screenshots, and webship-js writes a DOM dump for
+// every failed step even when the page never rendered — an empty document. A link to a blank
+// page is worse than no link, so those are dropped rather than listed.
+//
+// Judged exactly rather than by a size threshold: a real captured dump can be a few hundred
+// bytes of JSON, so a "too small to matter" cutoff would discard real evidence. Only files small
+// enough to be empty are opened, so this costs nothing on the ones that matter.
+function testArtifactIsEmpty(full, name, size) {
+  if (size === 0) return true;
+  if (!/\.html?$/i.test(name) || size > 400) return false;
+  try {
+    return /<body[^>]*>\s*<\/body>/i.test(fs.readFileSync(full, 'utf8'));
+  } catch (_) {
+    return false;
+  }
+}
+
+// The runs a project has, newest first. A run is a tests/reports/ holding a cucumber report;
+// its evidence sits beside it in tests/screenshots/ and tests/videos/.
+function projectTestRuns(dir, project) {
+  const root = path.join(dir, project);
+  const reportsDir = path.join(root, 'tests', 'reports');
+  const html = path.join(reportsDir, 'cucumber_report.html');
+  const json = path.join(reportsDir, 'cucumber_report.json');
+  if (!fs.existsSync(html) && !fs.existsSync(json)) return [];
+
+  const sideFiles = (name, re) => {
+    try {
+      const base = path.join(root, 'tests', name);
+      return fs.readdirSync(base)
+        .filter((f) => re.test(f))
+        .map((f) => {
+          const full = path.join(base, f);
+          let size = 0, mtimeMs = 0;
+          try { const st = fs.statSync(full); size = st.size; mtimeMs = st.mtimeMs; } catch (_) { /* vanished */ }
+          return { rel: path.relative(root, full), name: f, size, mtimeMs, full };
+        })
+        .filter((f) => !testArtifactIsEmpty(f.full, f.name, f.size))
+        .map(({ full, ...rest }) => rest)
+        .sort((a, b) => b.mtimeMs - a.mtimeMs || a.name.localeCompare(b.name));
+    } catch (_) { return []; }
+  };
+
+  const stamp = fs.statSync(fs.existsSync(json) ? json : html).mtime;
+  return [{
+    when: stamp,
+    html: fs.existsSync(html) ? path.relative(root, html) : null,
+    json: fs.existsSync(json) ? path.relative(root, json) : null,
+    shots: sideFiles('screenshots', /\.(png|jpe?g)$/i),
+    doms: sideFiles('screenshots', /\.html?$/i),
+    videos: sideFiles('videos', VIDEO_RE),
+  }];
+}
+
+function testRunHtml(key, project) {
+  const runs = projectTestRuns(workspaceDir(key), project);
+  if (!runs.length) {
+    return `<div class="msg assistant">No test run in <strong>${esc(project)}</strong> yet — run the suite first.</div>`;
+  }
+  const run = runs[0];
+  const link = (f, label) => `<a href="/project-files/${esc(key)}/${esc(project)}/${f.rel.split(path.sep).map(encodeURIComponent).join('/')}" target="_blank">${esc(label || f.name)}</a>`;
+  const group = (title, files, icon) => (files.length ? `
+    <p class="uk-margin-small-bottom"><span uk-icon="icon: ${icon}; ratio: .8"></span> <strong>${title}</strong> <span class="uk-badge">${files.length}</span></p>
+    <ul class="uk-list uk-list-divider uk-margin-small">${files.map((f) => `<li>${link(f)}</li>`).join('')}</ul>` : '');
+
+  return `
+    <div class="msg assistant">
+      <p><span uk-icon="icon: check; ratio: .8"></span> <strong>${esc(project)}</strong> — last run ${esc(run.when.toISOString().replace('T', ' ').slice(0, 16))}</p>
+      ${run.html ? `<p>Report: ${link({ rel: run.html, name: 'cucumber_report.html' }, 'open the HTML report')}</p>` : ''}
+      ${group('Screenshots', run.shots, 'image')}
+      ${group('DOM dumps', run.doms, 'code')}
+      ${group('Recordings', run.videos, 'play-circle')}
+      ${!run.shots.length && !run.doms.length && !run.videos.length
+        ? '<p class="uk-text-meta">No screenshots or recordings — nothing failed, or the run was configured not to keep them.</p>' : ''}
+    </div>`;
+}
+
 function itemRowsHtml(key) {
   const meta = loadWorkspaces()[key];
   const items = listItems(key);
@@ -607,6 +686,7 @@ async function projectRowsHtml(key, dir) {
           ${isDdev && running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-stop" ${vals()}><span uk-icon="icon: ban; ratio: .7"></span> Stop</button>` : ''}
           ${isDdev && running ? `<a class="uk-button uk-button-primary uk-button-small" href="https://${esc(p)}.${esc(key)}.${hubDomain()}" target="_blank" title="https://${esc(p)}.${esc(key)}.${hubDomain()}"><span uk-icon="icon: forward; ratio: .7"></span> Launch</a>` : ''}
           ${canTest ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/testing-${testingStackOf(dir, p) === 'none' ? 'configure' : 'run'}" ${vals()} title="${testingStackOf(dir, p) === 'none' ? 'Set the automated-testing environment up on this project' : 'Run the webship-js suite'}"><span uk-icon="icon: ${testingStackOf(dir, p) === 'none' ? 'cog' : 'play-circle'}; ratio: .7"></span> ${testingStackOf(dir, p) === 'none' ? 'Set up tests' : 'Run tests'}</button>` : ''}
+          ${projectTestRuns(dir, p).length ? `<button class="uk-button uk-button-default uk-button-small" hx-get="/fragments/${esc(key)}/tests/${encodeURIComponent(p)}" hx-target="#webship-workspace-output" hx-swap="innerHTML" title="The last run's report, screenshots and recordings"><span uk-icon="icon: file-text; ratio: .7"></span> Tests</button>` : ''}
           ${canBackup ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Backup</button>` : ''}
           ${canRemove ? `<button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/remove" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Remove</button>` : ''}
         </div>
@@ -1488,6 +1568,54 @@ const server = http.createServer(async (req, res) => {
             <p><span uk-icon="icon: play-circle; ratio: .8"></span> <strong>${esc(name)}</strong></p>
             <video class="uk-width-1-1" controls preload="metadata"${poster ? ` poster="/files/${playMatch[1]}/${encodeURIComponent(poster)}"` : ''} src="${src}"></video>
           </div>`);
+      }
+
+      const testsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/tests\/([a-zA-Z0-9_.-]+)$/);
+      if (testsMatch && isValidWorkspace(testsMatch[1])) {
+        const project = decodeURIComponent(testsMatch[2]);
+        if (!NAME_RE.test(project) || !listProjects(workspaceDir(testsMatch[1])).includes(project)) {
+          res.writeHead(404); return res.end('not found');
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(testRunHtml(testsMatch[1], project));
+      }
+
+      // One artifact out of a project's tests/ directory. Everything is resolved and then checked
+      // to be inside that directory, so a crafted path cannot walk out of it.
+      const projFileMatch = pathname.match(/^\/project-files\/([a-z0-9_-]+)\/([a-zA-Z0-9_.-]+)\/(.+)$/);
+      if (projFileMatch && isValidWorkspace(projFileMatch[1])) {
+        const [, key, project, relRaw] = projFileMatch;
+        if (!NAME_RE.test(project) || !listProjects(workspaceDir(key)).includes(project)) {
+          res.writeHead(404); return res.end('not found');
+        }
+        const testsRoot = path.resolve(workspaceDir(key), project, 'tests');
+        const file = path.resolve(testsRoot, decodeURIComponent(relRaw).replace(/^tests\//, ''));
+        if (file !== testsRoot && !file.startsWith(testsRoot + path.sep)) { res.writeHead(400); return res.end('bad path'); }
+        if (!fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); return res.end('not found'); }
+        const type = { '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8', '.json': 'application/json',
+          '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.pdf': 'application/pdf',
+          '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.webm': 'video/webm', '.ogg': 'video/ogg', '.ogv': 'video/ogg',
+          '.mov': 'video/quicktime' }[path.extname(file).toLowerCase()] || 'application/octet-stream';
+        const size = fs.statSync(file).size;
+        // A recording is seeked with a range request; answering the whole file with a 200 makes
+        // the browser fetch all of it before the first frame and disables scrubbing.
+        const range = VIDEO_RE.test(file) ? req.headers.range : undefined;
+        const m = range && /^bytes=(\d*)-(\d*)$/.exec(range);
+        if (m) {
+          let start = m[1] === '' ? null : parseInt(m[1], 10);
+          let end = m[2] === '' ? null : parseInt(m[2], 10);
+          if (start === null) { start = Math.max(0, size - (end || 0)); end = size - 1; }
+          if (end === null || end >= size) end = size - 1;
+          if (Number.isNaN(start) || start > end || start >= size) {
+            res.writeHead(416, { 'Content-Range': `bytes */${size}` }); return res.end();
+          }
+          res.writeHead(206, { 'Content-Type': type, 'Content-Length': end - start + 1,
+            'Content-Range': `bytes ${start}-${end}/${size}`, 'Accept-Ranges': 'bytes' });
+          return fs.createReadStream(file, { start, end }).pipe(res);
+        }
+        res.writeHead(200, { 'Content-Type': type, 'Content-Length': size,
+          ...(VIDEO_RE.test(file) ? { 'Accept-Ranges': 'bytes' } : {}) });
+        return fs.createReadStream(file).pipe(res);
       }
 
       const argsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/builder-args$/);
