@@ -206,18 +206,6 @@ document.addEventListener('click', (e) => {
     error: { bubble: { backgroundColor: '#fdeaee', color: '#c0304a', fontSize: '0.9rem' } },
   };
 
-  el.submitButtonStyles = {
-    submit: {
-      container: {
-        default: { backgroundColor: '#1e87f0', borderRadius: '0.6rem' },
-        hover: { backgroundColor: '#1a74cf' },
-        click: { backgroundColor: '#155ea8' },
-      },
-      svg: { styles: { default: { filter: 'brightness(0) invert(1)', width: '1.1em' } } },
-    },
-    loading: { container: { default: { backgroundColor: '#f6f7fc' } } },
-  };
-
   // Injected into the component's shadow root, which is the only way to reach what deep-chat
   // renders inside itself: dark mode, and the typography of the markdown we return.
   el.auxiliaryStyle = `
@@ -293,6 +281,69 @@ document.addEventListener('click', (e) => {
       }
       .input-button-container > * { position: static !important; }
       .input-button { position: static !important; margin: 0 !important; }
+      /* The icons are laid out by deep-chat with their own offsets — the microphone sat 14px down
+         and 2px outside its button. Centring them means clearing that, not just centring the box
+         that holds them. */
+      .input-button svg {
+        position: static !important;
+        margin: 0 !important;
+        inset: auto !important;
+        transform: none !important;
+        display: block !important;
+        flex: none !important;
+      }
+
+      /* The send button is the blue square of the toolbar, sized to the selector beside it so the
+         row reads as one control rather than three of different heights. */
+      .input-button.inside-end {
+        width: 34px;
+        height: 34px;
+        box-sizing: border-box;
+        padding: 0 !important;
+        border-radius: 8px;
+        background-color: #1e87f0 !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      /* deep-chat tints its icons with an inline filter, so the icon colour has to be forced the
+         same way the background was. On the blue square the arrow is white. */
+      .input-button.inside-end svg { width: 17px !important; height: 17px !important; filter: brightness(0) invert(1) !important; }
+      .input-button.inside-end.disabled-button svg { filter: none !important; }
+      .input-button.inside-end.disabled-button svg, .input-button.inside-end.disabled-button svg * {
+        stroke: #9aa0bd !important;
+        fill: none !important;
+      }
+      .input-button.inside-end:hover { background-color: #1a74cf !important; }
+      /* Disabled is the resting state — there is nothing to send until something is typed — so it
+         has to read as inactive rather than as a broken blue button. */
+      .input-button.inside-end.disabled-button { background-color: #eceef7 !important; }
+      .input-button.inside-end.disabled-button svg { filter: none; opacity: .45; }
+      #input.is-dark .input-button.inside-end.disabled-button { background-color: #232a42 !important; }
+
+      /* The microphone is a button too, so it gets the same square as the send button rather than
+         sitting next to it as a bare icon. */
+      .input-button.outside-end {
+        width: 34px;
+        height: 34px;
+        box-sizing: border-box;
+        padding: 0 !important;
+        margin-left: 6px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background-color: #6d5bd0 !important;
+      }
+      /* The microphone is a filled icon, so it is coloured rather than filtered — the same ink the
+         rest of the interface uses, not deep-chat's green tint. */
+      .input-button.outside-end svg { width: 17px !important; height: 17px !important; filter: none !important; }
+      .input-button.outside-end svg, .input-button.outside-end svg * { fill: #fff !important; }
+      .input-button.outside-end:hover { background-color: #5c4bb8 !important; }
+      /* While it is listening it is the active control in the row, so it says so. */
+      .input-button.outside-end.active-button { background-color: #1e87f0 !important; }
+      .input-button.outside-end.active-button svg,
+      .input-button.outside-end.active-button svg * { fill: #fff !important; }
 
       .command-picker {
         order: 2;
