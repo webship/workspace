@@ -142,6 +142,11 @@ document.addEventListener('click', (e) => {
     submitAfterSilence: 2500,
   };
 
+  // Voice out as well as in: the assistant reads its answer aloud, which is the half that makes
+  // asking by voice worth doing — you can start a build and listen to what it says while looking
+  // somewhere else. The browser's own synthesis, so no key and no service.
+  el.textToSpeech = { volume: 1, rate: 1, pitch: 1 };
+
   // The prompt is the main control of this panel, so it is sized like one rather than like a
   // single-line search box: room for a few lines of a real instruction before it scrolls.
   el.textInput = {
