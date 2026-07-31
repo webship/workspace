@@ -76,6 +76,17 @@ ai_providers:
   gemini:
     api_key: CHANGE_ME
 
+# The AI assistant panel in the left rail. These are the parts of it worth changing per machine —
+# voice is a preference about the room you work in, not about the workspace.
+#   submit_after_silence  how long a pause ends a dictated message, in milliseconds; 0 never sends
+#   speech_rate           how fast replies are read back
+assistant:
+  voice_input: true
+  submit_after_silence: 2500
+  voice_output: true
+  speech_rate: 1
+  intro: true
+
 # Default styling for the dashboard. Every value is optional — the defaults below are what
 # ships, and /settings rewrites only the line you change.
 #   mode          light | dark | system   (system follows the OS setting)

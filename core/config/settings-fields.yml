@@ -16,6 +16,11 @@ hints:
   sources.ai_items.repo: "Where the shared agents, skills and prompts are synced from."
   sources.ai_items.ref: "Branch to read those from."
   ai_providers.claude_code_cli.active: "Use this machine's own Claude Code login. Nothing is sent to a third-party API and there is no key to leak."
+  assistant.voice_input: "Dictate to the assistant, using the browser's own speech recognition. No key, no service."
+  assistant.submit_after_silence: "How long a pause ends a dictated message. Never means you press send yourself."
+  assistant.voice_output: "Read replies aloud, so you can start a build and listen while looking elsewhere."
+  assistant.speech_rate: "How fast replies are read back."
+  assistant.intro: "The opening message and its examples, shown before you have asked anything."
   style.workspace_name: "The word beside the wordmark in the toolbar."
   style.mode: "Default theme for a first visit. Anyone who has used the toggle keeps their own choice."
   style.editor_theme: "Theme for the code editor, separately from the page."
@@ -50,6 +55,24 @@ enums:
       label: Light
     - value: dark
       label: Dark
+  assistant.submit_after_silence:
+    - value: 0
+      label: Never — press send
+    - value: 1500
+      label: 1.5 seconds
+    - value: 2500
+      label: 2.5 seconds
+    - value: 4000
+      label: 4 seconds
+  assistant.speech_rate:
+    - value: 0.75
+      label: Slower
+    - value: 1
+      label: Normal
+    - value: 1.25
+      label: Faster
+    - value: 1.5
+      label: Fastest
   style.page_size:
     - value: 20
       label: 20

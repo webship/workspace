@@ -72,6 +72,28 @@ function styleSettings() {
   };
 }
 
+/**
+ * The AI assistant panel's own settings, resolved and validated like the style block.
+ *
+ * These are preferences about the room you work in rather than about the workspace: whether the
+ * machine listens, whether it talks back, and how fast. They reach the browser as one attribute on
+ * the component, because the component is configured in JavaScript and the page is the only thing
+ * that has read the file.
+ */
+function assistantSettings() {
+  const a = loadSettings().assistant || {};
+  const bool = (v, fallback) => (typeof v === 'boolean' ? v : fallback);
+  const num = (v, allowed, fallback) => (allowed.includes(Number(v)) ? Number(v) : fallback);
+  return {
+    voiceInput: bool(a.voice_input, true),
+    // 0 is a real choice, not a missing value: it means nothing is ever sent for you.
+    submitAfterSilence: num(a.submit_after_silence, [0, 1500, 2500, 4000], 2500),
+    voiceOutput: bool(a.voice_output, true),
+    speechRate: num(a.speech_rate, [0.75, 1, 1.25, 1.5], 1),
+    intro: bool(a.intro, true),
+  };
+}
+
 // The hub's base domain. Locally this is workspace.ddev.site; set
 // `hub_domain:` in settings.yml (plus matching additional_fqdns + DNS +
 // nginx server_names) to run the whole system as a remote development
@@ -254,6 +276,7 @@ module.exports = {
   ROOT,
   hubDomain,
   styleSettings,
+  assistantSettings,
   CONFIG_DIR,
   loadYaml,
   loadWorkspaces,

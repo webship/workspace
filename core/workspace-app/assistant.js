@@ -17,6 +17,7 @@ const {
   listBackups,
   findBuilderScripts,
   builderLabel,
+  assistantSettings,
 } = require('./workspaces');
 const { esc } = require('./html');
 const { run } = require('./jobs');
@@ -222,6 +223,7 @@ function assistantHtml({ context = 'home' } = {}) {
     : isSettings
       ? 'Ask about the workspace settings'
       : 'Ask about any workspace — build, start, back up';
+  const settings = assistantSettings();
   const panel = `
     <div class="uk-card uk-card-default assistant-panel">
       <div class="assistant-head">
@@ -240,13 +242,14 @@ function assistantHtml({ context = 'home' } = {}) {
             ${commandOptions}
           </select>
         </div>
-        <template id="ws-chat-intro"><div class="dc-intro">
+        ${settings.intro ? `<template id="ws-chat-intro"><div class="dc-intro">
           <p>${opener}</p>
           <p>\u{1F4A1} <strong>Try these:</strong></p>
           <ul>${examples.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>
-        </div></template>
+        </div></template>` : ''}
         <deep-chat id="ws-deep-chat" class="ws-deep-chat"
                    data-context="${esc(context)}"
+                   data-settings="${esc(JSON.stringify(settings))}"
                    style="width:100%;height:100%;border:none;background-color:transparent;"></deep-chat>
       </div>
     </div>`;
