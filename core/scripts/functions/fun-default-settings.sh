@@ -14,7 +14,10 @@ function set_default_settings() {
 
   if [ -f "${settings_file}" ]; then
     if ! grep -q "config_sync_directory" "${settings_file}" ; then
-      echo "\$settings['config_sync_directory'] = '${config_sync_directory}';" >> "${settings_file}" ;
+      # Defaulted here rather than asked for in the settings: ../config/sync is the Drupal
+      # convention and the folder created just above. Setting config_sync_directory in
+      # settings.yml still overrides it.
+      echo "\$settings['config_sync_directory'] = '${config_sync_directory:-../config/sync}';" >> "${settings_file}" ;
     fi
     build_time=$( date '+%Y-%m-%d %H-%M-%S' );
     echo "// Built time: ${build_time}" >> "${settings_file}" ;
