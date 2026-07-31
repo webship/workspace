@@ -169,7 +169,51 @@ function builderLabel(dir, script) {
   return script;
 }
 
+// What a workspace currently holds: the project directories in it, and the archives beside it.
+// Here rather than in server.js because both are facts about a workspace, and more than one
+// module needs to ask.
+function listProjects(dir) {
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !e.name.startsWith('.') && e.name !== 'node_modules')
+      .map((e) => e.name);
+  } catch (_) {
+    return [];
+  }
+}
+
+function listBackups(key) {
+  const meta = loadWorkspaces()[key];
+  try {
+    return fs.readdirSync(meta.backupsDir)
+      .filter((f) => f.endsWith('.tar.gz'))
+      .map((f) => {
+        const st = fs.statSync(path.join(meta.backupsDir, f));
+        return { file: f, size: st.size, mtime: st.mtime };
+      })
+      .sort((a, b) => b.mtime - a.mtime);
+  } catch (_) {
+    return [];
+  }
+}
+
+// A project's real DDEV name (from its .ddev/config.yaml), or null if it
+// isn't a DDEV project. The name usually equals the folder name (the build
+// scripts pass --project-name=<folder>), but not necessarily.
+function ddevProjectName(projectDir) {
+  try {
+    const cfg = fs.readFileSync(path.join(projectDir, '.ddev', 'config.yaml'), 'utf8');
+    const m = cfg.match(/^name:\s*(\S+)/m);
+    return m ? m[1] : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 module.exports = {
+  ddevProjectName,
+  listProjects,
+  listBackups,
   ROOT,
   hubDomain,
   CONFIG_DIR,

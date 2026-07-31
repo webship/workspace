@@ -26,18 +26,6 @@ function run(cmd, args, cwd, { timeoutMs = 15 * 60 * 1000 } = {}) {
   });
 }
 
-// A project's real DDEV name (from its .ddev/config.yaml), or null if it
-// isn't a DDEV project. The name usually equals the folder name (the build
-// scripts pass --project-name=<folder>), but not necessarily.
-function ddevProjectName(projectDir) {
-  try {
-    const cfg = fs.readFileSync(path.join(projectDir, '.ddev', 'config.yaml'), 'utf8');
-    const m = cfg.match(/^name:\s*(\S+)/m);
-    return m ? m[1] : null;
-  } catch (_) {
-    return null;
-  }
-}
 
 /* Background jobs with live terminal output: long actions run detached while
  * the page polls /fragments/job/<id> every second, streaming the command's
