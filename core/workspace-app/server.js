@@ -378,6 +378,28 @@ async function handleAction(pathname, form, res) {
     return send(`<div class="msg assistant">✅ Saved <strong>${esc(name)}</strong> (${esc(path.relative(ROOT, file))}).</div>`);
   }
 
+  if (pathname === '/actions/clone-item') {
+    const meta = loadWorkspaces()[workspace];
+    if (!meta || meta.kind !== 'files') return send('<div class="msg error">Not an editable workspace.</div>', 400);
+    const name = String(form.name || '');
+    if (!NAME_RE.test(name)) return send('<div class="msg error">Invalid name.</div>', 400);
+    const src = itemFile(workspace, name);
+    if (!fs.existsSync(src)) return send('<div class="msg error">That item is gone.</div>', 404);
+    // -copy, -copy-2, -copy-3: cloning twice should not need a name invented up front, and must
+    // never overwrite the clone made a minute ago.
+    let target = `${name}-copy`;
+    for (let n = 2; fs.existsSync(itemFile(workspace, target)); n += 1) target = `${name}-copy-${n}`;
+    try {
+      const dest = itemFile(workspace, target);
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.copyFileSync(src, dest);
+    } catch (err) {
+      return send(`<div class="msg error">Could not clone it: ${esc(err.message)}</div>`, 500);
+    }
+    res.setHeader('HX-Trigger', 'refresh-projects');
+    return send(`<div class="msg assistant">📄 Cloned to <strong>${esc(target)}</strong> — open it to adapt.</div>`);
+  }
+
   if (pathname === '/actions/install-item') {
     const meta = loadWorkspaces()[workspace];
     const target = INSTALL_TARGETS[workspace];
