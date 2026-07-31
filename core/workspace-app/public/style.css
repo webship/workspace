@@ -1405,3 +1405,11 @@ html.dark .flash-toast.error { background: #2c1420; color: #f6b8c6; }
 @media (max-width: 47.9375em) {
   .flash-toasts { width: calc(100vw - 1rem); top: 3.75rem; }
 }
+/* ---------------- the brand mark ---------------------------------------- */
+
+/* Two marks, one shown at a time. `logo_on_dark` defaults to the same file as `logo`, so a single
+   mark that reads on both surfaces needs no configuration at all — and a workspace with a mark
+   that does not can set the second one. */
+.brand-logo-on-dark { display: none; }
+html.dark .brand-logo-on-light { display: none; }
+html.dark .brand-logo-on-dark { display: inline-block; }

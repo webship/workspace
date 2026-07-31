@@ -15,6 +15,13 @@ const { esc } = require('./html');
 const { loadYaml, CONFIG_DIR, hubDomain } = require('./workspaces');
 const { fieldConfig } = require('./settings');
 
+// The two list keys are read raw rather than through styleSettings(): what a valid size IS comes
+// from the fields file below, so this is the one part of `style:` that cannot be resolved without
+// first knowing the enum.
+function rawStyle() {
+  return loadYaml(path.join(CONFIG_DIR, 'settings.yml')).style || {};
+}
+
 // The sizes a pager offers, and the only values a `per` is accepted as.
 //
 // Read from the same `settings-fields.yml` enum the settings form builds its dropdown from, rather
@@ -50,23 +57,19 @@ const PROJECT_FILTERS = {
   tested:  { label: 'Has a test report', empty: (n) => `No ${n} have a test report yet.` },
 };
 
-function styleSettings() {
-  return loadYaml(path.join(CONFIG_DIR, 'settings.yml')).style || {};
-}
-
 // settings.yml sets the starting point for every list; the pager overrides it for this browser.
 // An unusable value falls back to a size the pager actually offers — falling back to one that is
 // not in the dropdown leaves the pager showing a selection nothing is selected on.
 function defaultPageSize() {
   const sizes = pageSizes();
-  const raw = styleSettings().page_size;
+  const raw = rawStyle().page_size;
   if (sizes.map(String).includes(String(raw))) return raw === 'all' ? 'all' : Number(raw);
   const numeric = sizes.filter((s) => s !== 'all');
   return numeric.length ? numeric[Math.min(1, numeric.length - 1)] : 'all';
 }
 
 function defaultSort() {
-  const raw = styleSettings().page_sort;
+  const raw = rawStyle().page_sort;
   return SORTS[raw] ? raw : 'newest';
 }
 
