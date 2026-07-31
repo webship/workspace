@@ -1096,10 +1096,31 @@ async function projectRowsHtml(key, dir) {
           ${isDdev && !running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-start" ${vals()}><span uk-icon="icon: play; ratio: .7"></span> Start</button>` : ''}
           ${isDdev && running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-stop" ${vals()}><span uk-icon="icon: ban; ratio: .7"></span> Stop</button>` : ''}
           ${isDdev && running ? `<a class="uk-button uk-button-primary uk-button-small" href="https://${esc(p)}.${esc(key)}.${hubDomain()}" target="_blank" title="https://${esc(p)}.${esc(key)}.${hubDomain()}"><span uk-icon="icon: forward; ratio: .7"></span> Launch</a>` : ''}
-          ${canTest ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/testing-${testingStackOf(dir, p) === 'none' ? 'configure' : 'run'}" ${vals()} title="${testingStackOf(dir, p) === 'none' ? 'Set the automated-testing environment up on this project' : 'Run the webship-js suite'}"><span uk-icon="icon: ${testingStackOf(dir, p) === 'none' ? 'cog' : 'play-circle'}; ratio: .7"></span> ${testingStackOf(dir, p) === 'none' ? 'Set up tests' : 'Run tests'}</button>` : ''}
-          ${projectTestRuns(dir, p).length ? `<button class="uk-button uk-button-default uk-button-small" hx-get="/fragments/${esc(key)}/tests/${encodeURIComponent(p)}" hx-target="#webship-workspace-output" hx-swap="innerHTML" title="The last run's report, screenshots and recordings"><span uk-icon="icon: file-text; ratio: .7"></span> Tests</button>` : ''}
-          ${canBackup ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Backup</button>` : ''}
-          ${canRemove ? `<button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/remove" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Remove</button>` : ''}
+          ${(() => {
+            // Start, Stop and Launch are what a row is for; everything else goes behind one
+            // button so a row reads at a glance instead of as eight controls.
+            const items = [];
+            if (projectTestRuns(dir, p).length) {
+              items.push(`<li><a href hx-get="/fragments/${esc(key)}/tests/${encodeURIComponent(p)}" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: file-text; ratio: .7"></span> Last test run</a></li>`);
+            }
+            if (canTest) {
+              const configured = testingStackOf(dir, p) !== 'none';
+              items.push(`<li><a href hx-post="/actions/testing-${configured ? 'run' : 'configure'}" ${vals()}><span uk-icon="icon: ${configured ? 'play-circle' : 'cog'}; ratio: .7"></span> ${configured ? 'Run the tests' : 'Set up testing'}</a></li>`);
+            }
+            if (canBackup) {
+              items.push(`<li><a href hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Back it up</a></li>`);
+              items.push(`<li><a href="${wsUrl(key, '/backups')}"><span uk-icon="icon: album; ratio: .7"></span> Archives for this workspace</a></li>`);
+            }
+            if (canRemove) {
+              items.push('<li class="uk-nav-divider"></li>');
+              items.push(`<li><a href class="uk-text-danger arm-step" data-armed="0" hx-post="/actions/remove" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Remove the project</a></li>`);
+            }
+            if (!items.length) return '';
+            return `<div class="uk-inline act-menu">
+              <button class="uk-button uk-button-default uk-button-small" type="button" title="More actions"><span uk-icon="icon: more; ratio: .7"></span> More <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
+              <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">${items.join('')}</ul></div>
+            </div>`;
+          })()}
         </div>
       </div>
     </div>`;
