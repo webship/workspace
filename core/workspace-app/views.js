@@ -695,11 +695,6 @@ async function workspacePage(key) {
 
     ${listSection}
 
-    ${listBackups(key).length ? `
-    <p class="uk-margin-top uk-text-center">
-      <a class="uk-button uk-button-default uk-border-pill" href="${wsUrl(key, '/backups')}"><span uk-icon="icon: album; ratio: .8"></span> Backups (${listBackups(key).length})</a>
-    </p>` : ''}
-
     <div id="webship-workspace-output"></div>
   </div>
 </main>`, [{ label: 'Workspaces', href: HOME_URL() }, { label: meta.label }], `workspace:${key}`);
