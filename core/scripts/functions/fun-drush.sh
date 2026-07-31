@@ -3,8 +3,8 @@
 # Add Drush if it was not in the system.
 function add_drush() {
   echo "Add Drush if it was not in the system.";
-  if [ ! -d "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/vendor/drush/drush" ]; then
-    cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME};
+  if [ ! -d "${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/vendor/drush/drush" ]; then
+    cd ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME};
     ddev composer require "drush/drush:~11 || ~13";
   fi
 }

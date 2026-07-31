@@ -6,7 +6,7 @@ services:
       # sibling ddev projects exactly like they would on the host.
       - /var/run/docker.sock:/var/run/docker.sock
       # Bind the whole workspace tree at the SAME absolute path the host
-      # uses, so WEBSHIP_WORKSPACE_ROOT and every cmd-*.sh script's
+      # uses, so WORKSPACE_ROOT and every cmd-*.sh script's
       # references resolve identically whether run on the host or in here.
       # ${HOME} is interpolated on the HOST when ddev invokes docker compose.
       - ${HOME}/workspace:${HOME}/workspace
@@ -14,10 +14,10 @@ services:
       - ${HOME}/.claude:${HOME}/.claude
       - ${HOME}/.claude.json:${HOME}/.claude.json
     environment:
-      - WEBSHIP_WORKSPACE_ROOT=${HOME}/workspace
-      - WEBSHIP_WORKSPACE_PATH=${HOME}/workspace/core
-      - WEBSHIP_WORKSPACE_SCRIPTS=${HOME}/workspace/core/scripts
-      - WEBSHIP_WORKSPACE_CONFIG=${HOME}/workspace/core/config
+      - WORKSPACE_ROOT=${HOME}/workspace
+      - WORKSPACE_PATH=${HOME}/workspace/core
+      - WORKSPACE_SCRIPTS=${HOME}/workspace/core/scripts
+      - WORKSPACE_CONFIG=${HOME}/workspace/core/config
       # Without this, the `ddev` binary can't find its global config/project
       # registry and fails with "Could not connect to a Docker provider".
       - HOME=${HOME}
