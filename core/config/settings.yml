@@ -1,6 +1,6 @@
 # Paths are not listed here: the tooling locates itself from the checkout, for
 # whoever is running it. Add root/path/scripts/config/backups only to override
-# that (or export WEBSHIP_WORKSPACE_ROOT/PATH/SCRIPTS/CONFIG).
+# that (or export WORKSPACE_ROOT/PATH/SCRIPTS/CONFIG).
 host: 127.0.0.1
 web: http://127.0.0.1/core
 protocol: http
@@ -20,6 +20,7 @@ workspaces:
   - test
   - demos
   - sandboxes
+  - projects
   - profiles
   - modules
   - themes
@@ -31,3 +32,5 @@ workspaces:
   - skills
   - prompts
   - docs
+  - videos
+  - worklogs

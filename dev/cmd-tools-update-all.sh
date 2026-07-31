@@ -2,15 +2,15 @@
 
 # Bootstrap.
 # Find the workspace tooling from this script, so a fresh clone needs no setup.
-WEBSHIP_WORKSPACE_SCRIPTS="${WEBSHIP_WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.dev.settings.yml);
+eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.dev.settings.yml);
 
-cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name};
+cd ${WORKSPACE_ROOT}/${doc_name};
 echo "=======================================================";
-echo "  Update all projects in ${WEBSHIP_WORKSPACE_ROOT}/${doc_name} ";
+echo "  Update all projects in ${WORKSPACE_ROOT}/${doc_name} ";
 echo "=======================================================";
 for project in *; do
     if [ -d "$project" ]; then
@@ -20,10 +20,10 @@ done;
 for project in *; do
     if [ -d "$project" ]; then
         echo "=======================================================";
-        echo "  ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${project}/   ";
+        echo "  ${WORKSPACE_ROOT}/${doc_name}/${project}/   ";
         echo "=======================================================";
-        cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${project};
+        cd ${WORKSPACE_ROOT}/${doc_name}/${project};
         yes | composer update -v;
     fi;
-    cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}
+    cd ${WORKSPACE_ROOT}/${doc_name}
 done;

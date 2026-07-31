@@ -2,12 +2,12 @@
 
 function build_distribution() {
   # Include distribution functions.
-  source ${WEBSHIP_WORKSPACE_SCRIPTS}/functions/fun-distribution-${distribution_name}.sh || exit 1 ;
+  source ${WORKSPACE_SCRIPTS}/functions/fun-distribution-${distribution_name}.sh || exit 1 ;
 
   base_url="https://${PROJECT_NAME}.ddev.site";
 
   # Change directory to the workspace for this full operation.
-  cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name};
+  cd ${WORKSPACE_ROOT}/${doc_name};
 
   if [ ! "${SKIP_DROP_DATABASE}" == 'yes' ] ; then
     drop_database;
@@ -20,7 +20,7 @@ function build_distribution() {
   # Create the project folder and bring up its DDEV environment first, so
   # composer/drush run inside the project's own containers from here on.
   mkdir -p ${PROJECT_NAME} ;
-  cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} ;
+  cd ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} ;
 
   ddev config --project-type=drupal --docroot=${distribution_webroot} --project-name=${PROJECT_NAME} --auto ;
   ddev start ;
@@ -67,7 +67,7 @@ function build_distribution() {
     add_drush ;
 
     # Change directory to the webroot.
-    cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/${distribution_webroot};
+    cd ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/${distribution_webroot};
 
     # Install distribution with Drush.
     install_${distribution_name}_with_drush ;
@@ -98,5 +98,5 @@ function build_distribution() {
     echo "Go to ${base_url}";
   fi
 
-  cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name};
+  cd ${WORKSPACE_ROOT}/${doc_name};
 }

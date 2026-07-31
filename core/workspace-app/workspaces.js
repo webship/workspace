@@ -2,8 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 
-const CONFIG_DIR = process.env.WEBSHIP_WORKSPACE_CONFIG || path.join(process.env.HOME, 'workspace/core/config');
-const ROOT = process.env.WEBSHIP_WORKSPACE_ROOT || path.join(process.env.HOME, 'workspace');
+const CONFIG_DIR = process.env.WORKSPACE_CONFIG || path.join(process.env.HOME, 'workspace/core/config');
+const ROOT = process.env.WORKSPACE_ROOT || path.join(process.env.HOME, 'workspace');
 
 // Presentational-only (icon/subtitle) — everything functional (paths, script names,
 // which workspaces exist) is read live from settings.yml / workspace.<name>.settings.yml
@@ -29,6 +29,8 @@ const PRESENTATION = {
   skills:     { icon: 'star',        subtitle: 'AI Skill Definitions', label: 'AI Skills', noun: 'skill', kind: 'files' },
   prompts:    { icon: 'pencil',      subtitle: 'Reusable AI Prompts', noun: 'prompt', kind: 'files' },
   recipes:    { icon: 'list',        subtitle: 'Development Recipes', noun: 'recipe' },
+  videos:     { icon: 'play-circle', subtitle: 'Recorded Walkthroughs & Demos', noun: 'video', kind: 'files' },
+  worklogs:   { icon: 'history',     subtitle: 'Session Worklogs', noun: 'worklog', kind: 'files' },
   components: { icon: 'thumbnails',  subtitle: 'SDC, React, Canvas Code, HTMX & Web Components', noun: 'component' },
 };
 

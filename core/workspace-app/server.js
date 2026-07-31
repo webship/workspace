@@ -70,9 +70,16 @@ function ddevProjectName(projectDir) {
 const jobs = new Map();
 let jobSeq = 0;
 
-function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000, echoLine = '' } = {}) {
+// A job may claim a key. Testing a project takes minutes, and starting a second run against the
+// same project while the first is still going interleaves two suites over one site.
+function runningJobKey(key) {
+  for (const job of jobs.values()) if (job.key === key && !job.done) return true;
+  return false;
+}
+
+function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000, echoLine = '', key = '' } = {}) {
   const id = `${++jobSeq}-${Math.random().toString(36).slice(2, 8)}`;
-  const job = { title, buf: echoLine ? `$ ${echoLine}\n\n` : '', done: false, ok: null };
+  const job = { title, key, buf: echoLine ? `$ ${echoLine}\n\n` : '', done: false, ok: null };
   jobs.set(id, job);
   // stdin 'ignore' — see run(): docker exec -i hangs on an open stdin pipe.
   const child = spawn(cmd, args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -118,6 +125,9 @@ const INSTALL_TARGETS = {
   skills: path.join(process.env.HOME, '.claude', 'skills'),
   prompts: path.join(process.env.HOME, '.claude', 'commands'),
 };
+
+// What counts as a video, in one place: the listing, the row icon and the play modal.
+const VIDEO_RE = /\.(mp4|webm|ogg|ogv|mov|m4v)$/i;
 
 const ITEM_TEMPLATES = {
   agents: (name) => `---
@@ -183,9 +193,22 @@ function listItems(key) {
       items.push({ name: e.name.replace(/\.md$/, ''), editable: true });
     } else if (key === 'docs' && e.isFile() && /\.(pdf|html|png)$/.test(e.name)) {
       items.push({ name: e.name, editable: false, artifact: true });
+    } else if (key === 'videos' && e.isFile() && VIDEO_RE.test(e.name)) {
+      items.push({ name: e.name, editable: false, artifact: true, video: true });
+    } else if (key === 'videos' && e.isFile() && /\.(jpg|jpeg|png)$/i.test(e.name)) {
+      items.push({ name: e.name, editable: false, artifact: true });
     }
   }
   return items.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Mirrors testing_stack() in core/scripts/functions/fun-testing.sh — the same two markers, so the
+// dashboard and the script agree about what a project has.
+function testingStackOf(dir, project) {
+  const root = path.join(dir, project);
+  if (fs.existsSync(path.join(root, '.ddev', 'commands', 'web', 'init-full-automated-testing'))) return 'in-project';
+  if (fs.existsSync(path.join(root, 'cucumber.js')) || fs.existsSync(path.join(root, 'tests', 'step-definitions'))) return 'webship-js';
+  return 'none';
 }
 
 function itemRowsHtml(key) {
@@ -198,9 +221,10 @@ function itemRowsHtml(key) {
       return `
       <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
         <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
-          <span class="uk-text-bold"><span uk-icon="icon: ${it.name.endsWith('.png') ? 'image' : it.name.endsWith('.html') ? 'world' : 'file-pdf'}; ratio: .8"></span> ${esc(it.name)}</span>
+          <span class="uk-text-bold"><span uk-icon="icon: ${it.video ? 'play-circle' : /\.(png|jpe?g)$/i.test(it.name) ? 'image' : it.name.endsWith('.html') ? 'world' : 'file-pdf'}; ratio: .8"></span> ${esc(it.name)}</span>
           <div class="project-actions">
-            <a class="uk-button uk-button-primary uk-button-small" href="/files/${esc(key)}/${esc(it.name)}" target="_blank"><span uk-icon="icon: download; ratio: .7"></span> Open</a>
+            ${it.video ? `<button class="uk-button uk-button-primary uk-button-small" hx-get="/fragments/${esc(key)}/play/${encodeURIComponent(it.name)}" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: play; ratio: .7"></span> Play</button>` : ''}
+            <a class="uk-button uk-button-${it.video ? 'default' : 'primary'} uk-button-small" href="/files/${esc(key)}/${esc(it.name)}" target="_blank"><span uk-icon="icon: download; ratio: .7"></span> Open</a>
             <button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/delete-item" hx-vals='{"workspace":"${esc(key)}","name":"${esc(it.name)}","confirm":"yes"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete</button>
           </div>
         </div>
@@ -561,6 +585,7 @@ async function projectRowsHtml(key, dir) {
   const projects = listProjects(dir);
   const canBackup = !!findBackupScript(dir);
   const canRemove = !!findRemoveScript(dir);
+  const canTest = fs.existsSync(path.join(dir, 'cmd-tools-testing.sh'));
   const statuses = await ddevStatusMap();
 
   const rows = projects.map((p) => {
@@ -581,6 +606,7 @@ async function projectRowsHtml(key, dir) {
           ${isDdev && !running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-start" ${vals()}><span uk-icon="icon: play; ratio: .7"></span> Start</button>` : ''}
           ${isDdev && running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-stop" ${vals()}><span uk-icon="icon: ban; ratio: .7"></span> Stop</button>` : ''}
           ${isDdev && running ? `<a class="uk-button uk-button-primary uk-button-small" href="https://${esc(p)}.${esc(key)}.${hubDomain()}" target="_blank" title="https://${esc(p)}.${esc(key)}.${hubDomain()}"><span uk-icon="icon: forward; ratio: .7"></span> Launch</a>` : ''}
+          ${canTest ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/testing-${testingStackOf(dir, p) === 'none' ? 'configure' : 'run'}" ${vals()} title="${testingStackOf(dir, p) === 'none' ? 'Set the automated-testing environment up on this project' : 'Run the webship-js suite'}"><span uk-icon="icon: ${testingStackOf(dir, p) === 'none' ? 'cog' : 'play-circle'}; ratio: .7"></span> ${testingStackOf(dir, p) === 'none' ? 'Set up tests' : 'Run tests'}</button>` : ''}
           ${canBackup ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Backup</button>` : ''}
           ${canRemove ? `<button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/remove" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Remove</button>` : ''}
         </div>
@@ -875,6 +901,31 @@ async function handleAction(pathname, form, res) {
     // Echo the exact final command as the first terminal line.
     const finalCmd = `bash ${script} ${projectName}${flags.length ? ' ' + flags.join(' ') : ''}`;
     const id = startJob(`🏗️ Build <strong>${esc(projectName)}</strong> (${esc(builderLabel(dir, script))})`, 'bash', [script, projectName, ...flags], dir, { timeoutMs: 60 * 60 * 1000, echoLine: finalCmd });
+    return send(jobFragment(id).html);
+  }
+
+  if (pathname === '/actions/testing-configure' || pathname === '/actions/testing-run') {
+    const dir = workspaceDir(workspace);
+    const projectName = String(form.projectName || '');
+    const script = 'cmd-tools-testing.sh';
+    const isRun = pathname.endsWith('-run');
+    if (!fs.existsSync(path.join(dir, script))) return send('<div class="msg error">No testing script in this workspace.</div>', 400);
+    if (!NAME_RE.test(projectName) || !listProjects(dir).includes(projectName)) {
+      return send('<div class="msg error">Unknown project.</div>', 400);
+    }
+    // Running a suite before the stack exists fails deep inside cucumber; say so here instead.
+    if (isRun && testingStackOf(dir, projectName) === 'none') {
+      return send('<div class="msg error">No testing stack in this project yet — set the environment up first.</div>', 409);
+    }
+    const jobKey = `testing:${workspace}/${projectName}`;
+    if (runningJobKey(jobKey)) {
+      return send('<div class="msg error">A testing job is already running for this project.</div>', 409);
+    }
+    const args = isRun ? [script, projectName, '--run'] : [script, projectName];
+    // A suite is minutes, not seconds: the default job timeout would kill a real run.
+    const id = startJob(`${isRun ? '🧪 Run tests' : '🧰 Set up testing'} <strong>${esc(projectName)}</strong>`,
+      'bash', args, dir,
+      { timeoutMs: 90 * 60 * 1000, echoLine: `bash ${args.join(' ')}`, key: jobKey });
     return send(jobFragment(id).html);
   }
 
@@ -1384,14 +1435,59 @@ const server = http.createServer(async (req, res) => {
         if (name.includes('..') || name.includes('/')) { res.writeHead(400); return res.end('bad name'); }
         const file = path.join(workspaceDir(fileMatch[1]), name);
         if (!fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); return res.end('not found'); }
-        const type = { '.pdf': 'application/pdf', '.html': 'text/html; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.png': 'image/png' }[path.extname(file)] || 'application/octet-stream';
-        res.writeHead(200, { 'Content-Type': type, 'Content-Disposition': 'inline' });
+        const type = { '.pdf': 'application/pdf', '.html': 'text/html; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.png': 'image/png',
+          '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime',
+          '.webm': 'video/webm', '.ogg': 'video/ogg', '.ogv': 'video/ogg' }[path.extname(file).toLowerCase()] || 'application/octet-stream';
+        const size = fs.statSync(file).size;
+        // A <video> seeks by asking for a byte range. Answering the whole file with a 200 makes the
+        // browser download all of it before the first frame and disables scrubbing entirely, so a
+        // range request gets the 206 it asked for.
+        const range = VIDEO_RE.test(file) ? req.headers.range : undefined;
+        if (range) {
+          const m = /^bytes=(\d*)-(\d*)$/.exec(range);
+          if (m) {
+            let start = m[1] === '' ? null : parseInt(m[1], 10);
+            let end = m[2] === '' ? null : parseInt(m[2], 10);
+            if (start === null) { start = Math.max(0, size - (end || 0)); end = size - 1; }
+            if (end === null || end >= size) end = size - 1;
+            if (Number.isNaN(start) || start > end || start >= size) {
+              res.writeHead(416, { 'Content-Range': `bytes */${size}` });
+              return res.end();
+            }
+            res.writeHead(206, {
+              'Content-Type': type,
+              'Content-Length': end - start + 1,
+              'Content-Range': `bytes ${start}-${end}/${size}`,
+              'Accept-Ranges': 'bytes',
+            });
+            return fs.createReadStream(file, { start, end }).pipe(res);
+          }
+        }
+        res.writeHead(200, {
+          'Content-Type': type,
+          'Content-Length': size,
+          'Content-Disposition': 'inline',
+          ...(VIDEO_RE.test(file) ? { 'Accept-Ranges': 'bytes' } : {}),
+        });
         return fs.createReadStream(file).pipe(res);
       }
-      if (pathname === '/settings' || pathname.startsWith('/settings/')) {
-        const wanted = decodeURIComponent(pathname.slice('/settings/'.length) || '');
+      const playMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/play\/([a-zA-Z0-9_%.-]+)$/);
+      if (playMatch && isValidWorkspace(playMatch[1])) {
+        const name = decodeURIComponent(playMatch[2]);
+        if (!VIDEO_RE.test(name) || name.includes('..') || name.includes('/')) { res.writeHead(400); return res.end('bad name'); }
+        const dir = workspaceDir(playMatch[1]);
+        if (!fs.existsSync(path.join(dir, name))) { res.writeHead(404); return res.end('not found'); }
+        // <stem>-poster.jpg is the convention, so the player shows a frame before it is played.
+        const stem = name.replace(VIDEO_RE, '');
+        const poster = ['-poster.jpg', '-poster.jpeg', '-poster.png']
+          .map((s2) => `${stem}${s2}`).find((f) => fs.existsSync(path.join(dir, f)));
+        const src = `/files/${playMatch[1]}/${encodeURIComponent(name)}`;
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(settingsPage(SETTINGS_FILE_RE.test(wanted) ? wanted : ''));
+        return res.end(`
+          <div class="msg assistant">
+            <p><span uk-icon="icon: play-circle; ratio: .8"></span> <strong>${esc(name)}</strong></p>
+            <video class="uk-width-1-1" controls preload="metadata"${poster ? ` poster="/files/${playMatch[1]}/${encodeURIComponent(poster)}"` : ''} src="${src}"></video>
+          </div>`);
       }
 
       const argsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/builder-args$/);

@@ -18,7 +18,7 @@ Critical dashboard rules:
 
 ## Workspace location (self-locating, no setup)
 
-Every `cmd-*.sh` resolves `WEBSHIP_WORKSPACE_SCRIPTS` from its own path and sources `${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh`, which derives `WEBSHIP_WORKSPACE_ROOT` / `_PATH` / `_CONFIG` and loads `core/config/settings.yml` plus the relevant `workspace.<dir>.settings.yml`. A fresh clone works with no env vars and no install step; exported `WEBSHIP_WORKSPACE_*` variables (or `root`/`path`/`scripts`/`config`/`backups` in `settings.yml`) still win as overrides. `settings.yml` carries no paths and no `database:` block.
+Every `cmd-*.sh` resolves `WORKSPACE_SCRIPTS` from its own path and sources `${WORKSPACE_SCRIPTS}/bootstrap.sh`, which derives `WORKSPACE_ROOT` / `_PATH` / `_CONFIG` and loads `core/config/settings.yml` plus the relevant `workspace.<dir>.settings.yml`. A fresh clone works with no env vars and no install step; exported `WORKSPACE_*` variables (or `root`/`path`/`scripts`/`config`/`backups` in `settings.yml`) still win as overrides. `settings.yml` carries no paths and no `database:` block.
 
 ## DDEV-only workflow
 
@@ -36,15 +36,17 @@ Families: Drupal (9/10/10.3/11/11.0.x/11.4.x/11.4.0 recommended-project), Drupal
 
 ## Naming
 
-The tooling was renamed from "VDO" — no `vdo` in filenames, variables, or folder names (the VDO drop logo from drupal.org/project/vdo is the dashboard logo). `vdo_*` env vars → `WEBSHIP_WORKSPACE_*`. Only real projects are called "projects" — each workspace names its items via the PRESENTATION table in `core/workspace-app/workspaces.js` (agents, skills, prompts, docs, modules, …).
+The tooling was renamed from "VDO" — no `vdo` in filenames, variables, or folder names (the VDO drop logo from drupal.org/project/vdo is the dashboard logo). `vdo_*` env vars → `WORKSPACE_*`. Only real projects are called "projects" — each workspace names its items via the PRESENTATION table in `core/workspace-app/workspaces.js` (agents, skills, prompts, docs, modules, …).
 
 ## Related repo
 
 The reusable tooling subset (`core/` + the `cmd-*.sh`/README/`*.code-workspace` files + `core/workspace-app` without `node_modules`, none of the built project content) is mirrored to **github.com/webship/workspace** (branch `1.0.x`, the default). A local clone lives at `~/workspace/products/workspace` — sync with `rsync -a --delete --exclude=node_modules --exclude=actions.log core/workspace-app products/workspace/core/`, commit and push from there. The mirror ships team-installable configs: `/home/YOUR_USER` paths and `CHANGE_ME` passwords — never push personal values.
 
-## Session docs
+## Session worklogs and docs
 
-- `docs/session-worklog-2026-07-22-workspace-dashboard.md` — full worklog of the dashboard build session.
+Worklogs are dated and stay as written (`worklogs/`); docs hold reference material that stays true (`docs/`).
+
+- `worklogs/session-worklog-2026-07-22-workspace-dashboard.md` — full worklog of the dashboard build session.
 - `docs/workspace-tips-and-rules.md` — the working rules + tips distilled from it.
 
 ## Outstanding follow-ups

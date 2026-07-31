@@ -83,7 +83,7 @@ workspaces:
 
 Keep real passwords and API keys in your own copy — never commit them back.
 
-No paths are listed: `root`, `path`, `scripts`, `config` and `backups` are derived from the checkout (`backups/` is created on first run). Add them to `settings.yml`, or export `WEBSHIP_WORKSPACE_ROOT` / `_PATH` / `_SCRIPTS` / `_CONFIG`, only to point the tooling somewhere else.
+No paths are listed: `root`, `path`, `scripts`, `config` and `backups` are derived from the checkout (`backups/` is created on first run). Add them to `settings.yml`, or export `WORKSPACE_ROOT` / `_PATH` / `_SCRIPTS` / `_CONFIG`, only to point the tooling somewhere else.
 
 There is no `database:` section either: every DDEV project manages its own isolated database, and DDEV's `settings.ddev.php` owns the connection.
 
@@ -190,10 +190,10 @@ vim cmd-example.sh
 #!/bin/usr/env bash
 
 # Bootstrap.
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.dev.settings.yml);
+eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.dev.settings.yml);
 
 echo "*---------------------------------------------------------------------------------------*";
 echo "|  Build a Drupal project via DDEV";
