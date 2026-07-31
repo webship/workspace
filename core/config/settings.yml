@@ -1,9 +1,6 @@
 # Paths are not listed here: the tooling locates itself from the checkout, for
 # whoever is running it. Add root/path/scripts/config/backups only to override
 # that (or export WORKSPACE_ROOT/PATH/SCRIPTS/CONFIG).
-host: 127.0.0.1
-web: http://127.0.0.1/core
-protocol: http
 
 # The admin user a fresh install is given — Drupal, Drupal CMS, Webship and anything else built
 # here. These are local development sites; the committed file ships a placeholder, and your own
