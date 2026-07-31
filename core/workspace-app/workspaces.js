@@ -180,14 +180,23 @@ function listProjects(dir) {
   }
 }
 
+// A standalone database dump written by a project row's "Export the database". A project archive
+// ships its own companion dump named `<archive>-db.sql.gz`, which belongs to that archive rather
+// than being a backup in its own right — this pattern matches only the standalone ones, so an
+// archive still appears as the single row it is.
+const DB_DUMP_RE = /^[a-zA-Z0-9_-]+--db--[0-9-]+\.sql\.gz$/;
+
+// Any .tar.gz is an archive. Deliberately not the stricter `<ws>---<item>--<stamp>` shape the
+// restore and delete guards use: the docs and worklogs backups carry a `.md` in the item segment,
+// and a listing that quietly dropped them would hide real backups.
 function listBackups(key) {
   const meta = loadWorkspaces()[key];
   try {
     return fs.readdirSync(meta.backupsDir)
-      .filter((f) => f.endsWith('.tar.gz'))
+      .filter((f) => f.endsWith('.tar.gz') || DB_DUMP_RE.test(f))
       .map((f) => {
         const st = fs.statSync(path.join(meta.backupsDir, f));
-        return { file: f, size: st.size, mtime: st.mtime };
+        return { file: f, size: st.size, mtime: st.mtime, kind: DB_DUMP_RE.test(f) ? 'db' : 'project' };
       })
       .sort((a, b) => b.mtime - a.mtime);
   } catch (_) {
