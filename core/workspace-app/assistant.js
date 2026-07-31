@@ -160,6 +160,41 @@ function assistantHtml({ context = 'home' } = {}) {
   // command in the tree: none of them edit those files.
   const isSettings = context === 'settings';
   const scopeLabel = scope ? loadWorkspaces()[scope].label : (isSettings ? 'Settings' : null);
+  // What the assistant opens with, written for the page it is on. The same greeting and the same
+  // five examples on all twenty-one pages taught nothing after the first: on a workspace page the
+  // useful examples are that workspace's, and on settings none of them are. Built here rather than
+  // in ui.js because this is where the workspace and its kind are already known, and it rides in a
+  // template so the markup stays server-rendered and escaped.
+  const meta = scope ? loadWorkspaces()[scope] : null;
+  const examples = (() => {
+    if (isSettings) {
+      return ['"What does the contributor block set?"',
+              '"Which workspaces exist, and in what order?"'];
+    }
+    if (meta && meta.kind === 'files') {
+      // "an agent", not "a agent" — the nouns come from the settings files and some start a vowel.
+      const a = /^[aeiou]/i.test(meta.noun) ? 'an' : 'a';
+      return [`"Create ${a} ${meta.noun} that reviews cmd- scripts"`,
+              `"What ${meta.nounPlural} are here?"`,
+              `"Back up every ${meta.noun} in ${scope}"`];
+    }
+    if (meta) {
+      return [`"Build a Drupal 11.4 site named d114test in ${scope}"`,
+              `"What's running in ${scope} right now?"`,
+              `"Back up every project in ${scope}"`];
+    }
+    return ['"Build a Drupal 11.4 site named d114test"',
+            '"Create a Webship 11 project called demo1 and open it"',
+            '"What\'s running right now?"',
+            '"Back up every project in dev"',
+            '"Write a doc about demo1 and make a PDF"'];
+  })();
+  const opener = isSettings
+    ? 'Ask me about the workspace settings — what a field is for, or what a change would do.'
+    : meta
+      ? `I can act on <strong>${esc(meta.label)}</strong> — and on anything else you ask for.`
+      : 'I can actually do things for you — build, start, back up, and open your projects, then take you there.';
+
   const commandGroups = isSettings ? [] : commandMenuGroups(scope);
   // Scoped to one workspace, the optgroup would repeat that workspace's name on every row for no
   // information; flat reads better.
@@ -205,6 +240,11 @@ function assistantHtml({ context = 'home' } = {}) {
             ${commandOptions}
           </select>
         </div>
+        <template id="ws-chat-intro"><div class="dc-intro">
+          <p>${opener}</p>
+          <p>\u{1F4A1} <strong>Try these:</strong></p>
+          <ul>${examples.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>
+        </div></template>
         <deep-chat id="ws-deep-chat" class="ws-deep-chat"
                    data-context="${esc(context)}"
                    style="width:100%;height:100%;border:none;background-color:transparent;"></deep-chat>
