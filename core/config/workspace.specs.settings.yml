@@ -1,0 +1,6 @@
+doc:
+  name: specs
+
+# The design artifacts of changes: one folder per change, holding its story, its analysis and its
+# REASONS Canvas. They live here rather than in the projects they describe — a repository we ship
+# must not gain a spec directory because somebody planned a change to it.
