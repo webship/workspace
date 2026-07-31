@@ -32,3 +32,4 @@ workspaces:
   - skills
   - prompts
   - docs
+  - worklogs
