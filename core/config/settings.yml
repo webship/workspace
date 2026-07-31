@@ -87,8 +87,6 @@ style:
   page_size: 50
   page_sort: newest
 
-automated_testing:
-  wd_host: 127.0.0.1:4444/wd/hub
 
 workspaces:
   - products
