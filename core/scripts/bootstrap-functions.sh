@@ -17,3 +17,6 @@ source ${WEBSHIP_WORKSPACE_SCRIPTS}/functions/fun-drush.sh || exit 1 ;
 
 # Include distribution functions.
 source ${WEBSHIP_WORKSPACE_SCRIPTS}/functions/fun-build-distribution.sh || exit 1 ;
+
+# Include automated-testing functions.
+source ${WEBSHIP_WORKSPACE_SCRIPTS}/functions/fun-testing.sh || exit 1 ;
