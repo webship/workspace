@@ -1,0 +1,68 @@
+# What each settings field is for, and which values it accepts. Kept here rather than in the
+# dashboard code so a new field explains itself by being described, not by a code change.
+hints:
+  account.name: "Admin username a fresh install is created with."
+  account.pass: "That admin password. Local development sites only."
+  account.mail: "That admin address — Drupal sends its site mail to it."
+  host: "Host the tooling assumes when a script needs one."
+  web: "Base URL used when a script has to print one."
+  protocol: "http or https, for those URLs."
+  config_sync_directory: "Drupal's config sync directory, relative to the docroot."
+  automated_testing.wd_host: "WebDriver endpoint for the automated-testing stack."
+  contributor.name: "Who contributions are credited to — the name commits, issues and merge requests are authored as. Never hardcode a person in a script; the tooling reads it from here."
+  contributor.email: "The address those contributions are authored as, unless a forge block below overrides it."
+  git.github.use_gh_cli: "Use the gh CLI's own login when it works, and fall back to the token below only when it does not."
+  sources.tooling.repo: "Where this workspace's own commands and dashboard are pulled from and proposed to."
+  sources.tooling.ref: "Branch to read the tooling from."
+  sources.ai_items.repo: "Where the shared agents, skills and prompts are synced from."
+  sources.ai_items.ref: "Branch to read those from."
+  ai_providers.claude_code_cli.active: "Use this machine's own Claude Code login. Nothing is sent to a third-party API and there is no key to leak."
+  style.workspace_name: "The word beside the wordmark in the toolbar."
+  style.mode: "Default theme for a first visit. Anyone who has used the toggle keeps their own choice."
+  style.editor_theme: "Theme for the code editor, separately from the page."
+  style.page_size: "Rows a list shows before it pages."
+  style.page_sort: "Default order for file lists."
+  openai.api_key: "API key for this provider. Leave the placeholder to skip it."
+  openai.api_org: "Organisation the key belongs to."
+  doc.name: "The folder this workspace lives in, under the workspace root."
+  doc.path: "Only set this to keep the folder somewhere other than the checkout."
+  database.prefix: "Prefix for databases built in this workspace."
+
+enums:
+  protocol:
+    - value: http
+      label: http
+    - value: https
+      label: https
+  style.mode:
+    - value: light
+      label: Light
+    - value: dark
+      label: Dark
+    - value: system
+      label: Follow the OS
+  style.editor_theme:
+    - value: auto
+      label: Follow the page
+    - value: light
+      label: Light
+    - value: dark
+      label: Dark
+  style.page_size:
+    - value: 20
+      label: 20
+    - value: 50
+      label: 50
+    - value: 100
+      label: 100
+    - value: 200
+      label: 200
+    - value: all
+      label: All
+  style.page_sort:
+    - value: newest
+      label: Newest first
+
+# Lists whose ORDER is meaningful, not just their membership.
+ordered_lists:
+  - workspaces
