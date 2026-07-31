@@ -267,9 +267,11 @@ function workspacePresentationHtml(file, message) {
   const key = file.replace(/^workspace\.|\.settings\.yml$/g, '');
   const meta = loadWorkspaces()[key];
   if (!meta) return '';
+  // Checked, and outside the grid: a radio in the same group means the form always has a value,
+  // and picking any tile unchecks it because that is what a radio group does.
   const current = String(meta.icon || '').startsWith('tabler:')
-    ? `<input class="icon-radio" type="radio" name="icon" id="ic-current" value="${esc(meta.icon)}" checked>
-       <label class="icon-choice" for="ic-current" title="${esc(meta.icon.slice(7))}">${iconHtml(meta.icon, 0.9)}</label>`
+    ? `<input class="icon-radio icon-radio-current" type="radio" name="icon" id="ic-current"
+              value="${esc(meta.icon)}" checked aria-label="Keep the current icon">`
     : '';
   return `
       <div class="settings-row settings-row-block" id="ws-presentation">
@@ -280,20 +282,21 @@ function workspacePresentationHtml(file, message) {
             <span class="pres-icon">${iconHtml(meta.icon, 1.2)}</span>
             <span><strong>${esc(meta.label)}</strong><br><span class="uk-text-meta">${esc(meta.subtitle)}</span></span>
           </div>
+          ${current}
           <input class="uk-input icon-filter" type="search" name="q"
                  placeholder="Search ${tablerIcons().size} icons by name…"
                  aria-label="Search icons by name" autocomplete="off"
-                 hx-get="/fragments/icons" hx-trigger="keyup changed delay:250ms, search"
+                 hx-get="/fragments/icons?current=${encodeURIComponent(meta.icon || '')}"
+                 hx-trigger="keyup changed delay:250ms, search"
                  hx-target="#icon-grid-wrap" hx-swap="innerHTML">
-          <div id="icon-grid-wrap" hx-get="/fragments/icons" hx-trigger="load" hx-swap="innerHTML">
-            <div class="icon-grid">${current}</div>
-          </div>
+          <div id="icon-grid-wrap" hx-get="/fragments/icons?current=${encodeURIComponent(meta.icon || '')}"
+               hx-trigger="load" hx-swap="innerHTML"></div>
           <div class="pres-fields">
             <input class="uk-input" id="pres-subtitle" name="subtitle" value="${esc(meta.subtitle)}"
                    placeholder="What this workspace is for" maxlength="120">
             <button type="button" class="uk-button uk-button-primary uk-button-small"
                     hx-post="/actions/workspace-presentation"
-                    hx-include="#ws-presentation .icon-radio:checked, #pres-subtitle"
+                    hx-include="#ws-presentation input[name=icon]:checked, #pres-subtitle"
                     hx-vals='{"file":"${esc(file)}"}' hx-target="#ws-presentation" hx-swap="outerHTML">
               <span uk-icon="icon: check; ratio: .7"></span> Save the card</button>
           </div>
@@ -310,8 +313,10 @@ function writeWorkspacePresentation(file, icon, subtitle) {
   const full = path.join(CONFIG_DIR, file);
   const lines = fs.readFileSync(full, 'utf8').split('\n');
   const start = lines.findIndex((l) => /^presentation:\s*$/.test(l));
+  const existing = loadYaml(full).presentation || {};
   const rendered = ['presentation:'];
-  if (icon) rendered.push(`  icon: ${icon}`);
+  const keptIcon = icon || existing.icon || '';
+  if (keptIcon) rendered.push(`  icon: ${keptIcon}`);
   if (subtitle) rendered.push(`  subtitle: ${JSON.stringify(subtitle)}`);
   if (rendered.length === 1) rendered.length = 0;   // nothing set: drop the block
 

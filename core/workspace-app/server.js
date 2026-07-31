@@ -825,6 +825,9 @@ const server = http.createServer(async (req, res) => {
       if (pathname === '/fragments/icons') {
         const params = new URL(req.url, 'http://localhost').searchParams;
         const q = String(params.get('q') || '').trim().toLowerCase();
+        // Which tile to draw as chosen. The grid is where you look to see what is selected, so it
+        // has to be told — the checked radio that guarantees a value lives outside it.
+        const current = String(params.get('current') || '');
         const all = [...tablerIcons()].sort();
         const hits = q ? all.filter((i) => i.includes(q)) : all;
         // Paged rather than search-only: 4,736 tiles inline would be a multi-megabyte page, but
@@ -837,13 +840,13 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         if (!hits.length) return res.end(`<span class="uk-text-meta">No icon matches “${esc(q)}”.</span>`);
         const tiles = shown.map((i) => `
-          <input class="icon-radio" type="radio" name="icon" id="ic-${esc(i)}" value="tabler:${esc(i)}">
+          <input class="icon-radio" type="radio" name="icon" id="ic-${esc(i)}" value="tabler:${esc(i)}"${`tabler:${i}` === current ? ' checked' : ''}>
           <label class="icon-choice" for="ic-${esc(i)}" title="${esc(i)}">${iconHtml(`tabler:${i}`, 0.9)}</label>`).join('');
         const pager = pages > 1 ? `
           <div class="icon-pager uk-text-meta">
-            ${page > 1 ? `<button type="button" class="uk-button uk-button-default uk-button-small" hx-get="/fragments/icons?page=${page - 1}" hx-include=".icon-filter" hx-target="#icon-grid-wrap" hx-swap="innerHTML">Previous</button>` : ''}
+            ${page > 1 ? `<button type="button" class="uk-button uk-button-default uk-button-small" hx-get="/fragments/icons?page=${page - 1}&current=${encodeURIComponent(current)}" hx-include=".icon-filter" hx-target="#icon-grid-wrap" hx-swap="innerHTML">Previous</button>` : ''}
             <span>${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, hits.length)} of ${hits.length}</span>
-            ${page < pages ? `<button type="button" class="uk-button uk-button-default uk-button-small" hx-get="/fragments/icons?page=${page + 1}" hx-include=".icon-filter" hx-target="#icon-grid-wrap" hx-swap="innerHTML">Next</button>` : ''}
+            ${page < pages ? `<button type="button" class="uk-button uk-button-default uk-button-small" hx-get="/fragments/icons?page=${page + 1}&current=${encodeURIComponent(current)}" hx-include=".icon-filter" hx-target="#icon-grid-wrap" hx-swap="innerHTML">Next</button>` : ''}
           </div>` : '';
         return res.end(`<div class="icon-grid">${tiles}</div>${pager}`);
       }
