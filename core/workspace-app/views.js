@@ -25,6 +25,7 @@ const {
   builderLabel,
   CONFIG_DIR,
   loadYaml,
+  styleSettings,
 } = require('./workspaces');
 const { esc } = require('./html');
 const { run, jobFragment } = require('./jobs');
@@ -71,14 +72,6 @@ function iconHtml(name, ratio = 1) {
 }
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
-
-// The code editor's theme, as an attribute on <html> so it is in the document before any script
-// runs. 'auto' is the absence of the attribute: the editor then follows the page, which is what
-// most people want and what the editor does with no configuration at all.
-function editorThemeAttr() {
-  const choice = loadYaml(path.join(CONFIG_DIR, 'settings.yml')).style?.editor_theme;
-  return choice === 'light' || choice === 'dark' ? ` data-editor-theme="${choice}"` : '';
-}
 
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 const SCRIPT_RE = /^cmd-[a-zA-Z0-9_.-]+\.sh$/;
@@ -428,6 +421,7 @@ function pageActionsHtml(context) {
 </aside>`;
 }
 function pageShell(title, body, crumbs = [], context = 'home') {
+  const style = styleSettings();
   const crumbHtml = crumbs.length ? `
     <ul class="uk-breadcrumb uk-margin-remove uk-visible@s">
       ${crumbs.map((c, i) => i === crumbs.length - 1
@@ -435,13 +429,19 @@ function pageShell(title, body, crumbs = [], context = 'home') {
         : `<li><a href="${esc(c.href)}">${esc(c.label)}</a></li>`).join('')}
     </ul>` : '';
   return `<!doctype html>
-<html lang="en"${editorThemeAttr()}>
+<html lang="en"${style.editorTheme === 'auto' ? '' : ` data-editor-theme="${style.editorTheme}"`}>
 <head>
 <meta charset="utf-8">
 <title>${esc(title)}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" type="image/png" href="/logo.png">
-<script>(function(){try{if(localStorage.getItem('ws-theme')==='dark')document.documentElement.classList.add('dark');}catch(e){}})();</script>
+<link rel="icon" href="/${esc(style.favicon)}">
+<script>(function(){var d=document.documentElement;
+// The configured default, applied before first paint so a dark page never flashes white. A stored
+// choice always wins: style.mode is the default for someone who has not used the toggle, not an
+// override of someone who has. 'system' follows the operating system.
+try{var st=localStorage.getItem('ws-theme'),m='${style.mode}';
+var dark = st ? st==='dark' : (m==='dark' || (m==='system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches));
+if(dark)d.classList.add('dark');}catch(e){}})();</script>
 <link rel="stylesheet" href="/vendor/uikit.min.css">
 <link rel="stylesheet" href="/style.css">
 <script src="/vendor/uikit.min.js"></script>
@@ -460,7 +460,9 @@ function pageShell(title, body, crumbs = [], context = 'home') {
     <div uk-navbar>
       <div class="uk-navbar-left">
         <a class="uk-navbar-item uk-logo toolbar-logo" href="${HOME_URL()}">
-          <img src="/logo.png" alt="workspace" width="46" height="46"> <span>workspace</span>
+          <img src="/${esc(style.logo)}" alt="${esc(style.workspaceName)}" width="46" height="46" class="brand-logo brand-logo-on-light">
+          <img src="/${esc(style.logoOnDark)}" alt="${esc(style.workspaceName)}" width="46" height="46" class="brand-logo brand-logo-on-dark">
+          <span>${esc(style.workspaceName)}</span>
         </a>
         ${crumbHtml}
       </div>

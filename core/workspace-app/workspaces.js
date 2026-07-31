@@ -42,6 +42,36 @@ function loadSettings() {
   return loadYaml(path.join(CONFIG_DIR, 'settings.yml'));
 }
 
+/**
+ * Everything under `style:` in settings.yml, resolved and validated in one place.
+ *
+ * The keys were declared long before anything read them, and what did read them read the file
+ * again and applied its own defaulting — so a nonsense value meant a different thing depending on
+ * which caller saw it. Here a bad value is a missing value, once.
+ *
+ * Note what these are: `mode` and `editor_theme` are defaults for someone who has expressed no
+ * preference. The toggle stores a real choice, and a stored choice always wins.
+ */
+function styleSettings() {
+  const s = loadSettings().style || {};
+  const oneOf = (v, allowed, fallback) => (allowed.includes(String(v)) ? String(v) : fallback);
+  // A filename under public/, not a path or a URL: everything is served locally, and a settings
+  // file that could point the logo at another host would be a way to make this page load one.
+  const asset = (v, fallback) => (typeof v === 'string' && /^[A-Za-z0-9._-]+$/.test(v) && !v.startsWith('.') ? v : fallback);
+  const logo = asset(s.logo, 'logo.png');
+  return {
+    workspaceName: typeof s.workspace_name === 'string' && s.workspace_name.trim()
+      ? s.workspace_name.trim() : 'workspace',
+    mode: oneOf(s.mode, ['light', 'dark', 'system'], 'light'),
+    editorTheme: oneOf(s.editor_theme, ['auto', 'light', 'dark'], 'auto'),
+    logo,
+    // Falls back to the one logo rather than to a second file that may not exist: most marks read
+    // on both surfaces, and a broken image is worse than a slightly dim one.
+    logoOnDark: asset(s.logo_on_dark, logo),
+    favicon: asset(s.favicon, logo),
+  };
+}
+
 // The hub's base domain. Locally this is workspace.ddev.site; set
 // `hub_domain:` in settings.yml (plus matching additional_fqdns + DNS +
 // nginx server_names) to run the whole system as a remote development
@@ -223,6 +253,7 @@ module.exports = {
   listBackups,
   ROOT,
   hubDomain,
+  styleSettings,
   CONFIG_DIR,
   loadYaml,
   loadWorkspaces,

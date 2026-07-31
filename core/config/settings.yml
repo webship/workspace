@@ -80,10 +80,20 @@ ai_providers:
 # ships, and /settings rewrites only the line you change.
 #   mode          light | dark | system   (system follows the OS setting)
 #   editor_theme  auto | light | dark     (auto follows mode)
+#   logo          a filename in core/workspace-app/public — not a path or a URL, because
+#                 everything the dashboard loads is served from itself
+#   logo_on_dark  the mark to swap in on a dark page; defaults to `logo`
+#   favicon       the browser-tab icon; defaults to `logo`
+#
+# mode and editor_theme are DEFAULTS, for someone who has not used the theme toggle. A stored
+# choice always wins over them.
 style:
-  workspace_name: Workspace
+  workspace_name: workspace
   mode: light
   editor_theme: auto
+  logo: logo.png
+  logo_on_dark: logo.png
+  favicon: logo.png
   page_size: 50
   page_sort: newest
 
