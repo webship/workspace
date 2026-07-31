@@ -118,6 +118,9 @@ const INSTALL_TARGETS = {
   prompts: path.join(process.env.HOME, '.claude', 'commands'),
 };
 
+// What counts as a video, in one place: the listing, the row icon and the play modal.
+const VIDEO_RE = /\.(mp4|webm|ogg|ogv|mov|m4v)$/i;
+
 const ITEM_TEMPLATES = {
   agents: (name) => `---
 name: ${name}
@@ -182,6 +185,10 @@ function listItems(key) {
       items.push({ name: e.name.replace(/\.md$/, ''), editable: true });
     } else if (key === 'docs' && e.isFile() && /\.(pdf|html|png)$/.test(e.name)) {
       items.push({ name: e.name, editable: false, artifact: true });
+    } else if (key === 'videos' && e.isFile() && VIDEO_RE.test(e.name)) {
+      items.push({ name: e.name, editable: false, artifact: true, video: true });
+    } else if (key === 'videos' && e.isFile() && /\.(jpg|jpeg|png)$/i.test(e.name)) {
+      items.push({ name: e.name, editable: false, artifact: true });
     }
   }
   return items.sort((a, b) => a.name.localeCompare(b.name));
@@ -197,9 +204,10 @@ function itemRowsHtml(key) {
       return `
       <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
         <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
-          <span class="uk-text-bold"><span uk-icon="icon: ${it.name.endsWith('.png') ? 'image' : it.name.endsWith('.html') ? 'world' : 'file-pdf'}; ratio: .8"></span> ${esc(it.name)}</span>
+          <span class="uk-text-bold"><span uk-icon="icon: ${it.video ? 'play-circle' : /\.(png|jpe?g)$/i.test(it.name) ? 'image' : it.name.endsWith('.html') ? 'world' : 'file-pdf'}; ratio: .8"></span> ${esc(it.name)}</span>
           <div class="project-actions">
-            <a class="uk-button uk-button-primary uk-button-small" href="/files/${esc(key)}/${esc(it.name)}" target="_blank"><span uk-icon="icon: download; ratio: .7"></span> Open</a>
+            ${it.video ? `<button class="uk-button uk-button-primary uk-button-small" hx-get="/fragments/${esc(key)}/play/${encodeURIComponent(it.name)}" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: play; ratio: .7"></span> Play</button>` : ''}
+            <a class="uk-button uk-button-${it.video ? 'default' : 'primary'} uk-button-small" href="/files/${esc(key)}/${esc(it.name)}" target="_blank"><span uk-icon="icon: download; ratio: .7"></span> Open</a>
             <button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/delete-item" hx-vals='{"workspace":"${esc(key)}","name":"${esc(it.name)}","confirm":"yes"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete</button>
           </div>
         </div>
@@ -1185,10 +1193,61 @@ const server = http.createServer(async (req, res) => {
         if (name.includes('..') || name.includes('/')) { res.writeHead(400); return res.end('bad name'); }
         const file = path.join(workspaceDir(fileMatch[1]), name);
         if (!fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); return res.end('not found'); }
-        const type = { '.pdf': 'application/pdf', '.html': 'text/html; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.png': 'image/png' }[path.extname(file)] || 'application/octet-stream';
-        res.writeHead(200, { 'Content-Type': type, 'Content-Disposition': 'inline' });
+        const type = { '.pdf': 'application/pdf', '.html': 'text/html; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.png': 'image/png',
+          '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime',
+          '.webm': 'video/webm', '.ogg': 'video/ogg', '.ogv': 'video/ogg' }[path.extname(file).toLowerCase()] || 'application/octet-stream';
+        const size = fs.statSync(file).size;
+        // A <video> seeks by asking for a byte range. Answering the whole file with a 200 makes the
+        // browser download all of it before the first frame and disables scrubbing entirely, so a
+        // range request gets the 206 it asked for.
+        const range = VIDEO_RE.test(file) ? req.headers.range : undefined;
+        if (range) {
+          const m = /^bytes=(\d*)-(\d*)$/.exec(range);
+          if (m) {
+            let start = m[1] === '' ? null : parseInt(m[1], 10);
+            let end = m[2] === '' ? null : parseInt(m[2], 10);
+            if (start === null) { start = Math.max(0, size - (end || 0)); end = size - 1; }
+            if (end === null || end >= size) end = size - 1;
+            if (Number.isNaN(start) || start > end || start >= size) {
+              res.writeHead(416, { 'Content-Range': `bytes */${size}` });
+              return res.end();
+            }
+            res.writeHead(206, {
+              'Content-Type': type,
+              'Content-Length': end - start + 1,
+              'Content-Range': `bytes ${start}-${end}/${size}`,
+              'Accept-Ranges': 'bytes',
+            });
+            return fs.createReadStream(file, { start, end }).pipe(res);
+          }
+        }
+        res.writeHead(200, {
+          'Content-Type': type,
+          'Content-Length': size,
+          'Content-Disposition': 'inline',
+          ...(VIDEO_RE.test(file) ? { 'Accept-Ranges': 'bytes' } : {}),
+        });
         return fs.createReadStream(file).pipe(res);
       }
+      const playMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/play\/([a-zA-Z0-9_%.-]+)$/);
+      if (playMatch && isValidWorkspace(playMatch[1])) {
+        const name = decodeURIComponent(playMatch[2]);
+        if (!VIDEO_RE.test(name) || name.includes('..') || name.includes('/')) { res.writeHead(400); return res.end('bad name'); }
+        const dir = workspaceDir(playMatch[1]);
+        if (!fs.existsSync(path.join(dir, name))) { res.writeHead(404); return res.end('not found'); }
+        // <stem>-poster.jpg is the convention, so the player shows a frame before it is played.
+        const stem = name.replace(VIDEO_RE, '');
+        const poster = ['-poster.jpg', '-poster.jpeg', '-poster.png']
+          .map((s2) => `${stem}${s2}`).find((f) => fs.existsSync(path.join(dir, f)));
+        const src = `/files/${playMatch[1]}/${encodeURIComponent(name)}`;
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(`
+          <div class="msg assistant">
+            <p><span uk-icon="icon: play-circle; ratio: .8"></span> <strong>${esc(name)}</strong></p>
+            <video class="uk-width-1-1" controls preload="metadata"${poster ? ` poster="/files/${playMatch[1]}/${encodeURIComponent(poster)}"` : ''} src="${src}"></video>
+          </div>`);
+      }
+
       const argsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/builder-args$/);
       if (argsMatch && isValidWorkspace(argsMatch[1])) {
         const script = new URL(req.url, 'http://localhost').searchParams.get('script') || '';

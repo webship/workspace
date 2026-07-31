@@ -29,6 +29,7 @@ const PRESENTATION = {
   skills:     { icon: 'star',        subtitle: 'AI Skill Definitions', label: 'AI Skills', noun: 'skill', kind: 'files' },
   prompts:    { icon: 'pencil',      subtitle: 'Reusable AI Prompts', noun: 'prompt', kind: 'files' },
   recipes:    { icon: 'list',        subtitle: 'Development Recipes', noun: 'recipe' },
+  videos:     { icon: 'play-circle', subtitle: 'Recorded Walkthroughs & Demos', noun: 'video', kind: 'files' },
   worklogs:   { icon: 'history',     subtitle: 'Session Worklogs', noun: 'worklog', kind: 'files' },
   components: { icon: 'thumbnails',  subtitle: 'SDC, React, Canvas Code, HTMX & Web Components', noun: 'component' },
 };
