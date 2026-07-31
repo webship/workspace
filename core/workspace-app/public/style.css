@@ -1557,3 +1557,36 @@ html.dark .icon-choice { background: transparent; }
 #editor-modal video { width: 100%; max-height: calc(100vh - 12rem); }
 
 html.dark #editor-modal .uk-modal-dialog { background: var(--surface); color: var(--ink); }
+
+/* ---------------- reviewing a file in the dialog ------------------------ */
+
+/* A framed document: tall enough to read a page of a PDF, capped so the dialog's own buttons stay
+   on screen under it. */
+.review-frame {
+  display: block;
+  width: 100%;
+  height: min(70vh, 44rem);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.review-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(70vh, 44rem);
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+html.dark .review-frame,
+html.dark .review-image { border-color: #2b3049; }
+
+/* Shown only where the browser cannot display a PDF itself: the reason, and two ways out. */
+.review-fallback {
+  padding: 1.5rem;
+  text-align: center;
+}
