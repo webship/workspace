@@ -18,7 +18,7 @@ Critical dashboard rules:
 
 ## Workspace location (self-locating, no setup)
 
-Every `cmd-*.sh` resolves `WEBSHIP_WORKSPACE_SCRIPTS` from its own path and sources `${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh`, which derives `WEBSHIP_WORKSPACE_ROOT` / `_PATH` / `_CONFIG` and loads `core/config/settings.yml` plus the relevant `workspace.<dir>.settings.yml`. A fresh clone works with no env vars and no install step; exported `WEBSHIP_WORKSPACE_*` variables (or `root`/`path`/`scripts`/`config`/`backups` in `settings.yml`) still win as overrides. `settings.yml` carries no paths and no `database:` block.
+Every `cmd-*.sh` resolves `WORKSPACE_SCRIPTS` from its own path and sources `${WORKSPACE_SCRIPTS}/bootstrap.sh`, which derives `WORKSPACE_ROOT` / `_PATH` / `_CONFIG` and loads `core/config/settings.yml` plus the relevant `workspace.<dir>.settings.yml`. A fresh clone works with no env vars and no install step; exported `WORKSPACE_*` variables (or `root`/`path`/`scripts`/`config`/`backups` in `settings.yml`) still win as overrides. `settings.yml` carries no paths and no `database:` block.
 
 ## DDEV-only workflow
 
@@ -36,7 +36,7 @@ Families: Drupal (9/10/10.3/11/11.0.x/11.4.x/11.4.0 recommended-project), Drupal
 
 ## Naming
 
-The tooling was renamed from "VDO" — no `vdo` in filenames, variables, or folder names (the VDO drop logo from drupal.org/project/vdo is the dashboard logo). `vdo_*` env vars → `WEBSHIP_WORKSPACE_*`. Only real projects are called "projects" — each workspace names its items via the PRESENTATION table in `core/workspace-app/workspaces.js` (agents, skills, prompts, docs, modules, …).
+The tooling was renamed from "VDO" — no `vdo` in filenames, variables, or folder names (the VDO drop logo from drupal.org/project/vdo is the dashboard logo). `vdo_*` env vars → `WORKSPACE_*`. Only real projects are called "projects" — each workspace names its items via the PRESENTATION table in `core/workspace-app/workspaces.js` (agents, skills, prompts, docs, modules, …).
 
 ## Related repo
 

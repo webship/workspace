@@ -2,8 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 
-const CONFIG_DIR = process.env.WEBSHIP_WORKSPACE_CONFIG || path.join(process.env.HOME, 'workspace/core/config');
-const ROOT = process.env.WEBSHIP_WORKSPACE_ROOT || path.join(process.env.HOME, 'workspace');
+const CONFIG_DIR = process.env.WORKSPACE_CONFIG || path.join(process.env.HOME, 'workspace/core/config');
+const ROOT = process.env.WORKSPACE_ROOT || path.join(process.env.HOME, 'workspace');
 
 // Presentational-only (icon/subtitle) — everything functional (paths, script names,
 // which workspaces exist) is read live from settings.yml / workspace.<name>.settings.yml

@@ -2,12 +2,12 @@
 
 # Bootstrap.
 # Find the workspace tooling from this script, so a fresh clone needs no setup.
-WEBSHIP_WORKSPACE_SCRIPTS="${WEBSHIP_WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 
 # Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.demos.settings.yml);
+eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.demos.settings.yml);
 
 ARGPARSE_DESCRIPTION="Add users to a project"
 argparse "$@" <<EOF || exit 1

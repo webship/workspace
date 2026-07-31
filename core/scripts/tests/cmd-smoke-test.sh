@@ -13,13 +13,13 @@
 # Exit code: number of failing scripts (0 = all green).
 
 # Find the workspace tooling from this script, so a fresh clone needs no setup.
-WEBSHIP_WORKSPACE_SCRIPTS="${WEBSHIP_WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1
 
 pass=0; fail=0; failures=()
 
 for ws in "${workspaces[@]}"; do
-  dir="${WEBSHIP_WORKSPACE_ROOT}/${ws}"
+  dir="${WORKSPACE_ROOT}/${ws}"
   [ -d "$dir" ] || continue
   for f in "$dir"/cmd-*.sh; do
     [ -f "$f" ] || continue

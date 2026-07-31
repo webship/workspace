@@ -14,11 +14,11 @@
 
 # Bootstrap.
 # Find the workspace tooling from this script, so a fresh clone needs no setup.
-WEBSHIP_WORKSPACE_SCRIPTS="${WEBSHIP_WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.agents.settings.yml);
+eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.agents.settings.yml);
 
 ARGPARSE_DESCRIPTION="Sync agents with webship/ai-agents or with ~/.claude/agents"
 argparse "$@" <<ARGEOF || exit 1
@@ -36,7 +36,7 @@ ARGEOF
 
 shift $#;
 
-agents_dir="${WEBSHIP_WORKSPACE_ROOT}/${doc_name}" ;
+agents_dir="${WORKSPACE_ROOT}/${doc_name}" ;
 claude_dir="${HOME}/.claude/agents" ;
 repo_url="https://github.com/webship/ai-agents.git" ;
 repo_checkout="${agents_dir}/ai-agents" ;

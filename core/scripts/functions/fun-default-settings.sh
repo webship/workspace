@@ -7,10 +7,10 @@
 function set_default_settings() {
   echo "Ensure DDEV-managed settings plus the config sync directory.";
 
-  local settings_file="${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/${distribution_webroot}/sites/default/settings.php" ;
+  local settings_file="${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/${distribution_webroot}/sites/default/settings.php" ;
 
   # Create the config/sync folder.
-  mkdir -p ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/config/sync ;
+  mkdir -p ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/config/sync ;
 
   if [ -f "${settings_file}" ]; then
     if ! grep -q "config_sync_directory" "${settings_file}" ; then

@@ -8,18 +8,18 @@ echo "*---------------------------------------------------*";
 
 # Bootstrap.
 # Find the workspace tooling from this script, so a fresh clone needs no setup.
-WEBSHIP_WORKSPACE_SCRIPTS="${WEBSHIP_WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.profiles.settings.yml);
-if [ -d "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/mandatory" ]; then
-  (cd "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/mandatory" && ddev delete -y -O 2>/dev/null) ;
-  rm -rf "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/mandatory" ;
+eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.profiles.settings.yml);
+if [ -d "${WORKSPACE_ROOT}/${doc_name}/mandatory" ]; then
+  (cd "${WORKSPACE_ROOT}/${doc_name}/mandatory" && ddev delete -y -O 2>/dev/null) ;
+  rm -rf "${WORKSPACE_ROOT}/${doc_name}/mandatory" ;
 fi
 
-mkdir -p "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/mandatory" ;
-cd "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/mandatory" ;
+mkdir -p "${WORKSPACE_ROOT}/${doc_name}/mandatory" ;
+cd "${WORKSPACE_ROOT}/${doc_name}/mandatory" ;
 
 ddev config --project-type=drupal --docroot=web --project-name=mandatory --auto ;
 ddev start ;
@@ -27,5 +27,5 @@ ddev start ;
 ddev composer create-project drupal/recommended-project:~9 . --stability dev --no-interaction;
 ddev composer config minimum-stability dev ;
 ddev composer require drupal/mandatory ;
-cd "${WEBSHIP_WORKSPACE_ROOT}/${doc_name}";
+cd "${WORKSPACE_ROOT}/${doc_name}";
 

@@ -46,7 +46,7 @@ function testing_package_runner() {
 function testing_require_project() {
   local project_path="$1";
   if [ ! -d "${project_path}" ] ; then
-    echo "No project ${PROJECT_NAME} in ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}.";
+    echo "No project ${PROJECT_NAME} in ${WORKSPACE_ROOT}/${doc_name}.";
     return 1 ;
   fi
   if [ ! -f "${project_path}/.ddev/config.yaml" ] ; then
@@ -60,7 +60,7 @@ function testing_require_project() {
 # what is installed before it installs anything, and the webship add-on preserves every file it
 # finds, so a second run adds what a first run missed rather than resetting the suite.
 function testing_configure() {
-  local project_path="${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}" stack runner;
+  local project_path="${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}" stack runner;
   testing_require_project "${project_path}" || return 1 ;
   cd "${project_path}" || return 1 ;
 
@@ -131,7 +131,7 @@ function testing_configure() {
 # Run the suite. Everything happens inside DDEV — the browsers are in the web container, and the
 # site under test is reachable there by its own name.
 function testing_run() {
-  local project_path="${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}" stack runner script started status;
+  local project_path="${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}" stack runner script started status;
   testing_require_project "${project_path}" || return 1 ;
   cd "${project_path}" || return 1 ;
 

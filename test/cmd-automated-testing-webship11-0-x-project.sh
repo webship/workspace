@@ -11,11 +11,11 @@
 
 # Bootstrap.
 # Find the workspace tooling from this script, so a fresh clone needs no setup.
-WEBSHIP_WORKSPACE_SCRIPTS="${WEBSHIP_WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.test.settings.yml);
+eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.test.settings.yml);
 
 # Set site version.
 site_version="11.0.x-dev";
@@ -88,18 +88,18 @@ if [ "$NO_HEADLESS" == 'yes' ]; then
 fi
 
 # Change directory to the workspace for this full operation.
-cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name};
+cd ${WORKSPACE_ROOT}/${doc_name};
 
 if [ -d "${PROJECT_NAME}" ]; then
-  cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} ;
+  cd ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} ;
   ddev delete -Oy 2>/dev/null || true ;
-  cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name} ;
+  cd ${WORKSPACE_ROOT}/${doc_name} ;
   rm -rf ${PROJECT_NAME} ;
 fi
 
 # Create the project directory.
 mkdir ${PROJECT_NAME} ;
-cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} ;
+cd ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} ;
 
 # Configure DDEV for Drupal 11 with web docroot and PHP 8.4.
 ddev config --project-type=drupal11 --docroot=web --php-version=8.4 --project-name=${PROJECT_NAME} --auto ;
@@ -160,10 +160,10 @@ ddev exec sudo sh -c 'mkdir -p /tmp/apt-off && mv /etc/apt/sources.list.d/php.li
 ddev exec ./node_modules/.bin/playwright install chromium ;
 
 build_time=$( date '+%Y-%m-%d %H-%M-%S' );
-echo "// Built time: ${build_time}" >> ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/web/sites/default/settings.php 2>/dev/null || true ;
+echo "// Built time: ${build_time}" >> ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/web/sites/default/settings.php 2>/dev/null || true ;
 
 # Toggle headless mode in the Playwright config if present.
-playwright_config="${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/playwright.config.ts" ;
+playwright_config="${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/playwright.config.ts" ;
 if [ -f "${playwright_config}" ]; then
   if ! $headless ; then
     sed -i "s,headless: true,headless: false,g" ${playwright_config} ;
@@ -182,7 +182,7 @@ ddev drush cache:rebuild ;
 echo "${doc_name} ${PROJECT_NAME} (Webship ${site_version}) has been installed!!!!";
 echo "-----------------------------------------";
 echo " Change directory to the project:"
-echo " cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}";
+echo " cd ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}";
 echo "-----------------------------------------";
 echo " To run the full webship-js suite (chromium is the default browser):";
 echo " ddev exec ./node_modules/.bin/cucumber-js --config cucumber.js";
@@ -192,10 +192,10 @@ echo " ddev exec ./node_modules/.bin/cucumber-js --config cucumber.js ${TESTING_
 echo "-----------------------------------------";
 echo " The HTML report is written to tests/reports/cucumber_report.html";
 echo "-----------------------------------------";
-cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name};
+cd ${WORKSPACE_ROOT}/${doc_name};
 
 ## Run the full automated test.
 if $run_automated_testing ; then
-  cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} ;
+  cd ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} ;
   ddev exec ./node_modules/.bin/cucumber-js --config cucumber.js ;
 fi
