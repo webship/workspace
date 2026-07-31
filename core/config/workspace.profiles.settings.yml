@@ -1,9 +1,5 @@
 doc:
   name: profiles
-web:
-  url: http://localhost/profiles
-database:
-  prefix: profiles_
 profiles:
   - drupal_standard
   - drupal_minimal

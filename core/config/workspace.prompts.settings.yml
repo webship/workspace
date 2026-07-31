@@ -1,6 +1,2 @@
 doc:
   name: prompts
-web:
-  url: http://localhost/prompts
-database:
-  prefix: prompts_

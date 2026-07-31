@@ -1,6 +1,2 @@
 doc:
   name: skills
-web:
-  url: http://localhost/skills
-database:
-  prefix: skills_

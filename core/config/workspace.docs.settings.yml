@@ -1,6 +1,2 @@
 doc:
   name: docs
-web:
-  url: http://localhost/docs
-database:
-  prefix: docs_

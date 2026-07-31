@@ -1,6 +1,2 @@
 doc:
   name: forked
-web:
-  url: http://localhost/forked
-database:
-  prefix: forked_

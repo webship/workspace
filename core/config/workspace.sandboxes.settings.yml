@@ -1,6 +1,2 @@
 doc:
   name: sandboxes
-web:
-  url: http://localhost/sandboxes
-database:
-  prefix: sandboxes_

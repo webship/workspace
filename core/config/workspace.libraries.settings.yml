@@ -1,6 +1,2 @@
 doc:
   name: libraries
-web:
-  url: http://localhost/libraries
-database:
-  prefix: libraries_
