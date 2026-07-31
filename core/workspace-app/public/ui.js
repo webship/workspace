@@ -165,19 +165,11 @@ document.addEventListener('click', (e) => {
     },
   };
 
-  el.introMessage = { html: `
-    <div class="dc-intro">
-      <p><strong>Hi!</strong> I can actually do things for you — build, start, back up, and open your
-         projects, then take you there.</p>
-      <p>\u{1F4A1} <strong>Try these examples:</strong></p>
-      <ul>
-        <li>"Build a Drupal 11.4 site named d114test"</li>
-        <li>"Create a Webship 11 project called demo1 and open it"</li>
-        <li>"What's running right now?"</li>
-        <li>"Back up every project in dev"</li>
-        <li>"Write a doc about demo1 and make a PDF"</li>
-      </ul>
-    </div>` };
+  // The opening message is rendered by the server into a template beside the component, because
+  // what it should say depends on the page and that is known there, not here.
+  const introTpl = document.getElementById('ws-chat-intro');
+  if (introTpl) el.introMessage = { html: introTpl.innerHTML };
+
 
   // A build is minutes of work, so the component must not give up on the request.
   // The look, in the dashboard's own palette rather than a stock preset: the user's turn carries
