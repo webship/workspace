@@ -478,6 +478,10 @@ function pageShell(title, body, crumbs = [], context = 'home') {
   ${assistantHtml({ context })}
 </aside>
 ${pageActionsHtml(context)}
+<!-- Short results — saved, deleted, refused — surface here instead of wherever the form happened to
+     be. On the settings page that was below sixty fields and off the screen, so a save looked like
+     it had done nothing. Top and centre, because it is the answer to what you just did. -->
+<div id="flash-toasts" class="flash-toasts" aria-live="polite" role="status"></div>
 <!-- Jobs live here rather than in the page that started them: a build outlives the click, and the
      stack asks for whatever is still running so a reload or a navigation does not lose it. -->
 <div id="job-toasts" class="job-toasts" aria-live="polite"
