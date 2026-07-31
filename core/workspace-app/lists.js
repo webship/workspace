@@ -13,11 +13,22 @@
 const path = require('path');
 const { esc } = require('./html');
 const { loadYaml, CONFIG_DIR, hubDomain } = require('./workspaces');
+const { fieldConfig } = require('./settings');
 
-// 'all' is a real choice, not a nicety: several workspaces hold a handful of rows, and a pager on a
-// list of six is furniture. It is a choice rather than the default because the workspaces that hold
-// builds are the ones you visit most.
-const PAGE_SIZES = [10, 25, 50, 100, 'all'];
+// The sizes a pager offers, and the only values a `per` is accepted as.
+//
+// Read from the same `settings-fields.yml` enum the settings form builds its dropdown from, rather
+// than written out here as well. Two lists meant two answers: the form offered 20 and 200, this
+// accepted neither, and choosing one in Settings did nothing and said nothing.
+//
+// 'all' is a real choice, not a nicety: several workspaces hold a handful of rows and a pager on a
+// list of six is furniture.
+const FALLBACK_PAGE_SIZES = [10, 25, 50, 100, 'all'];
+function pageSizes() {
+  const listed = (fieldConfig().enums['style.page_size'] || []).map(([value]) => value);
+  if (!listed.length) return FALLBACK_PAGE_SIZES;   // no fields file: the pager still works
+  return listed.map((v) => (v === 'all' ? 'all' : Number(v))).filter((v) => v === 'all' || Number.isFinite(v));
+}
 
 const SORTS = {
   newest:   { label: 'Newest first', cmp: (a, b) => b.mtime - a.mtime || a.name.localeCompare(b.name) },
@@ -44,9 +55,14 @@ function styleSettings() {
 }
 
 // settings.yml sets the starting point for every list; the pager overrides it for this browser.
+// An unusable value falls back to a size the pager actually offers — falling back to one that is
+// not in the dropdown leaves the pager showing a selection nothing is selected on.
 function defaultPageSize() {
+  const sizes = pageSizes();
   const raw = styleSettings().page_size;
-  return PAGE_SIZES.map(String).includes(String(raw)) ? (raw === 'all' ? 'all' : Number(raw)) : 25;
+  if (sizes.map(String).includes(String(raw))) return raw === 'all' ? 'all' : Number(raw);
+  const numeric = sizes.filter((s) => s !== 'all');
+  return numeric.length ? numeric[Math.min(1, numeric.length - 1)] : 'all';
 }
 
 function defaultSort() {
@@ -89,7 +105,7 @@ function readListState(req) {
     .map((c) => c.trim().split('='))
     .filter((p) => p.length === 2));
   const rawPer = url.searchParams.get('per') ?? cookies['ws-per'];
-  const validPer = PAGE_SIZES.map(String).includes(String(rawPer));
+  const validPer = pageSizes().map(String).includes(String(rawPer));
   const sort = url.searchParams.get('sort') || '';
   const status = url.searchParams.get('status') || '';
   return {
@@ -243,7 +259,7 @@ function listPagerHtml(url, target, p, state, noun) {
       <select class="uk-select uk-form-small" name="per" aria-label="How many rows per page"
               hx-get="${esc(url)}${url.includes('?') ? '&' : '?'}${keep.slice(1)}" hx-target="${esc(target)}"
               hx-swap="innerHTML" hx-trigger="change"
-              hx-vals='{"page":"1"}'>${PAGE_SIZES.map((s) => `<option value="${s}"${String(s) === String(per) ? ' selected' : ''}>${s === 'all' ? 'All' : s}</option>`).join('')}</select>
+              hx-vals='{"page":"1"}'>${pageSizes().map((s) => `<option value="${s}"${String(s) === String(per) ? ' selected' : ''}>${s === 'all' ? 'All' : s}</option>`).join('')}</select>
     </label>`;
   if (p.pages === 1) {
     return `<div class="list-pager">${sizer}<span class="uk-text-meta">${p.total} ${esc(noun)}</span></div>`;
@@ -272,7 +288,7 @@ function emptyListHtml(state, noun, nothingYet) {
 }
 
 module.exports = {
-  PAGE_SIZES,
+  pageSizes,
   defaultListState,
   PROJECT_FILTERS,
   SORTS,
