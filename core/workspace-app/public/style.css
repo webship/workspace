@@ -737,3 +737,33 @@ html.dark .chat-log .msg th, html.dark .chat-log .msg td { border-color: #2f3556
    styling with it, since styles do not cross a shadow boundary. This row only holds it for the
    moment before that happens. */
 .assistant-body .chat-tools { padding: 4px 12px; }
+
+/* Settings: a form of labelled rows grouped the way the file is, so which keys belong together
+   survives the trip from YAML to inputs. */
+.settings-tabs { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: 1rem; }
+
+.settings-row { display: grid; grid-template-columns: minmax(9rem, 14rem) 1fr; gap: .6rem 1rem;
+  align-items: start; padding: .45rem 0; border-bottom: 1px solid var(--line); }
+.settings-row:last-child { border-bottom: 0; }
+.settings-key { font-weight: 600; font-size: .92rem; display: flex; flex-direction: column; gap: .15rem; }
+.settings-hint { font-weight: 400; font-size: .78rem; opacity: .7; line-height: 1.35; }
+
+.settings-group { border: 1px solid var(--line); border-radius: .6rem; padding: .35rem .9rem .6rem;
+  margin: 0 0 1rem; }
+.settings-group-name { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em;
+  opacity: .65; padding: 0 .35rem; }
+
+.settings-toggle { display: inline-flex; align-items: center; gap: .5rem; font-size: .9rem; }
+.settings-row-block { padding: .6rem 0; }
+
+/* An ordered list is shown as the order it is: numbered, with the move controls beside each row. */
+.ws-list { list-style: none; margin: .4rem 0 0; padding: 0; }
+.ws-item, .set-item { display: flex; align-items: center; gap: .55rem; padding: .35rem .5rem;
+  border: 1px solid var(--line); border-radius: .5rem; margin-bottom: .3rem; font-size: .9rem; }
+.ws-order { min-width: 1.4rem; text-align: right; opacity: .55; font-variant-numeric: tabular-nums; }
+.ws-name { flex: 1; }
+.ws-move { display: flex; gap: .25rem; }
+
+@media (max-width: 640px) {
+  .settings-row { grid-template-columns: 1fr; }
+}
