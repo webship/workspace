@@ -237,7 +237,7 @@ function itemRowsHtml(key, state = defaultListState()) {
         <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
           <span class="uk-text-bold"><span uk-icon="icon: ${it.video ? 'play-circle' : /\.(png|jpe?g)$/i.test(it.name) ? 'image' : it.name.endsWith('.html') ? 'world' : 'file-pdf'}; ratio: .8"></span> ${esc(it.name)}</span>
           <div class="project-actions">
-            ${it.video ? `<button class="uk-button uk-button-primary uk-button-small" hx-get="/fragments/${esc(key)}/play/${encodeURIComponent(it.name)}" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: play; ratio: .7"></span> Play</button>` : ''}
+            ${it.video ? `<button class="uk-button uk-button-primary uk-button-small" hx-get="/fragments/${esc(key)}/play/${encodeURIComponent(it.name)}" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: play; ratio: .7"></span> Play</button>` : ''}
             <a class="uk-button uk-button-${it.video ? 'default' : 'primary'} uk-button-small" href="/files/${esc(key)}/${esc(it.name)}" target="_blank"><span uk-icon="icon: download; ratio: .7"></span> Open</a>
             <button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/delete-item" hx-vals='{"workspace":"${esc(key)}","name":"${esc(it.name)}","confirm":"yes"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete</button>
           </div>
@@ -249,7 +249,7 @@ function itemRowsHtml(key, state = defaultListState()) {
       <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
         <span class="uk-text-bold"><span uk-icon="icon: file-edit; ratio: .8"></span> ${esc(it.name)}</span>
         <div class="project-actions">
-          <button class="uk-button uk-button-default uk-button-small" hx-get="/fragments/${esc(key)}/edit/${encodeURIComponent(it.name)}" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: pencil; ratio: .7"></span> Edit</button>
+          <button class="uk-button uk-button-default uk-button-small" hx-get="/fragments/${esc(key)}/edit/${encodeURIComponent(it.name)}" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: pencil; ratio: .7"></span> Edit</button>
           ${installable ? `<button class="uk-button uk-button-primary uk-button-small" hx-post="/actions/install-item" ${vals} hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: push; ratio: .7"></span> Install</button>` : ''}
           ${runnable ? `<button class="uk-button uk-button-primary uk-button-small run-prompt" data-workspace="${esc(key)}" data-name="${esc(it.name)}" title="Put it in the assistant, ready to fill in and send"><span uk-icon="icon: play; ratio: .7"></span> Run</button>` : ''}
           ${it.editable ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/clone-item" ${vals} hx-target="#webship-workspace-output" hx-swap="innerHTML" title="Copy it to a new name to adapt"><span uk-icon="icon: copy; ratio: .7"></span> Clone</button>` : ''}
@@ -321,6 +321,9 @@ function pageActionsHtml(context) {
   const key = view ? m[2] : null;
   const meta = key ? loadWorkspaces()[key] : null;
   const out = 'hx-target="#webship-workspace-output" hx-swap="innerHTML"';
+  // The rail has both kinds of button. Something that RUNS reports into the page; something you
+  // OPEN — an editor, a generator form — belongs in the dialog, the same as its twin in the body.
+  const opens = 'hx-target="#editor-modal-body" hx-swap="innerHTML"';
   const groups = [];
 
   const btn = (style, icon, label, attrs, title) =>
@@ -333,14 +336,14 @@ function pageActionsHtml(context) {
   if (view === 'backups' && meta) {
     groups.push({ label: 'Go to', items: [link('default', 'arrow-left', `Back to ${meta.label}`, wsUrl(key))] });
   } else if (meta && meta.kind === 'files') {
-    const create = [btn('primary', 'plus', `New ${meta.noun}`, `hx-get="/fragments/${esc(key)}/new" ${out}`)];
+    const create = [btn('primary', 'plus', `New ${meta.noun}`, `hx-get="/fragments/${esc(key)}/new" ${opens}`)];
     if (INSTALL_TARGETS[key]) {
-      create.push(btn('secondary', 'bolt', 'Generate with AI', `hx-get="/fragments/${esc(key)}/ai-form" ${out}`,
+      create.push(btn('secondary', 'bolt', 'Generate with AI', `hx-get="/fragments/${esc(key)}/ai-form" ${opens}`,
                       `Describe it and Claude Code writes the ${meta.noun}`));
     }
     if (key === 'docs') {
-      create.push(btn('secondary', 'bolt', 'Generate site doc', `hx-get="/fragments/docs/site-doc-form" ${out}`));
-      create.push(btn('secondary', 'image', 'Screenshot a site', `hx-get="/fragments/docs/screenshot-form" ${out}`));
+      create.push(btn('secondary', 'bolt', 'Generate site doc', `hx-get="/fragments/docs/site-doc-form" ${opens}`));
+      create.push(btn('secondary', 'image', 'Screenshot a site', `hx-get="/fragments/docs/screenshot-form" ${opens}`));
     }
     groups.push({ label: 'Create', items: create });
 
@@ -455,6 +458,15 @@ ${pageActionsHtml(context)}
      be. On the settings page that was below sixty fields and off the screen, so a save looked like
      it had done nothing. Top and centre, because it is the answer to what you just did. -->
 <div id="flash-toasts" class="flash-toasts" aria-live="polite" role="status"></div>
+<!-- One dialog for everything you OPEN to look at or fill in: an editor, a video, a test report, a
+     generator form. These used to land at the bottom of the page you were on, which put a 600-line
+     editor below the list it belongs to and left you scrolling to find what your click did. -->
+<div id="editor-modal" class="uk-modal-container" uk-modal="bg-close: false; esc-close: true">
+  <div class="uk-modal-dialog">
+    <button class="uk-modal-close-default" type="button" uk-close aria-label="Close"></button>
+    <div class="uk-modal-body" id="editor-modal-body"></div>
+  </div>
+</div>
 <!-- Jobs live here rather than in the page that started them: a build outlives the click, and the
      stack asks for whatever is still running so a reload or a navigation does not lose it. -->
 <div id="job-toasts" class="job-toasts" aria-live="polite"
@@ -614,7 +626,7 @@ async function projectRowsHtml(key, dir, state = defaultListState()) {
             // button so a row reads at a glance instead of as eight controls.
             const items = [];
             if (projectTestRuns(dir, p).length) {
-              items.push(`<li><a href hx-get="/fragments/${esc(key)}/tests/${encodeURIComponent(p)}" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: file-text; ratio: .7"></span> Last test run</a></li>`);
+              items.push(`<li><a href hx-get="/fragments/${esc(key)}/tests/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: file-text; ratio: .7"></span> Last test run</a></li>`);
             }
             if (canTest) {
               const configured = testingStackOf(dir, p) !== 'none';
@@ -790,12 +802,12 @@ async function workspacePage(key, state = defaultListState()) {
     </div>
 
     <p class="uk-margin-top">
-      <button class="uk-button uk-button-primary" hx-get="/fragments/${esc(key)}/new" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: plus; ratio: .8"></span> New ${esc(meta.noun)}</button>
+      <button class="uk-button uk-button-primary" hx-get="/fragments/${esc(key)}/new" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: plus; ratio: .8"></span> New ${esc(meta.noun)}</button>
       ${INSTALL_TARGETS[key] ? `
-      <button class="uk-button uk-button-secondary" hx-get="/fragments/${esc(key)}/ai-form" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: bolt; ratio: .8"></span> Generate with AI</button>` : ''}
+      <button class="uk-button uk-button-secondary" hx-get="/fragments/${esc(key)}/ai-form" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: bolt; ratio: .8"></span> Generate with AI</button>` : ''}
       ${key === 'docs' ? `
-      <button class="uk-button uk-button-secondary" hx-get="/fragments/docs/site-doc-form" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: bolt; ratio: .8"></span> Generate site doc (AI)</button>
-      <button class="uk-button uk-button-secondary" hx-get="/fragments/docs/screenshot-form" hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: image; ratio: .8"></span> Screenshot a site</button>` : ''}
+      <button class="uk-button uk-button-secondary" hx-get="/fragments/docs/site-doc-form" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: bolt; ratio: .8"></span> Generate site doc (AI)</button>
+      <button class="uk-button uk-button-secondary" hx-get="/fragments/docs/screenshot-form" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: image; ratio: .8"></span> Screenshot a site</button>` : ''}
       ${findSyncScript(dir) ? `
       <button class="uk-button uk-button-default" hx-post="/actions/sync-items" hx-vals='{"workspace":"${esc(key)}","source":"repo"}' hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: download; ratio: .8"></span> Sync from webship/ai-agents</button>
       <button class="uk-button uk-button-default" hx-post="/actions/sync-items" hx-vals='{"workspace":"${esc(key)}","source":"claude"}' hx-target="#webship-workspace-output" hx-swap="innerHTML"><span uk-icon="icon: home; ratio: .8"></span> Sync from ~/.claude</button>` : ''}
