@@ -10,6 +10,7 @@ const { spawn } = require('child_process');
 const querystring = require('querystring');
 const {
   ROOT,
+  CONFIG_DIR,
   hubDomain,
   loadWorkspaces,
   isValidWorkspace,
@@ -243,6 +244,157 @@ function editorFormHtml(key, name, content, isNew) {
 
 /* ---------------- shared page chrome ---------------- */
 
+/* ---------------- settings editor -------------------------------------- */
+
+// Only the workspace's own configuration is editable here — never an arbitrary path.
+const SETTINGS_FILE_RE = /^(settings\.yml|workspace\.[a-z0-9_-]+\.settings\.yml)$/;
+
+// A value that should not be echoed back into a page. A blank field keeps what is on disk.
+function isSecretKey(key) {
+  return /(pass|password|secret|token|api_key|apikey)$/i.test(key);
+}
+
+function listSettingsFiles() {
+  let files = [];
+  try {
+    files = fs.readdirSync(CONFIG_DIR).filter((f) => SETTINGS_FILE_RE.test(f));
+  } catch (_) {
+    return [];
+  }
+  // settings.yml first, then the per-workspace files alphabetically.
+  return files.sort((a, b) => (a === 'settings.yml' ? -1 : b === 'settings.yml' ? 1 : a.localeCompare(b)));
+}
+
+// Flatten a settings file into editable rows, straight from its lines so the order matches the
+// file and nothing is invented.
+//
+// Scalars only. A list — settings.yml's `workspaces:` — is shown read-only: its order is the
+// dashboard's card order and its membership is what registers a workspace, so it is not something
+// to retype into a text field by accident.
+function readSettingsRows(file) {
+  let text;
+  try {
+    text = fs.readFileSync(path.join(CONFIG_DIR, file), 'utf8');
+  } catch (_) {
+    return null;
+  }
+  const lines = text.split('\n');
+  const rows = [];
+  const stack = [];
+  lines.forEach((line, i) => {
+    const m = line.match(/^(\s*)([A-Za-z0-9_.-]+):\s*(.*)$/);
+    if (!m) return;
+    const [, indentStr, key, rawValue] = m;
+    const indent = indentStr.length;
+    while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop();
+    const dotted = [...stack.map((x) => x.key), key].join('.');
+    const value = rawValue.replace(/\s+#.*$/, '').trim();
+    if (value === '') {
+      // A parent key, or one whose list items follow. Recorded so children get their dotted
+      // path; only shown when it turns out to hold a list.
+      stack.push({ indent, key });
+      if (/^\s*-\s+/.test(lines[i + 1] || '')) {
+        const items = [];
+        for (let j = i + 1; j < lines.length; j += 1) {
+          const li = lines[j].match(/^\s*-\s+(.+?)\s*$/);
+          if (!li) break;
+          items.push(li[1].replace(/^["']|["']$/g, ''));
+        }
+        rows.push({ line: i, dotted, key, value: '', list: true, items });
+      }
+      return;
+    }
+    rows.push({ line: i, dotted, key, value, secret: isSecretKey(key) });
+  });
+  return rows;
+}
+
+// Replace the value on one known line, leaving the rest of the file — comments, blank lines,
+// quoting style, list blocks — exactly as it was.
+function writeSettingsValues(file, updates) {
+  const full = path.join(CONFIG_DIR, file);
+  const lines = fs.readFileSync(full, 'utf8').split('\n');
+  let changed = 0;
+  for (const { line, key, value, bool } of updates) {
+    const cur = lines[line];
+    if (cur === undefined) continue;
+    const m = cur.match(/^(\s*)([A-Za-z0-9_.-]+):(\s*)(.*)$/);
+    if (!m || m[2] !== key) continue;          // the file moved under us — skip it
+    const [, indentStr, k, gap, rest] = m;
+    const comment = rest.match(/\s+#.*$/);
+    // Quote when the value would otherwise change type or break the parse.
+    const needsQuote = !bool
+      && (/[:#]|^\s|\s$/.test(value)
+        || (value !== '' && /^(y|n|yes|no|true|false|on|off|null|~)$/i.test(value)));
+    lines[line] = `${indentStr}${k}:${gap || ' '}${needsQuote ? JSON.stringify(value) : value}${comment ? comment[0] : ''}`;
+    changed += 1;
+  }
+  if (changed) fs.writeFileSync(full, lines.join('\n'));
+  return changed;
+}
+
+function settingsFieldHtml(r) {
+  if (r.list) {
+    return `
+      <div class="uk-margin-small">
+        <label class="uk-form-label">${esc(r.dotted)} <span class="uk-text-meta">(list — read only)</span></label>
+        <div class="uk-form-controls"><pre class="uk-margin-remove">${esc(r.items.join('\n'))}</pre></div>
+      </div>`;
+  }
+  const id = `v_${r.line}`;
+  return `
+    <div class="uk-margin-small">
+      <label class="uk-form-label" for="${id}">${esc(r.dotted)}</label>
+      <div class="uk-form-controls">
+        <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
+        ${r.secret ? `<input type="hidden" name="secret_${r.line}" value="1">` : ''}
+        <input class="uk-input" id="${id}" name="${id}" type="${r.secret ? 'password' : 'text'}"
+               value="${r.secret ? '' : esc(r.value)}"
+               placeholder="${r.secret ? 'unchanged — type to replace' : ''}">
+      </div>
+    </div>`;
+}
+
+function settingsFormHtml(file, message) {
+  const rows = readSettingsRows(file);
+  if (!rows) return '<div class="msg error">Could not read that settings file.</div>';
+  return `
+    <h3 class="uk-margin-small-bottom">${esc(file)}</h3>
+    <p class="uk-text-meta">Comments and formatting are preserved — only the lines you change are
+      rewritten. Secrets are never sent to this page: a blank secret field keeps the value on disk.</p>
+    ${message || ''}
+    <form hx-post="/actions/save-settings" hx-target="#settings-output" hx-swap="innerHTML">
+      <input type="hidden" name="file" value="${esc(file)}">
+      ${rows.map(settingsFieldHtml).join('')}
+      <div class="uk-margin-top">
+        <button type="submit" class="uk-button uk-button-primary"><span uk-icon="icon: check; ratio: .8"></span> Save ${esc(file)}</button>
+      </div>
+    </form>`;
+}
+
+function settingsPage(section) {
+  const files = listSettingsFiles();
+  const current = files.includes(section) ? section : files[0];
+  const tabs = files.map((f) => `
+    <a class="uk-button uk-button-${f === current ? 'primary' : 'default'} uk-button-small"
+       href="/settings/${encodeURIComponent(f)}">${esc(f.replace(/^workspace\.|\.settings\.yml$/g, '') || f)}</a>`).join(' ');
+  return pageShell('Settings · workspace', `
+<main class="uk-container uk-container-small page-body webship-workspace-page">
+  <div class="uk-flex uk-flex-middle page-heading">
+    <span class="page-heading-icon"><span uk-icon="icon: cog; ratio: 1.1"></span></span>
+    <div>
+      <h1 class="uk-margin-remove">Settings</h1>
+      <span class="uk-text-meta">${esc(CONFIG_DIR)}</span>
+    </div>
+  </div>
+  <div class="uk-card uk-card-default uk-card-body">
+    <p>${tabs || '<span class="uk-text-meta">No settings files found.</span>'}</p>
+    ${current ? settingsFormHtml(current) : ''}
+    <div id="settings-output"></div>
+  </div>
+</main>`, [{ label: 'Workspaces', href: HOME_URL() }, { label: 'Settings' }], 'settings');
+}
+
 function pageShell(title, body, crumbs = [], context = 'home') {
   const crumbHtml = crumbs.length ? `
     <ul class="uk-breadcrumb uk-margin-remove uk-visible@s">
@@ -280,6 +432,7 @@ function pageShell(title, body, crumbs = [], context = 'home') {
         ${crumbHtml}
       </div>
       <div class="uk-navbar-right">
+        <a class="uk-navbar-item" href="/settings" title="Settings — core/config/*.yml"><span uk-icon="icon: cog"></span></a>
         <button class="uk-navbar-item theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
           <svg class="theme-icon-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
           <svg class="theme-icon-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
@@ -682,7 +835,9 @@ async function handleAction(pathname, form, res) {
   if (pathname !== '/actions/status' && pathname !== '/actions/chat') audit(pathname, form);
 
   const workspace = form.workspace || 'dev';
-  if (pathname !== '/actions/chat' && pathname !== '/actions/status' && !isValidWorkspace(workspace)) {
+  // save-settings edits core/config, so it carries no workspace to validate.
+  if (pathname !== '/actions/chat' && pathname !== '/actions/status' && pathname !== '/actions/save-settings'
+      && !isValidWorkspace(workspace)) {
     return send('<div class="msg error">Unknown workspace.</div>', 400);
   }
 
@@ -730,6 +885,50 @@ async function handleAction(pathname, form, res) {
     if (!NAME_RE.test(String(form.projectName || ''))) return send('<div class="msg error">Invalid project name.</div>', 400);
     const id = startJob(`💾 Backup <strong>${esc(form.projectName)}</strong>`, 'bash', [script, form.projectName], dir);
     return send(jobFragment(id).html);
+  }
+
+  if (pathname === '/actions/save-settings') {
+    // A duplicated field means the form carried more than one `file`. String() would quietly turn
+    // ['a','a'] into "a,a"; refuse rather than guess which was meant.
+    if (Array.isArray(form.file)) return send('<div class="msg error">Ambiguous request — reload the page and try again.</div>', 400);
+    const file = String(form.file || '');
+    if (!SETTINGS_FILE_RE.test(file)) return send('<div class="msg error">Not a settings file.</div>', 400);
+    const rows = readSettingsRows(file);
+    if (!rows) return send('<div class="msg error">Could not read that settings file.</div>', 400);
+
+    const updates = [];
+    let keptSecrets = 0;
+    for (const r of rows) {
+      if (r.list) continue;
+      const submittedKey = form[`k_${r.line}`];
+      if (submittedKey === undefined) continue;
+      // The line must still hold the key the form was built from, or the file changed since it was
+      // rendered and this value belongs somewhere else now.
+      if (submittedKey !== r.key) {
+        return send('<div class="msg error">That file changed since this form was opened — reload and try again.</div>', 409);
+      }
+      const raw = form[`v_${r.line}`];
+      const value = String((Array.isArray(raw) ? raw[raw.length - 1] : raw) ?? '');
+      if (form[`secret_${r.line}`] === '1' && value === '') { keptSecrets += 1; continue; }
+      if (value === r.value) continue;
+      updates.push({
+        line: r.line, key: r.key, value,
+        // The row already held a boolean and so does the new value: write it unquoted so it stays
+        // a YAML boolean. Quoting makes `active: "true"` — a string the shell reader never matches.
+        bool: /^(true|false)$/i.test(String(r.value).trim()) && /^(true|false)$/i.test(value),
+      });
+    }
+
+    if (!updates.length) {
+      return send(`<div class="msg assistant">Nothing to change.${keptSecrets ? ` ${keptSecrets} secret(s) left as they are.` : ''}</div>`);
+    }
+    let changed = 0;
+    try {
+      changed = writeSettingsValues(file, updates);
+    } catch (err) {
+      return send(`<div class="msg error">Could not write ${esc(file)}: ${esc(err.message)}</div>`, 500);
+    }
+    return send(`<div class="msg assistant">✅ Saved <strong>${esc(file)}</strong> — ${changed} value(s) changed.${keptSecrets ? ` ${keptSecrets} secret(s) left as they are.` : ''}</div>`);
   }
 
   if (pathname === '/actions/sync-items') {
@@ -1189,6 +1388,12 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': type, 'Content-Disposition': 'inline' });
         return fs.createReadStream(file).pipe(res);
       }
+      if (pathname === '/settings' || pathname.startsWith('/settings/')) {
+        const wanted = decodeURIComponent(pathname.slice('/settings/'.length) || '');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(settingsPage(SETTINGS_FILE_RE.test(wanted) ? wanted : ''));
+      }
+
       const argsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/builder-args$/);
       if (argsMatch && isValidWorkspace(argsMatch[1])) {
         const script = new URL(req.url, 'http://localhost').searchParams.get('script') || '';
