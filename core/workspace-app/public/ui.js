@@ -113,6 +113,10 @@ document.addEventListener('click', (e) => {
   el.dataset.wsReady = '1';
 
   const context = el.dataset.context || 'home';
+  // What the settings file says about this panel. A missing or unreadable attribute falls back to
+  // the same defaults the resolver uses, so the panel still works if the settings never arrive.
+  let cfg = { voiceInput: true, submitAfterSilence: 2500, voiceOutput: true, speechRate: 1, intro: true };
+  try { cfg = { ...cfg, ...JSON.parse(el.dataset.settings || '{}') }; } catch (_) { /* keep the defaults */ }
 
   el.connect = {
     url: '/actions/deep-chat',
@@ -134,25 +138,31 @@ document.addEventListener('click', (e) => {
   };
 
   // Voice in, using the browser's own speech recognition — no key, no service, and it stops on
-  // its own after a pause rather than needing a second click.
-  el.speechToText = {
+  // its own after a pause rather than needing a second click. `false` removes the microphone
+  // rather than leaving a button that does nothing.
+  el.speechToText = cfg.voiceInput ? {
     webSpeech: true,
     displayInterimResults: true,
     stopAfterSubmit: true,
-    submitAfterSilence: 2500,
-  };
+    // 0 means never send for you: deep-chat wants the key absent for that, not zero.
+    ...(cfg.submitAfterSilence ? { submitAfterSilence: cfg.submitAfterSilence } : {}),
+  } : false;
 
   // Voice out as well as in: the assistant reads its answer aloud, which is the half that makes
   // asking by voice worth doing — you can start a build and listen to what it says while looking
   // somewhere else. The browser's own synthesis, so no key and no service.
-  el.textToSpeech = { volume: 1, rate: 1, pitch: 1 };
+  el.textToSpeech = cfg.voiceOutput ? { volume: 1, rate: cfg.speechRate, pitch: 1 } : false;
 
   // The prompt is the main control of this panel, so it is sized like one rather than like a
   // single-line search box: room for a few lines of a real instruction before it scrolls.
   el.textInput = {
-    placeholder: { text: context.startsWith('workspace:')
-      ? `Ask about ${context.split(':')[1]}… (or use voice)`
-      : 'Ask me anything… (or use voice)' },
+    placeholder: { text: (() => {
+      // The placeholder should not offer voice on a panel that has none.
+      const voice = cfg.voiceInput ? ' (or use voice)' : '';
+      return context.startsWith('workspace:')
+        ? `Ask about ${context.split(':')[1]}…${voice}`
+        : `Ask me anything…${voice}`;
+    })() },
     styles: {
       container: {
         minHeight: '4.5rem',
