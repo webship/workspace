@@ -69,9 +69,16 @@ function ddevProjectName(projectDir) {
 const jobs = new Map();
 let jobSeq = 0;
 
-function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000, echoLine = '' } = {}) {
+// A job may claim a key. Testing a project takes minutes, and starting a second run against the
+// same project while the first is still going interleaves two suites over one site.
+function runningJobKey(key) {
+  for (const job of jobs.values()) if (job.key === key && !job.done) return true;
+  return false;
+}
+
+function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000, echoLine = '', key = '' } = {}) {
   const id = `${++jobSeq}-${Math.random().toString(36).slice(2, 8)}`;
-  const job = { title, buf: echoLine ? `$ ${echoLine}\n\n` : '', done: false, ok: null };
+  const job = { title, key, buf: echoLine ? `$ ${echoLine}\n\n` : '', done: false, ok: null };
   jobs.set(id, job);
   // stdin 'ignore' — see run(): docker exec -i hangs on an open stdin pipe.
   const child = spawn(cmd, args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -185,6 +192,15 @@ function listItems(key) {
     }
   }
   return items.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Mirrors testing_stack() in core/scripts/functions/fun-testing.sh — the same two markers, so the
+// dashboard and the script agree about what a project has.
+function testingStackOf(dir, project) {
+  const root = path.join(dir, project);
+  if (fs.existsSync(path.join(root, '.ddev', 'commands', 'web', 'init-full-automated-testing'))) return 'in-project';
+  if (fs.existsSync(path.join(root, 'cucumber.js')) || fs.existsSync(path.join(root, 'tests', 'step-definitions'))) return 'webship-js';
+  return 'none';
 }
 
 function itemRowsHtml(key) {
@@ -408,6 +424,7 @@ async function projectRowsHtml(key, dir) {
   const projects = listProjects(dir);
   const canBackup = !!findBackupScript(dir);
   const canRemove = !!findRemoveScript(dir);
+  const canTest = fs.existsSync(path.join(dir, 'cmd-tools-testing.sh'));
   const statuses = await ddevStatusMap();
 
   const rows = projects.map((p) => {
@@ -428,6 +445,7 @@ async function projectRowsHtml(key, dir) {
           ${isDdev && !running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-start" ${vals()}><span uk-icon="icon: play; ratio: .7"></span> Start</button>` : ''}
           ${isDdev && running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-stop" ${vals()}><span uk-icon="icon: ban; ratio: .7"></span> Stop</button>` : ''}
           ${isDdev && running ? `<a class="uk-button uk-button-primary uk-button-small" href="https://${esc(p)}.${esc(key)}.${hubDomain()}" target="_blank" title="https://${esc(p)}.${esc(key)}.${hubDomain()}"><span uk-icon="icon: forward; ratio: .7"></span> Launch</a>` : ''}
+          ${canTest ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/testing-${testingStackOf(dir, p) === 'none' ? 'configure' : 'run'}" ${vals()} title="${testingStackOf(dir, p) === 'none' ? 'Set the automated-testing environment up on this project' : 'Run the webship-js suite'}"><span uk-icon="icon: ${testingStackOf(dir, p) === 'none' ? 'cog' : 'play-circle'}; ratio: .7"></span> ${testingStackOf(dir, p) === 'none' ? 'Set up tests' : 'Run tests'}</button>` : ''}
           ${canBackup ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Backup</button>` : ''}
           ${canRemove ? `<button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0" hx-post="/actions/remove" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Remove</button>` : ''}
         </div>
@@ -720,6 +738,31 @@ async function handleAction(pathname, form, res) {
     // Echo the exact final command as the first terminal line.
     const finalCmd = `bash ${script} ${projectName}${flags.length ? ' ' + flags.join(' ') : ''}`;
     const id = startJob(`🏗️ Build <strong>${esc(projectName)}</strong> (${esc(builderLabel(dir, script))})`, 'bash', [script, projectName, ...flags], dir, { timeoutMs: 60 * 60 * 1000, echoLine: finalCmd });
+    return send(jobFragment(id).html);
+  }
+
+  if (pathname === '/actions/testing-configure' || pathname === '/actions/testing-run') {
+    const dir = workspaceDir(workspace);
+    const projectName = String(form.projectName || '');
+    const script = 'cmd-tools-testing.sh';
+    const isRun = pathname.endsWith('-run');
+    if (!fs.existsSync(path.join(dir, script))) return send('<div class="msg error">No testing script in this workspace.</div>', 400);
+    if (!NAME_RE.test(projectName) || !listProjects(dir).includes(projectName)) {
+      return send('<div class="msg error">Unknown project.</div>', 400);
+    }
+    // Running a suite before the stack exists fails deep inside cucumber; say so here instead.
+    if (isRun && testingStackOf(dir, projectName) === 'none') {
+      return send('<div class="msg error">No testing stack in this project yet — set the environment up first.</div>', 409);
+    }
+    const jobKey = `testing:${workspace}/${projectName}`;
+    if (runningJobKey(jobKey)) {
+      return send('<div class="msg error">A testing job is already running for this project.</div>', 409);
+    }
+    const args = isRun ? [script, projectName, '--run'] : [script, projectName];
+    // A suite is minutes, not seconds: the default job timeout would kill a real run.
+    const id = startJob(`${isRun ? '🧪 Run tests' : '🧰 Set up testing'} <strong>${esc(projectName)}</strong>`,
+      'bash', args, dir,
+      { timeoutMs: 90 * 60 * 1000, echoLine: `bash ${args.join(' ')}`, key: jobKey });
     return send(jobFragment(id).html);
   }
 
