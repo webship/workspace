@@ -1,0 +1,11 @@
+doc:
+  name: designs
+
+# Designs both builds and holds: a design tool instance is a DDEV project, and the exports and
+# mockups sit in the same folder as files.
+presentation:
+  # UIKit's own icon set, which is what the dashboard renders.
+  icon: paint-bucket
+  subtitle: Design Instances, Sources & Exports
+  noun: design
+  kind: projects

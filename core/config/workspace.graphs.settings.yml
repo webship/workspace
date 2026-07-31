@@ -1,0 +1,13 @@
+doc:
+  name: graphs
+
+# Knowledge graphs of a project's code, one directory per project:
+#   graphs/<workspace>/<project>/
+# They live HERE rather than inside the project on purpose: a graph is tens of megabytes, its
+# clustering is not bit-stable so every rebuild diffs in full, and half the projects worth mapping
+# are repositories we ship — one must not gain a graph directory because somebody mapped it.
+presentation:
+  icon: git-fork
+  subtitle: Project Knowledge Graphs
+  noun: graph
+  kind: files

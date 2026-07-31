@@ -101,9 +101,10 @@ workspaces:
   - modules
   - themes
   - libraries
-  - forked
   - recipes
-  - components
+  - designs
+  - graphs
+  - rag
   - agents
   - skills
   - prompts
