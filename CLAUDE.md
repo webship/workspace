@@ -38,6 +38,10 @@ Families: Drupal (9/10/10.3/11/11.0.x/11.4.x/11.4.0 recommended-project), Drupal
 
 The tooling was renamed from "VDO" — no `vdo` in filenames, variables, or folder names (the VDO drop logo from drupal.org/project/vdo is the dashboard logo). `vdo_*` env vars → `WORKSPACE_*`. Only real projects are called "projects" — each workspace names its items via the PRESENTATION table in `core/workspace-app/workspaces.js` (agents, skills, prompts, docs, modules, …).
 
+## Out of scope
+
+- **Upsun** — no Upsun integration here. The sibling workspace has `cmd-tools-upsun.sh`, `arg-upsun.sh`, `fun-upsun.sh` and an `/actions/upsun-environments` endpoint; none of that is wanted in this repository, so do not port it when bringing tooling across.
+
 ## Related repo
 
 The reusable tooling subset (`core/` + the `cmd-*.sh`/README/`*.code-workspace` files + `core/workspace-app` without `node_modules`, none of the built project content) is mirrored to **github.com/webship/workspace** (branch `1.0.x`, the default). A local clone lives at `~/workspace/products/workspace` — sync with `rsync -a --delete --exclude=node_modules --exclude=actions.log core/workspace-app products/workspace/core/`, commit and push from there. The mirror ships team-installable configs: `/home/YOUR_USER` paths and `CHANGE_ME` passwords — never push personal values.
