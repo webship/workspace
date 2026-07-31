@@ -42,9 +42,11 @@ The tooling was renamed from "VDO" — no `vdo` in filenames, variables, or fold
 
 The reusable tooling subset (`core/` + the `cmd-*.sh`/README/`*.code-workspace` files + `core/workspace-app` without `node_modules`, none of the built project content) is mirrored to **github.com/webship/workspace** (branch `1.0.x`, the default). A local clone lives at `~/workspace/products/workspace` — sync with `rsync -a --delete --exclude=node_modules --exclude=actions.log core/workspace-app products/workspace/core/`, commit and push from there. The mirror ships team-installable configs: `/home/YOUR_USER` paths and `CHANGE_ME` passwords — never push personal values.
 
-## Session docs
+## Session worklogs and docs
 
-- `docs/session-worklog-2026-07-22-workspace-dashboard.md` — full worklog of the dashboard build session.
+Worklogs are dated and stay as written (`worklogs/`); docs hold reference material that stays true (`docs/`).
+
+- `worklogs/session-worklog-2026-07-22-workspace-dashboard.md` — full worklog of the dashboard build session.
 - `docs/workspace-tips-and-rules.md` — the working rules + tips distilled from it.
 
 ## Outstanding follow-ups

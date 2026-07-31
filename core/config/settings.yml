@@ -20,6 +20,7 @@ workspaces:
   - test
   - demos
   - sandboxes
+  - projects
   - profiles
   - modules
   - themes
@@ -32,3 +33,4 @@ workspaces:
   - prompts
   - docs
   - videos
+  - worklogs
