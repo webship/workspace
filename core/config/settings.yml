@@ -4,16 +4,97 @@
 host: 127.0.0.1
 web: http://127.0.0.1/core
 protocol: http
+
+# The admin user a fresh install is given — Drupal, Drupal CMS, Webship and anything else built
+# here. These are local development sites; the committed file ships a placeholder, and your own
+# checkout holds whatever you actually log in with.
 account:
   name: webmaster
   pass: CHANGE_ME
   mail: info@webship.co
+
+# Who contributions are credited to — on webship/workspace, webship/ai-agents and every
+# drupal.org issue, merge request and pull request this tooling opens. Per machine: this live
+# copy holds your real values, the committed one ships CHANGE_ME. After bootstrap.sh these are
+# $contributor_name and $contributor_email in any cmd-*.sh.
+contributor:
+  name: CHANGE_ME
+  email: CHANGE_ME
+
+git:
+  # One block per forge: GitHub, drupal.org's GitLab at git.drupalcode.org, and Bitbucket. Each
+  # holds the host, the account name that forge knows you by, the address commits carry there,
+  # and its token. `drupal` IS a GitLab instance, which is why there is no separate gitlab entry.
+  #
+  # `token` renders as an empty password field: the value is never sent back to the browser,
+  # never echoed into a job log, never written to actions.log. The commit NAME comes from
+  # contributor.name above; only the address varies per forge.
+  github:
+    host: github.com
+    # Authenticate with the `gh` CLI's own login when it works, and only fall back to the token
+    # below. Inside the dashboard container gh is not signed in — it reads the same ~/.config/gh
+    # but the token lives in the host keyring, which the container cannot read. That is what the
+    # token is for.
+    use_gh_cli: true
+    username: CHANGE_ME
+    email: CHANGE_ME
+    token: CHANGE_ME
+  drupal:
+    host: git.drupalcode.org
+    username: CHANGE_ME
+    email: CHANGE_ME
+    token: CHANGE_ME
+  bitbucket:
+    host: bitbucket.org
+    username: CHANGE_ME
+    email: CHANGE_ME
+    token: CHANGE_ME
+
+sources:
+  # Where a sync pulls from, and where a proposed change is filed. Change these to work from a
+  # fork or a different host — nothing here is hardcoded. An env var still wins for a one-off run.
+  tooling:
+    # This workspace's own commands, scripts and dashboard.
+    host: github.com
+    repo: webship/workspace
+    ref: 1.0.x
+  ai_items:
+    # The shared AI Agents, AI Skills and Prompts.
+    host: github.com
+    repo: webship/ai-agents
+    ref: main
+
+ai_providers:
+  # The local Claude Code CLI comes first and is the default: it needs no key of its own — it
+  # uses this machine's own Claude Code login — so nothing is sent to a third-party API and there
+  # is no key to leak. Set active: false to fall through to the keyed providers below, in the
+  # order they appear. An ANTHROPIC_API_KEY/OPENAI_API_KEY/GEMINI_API_KEY in the environment
+  # still wins over all of this, for a one-off run.
+  claude_code_cli:
+    active: true
+  openai:
+    api_key: CHANGE_ME
+  anthropic:
+    api_key: CHANGE_ME
+  gemini:
+    api_key: CHANGE_ME
+
+# Default styling for the dashboard. Every value is optional — the defaults below are what
+# ships, and /settings rewrites only the line you change.
+#   mode          light | dark | system   (system follows the OS setting)
+#   editor_theme  auto | light | dark     (auto follows mode)
+style:
+  workspace_name: Workspace
+  mode: light
+  editor_theme: auto
+  page_size: 50
+  page_sort: newest
+
 config_sync_directory: ../config/sync
+
 automated_testing:
   wd_host: 127.0.0.1:4444/wd/hub
-openai:
-  api_key: sk-change-this
-  api_org: org-change-this
+
 workspaces:
   - products
   - dev
