@@ -46,13 +46,14 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const { esc } = require('./html');
 const { readListState, setListCookies } = require('./lists');
+const { DDEV_ACTIONS } = require('./ddev');
 const { run, jobs, runningJobKey, startJob, jobFragment } = require('./jobs');
 const { assistantReply } = require('./assistant');
 const {
   INSTALL_TARGETS, VIDEO_RE, ITEM_TEMPLATES, NAME_RE, SCRIPT_RE,
   itemFile, listItems, testingStackOf, projectTestRuns, testRunHtml,
   itemRowsHtml, editorFormHtml, settingsPage, pageShell, homePage, workspaceCardsHtml,
-  projectRowsHtml, parseBuilderArgs, builderArgsHtml, backupRowsHtml,
+  ddevStatusMap, projectRowsHtml, parseBuilderArgs, builderArgsHtml, backupRowsHtml,
   backupsPage, workspacePage, resultFragment, HOME_URL, wsUrl,
 } = require('./views');
 
@@ -334,9 +335,11 @@ async function handleAction(pathname, form, res) {
     const file = String(form.file || '');
     if (form.confirm !== 'yes') return send('<div class="msg error">Restore requires confirmation.</div>', 400);
     // Backup filenames come from the backup scripts: <ws>---<project>--<stamp>.tar.gz
-    const m = file.match(/^([a-z]+)---([a-zA-Z0-9_-]+)--([0-9_-]+)\.tar\.gz$/);
+    const m = file.match(/^([a-z]+)---([a-zA-Z0-9_.-]+)--([0-9_-]+)\.tar\.gz$/);
     if (!m) return send('<div class="msg error">Unrecognized backup filename.</div>', 400);
     const projectName = m[2];
+    // `.` and `..` would name the workspace directory itself as the restore target.
+    if (/^\.+$/.test(projectName)) return send('<div class="msg error">Unrecognized backup filename.</div>', 400);
     const archive = path.join(meta.backupsDir, file);
     if (!fs.existsSync(archive)) return send('<div class="msg error">Backup file not found.</div>', 404);
     const targetDir = path.join(meta.dir, projectName);
@@ -363,11 +366,17 @@ async function handleAction(pathname, form, res) {
     const meta = loadWorkspaces()[workspace];
     const file = String(form.file || '');
     if (form.confirm !== 'yes') return send('<div class="msg error">Deleting a backup requires confirmation.</div>', 400);
-    if (!/^[a-z]+---[a-zA-Z0-9_-]+--[0-9_-]+\.tar\.gz$/.test(file)) return send('<div class="msg error">Unrecognized backup filename.</div>', 400);
+    // Two shapes live in a backups folder: a project archive from the backup scripts, and a
+    // standalone dump from a row's "Export the database". Both are deletable here — a file the
+    // dashboard writes has to be a file the dashboard can remove.
+    const isArchive = /^[a-z]+---[a-zA-Z0-9_.-]+--[0-9_-]+\.tar\.gz$/.test(file) && !file.includes('/');
+    const isDump = /^[a-zA-Z0-9_-]+--db--[0-9-]+\.sql\.gz$/.test(file);
+    if (!isArchive && !isDump) return send('<div class="msg error">Unrecognized backup filename.</div>', 400);
     const archive = path.join(meta.backupsDir, file);
     if (!fs.existsSync(archive)) return send('<div class="msg error">Backup file not found.</div>', 404);
     const removed = [];
-    for (const f of [archive,
+    // An archive carries a companion dump beside it; a standalone dump is only itself.
+    for (const f of isDump ? [archive] : [archive,
       path.join(meta.backupsDir, file.replace(/\.tar\.gz$/, '-db.sql.gz')),
       path.join(meta.backupsDir, file.replace(/\.tar\.gz$/, '-db.sql'))]) {
       if (fs.existsSync(f)) { fs.unlinkSync(f); removed.push(path.basename(f)); }
@@ -538,6 +547,37 @@ async function handleAction(pathname, form, res) {
     // `ddev start` accepts -y (skip confirmation); `ddev stop` has no such flag.
     const args = verb === 'start' ? ['start', '-y'] : ['stop'];
     const id = startJob(`${verb === 'start' ? '▶️' : '⏹️'} <code>ddev ${verb}</code> on <strong>${esc(projectName)}</strong>`, 'ddev', args, projectDir, { timeoutMs: 5 * 60 * 1000 });
+    return send(jobFragment(id).html);
+  }
+
+  // The rest of the DDEV verbs, from a row's DDEV dropdown. Every one is per-project and runs
+  // `ddev` in the project directory, exactly like Start and Stop — so the workspace's rule holds
+  // throughout: no host composer, drush or mysql, ever.
+  if (DDEV_ACTIONS[pathname]) {
+    const act = DDEV_ACTIONS[pathname];
+    const projectName = String(form.projectName || '');
+    if (!NAME_RE.test(projectName)) return send('<div class="msg error">Invalid project name.</div>', 400);
+    const projectDir = path.join(workspaceDir(workspace), projectName);
+    if (!ddevProjectName(projectDir)) return send('<div class="msg error">Not a DDEV project.</div>', 400);
+    let args = act.args;
+    if (act.needsRunning) {
+      // Asked rather than assumed: `ddev drush` on a stopped project prints a docker error that
+      // says nothing about the actual problem, which is that the site is not up.
+      const statuses = await ddevStatusMap();
+      if (statuses[ddevProjectName(projectDir)]?.status !== 'running') {
+        return send(`<div class="msg error">${esc(projectName)} is not running — start it first.</div>`, 400);
+      }
+    }
+    if (act.toBackups) {
+      // A dump belongs in the workspace's backups folder, beside the archives — never in the home
+      // directory, and never inside the project it came from.
+      const outDir = loadWorkspaces()[workspace].backupsDir;
+      try { fs.mkdirSync(outDir, { recursive: true }); } catch (_) { /* ddev reports it */ }
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+      args = [...args, '--gzip', '--file', path.join(outDir, `${projectName}--db--${stamp}.sql.gz`)];
+    }
+    const id = startJob(`${act.icon} <code>${esc(act.label)}</code> on <strong>${esc(projectName)}</strong>`,
+      'ddev', args, projectDir, { timeoutMs: act.ms });
     return send(jobFragment(id).html);
   }
 

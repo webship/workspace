@@ -29,6 +29,7 @@ const { esc } = require('./html');
 const { run, jobFragment } = require('./jobs');
 const { assistantHtml } = require('./assistant');
 const { SETTINGS_FILE_RE, settingsFormHtml, listSettingsFiles, listEditorHtml } = require('./settings');
+const { DDEV_ACTIONS, DDEV_MENU_ORDER } = require('./ddev');
 const {
   defaultListState,
   searchSortPage,
@@ -598,6 +599,29 @@ async function projectRowsHtml(key, dir, state = defaultListState()) {
           ${isDdev && running ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/ddev-stop" ${vals()}><span uk-icon="icon: ban; ratio: .7"></span> Stop</button>` : ''}
           ${isDdev && running ? `<a class="uk-button uk-button-primary uk-button-small" href="https://${esc(p)}.${esc(key)}.${hubDomain()}" target="_blank" title="https://${esc(p)}.${esc(key)}.${hubDomain()}"><span uk-icon="icon: forward; ratio: .7"></span> Launch</a>` : ''}
           ${(() => {
+            // The DDEV verbs, built from the same table the server dispatches on. Everything here
+            // needs a `ddev` binary and a project it recognises, so a project without a .ddev
+            // config gets no menu at all rather than a menu of failures.
+            if (!isDdev) return '';
+            const entries = DDEV_MENU_ORDER
+              // A stopped site cannot answer drush or hand over its database. Offering those and
+              // then explaining the refusal is worse than not offering them.
+              .filter((k) => running || !DDEV_ACTIONS[k].needsRunning)
+              .map((k) => {
+                const a = DDEV_ACTIONS[k];
+                return `<li><a href hx-post="${k}" ${vals()} title="${esc(a.label)}"><span uk-icon="icon: ${a.menuIcon}; ratio: .7"></span> ${esc(a.menuLabel)}</a></li>`;
+              });
+            return `<div class="uk-inline act-menu">
+              <button class="uk-button uk-button-default uk-button-small" type="button" title="Restart, inspect and export this DDEV project"><span uk-icon="icon: cog; ratio: .7"></span> DDEV <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
+              <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">
+                <li class="uk-nav-header">${esc(ddevName)}</li>
+                ${entries.join('')}
+                <li class="uk-nav-divider"></li>
+                <li><a href="https://${esc(ddevName)}.ddev.site" target="_blank"><span uk-icon="icon: link-external; ratio: .7"></span> Canonical URL</a></li>
+              </ul></div>
+            </div>`;
+          })()}
+          ${(() => {
             // Start, Stop and Launch are what a row is for; everything else goes behind one
             // button so a row reads at a glance instead of as eight controls.
             const items = [];
@@ -717,14 +741,14 @@ function backupRowsHtml(key, state = defaultListState()) {
   const rows = page.slice.map((b) => `
     <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
       <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
-        <span><span uk-icon="icon: album; ratio: .8"></span> <span class="uk-text-bold">${esc(b.file)}</span>
-          <span class="uk-text-meta">· ${humanSize(b.size)} · ${b.mtime.toISOString().slice(0, 16).replace('T', ' ')}</span></span>
+        <span><span uk-icon="icon: ${b.kind === 'db' ? 'database' : 'album'}; ratio: .8"></span> <span class="uk-text-bold">${esc(b.file)}</span>
+          <span class="uk-text-meta">· ${b.kind === 'db' ? 'database dump · ' : ''}${humanSize(b.size)} · ${b.mtime.toISOString().slice(0, 16).replace('T', ' ')}</span></span>
         <div class="project-actions">
-          <button class="uk-button uk-button-secondary uk-button-small arm-step" data-armed="0"
+          ${b.kind === 'db' ? '' : `<button class="uk-button uk-button-secondary uk-button-small arm-step" data-armed="0"
                   hx-post="/actions/restore"
                   hx-vals='{"workspace":"${esc(key)}","file":"${esc(b.file)}","confirm":"yes"}'
                   hx-target="#webship-workspace-output" hx-swap="innerHTML"
-                  hx-trigger="confirmed-remove"><span uk-icon="icon: history; ratio: .7"></span> Restore</button>
+                  hx-trigger="confirmed-remove"><span uk-icon="icon: history; ratio: .7"></span> Restore</button>`}
           <button class="uk-button uk-button-danger uk-button-small arm-step" data-armed="0"
                   hx-post="/actions/backup-delete"
                   hx-vals='{"workspace":"${esc(key)}","file":"${esc(b.file)}","confirm":"yes"}'
