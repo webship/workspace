@@ -732,3 +732,34 @@ html.dark .chat-log .msg th, html.dark .chat-log .msg td { border-color: #2f3556
 /* Hierarchical project-domain alias on running rows */
 .proj-alias { display: block; font-size: 11px; margin-top: 2px; color: var(--brand-2) !important; }
 .proj-alias:hover { text-decoration: underline; }
+
+/* Assistant: the tools row under the prompt, and the command picker in it. */
+.chat-input .chat-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap:0.5rem;
+}
+
+.chat-tools-spacer { flex: 1; }
+
+.chat-input .command-picker {
+  height:2.125rem;
+  max-width:14.375rem;
+  padding:0 1.625rem 0 0.625rem;
+  border: 1px solid var(--line);
+  border-radius:31.25rem;
+  background-color: var(--subtle-light);
+  color: var(--brand-secondary);
+  font-size:0.8125rem;
+  font-weight: 500;
+}
+
+.chat-input .command-picker:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--subtle-brand);
+  background-color: #fff;
+}
+
+html.dark .chat-input .command-picker,
+html.dark .chat-input .mic-btn { background-color: #1f2438; border-color: #2a2f4a; color: #e7e9f5; }

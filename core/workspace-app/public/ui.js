@@ -102,3 +102,19 @@ document.addEventListener('click', (e) => {
   const dark = document.documentElement.classList.toggle('dark');
   try { localStorage.setItem('ws-theme', dark ? 'dark' : 'light'); } catch (_) { /* private mode */ }
 });
+
+// Picking a command writes it into the prompt as a sentence, so the agent still decides
+// how to run it rather than the picker firing it blind.
+document.addEventListener('change', (e) => {
+  const picker = e.target.closest('.command-picker');
+  if (!picker || !picker.value) return;
+  const form = picker.closest('form');
+  const input = form && form.querySelector('input[name="message"]');
+  if (!input) return;
+  const [workspace, file] = picker.value.split('/');
+  const phrase = `Run ${file} in ${workspace}: `;
+  input.value = input.value ? `${input.value.trim()} ${phrase}` : phrase;
+  picker.value = '';
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+});

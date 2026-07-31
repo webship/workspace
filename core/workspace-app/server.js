@@ -563,7 +563,62 @@ const AI_MARK = `<svg class="ai-mark" viewBox="0 0 24 24" xmlns="http://www.w3.o
 
 // The AI assistant panel — included on EVERY page. `floating` renders it as
 // the bottom-right widget with a launcher button; inline renders it in flow.
+const COMMAND_MENU_ORDER = ['products', 'dev', 'test', 'demos'];
+// The commands offered in the prompt box.
+//
+// Scoped to one workspace when the user is on a workspace page: on /dev the only
+// commands that can sensibly run are dev's own, and a list of every command in
+// the tree buries them. The home page keeps the full grouped list, because there
+// no workspace is implied.
+function commandMenuGroups(scope) {
+  const all = loadWorkspaces();
+  const keys = Object.keys(all);
+  const ordered = (scope && keys.includes(scope))
+    ? [scope]
+    : [...COMMAND_MENU_ORDER.filter((k) => keys.includes(k)),
+       ...keys.filter((k) => !COMMAND_MENU_ORDER.includes(k))];
+  const groups = [];
+  for (const key of ordered) {
+    const dir = all[key].dir;
+    let files = [];
+    try {
+      files = fs.readdirSync(dir).filter((f) => /^cmd-.*\.sh$/.test(f)).sort();
+    } catch (_) { continue; }
+    if (!files.length) continue;
+    groups.push({
+      key,
+      label: all[key].label,
+      items: files.map((f) => ({ file: f, label: builderLabel(dir, f) })),
+    });
+  }
+  return groups;
+}
+
 function assistantHtml({ context = 'home' } = {}) {
+  // "workspace:dev" / "backups:dev" — both mean the user is working in dev.
+  const scopeMatch = String(context).match(/^(?:workspace|backups):([a-z0-9_-]+)$/);
+  const scope = scopeMatch && isValidWorkspace(scopeMatch[1]) ? scopeMatch[1] : null;
+  // The settings page belongs to no workspace, so it gets no command list at all
+  // rather than every command in the tree: none of them edit these files, and the
+  // one question worth asking here is about the settings themselves.
+  const isSettings = context === 'settings' || context === 'commands';
+  const scopeLabel = scope ? loadWorkspaces()[scope].label : (isSettings ? 'Settings' : null);
+
+  const commandGroups = isSettings ? [] : commandMenuGroups(scope);
+  // Scoped to one workspace, the optgroup would repeat that workspace's name on
+  // every row for no information; flat reads better.
+  const commandOptions = scope
+    ? commandGroups.flatMap((g) => g.items.map((it) =>
+        `<option value="${esc(g.key)}/${esc(it.file)}">${esc(it.label === it.file ? it.file : `${it.label} — ${it.file}`)}</option>`)).join('')
+    : commandGroups.map((g) => `
+    <optgroup label="${esc(g.label)}">
+      ${g.items.map((it) => `<option value="${esc(g.key)}/${esc(it.file)}">${esc(it.label === it.file ? it.file : `${it.label} — ${it.file}`)}</option>`).join('')}
+    </optgroup>`).join('');
+  const autoOption = (scope || isSettings)
+    ? `✨ Prompt mode: Auto — the agent decides (${scopeLabel})`
+    : '✨ Prompt mode: Auto — the agent decides';
+  const pickerLabel = isSettings ? 'Prompt mode — Settings'
+    : scope ? `Prompt mode — ${scopeLabel} commands` : 'Prompt mode';
   const panel = `
     <div class="uk-card uk-card-default assistant-panel">
       <div class="assistant-head">
@@ -600,9 +655,16 @@ function assistantHtml({ context = 'home' } = {}) {
               hx-indicator="#chat-typing"
               hx-on::after-request="this.reset()">
           <input type="hidden" name="context" value="${esc(context)}">
-          <input type="text" name="message" class="uk-input" placeholder="Ask me anything… (or use voice)" autocomplete="off" required>
-          <button type="button" class="uk-button uk-button-default mic-btn" title="Voice input" aria-label="Voice input"><span uk-icon="icon: microphone; ratio: .9"></span></button>
-          <button type="submit" class="uk-button uk-button-primary send-btn" title="Send" aria-label="Send"><span uk-icon="icon: comment; ratio: .8"></span><span class="qa-label"> Send</span></button>
+          <input type="text" name="message" class="uk-input" placeholder="${scope || isSettings ? esc(`Ask about ${scopeLabel}… (or use voice)`) : 'Ask me anything… (or use voice)'}" autocomplete="off" required>
+          <div class="chat-tools">
+            <select class="uk-select command-picker" aria-label="${esc(pickerLabel)}" title="${esc(pickerLabel)}">
+              <option value="">${esc(autoOption)}</option>
+              ${commandOptions}
+            </select>
+            <span class="chat-tools-spacer"></span>
+            <button type="button" class="uk-button uk-button-default mic-btn" title="Voice input" aria-label="Voice input"><span uk-icon="icon: microphone; ratio: .9"></span></button>
+            <button type="submit" class="uk-button uk-button-primary send-btn" title="Send" aria-label="Send"><span uk-icon="icon: comment; ratio: .8"></span><span class="qa-label"> Send</span></button>
+          </div>
         </form>
       </div>
     </div>`;
