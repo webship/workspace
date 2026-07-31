@@ -100,9 +100,21 @@ function jobFragment(id) {
   const text = job.buf.replace(/\x1b\[[0-9;]*[mK]/g, '');
   const status = job.done ? (job.ok ? '✅ finished' : '❌ failed') : '<span uk-spinner="ratio: .5"></span> running…';
   const poll = job.done ? '' : ` hx-get="/fragments/job/${id}" hx-trigger="every 1s" hx-swap="outerHTML"`;
+  // A job is a toast: it outlives the page area it was launched from, so a build survives
+  // navigating elsewhere, and it can be collapsed while it runs. The element polls ITSELF and
+  // replaces itself, which is what lets ui.js move it into the toast stack once and leave it
+  // there — every later poll lands wherever the element currently is.
+  const state = job.done ? (job.ok ? 'is-done' : 'is-failed') : 'is-running';
   const html = `
-    <div class="msg ${job.done && !job.ok ? 'error' : 'assistant'} terminal" id="job-${id}"${poll}>
-      <p>${job.title} — ${status}</p>
+    <div class="msg ${job.done && !job.ok ? 'error' : 'assistant'} terminal job-toast ${state}" id="job-${id}"${poll}>
+      <div class="job-toast-head">
+        <span class="job-toast-title">${job.title}</span>
+        <span class="job-toast-status">${status}</span>
+        <button type="button" class="job-toast-btn job-toast-collapse" title="Collapse or expand this job"
+                aria-expanded="true"><span uk-icon="icon: chevron-up; ratio: .7"></span></button>
+        <button type="button" class="job-toast-btn job-toast-close" title="Dismiss${job.done ? '' : ' (the job keeps running)'}"
+                aria-label="Dismiss"><span uk-icon="icon: close; ratio: .7"></span></button>
+      </div>
       <pre class="terminal-pre">${esc(text) || '…'}</pre>
     </div>`;
   return { html, done: job.done };
@@ -801,6 +813,10 @@ function pageShell(title, body, crumbs = [], context = 'home') {
   ${assistantHtml({ context })}
 </aside>
 ${pageActionsHtml(context)}
+<!-- Jobs live here rather than in the page that started them: a build outlives the click, and the
+     stack asks for whatever is still running so a reload or a navigation does not lose it. -->
+<div id="job-toasts" class="job-toasts" aria-live="polite"
+     hx-get="/fragments/jobs/running" hx-trigger="load" hx-swap="innerHTML"></div>
 <div class="app-content">
 ${body}
 <footer class="uk-section uk-section-xsmall uk-text-center uk-text-meta">
@@ -1976,6 +1992,12 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': type, 'Content-Length': size,
           ...(VIDEO_RE.test(file) ? { 'Accept-Ranges': 'bytes' } : {}) });
         return fs.createReadStream(file).pipe(res);
+      }
+
+      if (pathname === '/fragments/jobs/running') {
+        const running = [...jobs.entries()].filter(([, j]) => !j.done);
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(running.map(([id]) => jobFragment(id).html).join(''));
       }
 
       const argsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/builder-args$/);

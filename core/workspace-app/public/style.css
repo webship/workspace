@@ -958,3 +958,46 @@ html.actions-collapsed .app-content { margin-right: 3.5rem; }
 
 .ws-handle { cursor: grab; opacity: .45; }
 .ws-item.is-dragging { opacity: .5; border-style: dashed; }
+
+/* Job toasts: a running command follows you around the dashboard rather than living in the page
+   that started it. Bottom-right, newest last, never wider than the screen. */
+.job-toasts {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(34rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+.job-toasts > * { pointer-events: auto; }
+
+.job-toast {
+  margin: 0 !important;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, .18);
+  overflow: hidden;
+}
+.job-toast.is-running { border-left: 0.1875rem solid var(--brand-1); }
+.job-toast.is-done { border-left: 0.1875rem solid var(--ok); }
+.job-toast.is-failed { border-left: 0.1875rem solid var(--danger); }
+
+.job-toast-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.65rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+.job-toast-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-toast-status { opacity: .8; white-space: nowrap; }
+.job-toast-btn { background: none; border: 0; cursor: pointer; padding: 0.15rem; opacity: .6; color: inherit; }
+.job-toast-btn:hover { opacity: 1; }
+.job-toast .terminal-pre { max-height: 15rem; overflow: auto; margin: 0; font-size: 0.78rem; }
+.job-toast.is-collapsed .terminal-pre { display: none; }
+.job-toast.is-collapsed .job-toast-head { border-bottom: 0; }

@@ -469,3 +469,62 @@ document.addEventListener('dragend', (e) => {
     values: { file: editor.dataset.file, key: editor.dataset.key, order },
   });
 });
+
+/* ---------------- job toasts ------------------------------------------- */
+
+// A job is started from a page but does not belong to it: a build takes minutes and you should be
+// able to go and look at something else meanwhile. Every job element is moved into a fixed stack
+// the first time it appears, and because the element polls and replaces ITSELF, every later poll
+// lands wherever it now lives rather than back in the page it came from.
+function jobStack() { return document.getElementById('job-toasts'); }
+
+// Collapsed state is kept on the STACK, not the toast: the toast is replaced by its own poll
+// every second, so anything stored on it is gone a second later.
+function collapsedJobs() {
+  const st = jobStack();
+  return new Set(((st && st.dataset.collapsed) || '').split(' ').filter(Boolean));
+}
+function saveCollapsedJobs(set) {
+  const st = jobStack();
+  if (st) st.dataset.collapsed = [...set].join(' ');
+}
+
+function adoptJobToasts(root) {
+  const stack = jobStack();
+  if (!stack) return;
+  const collapsed = collapsedJobs();
+  (root || document).querySelectorAll('.job-toast').forEach((toast) => {
+    if (toast.parentElement !== stack) stack.appendChild(toast);
+    const isC = collapsed.has(toast.id);
+    toast.classList.toggle('is-collapsed', isC);
+    const btn = toast.querySelector('.job-toast-collapse');
+    if (btn) btn.setAttribute('aria-expanded', String(!isC));
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => adoptJobToasts());
+document.body.addEventListener('htmx:afterSwap', (e) => adoptJobToasts(e.target));
+
+document.addEventListener('click', (e) => {
+  const collapse = e.target.closest && e.target.closest('.job-toast-collapse');
+  if (collapse) {
+    const toast = collapse.closest('.job-toast');
+    const set = collapsedJobs();
+    const now = !toast.classList.contains('is-collapsed');
+    toast.classList.toggle('is-collapsed', now);
+    collapse.setAttribute('aria-expanded', String(!now));
+    if (now) set.add(toast.id); else set.delete(toast.id);
+    saveCollapsedJobs(set);
+    return;
+  }
+  // Dismiss removes the toast, not the job: a running build carries on, and the stack picks it up
+  // again on the next page load.
+  const close = e.target.closest && e.target.closest('.job-toast-close');
+  if (close) {
+    const toast = close.closest('.job-toast');
+    const set = collapsedJobs();
+    set.delete(toast.id);
+    saveCollapsedJobs(set);
+    toast.remove();
+  }
+});
