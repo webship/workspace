@@ -36,6 +36,8 @@ const {
   writeSettingsValues,
   settingsFormHtml,
   listSettingsFiles,
+  workspacePresentationHtml,
+  writeWorkspacePresentation,
 } = require('./settings');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -47,6 +49,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const { esc } = require('./html');
 const { readListState, setListCookies } = require('./lists');
 const { DDEV_ACTIONS } = require('./ddev');
+const { iconHtml, tablerIcons } = require('./icons');
 const { run, jobs, runningJobKey, startJob, jobFragment } = require('./jobs');
 const { assistantReply } = require('./assistant');
 const {
@@ -261,6 +264,27 @@ async function handleAction(pathname, form, res) {
     // The card order is this list. loadWorkspaces() caches for two seconds, so the next page
     // load re-reads it without anything having to invalidate it here.
     return send(listEditorHtml(file, key, `<div class="msg assistant">Moved <strong>${esc(name)}</strong>.</div>`));
+  }
+
+  if (pathname === '/actions/workspace-presentation') {
+    const file = String(form.file || '');
+    if (!SETTINGS_FILE_RE.test(file) || file === 'settings.yml') {
+      return send('<div class="msg error">Not a workspace settings file.</div>', 400);
+    }
+    const icon = String(form.icon || '').trim();
+    // Only an icon this dashboard can actually draw, so a typo cannot leave a card blank.
+    if (icon && !(icon.startsWith('tabler:') && tablerIcons().has(icon.slice(7)))) {
+      return send('<div class="msg error">That is not an icon in the library.</div>', 400);
+    }
+    const subtitle = String(form.subtitle || '').trim();
+    try {
+      writeWorkspacePresentation(file, icon, subtitle);
+    } catch (err) {
+      return send(`<div class="msg error">Could not write ${esc(file)}: ${esc(err.message)}</div>`, 500);
+    }
+    // The card order and the card itself both come from these files, so the memo has to go.
+    invalidateWorkspaces();
+    return send(workspacePresentationHtml(file, '<div class="msg assistant">✅ Card saved.</div>'));
   }
 
   if (pathname === '/actions/save-settings') {
@@ -796,6 +820,32 @@ const server = http.createServer(async (req, res) => {
         const wanted = decodeURIComponent(pathname.slice('/settings/'.length) || '');
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(settingsPage(SETTINGS_FILE_RE.test(wanted) ? wanted : ''));
+      }
+
+      if (pathname === '/fragments/icons') {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const q = String(params.get('q') || '').trim().toLowerCase();
+        const all = [...tablerIcons()].sort();
+        const hits = q ? all.filter((i) => i.includes(q)) : all;
+        // Paged rather than search-only: 4,736 tiles inline would be a multi-megabyte page, but
+        // making search the only way in means you cannot browse — and you often do not know the
+        // name of the icon you want.
+        const PER_PAGE = 120;
+        const pages = Math.max(1, Math.ceil(hits.length / PER_PAGE));
+        const page = Math.min(Math.max(1, parseInt(params.get('page'), 10) || 1), pages);
+        const shown = hits.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        if (!hits.length) return res.end(`<span class="uk-text-meta">No icon matches “${esc(q)}”.</span>`);
+        const tiles = shown.map((i) => `
+          <input class="icon-radio" type="radio" name="icon" id="ic-${esc(i)}" value="tabler:${esc(i)}">
+          <label class="icon-choice" for="ic-${esc(i)}" title="${esc(i)}">${iconHtml(`tabler:${i}`, 0.9)}</label>`).join('');
+        const pager = pages > 1 ? `
+          <div class="icon-pager uk-text-meta">
+            ${page > 1 ? `<button type="button" class="uk-button uk-button-default uk-button-small" hx-get="/fragments/icons?page=${page - 1}" hx-include=".icon-filter" hx-target="#icon-grid-wrap" hx-swap="innerHTML">Previous</button>` : ''}
+            <span>${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, hits.length)} of ${hits.length}</span>
+            ${page < pages ? `<button type="button" class="uk-button uk-button-default uk-button-small" hx-get="/fragments/icons?page=${page + 1}" hx-include=".icon-filter" hx-target="#icon-grid-wrap" hx-swap="innerHTML">Next</button>` : ''}
+          </div>` : '';
+        return res.end(`<div class="icon-grid">${tiles}</div>${pager}`);
       }
 
       const testsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/tests\/([a-zA-Z0-9_.-]+)$/);
