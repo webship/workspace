@@ -281,12 +281,25 @@ document.addEventListener('click', (e) => {
       }
       .input-button-container > * { position: static !important; }
       .input-button { position: static !important; margin: 0 !important; }
+      /* The icons are laid out by deep-chat with their own offsets — the microphone sat 14px down
+         and 2px outside its button. Centring them means clearing that, not just centring the box
+         that holds them. */
+      .input-button svg {
+        position: static !important;
+        margin: 0 !important;
+        inset: auto !important;
+        transform: none !important;
+        display: block !important;
+        flex: none !important;
+      }
 
       /* The send button is the blue square of the toolbar, sized to the selector beside it so the
          row reads as one control rather than three of different heights. */
       .input-button.inside-end {
         width: 34px;
         height: 34px;
+        box-sizing: border-box;
+        padding: 0 !important;
         border-radius: 8px;
         background-color: #1e87f0 !important;
         display: flex;
@@ -295,7 +308,7 @@ document.addEventListener('click', (e) => {
       }
       /* deep-chat tints its icons with an inline filter, so the icon colour has to be forced the
          same way the background was. On the blue square the arrow is white. */
-      .input-button.inside-end svg { width: 17px; height: 17px; filter: brightness(0) invert(1) !important; }
+      .input-button.inside-end svg { width: 17px !important; height: 17px !important; filter: brightness(0) invert(1) !important; }
       .input-button.inside-end.disabled-button svg { filter: none !important; }
       .input-button.inside-end.disabled-button svg, .input-button.inside-end.disabled-button svg * {
         stroke: #9aa0bd !important;
@@ -313,22 +326,20 @@ document.addEventListener('click', (e) => {
       .input-button.outside-end {
         width: 34px;
         height: 34px;
+        box-sizing: border-box;
+        padding: 0 !important;
         margin-left: 6px !important;
         display: flex;
         align-items: center;
         justify-content: center;
         border-radius: 8px;
-        background-color: #f2f3f9 !important;
+        background-color: #6d5bd0 !important;
       }
       /* The microphone is a filled icon, so it is coloured rather than filtered — the same ink the
          rest of the interface uses, not deep-chat's green tint. */
-      .input-button.outside-end svg { width: 16px; height: 16px; filter: none !important; }
-      .input-button.outside-end svg, .input-button.outside-end svg * { fill: #4a5069 !important; }
-      #input.is-dark .input-button.outside-end svg,
-      #input.is-dark .input-button.outside-end svg * { fill: #b9bedb !important; }
-      .input-button.outside-end:hover { background-color: #e6e8f4 !important; }
-      #input.is-dark .input-button.outside-end { background-color: #232a42 !important; }
-      #input.is-dark .input-button.outside-end:hover { background-color: #2b3049 !important; }
+      .input-button.outside-end svg { width: 17px !important; height: 17px !important; filter: none !important; }
+      .input-button.outside-end svg, .input-button.outside-end svg * { fill: #fff !important; }
+      .input-button.outside-end:hover { background-color: #5c4bb8 !important; }
       /* While it is listening it is the active control in the row, so it says so. */
       .input-button.outside-end.active-button { background-color: #1e87f0 !important; }
       .input-button.outside-end.active-button svg,
