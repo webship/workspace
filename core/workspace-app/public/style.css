@@ -1001,3 +1001,73 @@ html.actions-collapsed .app-content { margin-right: 3.5rem; }
 .job-toast .terminal-pre { max-height: 15rem; overflow: auto; margin: 0; font-size: 0.78rem; }
 .job-toast.is-collapsed .terminal-pre { display: none; }
 .job-toast.is-collapsed .job-toast-head { border-bottom: 0; }
+
+/* The eight grips that make a job toast resizable. */
+/* Above the head's text, below its buttons. */
+.toast-grip {
+  position: absolute;
+  z-index: 2;
+  touch-action: none;                /* a pointerdown here must not scroll the stack */
+}
+
+/* Edges first, corners after: the corners must win where they overlap. */
+.toast-grip-t, .toast-grip-b { left: 0.875rem; right: 0.875rem; height: 0.4375rem; cursor: ns-resize; }
+
+.toast-grip-l, .toast-grip-r { top: 0.875rem; bottom: 0.875rem; width: 0.4375rem; cursor: ew-resize; }
+
+.toast-grip-t { top: 0; }
+
+.toast-grip-b { bottom: 0; }
+
+.toast-grip-l { left: 0; }
+
+.toast-grip-r { right: 0; }
+
+.toast-grip-tl, .toast-grip-tr, .toast-grip-bl, .toast-grip-br { width: 0.875rem; height: 0.875rem; }
+
+.toast-grip-tl { top: 0; left: 0; cursor: nwse-resize; }
+
+.toast-grip-tr { top: 0; right: 0; cursor: nesw-resize; }
+
+.toast-grip-bl { bottom: 0; left: 0; cursor: nesw-resize; }
+
+.toast-grip-br { bottom: 0; right: 0; cursor: nwse-resize; }
+
+/* Corner marks only, and only while hovered: eight permanent marks per toast would be noise. */
+.job-toast:hover .toast-grip-tl::before,
+.job-toast:hover .toast-grip-tr::before,
+.job-toast:hover .toast-grip-bl::before,
+.job-toast:hover .toast-grip-br::before {
+  content: "";
+  position: absolute;
+  inset: 0.1875rem;
+  border-color: var(--brand-primary);
+  opacity: 0.55;
+}
+
+.job-toast:hover .toast-grip-tl::before { border-top: 2px solid; border-left: 2px solid; }
+
+.job-toast:hover .toast-grip-tr::before { border-top: 2px solid; border-right: 2px solid; }
+
+.job-toast:hover .toast-grip-bl::before { border-bottom: 2px solid; border-left: 2px solid; }
+
+.job-toast:hover .toast-grip-br::before { border-bottom: 2px solid; border-right: 2px solid; }
+
+/* While dragging, nothing else should take the pointer or select text. */
+body.toast-resizing { user-select: none; }
+
+body.toast-resizing .job-toast { pointer-events: none; }
+
+body.toast-resizing .toast-grip { pointer-events: auto; }
+
+@media (max-width: 47.9375em) {
+  .job-toasts { right: 0.5rem; left: 0.5rem; bottom: 0.5rem; }
+  /* No room to drag on a phone, and grips over a small box are just clutter. */
+  .job-toast { width: 100%; }
+  .toast-grip { display: none; }
+}
+
+/* A resized toast has to stop shrink-wrapping its content, and its output has to fill it. */
+.job-toast { position: relative; }
+.job-toast[style*="height"] { display: flex; flex-direction: column; }
+.job-toast[style*="height"] .terminal-pre { flex: 1; max-height: none; }

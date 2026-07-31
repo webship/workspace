@@ -494,12 +494,101 @@ function saveCollapsedJobs(set) {
   if (st) st.dataset.collapsed = [...set].join(' ');
 }
 
+// A dragged size, like the collapsed state, lives on the STACK rather than on the toast: the
+// toast element is replaced by its own poll every second, so anything stored on it is gone a
+// second later — which is why a resized job used to snap back to its default width.
+function toastSizes() {
+  const st = jobStack();
+  if (!st) return {};
+  try { return JSON.parse(st.dataset.sizes || '{}'); } catch (_) { return {}; }
+}
+function setToastSize(id, w, h) {
+  const st = jobStack();
+  if (!st) return;
+  const all = toastSizes();
+  all[id] = { w: Math.round(w), h: Math.round(h) };
+  st.dataset.sizes = JSON.stringify(all);
+}
+
+// CSS `resize` only ever gives ONE handle, at the bottom right. These are the eight grips a
+// resizable panel is expected to have — four corners and four edges — added by hand for that
+// reason. Which edge stays put is fixed by the layout: the stack is bottom-anchored and
+// right-aligned, so a toast always grows leftwards and upwards. Dragging outward from any grip
+// makes it bigger, dragging inward makes it smaller.
+const TOAST_GRIPS = {
+  tl: { x: -1, y: -1, label: 'top-left corner' },
+  t:  { x:  0, y: -1, label: 'top edge' },
+  tr: { x:  1, y: -1, label: 'top-right corner' },
+  r:  { x:  1, y:  0, label: 'right edge' },
+  br: { x:  1, y:  1, label: 'bottom-right corner' },
+  b:  { x:  0, y:  1, label: 'bottom edge' },
+  bl: { x: -1, y:  1, label: 'bottom-left corner' },
+  l:  { x: -1, y:  0, label: 'left edge' },
+};
+
+function addToastGrips(toast) {
+  if (toast.querySelector('.toast-grip')) return;
+  Object.keys(TOAST_GRIPS).forEach((corner) => {
+    const g = document.createElement('span');
+    g.className = `toast-grip toast-grip-${corner}`;
+    g.dataset.grip = corner;
+    g.title = `Resize from the ${TOAST_GRIPS[corner].label}`;
+    toast.appendChild(g);
+  });
+}
+
+document.addEventListener('pointerdown', (e) => {
+  const grip = e.target.closest && e.target.closest('.toast-grip');
+  if (!grip) return;
+  const toast = grip.closest('.job-toast');
+  const dir = TOAST_GRIPS[grip.dataset.grip];
+  if (!toast || !dir) return;
+  e.preventDefault();
+  const box = toast.getBoundingClientRect();
+  const startX = e.clientX;
+  const startY = e.clientY;
+  const min = { w: 16 * 16, h: 5 * 16 };
+  const max = { w: toast.parentElement.clientWidth, h: window.innerHeight - 96 };
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  // The toast replaces ITSELF every second while the job runs, so the element under the pointer
+  // is gone within a second of grabbing it. Everything below works from the id and re-queries the
+  // live element, and the size is written to the store on every move — which is what makes the
+  // drag survive a poll landing in the middle of it.
+  const id = toast.id;
+  const move = (ev) => {
+    // An outward drag is positive on every grip: the sign per axis comes from which side of the
+    // toast the grip is on. A `0` axis is an edge grip — that dimension is fixed.
+    const w = dir.x ? clamp(box.width + dir.x * (ev.clientX - startX), min.w, max.w) : box.width;
+    const h = dir.y ? clamp(box.height + dir.y * (ev.clientY - startY), min.h, max.h) : box.height;
+    setToastSize(id, w, h);
+    const live = document.getElementById(id);
+    if (live) { live.style.width = `${w}px`; live.style.height = `${h}px`; }
+  };
+  const up = () => {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    document.body.classList.remove('toast-resizing');
+  };
+  document.body.classList.add('toast-resizing');
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+});
+
 function adoptJobToasts(root) {
   const stack = jobStack();
   if (!stack) return;
   const collapsed = collapsedJobs();
-  (root || document).querySelectorAll('.job-toast').forEach((toast) => {
+  // A running toast replaces ITSELF every second, and htmx reports that swap with the toast as
+  // the target — so a plain querySelectorAll, which only sees descendants, never finds it and the
+  // replacement loses its grips, its size and its collapsed state within a second of getting them.
+  const scope = root || document;
+  const found = [...scope.querySelectorAll('.job-toast')];
+  if (scope.classList && scope.classList.contains('job-toast')) found.push(scope);
+  found.forEach((toast) => {
     if (toast.parentElement !== stack) stack.appendChild(toast);
+    addToastGrips(toast);
+    const size = toastSizes()[toast.id];
+    if (size) { toast.style.width = `${size.w}px`; toast.style.height = `${size.h}px`; }
     const isC = collapsed.has(toast.id);
     toast.classList.toggle('is-collapsed', isC);
     const btn = toast.querySelector('.job-toast-collapse');
