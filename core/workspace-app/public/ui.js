@@ -411,3 +411,23 @@ document.addEventListener('click', (e) => {
   }
   el.errorMessages = { displayServiceErrorMessages: true };
 })();
+
+// The actions rail collapses to its icons. The choice is remembered, because a rail that reopens
+// on every navigation is one you close on every page.
+(function initActionsRail() {
+  const rail = document.getElementById('actions-rail');
+  if (!rail) return;
+  const toggle = rail.querySelector('.actions-toggle');
+  const apply = (collapsed) => {
+    document.documentElement.classList.toggle('actions-collapsed', collapsed);
+    if (toggle) toggle.setAttribute('aria-expanded', String(!collapsed));
+  };
+  apply(localStorage.getItem('ws-actions-collapsed') === '1');
+  if (toggle) {
+    toggle.addEventListener('click', () => {
+      const collapsed = !document.documentElement.classList.contains('actions-collapsed');
+      localStorage.setItem('ws-actions-collapsed', collapsed ? '1' : '0');
+      apply(collapsed);
+    });
+  }
+})();

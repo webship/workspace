@@ -649,6 +649,87 @@ function settingsPage(section) {
 </main>`, [{ label: 'Workspaces', href: HOME_URL() }, { label: 'Settings' }], 'settings');
 }
 
+// Present on every page: the actions this page has, then a way to every other. A rail that
+// appears and disappears makes the layout jump between pages and gives the eye no fixed place to
+// look for "what can I do here", so it is always there — and a page with no actions of its own
+// still gets the navigation, which is the part you want from anywhere.
+function pageActionsHtml(context) {
+  const m = String(context).match(/^(workspace|backups):([a-z0-9_-]+)$/);
+  const view = m && isValidWorkspace(m[2]) ? m[1] : null;
+  const key = view ? m[2] : null;
+  const meta = key ? loadWorkspaces()[key] : null;
+  const out = 'hx-target="#webship-workspace-output" hx-swap="innerHTML"';
+  const groups = [];
+
+  const btn = (style, icon, label, attrs, title) =>
+    `<button class="uk-button uk-button-${style} action-btn" ${attrs} title="${esc(title || label)}">`
+    + `<span uk-icon="icon: ${icon}; ratio: .8"></span><span class="action-label">${esc(label)}</span></button>`;
+  const link = (style, icon, label, href, title) =>
+    `<a class="uk-button uk-button-${style} action-btn" href="${href}" title="${esc(title || label)}">`
+    + `<span uk-icon="icon: ${icon}; ratio: .8"></span><span class="action-label">${esc(label)}</span></a>`;
+
+  if (view === 'backups' && meta) {
+    groups.push({ label: 'Go to', items: [link('default', 'arrow-left', `Back to ${meta.label}`, wsUrl(key))] });
+  } else if (meta && meta.kind === 'files') {
+    const create = [btn('primary', 'plus', `New ${meta.noun}`, `hx-get="/fragments/${esc(key)}/new" ${out}`)];
+    if (INSTALL_TARGETS[key]) {
+      create.push(btn('secondary', 'bolt', 'Generate with AI', `hx-get="/fragments/${esc(key)}/ai-form" ${out}`,
+                      `Describe it and Claude Code writes the ${meta.noun}`));
+    }
+    if (key === 'docs') {
+      create.push(btn('secondary', 'bolt', 'Generate site doc', `hx-get="/fragments/docs/site-doc-form" ${out}`));
+      create.push(btn('secondary', 'image', 'Screenshot a site', `hx-get="/fragments/docs/screenshot-form" ${out}`));
+    }
+    groups.push({ label: 'Create', items: create });
+
+    if (findSyncScript(meta.dir)) {
+      const sync = (source, icon, label, title) =>
+        btn('default', icon, label,
+            `hx-post="/actions/sync-items" hx-vals='{"workspace":"${esc(key)}","source":"${source}"}' ${out}`, title);
+      groups.push({ label: 'Sync', items: [
+        sync('repo', 'cloud-download', 'From ai-agents', `Copy the shared ${meta.nounPlural} into this folder`),
+        sync('claude', 'home', 'From ~/.claude', `Copy this machine's webship ${meta.nounPlural} into this folder`),
+      ] });
+    }
+  }
+
+  const backups = key ? listBackups(key).length : 0;
+  if (view === 'workspace' && backups) {
+    groups.push({ label: 'Archives', items: [
+      link('default', 'album', `Backups (${backups})`, wsUrl(key, '/backups')),
+    ] });
+  }
+
+  // One way back, and no more. A full workspace list here duplicated the home page's cards in a
+  // worse form — twenty links to scroll past above the actions that actually belong to this page.
+  // The cards are the place to choose a workspace.
+  const navLink = (href, icon, label, current, title) =>
+    `<a class="uk-button uk-button-default action-btn${current ? ' is-current' : ''}" href="${href}"`
+    + `${current ? ' aria-current="page"' : ''} title="${esc(title || label)}">`
+    + `<span uk-icon="icon: ${icon}; ratio: .8"></span><span class="action-label">${esc(label)}</span></a>`;
+
+  groups.push({ label: 'Go', className: 'actions-nav', items: [
+    navLink(HOME_URL(), 'home', 'All workspaces', !view && context !== 'settings'),
+    navLink('/settings', 'cog', 'Settings', context === 'settings', 'Settings — core/config/*.yml'),
+  ] });
+
+  return `
+<aside class="actions-side" id="actions-rail" aria-label="Page actions and workspace navigation">
+  <button type="button" class="actions-toggle" aria-expanded="false" aria-controls="actions-rail-inner"
+          title="Expand the actions rail">
+    <span class="actions-toggle-icon" uk-icon="icon: chevron-right; ratio: .9"></span>
+    <span class="action-label">Actions</span>
+  </button>
+  <div class="actions-rail-inner" id="actions-rail-inner">
+    ${groups.map((g) => `
+    <div class="actions-group${g.className ? ` ${g.className}` : ''}">
+      <span class="actions-group-label">${esc(g.label)}</span>
+      ${g.items.join('')}
+    </div>`).join('')}
+  </div>
+</aside>`;
+}
+
 function pageShell(title, body, crumbs = [], context = 'home') {
   const crumbHtml = crumbs.length ? `
     <ul class="uk-breadcrumb uk-margin-remove uk-visible@s">
@@ -699,6 +780,7 @@ function pageShell(title, body, crumbs = [], context = 'home') {
 <aside class="assistant-side">
   ${assistantHtml({ context })}
 </aside>
+${pageActionsHtml(context)}
 <div class="app-content">
 ${body}
 <footer class="uk-section uk-section-xsmall uk-text-center uk-text-meta">

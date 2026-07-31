@@ -767,3 +767,191 @@ html.dark .chat-log .msg th, html.dark .chat-log .msg td { border-color: #2f3556
 @media (max-width: 640px) {
   .settings-row { grid-template-columns: 1fr; }
 }
+
+/* The actions rail: what this page can do, and the way to every other one. Kept in the media
+   queries it was written for — the rail is a wide-screen affordance. */
+/* ---------- Full-height right actions rail (pages that have actions) ---------- */
+
+/* Page actions used to sit in a row under the list, which on a long workspace put
+   them a hundred rows below the fold. Fixed on the right they stay reachable at
+   any scroll position, and the collapse gives the table back its width. */
+.actions-side {
+  position: fixed;
+  top:4.0625rem;
+  right: 0;
+  bottom: 0;
+  width:15.5rem;
+  box-sizing: border-box;      /* the declared width is the footprint */
+  padding:1rem 1rem 1rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap:0.625rem;
+  overflow-y: auto;
+  z-index: 30;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  transition: width .18s ease;
+}
+
+.actions-toggle {
+  display: flex;
+  align-items: center;
+  gap:0.5rem;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius:31.25rem;
+  padding:0.3125rem 0.75rem;
+  color: var(--text-subtle);
+  cursor: pointer;
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+
+.actions-toggle:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+
+.actions-toggle-icon { transition: transform .18s ease; }
+
+.actions-rail-inner { display: flex; flex-direction: column; gap:0.875rem; }
+
+.actions-group { display: flex; flex-direction: column; gap:0.375rem; }
+
+.actions-group-label {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  opacity: .75;
+}
+
+/* Full-width, icon then label — a stacked rail reads as a list of actions, not a
+   toolbar of equal-weight buttons. */
+.actions-side .action-btn {
+  display: flex;
+  align-items: center;
+  gap:0.5625rem;
+  width: 100%;
+  text-align: left;
+  padding:0 0.75rem;
+  line-height:2.125rem;
+  font-size: .82rem;
+}
+
+/* Collapsed: icons only, centred, labels hidden but still announced by title. */
+html.actions-collapsed .actions-side { width:3.5rem; padding:1rem 0.5rem; }
+
+html.actions-collapsed .app-content.has-actions { margin-right:3.5rem; }
+
+html.actions-collapsed .actions-side .action-label,
+html.actions-collapsed .actions-group-label { display: none; }
+
+html.actions-collapsed .actions-toggle-icon { transform: rotate(180deg); }
+
+/* Collapsed, an action is a square icon button: at 36px it is a comfortable
+   target, and square tiles in a column read as a toolbar, where the pill shape
+   of an expanded row would just look like a truncated button. */
+html.actions-collapsed .actions-side .action-btn {
+  width:2.25rem;
+  height:2.25rem;
+  min-width:2.25rem;
+  padding: 0;
+  gap: 0;
+  line-height:2.25rem;
+  border-radius:0.5rem;
+  justify-content: center;
+  align-self: center;
+}
+
+html.actions-collapsed .actions-toggle {
+  align-self: center;
+  width:2.25rem;
+  height:2.25rem;
+  padding: 0;
+  border-radius:0.5rem;
+  justify-content: center;
+}
+
+/* No labels to separate the groups, so a hairline does it instead. */
+html.actions-collapsed .actions-group + .actions-group {
+  border-top: 1px solid var(--line);
+  padding-top:0.625rem;
+}
+
+/* Workspace navigation, present on every page. Quieter than the page's own
+   actions — it is how you leave, not what you do here. */
+.actions-nav .action-btn {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-subtle);
+}
+
+.actions-nav .action-btn:hover {
+  background: var(--subtle-brand);
+  color: var(--brand-primary);
+}
+
+/* The page you are on, so a column of nineteen icons still says where you are. */
+.actions-nav .action-btn.is-current {
+  background: var(--subtle-brand);
+  color: var(--brand-primary);
+  font-weight: 600;
+}
+
+html.actions-collapsed .actions-nav .action-btn.is-current {
+  box-shadow: inset 2px 0 0 var(--brand-primary);
+}
+
+/* Nineteen workspaces plus the page's actions will outrun a short viewport, so
+   the rail scrolls its own content rather than the page. */
+.actions-side { scrollbar-width: thin; }
+
+@media (max-width: 59.9375em) {
+  .actions-side,
+  html.actions-collapsed .actions-side {
+    position: static;
+    width: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    border-left: 0;
+    border-bottom: 1px solid var(--line);
+    padding:0.75rem 0.875rem;
+  }
+  .app-content.has-actions,
+  html.actions-collapsed .app-content.has-actions { margin-right: 0; }
+  html.actions-collapsed .actions-side .action-label,
+  html.actions-collapsed .actions-group-label { display: inline; }
+  .actions-rail-inner { flex-direction: row; flex-wrap: wrap; gap:0.625rem; }
+  .actions-side .action-btn { width: auto; }
+  .actions-toggle { display: none; }
+  /* Workspace navigation goes icon-only here. Twenty labelled links laid out
+     horizontally made the rail 893px tall on a 900px viewport — the whole first
+     screen before any content. The page's own actions keep their labels. */
+  .actions-nav { flex-direction: row; flex-wrap: wrap; gap:0.375rem; }
+  .actions-nav .actions-group-label,
+  html.actions-collapsed .actions-nav .actions-group-label,
+  .actions-nav .action-label,
+  html.actions-collapsed .actions-nav .action-label { display: none; }
+  .actions-nav .action-btn,
+  html.actions-collapsed .actions-nav .action-btn {
+    width:2.125rem;
+    min-width:2.125rem;
+    height:2.125rem;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    border-radius:0.5rem;
+    border-color: var(--line);
+  }
+}
+
+.app-content { margin-right: 15.5rem; transition: margin-right .18s ease; }
+html.actions-collapsed .app-content { margin-right: 3.5rem; }
+
+@media (max-width: 1199px) {
+  .app-content { margin-right: 0; }
+  html.actions-collapsed .app-content { margin-right: 0; }
+}
