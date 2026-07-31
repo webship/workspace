@@ -173,6 +173,7 @@ module.exports = {
   ROOT,
   hubDomain,
   CONFIG_DIR,
+  loadYaml,
   loadWorkspaces,
   invalidateWorkspaces,
   isValidWorkspace,

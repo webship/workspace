@@ -13,6 +13,7 @@ const {
   CONFIG_DIR,
   hubDomain,
   loadWorkspaces,
+  loadYaml,
   invalidateWorkspaces,
   isValidWorkspace,
   workspaceDir,
@@ -389,50 +390,39 @@ function listSettingsFiles() {
 // to retype into a text field by accident.
 // What a field is for, in the words of whoever has to set it. A settings file explains itself in
 // comments; the form has to carry that across or it becomes a list of bare keys.
-const FIELD_HINTS = {
-  'account.name': 'Admin username a fresh install is created with.',
-  'account.pass': 'That admin password. Local development sites only.',
-  'account.mail': 'That admin address — Drupal sends its site mail to it.',
-  'host': 'Host the tooling assumes when a script needs one.',
-  'web': 'Base URL used when a script has to print one.',
-  'protocol': 'http or https, for those URLs.',
-  'config_sync_directory': "Drupal's config sync directory, relative to the docroot.",
-  'automated_testing.wd_host': 'WebDriver endpoint for the automated-testing stack.',
-  'contributor.name': 'Who contributions are credited to — the name commits, issues and merge requests are authored as. Never hardcode a person in a script; the tooling reads it from here.',
-  'contributor.email': 'The address those contributions are authored as, unless a forge block below overrides it.',
-  'git.github.use_gh_cli': "Use the gh CLI's own login when it works, and fall back to the token below only when it does not.",
-  'sources.tooling.repo': "Where this workspace's own commands and dashboard are pulled from and proposed to.",
-  'sources.tooling.ref': 'Branch to read the tooling from.',
-  'sources.ai_items.repo': 'Where the shared agents, skills and prompts are synced from.',
-  'sources.ai_items.ref': 'Branch to read those from.',
-  'ai_providers.claude_code_cli.active': "Use this machine's own Claude Code login. Nothing is sent to a third-party API and there is no key to leak.",
-  'style.workspace_name': 'The word beside the wordmark in the toolbar.',
-  'style.mode': 'Default theme for a first visit. Anyone who has used the toggle keeps their own choice.',
-  'style.editor_theme': 'Theme for the code editor, separately from the page.',
-  'style.page_size': 'Rows a list shows before it pages.',
-  'style.page_sort': 'Default order for file lists.',
-  'openai.api_key': 'API key for this provider. Leave the placeholder to skip it.',
-  'openai.api_org': 'Organisation the key belongs to.',
-  'doc.name': 'The folder this workspace lives in, under the workspace root.',
-  'doc.path': 'Only set this to keep the folder somewhere other than the checkout.',
-  'database.prefix': 'Prefix for databases built in this workspace.',
-};
+// What each settings field is for, and which values it accepts, read from
+// core/config/settings-fields.yml rather than written into this file: a new field explains
+// itself by being described in YAML, not by a code change here. Re-read with the same short memo
+// as the workspaces, so editing the file shows up without a restart.
+let _fieldsCache = null;
+let _fieldsCacheAt = 0;
+function fieldConfig() {
+  const now = Date.now();
+  if (_fieldsCache && now - _fieldsCacheAt < 2000) return _fieldsCache;
+  let cfg = {};
+  try {
+    cfg = loadYaml(path.join(CONFIG_DIR, 'settings-fields.yml')) || {};
+  } catch (_) { /* the form still works without it — every field just goes unexplained */ }
+  const enums = {};
+  for (const [key, list] of Object.entries(cfg.enums || {})) {
+    if (Array.isArray(list)) enums[key] = list.map((o) => [String(o.value), String(o.label ?? o.value)]);
+  }
+  _fieldsCache = {
+    hints: cfg.hints || {},
+    enums,
+    ordered: new Set(Array.isArray(cfg.ordered_lists) ? cfg.ordered_lists : []),
+  };
+  _fieldsCacheAt = now;
+  return _fieldsCache;
+}
 
-const FIELD_ENUMS = {
-  protocol: [['http', 'http'], ['https', 'https']],
-  'style.mode': [['light', 'Light'], ['dark', 'Dark'], ['system', 'Follow the OS']],
-  'style.editor_theme': [['auto', 'Follow the page'], ['light', 'Light'], ['dark', 'Dark']],
-  'style.page_size': [['20', '20'], ['50', '50'], ['100', '100'], ['200', '200'], ['all', 'All']],
-  'style.page_sort': [['newest', 'Newest first'], ['oldest', 'Oldest first'],
-                      ['name', 'Name (A–Z)'], ['nameDesc', 'Name (Z–A)']],
-};
+
 
 // Lists whose ORDER is meaningful, not just their membership. `workspaces` is both what exists
 // and the order the cards appear in, so it gets move controls; a plain set does not.
-const ORDERED_LISTS = new Set(['workspaces']);
 
 function fieldHint(dotted) {
-  const text = FIELD_HINTS[dotted]
+  const text = fieldConfig().hints[dotted]
     || (/\.api_key$/.test(dotted) ? 'API key for this provider. Leave the placeholder to skip it.' : '')
     || (/\.pass(word)?$/.test(dotted) ? 'Stored in this file — never committed with a real value.' : '');
   return text ? `<span class="settings-hint">${esc(text)}</span>` : '';
@@ -468,7 +458,7 @@ function writeListBlock(file, key, items) {
 function listEditorHtml(file, key, message) {
   const block = readListBlock(file, key);
   if (!block) return `<div class="msg error">${esc(file)} has no <code>${esc(key)}:</code> list.</div>`;
-  const ordered = ORDERED_LISTS.has(key);
+  const ordered = fieldConfig().ordered.has(key);
   const all = loadWorkspaces();
   const rows = block.items.map((name, i) => {
     if (!ordered) return `<li class="set-item">${esc(name)}</li>`;
@@ -576,7 +566,7 @@ function settingsFieldHtml(r, file) {
       </div>`;
   }
 
-  const options = FIELD_ENUMS[r.dotted];
+  const options = fieldConfig().enums[r.dotted];
   if (options) {
     const cur = String(r.value).trim();
     // An unknown value is kept as an extra option rather than silently corrected: the file says
