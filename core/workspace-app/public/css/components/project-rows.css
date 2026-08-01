@@ -1,0 +1,13 @@
+/* ---------- Project rows ---------- */
+
+.project-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Two-step remove arming */
+.arm-step.arm { background: var(--danger-armed) !important; color: var(--surface-raised) !important; }
+
+/* HTMX request-in-flight indicator */
+.htmx-request { opacity: .6; pointer-events: none; }

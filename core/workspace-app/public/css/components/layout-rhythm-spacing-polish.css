@@ -1,0 +1,61 @@
+/* ---------- Layout rhythm & spacing polish ---------- */
+
+.page-body {
+  padding-top: 28px;
+  padding-bottom: 48px;
+}
+
+/* Toolbar breathing room */
+.toolbar .uk-navbar-item { padding: 0 12px 0 0; min-height: 64px; }
+.toolbar .uk-breadcrumb { margin-left: 10px; }
+
+/* Workspace cards: even inner padding + consistent vertical spacing */
+.workspace-card { padding: 24px 16px 20px; height: 100%; }
+.workspace-card .icon { margin-bottom: 12px; }
+.workspace-card .uk-card-title { margin-top: 2px; font-size: 17px; }
+.workspace-card .uk-text-meta { margin-top: 2px; min-height: 2.6em; display: block; }
+.workspace-card .uk-label { margin-top: 10px; }
+
+/* Equal-height card cells */
+.workspace-grid > div, .uk-grid > .uk-position-relative { display: flex; }
+.uk-grid > .uk-position-relative > .workspace-card { flex: 1; }
+
+/* Workspaces panel: balanced padding */
+.workspaces-card, .uk-card-body { border-radius: 12px; }
+
+/* Section headings inside cards */
+.webship-workspace-page .uk-card-body h3 { margin-top: 24px; }
+.webship-workspace-page .uk-card-body h3:first-child { margin-top: 0; }
+
+/* Project rows: consistent inner spacing */
+.project-row { padding: 14px 18px; margin-bottom: 10px; }
+
+/* Footer: tighter */
+footer.uk-section { padding-top: 20px; padding-bottom: 26px; }
+
+/* Very large screens: cap content width, keep it centered comfortably */
+@media (min-width: 1800px) {
+  .uk-container-xlarge { max-width: 1560px; }
+}
+
+/* Tablets: assistant stacks above with sane spacing */
+@media (max-width: 959px) {
+  .page-body { padding-top: 18px; }
+  .assistant-panel { margin-bottom: 4px; }
+}
+
+/* Phones: tighter cards, full-width floating assistant */
+@media (max-width: 640px) {
+  .workspace-card { padding: 18px 12px 16px; }
+  .workspace-card .uk-text-meta { min-height: 0; }
+  .project-row { padding: 12px 14px; }
+  .project-row .uk-flex { gap: 8px; }
+  .assistant-float {
+    right: 10px;
+    left: 10px;
+    width: auto;
+    bottom: 86px;
+  }
+  .assistant-launcher { left: 14px; bottom: 14px; }
+  .toolbar-logo span { font-size: 17px; }
+}

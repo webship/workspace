@@ -1,0 +1,21 @@
+/* ---------------- the code editor (Ace) --------------------------------- */
+
+/* Ace paints its own surface, so the host only sets the box. The border and radius match the
+   textarea it replaces, so the form does not visibly change shape when the editor loads. */
+.ace-host {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  overflow: hidden;
+  /* Ace measures its own gutter and cursor: a font it did not pick would misplace both. */
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+html.dark .ace-host { border-color: var(--line); }
+
+/* The editor is the tall thing on the page; its buttons must not be pushed out of reach. */
+.editor-card .ace-host { margin-bottom: 0.25rem; }
+
+/* Ace renders its own scrollbars inside the host; the page must not add a second pair. */
+.ace-host .ace_scrollbar { z-index: 1; }

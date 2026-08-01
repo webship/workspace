@@ -24,6 +24,7 @@ hints:
   style.workspace_name: "The word beside the wordmark in the toolbar."
   style.mode: "Default theme for a first visit. Anyone who has used the toggle keeps their own choice."
   style.editor_theme: "Theme for the code editor, separately from the page."
+  style.theme: "The palette the dashboard wears. Light and dark are two halves of the one you pick."
   style.logo: "Brand mark in the toolbar, as a filename in core/workspace-app/public."
   style.logo_on_dark: "Mark to swap in on a dark page. Leave empty to use the same one."
   style.favicon: "Browser-tab icon. Defaults to the toolbar mark."

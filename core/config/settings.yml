@@ -91,6 +91,8 @@ assistant:
 # ships, and /settings rewrites only the line you change.
 #   mode          light | dark | system   (system follows the OS setting)
 #   editor_theme  auto | light | dark     (auto follows mode)
+#   theme         a directory under core/workspace-app/public/themes — the palette every
+#                 component asks for. `mode` chooses which half of it you see.
 #   logo          a filename in core/workspace-app/public — not a path or a URL, because
 #                 everything the dashboard loads is served from itself
 #   logo_on_dark  the mark to swap in on a dark page; defaults to `logo`
@@ -102,6 +104,7 @@ style:
   workspace_name: workspace
   mode: light
   editor_theme: auto
+  theme: default
   logo: logo.png
   logo_on_dark: logo.png
   favicon: logo.png

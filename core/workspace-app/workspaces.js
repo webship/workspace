@@ -64,6 +64,9 @@ function styleSettings() {
       ? s.workspace_name.trim() : 'workspace',
     mode: oneOf(s.mode, ['light', 'dark', 'system'], 'light'),
     editorTheme: oneOf(s.editor_theme, ['auto', 'light', 'dark'], 'auto'),
+    // Which palette the dashboard wears. Validated against what is on disk by themes.js rather
+    // than against a list here, so adding a theme is adding a directory.
+    theme: typeof s.theme === 'string' && /^[a-z0-9-]+$/.test(s.theme) ? s.theme : 'default',
     logo,
     // Falls back to the one logo rather than to a second file that may not exist: most marks read
     // on both surfaces, and a broken image is worse than a slightly dim one.

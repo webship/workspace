@@ -1,0 +1,57 @@
+/**
+ * @name Slate
+ *
+ * A cooler, quieter palette: less brand gradient, more paper. For long sessions reading job output
+ * and diffs, where the default's purple is more presence than the work needs.
+ *
+ * It sets the same tokens as the default and nothing else — which is the point of the token layer.
+ */
+
+:root {
+  --brand-1: #3d7ea6;
+  --brand-2: #4f6d8c;
+  --brand-3: #6b8fa8;
+  --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2) 65%, var(--brand-3));
+  --brand-primary: var(--brand-2);
+  --ink: #1f2933;
+  --ink-soft: #3e4c59;
+  --text-subtle: #7b8794;
+  --surface: #f4f6f8;
+  --surface-raised: #fff;
+  --surface-sunken: #e9edf1;
+  --line: #dde3e9;
+  --line-strong: #c3ccd5;
+  --ok: #2f855a;
+  --ok-soft: #f0f8f3;
+  --ok-ink: #1c4532;
+  --danger: #c53030;
+  --danger-soft: #fdf2f2;
+  --danger-ink: #742a2a;
+  --danger-armed: #9b2c2c;
+  --link: #3d7ea6;
+  --subtle-brand: #eef3f7;
+  --busy-soft: #eaf1f5;
+  --busy-ink: var(--brand-2);
+  --subtle-light: #f7fafc;
+}
+
+html.dark {
+  --ink: #e4e9ee;
+  --ink-soft: #bcc6d0;
+  --text-subtle: #8b97a5;
+  --surface: #12171c;
+  --surface-raised: #1a2027;
+  --surface-sunken: #161b21;
+  --line: #2a323b;
+  --line-strong: #3c4753;
+  --ok-soft: #14251c;
+  --ok-ink: #a7d9bd;
+  --danger-soft: #2a1618;
+  --danger-ink: #f0b4b4;
+  --danger-armed: #e05252;
+  --link: #6aa9cc;
+  --subtle-brand: #1e262e;
+  --busy-soft: #10151a;
+  --busy-ink: #a7d9bd;
+  --subtle-light: #171d23;
+}
