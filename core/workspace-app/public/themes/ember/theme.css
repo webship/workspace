@@ -1,0 +1,55 @@
+/**
+ * @name Ember
+ *
+ * Warm and high-contrast: amber accents on near-black in the dark half, sand in the light. Built
+ * for a room with the lights off and a screen that is the brightest thing in it.
+ */
+
+:root {
+  --brand-1: #d97706;
+  --brand-2: #b45309;
+  --brand-3: #ea580c;
+  --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2) 65%, var(--brand-3));
+  --brand-primary: var(--brand-2);
+  --ink: #292524;
+  --ink-soft: #57534e;
+  --text-subtle: #8a827c;
+  --surface: #faf7f2;
+  --surface-raised: #fff;
+  --surface-sunken: #f2ece3;
+  --line: #e7ded1;
+  --line-strong: #d3c4ae;
+  --ok: #4d7c0f;
+  --ok-soft: #f5f9ec;
+  --ok-ink: #33501a;
+  --danger: #b91c1c;
+  --danger-soft: #fdf2f2;
+  --danger-ink: #7f1d1d;
+  --danger-armed: #991b1b;
+  --link: #b45309;
+  --subtle-brand: #fdf4e7;
+  --busy-soft: #fbf0dd;
+  --busy-ink: var(--brand-2);
+  --subtle-light: #fdfbf7;
+}
+
+html.dark {
+  --ink: #f5ede2;
+  --ink-soft: #d6c9b8;
+  --text-subtle: #a1937f;
+  --surface: #17130f;
+  --surface-raised: #211b15;
+  --surface-sunken: #1c1712;
+  --line: #362c22;
+  --line-strong: #4d3f31;
+  --ok-soft: #1a2410;
+  --ok-ink: #c2e08a;
+  --danger-soft: #2a1512;
+  --danger-ink: #f4b8b8;
+  --danger-armed: #ef4444;
+  --link: #f59e0b;
+  --subtle-brand: #2a2118;
+  --busy-soft: #14100c;
+  --busy-ink: #f0c674;
+  --subtle-light: #1c1712;
+}

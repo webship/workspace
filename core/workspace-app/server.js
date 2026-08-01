@@ -16,6 +16,7 @@ const {
   loadYaml,
   invalidateWorkspaces,
   isValidWorkspace,
+  styleSettings,
   workspaceDir,
   findBackupScript,
   findSyncScript,
@@ -52,6 +53,7 @@ const { DDEV_ACTIONS } = require('./ddev');
 const { graphStoreDir, GRAPH_FILES } = require('./graphs');
 const { milvusPost, ragInstanceFor, ragCollectionName, ragCollections } = require('./rag');
 const { iconHtml, tablerIcons } = require('./icons');
+const { assembleCss } = require('./themes');
 const { run, jobs, runningJobKey, startJob, jobFragment } = require('./jobs');
 const { assistantReply } = require('./assistant');
 const {
@@ -826,8 +828,9 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'GET') {
       if (pathname === '/' ) {
+        const body = homePage();
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(homePage());
+        return res.end(body);
       }
       if (pathname === '/actions/status') return handleAction(pathname, {}, res);
       const jobMatch = pathname.match(/^\/fragments\/job\/([a-z0-9-]+)$/);
@@ -843,14 +846,16 @@ const server = http.createServer(async (req, res) => {
       if (itemsMatch && isValidWorkspace(itemsMatch[1])) {
         const itemsState = readListState(req);
         setListCookies(res, itemsState);
+        const body = itemRowsHtml(itemsMatch[1], itemsState);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(itemRowsHtml(itemsMatch[1], itemsState));
+        return res.end(body);
       }
       const newMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/new$/);
       if (newMatch && isValidWorkspace(newMatch[1]) && loadWorkspaces()[newMatch[1]].kind === 'files') {
         const key = newMatch[1];
+        const body = editorFormHtml(key, '', (ITEM_TEMPLATES[key] || ITEM_TEMPLATES.docs)('my-' + loadWorkspaces()[key].noun), true);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(editorFormHtml(key, '', (ITEM_TEMPLATES[key] || ITEM_TEMPLATES.docs)('my-' + loadWorkspaces()[key].noun), true));
+        return res.end(body);
       }
       const editMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/edit\/([a-zA-Z0-9_%.-]+)$/);
       if (editMatch && isValidWorkspace(editMatch[1])) {
@@ -859,8 +864,9 @@ const server = http.createServer(async (req, res) => {
         if (!NAME_RE.test(name)) { res.writeHead(400); return res.end('bad name'); }
         const file = itemFile(key, name);
         if (!fs.existsSync(file)) { res.writeHead(404); return res.end('not found'); }
+        const body = editorFormHtml(key, name, fs.readFileSync(file, 'utf8'), false);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(editorFormHtml(key, name, fs.readFileSync(file, 'utf8'), false));
+        return res.end(body);
       }
       const aiFormMatch = pathname.match(/^\/fragments\/(agents|skills|prompts)\/ai-form$/);
       if (aiFormMatch) {
@@ -1088,6 +1094,13 @@ const server = http.createServer(async (req, res) => {
       </div>
     </div>`);
       }
+      // Assembled, not read from disk: base, then every component, then the chosen theme.
+      // Built BEFORE the head goes out — see the note on ordering below.
+      if (pathname === '/style.css') {
+        const css = assembleCss(styleSettings().theme);
+        res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
+        return res.end(css);
+      }
       const fileMatch = pathname.match(/^\/files\/([a-z0-9_-]+)\/([a-zA-Z0-9_%.-]+)$/);
       if (fileMatch && isValidWorkspace(fileMatch[1])) {
         const name = decodeURIComponent(fileMatch[2]);
@@ -1157,8 +1170,9 @@ const server = http.createServer(async (req, res) => {
 
       if (pathname === '/settings' || pathname.startsWith('/settings/')) {
         const wanted = decodeURIComponent(pathname.slice('/settings/'.length) || '');
+        const body = settingsPage(SETTINGS_FILE_RE.test(wanted) ? wanted : '');
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(settingsPage(SETTINGS_FILE_RE.test(wanted) ? wanted : ''));
+        return res.end(body);
       }
 
       if (pathname === '/fragments/icons') {
@@ -1196,8 +1210,9 @@ const server = http.createServer(async (req, res) => {
         if (!NAME_RE.test(project) || !listProjects(workspaceDir(testsMatch[1])).includes(project)) {
           res.writeHead(404); return res.end('not found');
         }
+        const body = testRunHtml(testsMatch[1], project);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(testRunHtml(testsMatch[1], project));
+        return res.end(body);
       }
 
       // One artifact out of a project's tests/ directory. Everything is resolved and then checked
@@ -1240,39 +1255,45 @@ const server = http.createServer(async (req, res) => {
 
       if (pathname === '/fragments/jobs/running') {
         const running = [...jobs.entries()].filter(([, j]) => !j.done);
+        const body = running.map(([id]) => jobFragment(id).html).join('');
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(running.map(([id]) => jobFragment(id).html).join(''));
+        return res.end(body);
       }
 
       const argsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/builder-args$/);
       if (argsMatch && isValidWorkspace(argsMatch[1])) {
         const script = new URL(req.url, 'http://localhost').searchParams.get('script') || '';
+        const body = builderArgsHtml(argsMatch[1], script);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(builderArgsHtml(argsMatch[1], script));
+        return res.end(body);
       }
       const fragMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/projects$/);
       if (fragMatch && isValidWorkspace(fragMatch[1])) {
         const projState = readListState(req);
         setListCookies(res, projState);
+        const body = await projectRowsHtml(fragMatch[1], workspaceDir(fragMatch[1]), projState);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(await projectRowsHtml(fragMatch[1], workspaceDir(fragMatch[1]), projState));
+        return res.end(body);
       }
       const backupsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/backups$/);
       if (backupsMatch && isValidWorkspace(backupsMatch[1])) {
         const backupState = readListState(req);
         setListCookies(res, backupState);
+        const body = backupRowsHtml(backupsMatch[1], backupState);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(backupRowsHtml(backupsMatch[1], backupState));
+        return res.end(body);
       }
       const backupsPageMatch = pathname.match(/^\/([a-z0-9_-]+)\/backups\/?$/);
       if (backupsPageMatch && isValidWorkspace(backupsPageMatch[1])) {
+        const body = backupsPage(backupsPageMatch[1], readListState(req));
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(backupsPage(backupsPageMatch[1], readListState(req)));
+        return res.end(body);
       }
       const wsKey = pathname.replace(/^\/+|\/+$/g, '');
       if (isValidWorkspace(wsKey)) {
+        const body = await workspacePage(wsKey, readListState(req));
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(await workspacePage(wsKey, readListState(req)));
+        return res.end(body);
       }
       if (serveStatic(pathname, res)) return;
       res.writeHead(404, { 'Content-Type': 'text/plain' });

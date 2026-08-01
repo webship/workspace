@@ -1,0 +1,32 @@
+/**
+ * Structure, on top of UIKit (vendor/uikit.min.css).
+ *
+ * No colour is named here: every one comes from the theme as a token, which is what makes a theme
+ * able to change the look without touching a component. Layout and components come from UIKit;
+ * this adds what the dashboard needs on top.
+ */
+
+body.uk-background-muted { background: var(--surface) !important; color: var(--ink); }
+
+/* Gradient headline + brand buttons */
+.hero h1 {
+  background: var(--brand-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 700;
+}
+
+.uk-button-primary {
+  background: var(--brand-grad);
+  border: none;
+}
+
+.uk-button-primary:hover { filter: brightness(1.08); background: var(--brand-grad); }
+
+.uk-label-success { background: var(--ok); }
+.uk-badge { background: var(--brand-1); color: var(--surface-raised); }
+.uk-button-danger { background: var(--danger); }
+
+.uk-card-default { border: 1px solid var(--line); box-shadow: 0 4px 16px rgba(35, 41, 70, .06); }
+.uk-card-hover:hover { box-shadow: 0 12px 28px rgba(109, 91, 208, .18); border-color: var(--line-strong); }

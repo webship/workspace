@@ -1,0 +1,45 @@
+/* ---------- Floating assistant (workspace pages) ---------- */
+
+.assistant-launcher {
+  position: fixed;
+  left: 22px;
+  bottom: 22px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 28px;
+  line-height: 60px;
+  z-index: 30;
+  box-shadow: 0 8px 22px rgba(30, 135, 240, .45);
+}
+
+.assistant-float {
+  display: none;
+  position: fixed;
+  left: 22px;
+  bottom: 94px;
+  width: min(500px, calc(100vw - 44px));
+  max-height: min(640px, calc(100vh - 130px));
+  overflow-y: auto;
+  z-index: 30;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .25);
+  border-radius: 8px;
+}
+
+.assistant-float.open { display: block; }
+
+/* UIKit icons inside the round hero logo render white on the blue circle */
+.logo { color: var(--surface-raised); }
+
+/* Mic button while recording */
+.mic-btn.listening {
+  background: var(--danger) !important;
+  color: var(--surface-raised) !important;
+  border-color: var(--danger) !important;
+  animation: mic-pulse 1.2s infinite;
+}
+
+@keyframes mic-pulse {
+  50% { box-shadow: 0 0 0 6px rgba(240, 80, 110, .25); }
+}

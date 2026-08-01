@@ -1,0 +1,337 @@
+/* ---------- Full-height right actions rail (pages that have actions) ---------- */
+
+/* Page actions used to sit in a row under the list, which on a long workspace put
+   them a hundred rows below the fold. Fixed on the right they stay reachable at
+   any scroll position, and the collapse gives the table back its width. */
+.actions-side {
+  position: fixed;
+  top:4.0625rem;
+  right: 0;
+  bottom: 0;
+  width:15.5rem;
+  box-sizing: border-box;      /* the declared width is the footprint */
+  padding:1rem 1rem 1rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap:0.625rem;
+  overflow-y: auto;
+  z-index: 30;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  transition: width .18s ease;
+}
+
+.actions-toggle {
+  display: flex;
+  align-items: center;
+  gap:0.5rem;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius:31.25rem;
+  padding:0.3125rem 0.75rem;
+  color: var(--text-subtle);
+  cursor: pointer;
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+
+.actions-toggle:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+
+.actions-toggle-icon { transition: transform .18s ease; }
+
+.actions-rail-inner { display: flex; flex-direction: column; gap:0.875rem; }
+
+.actions-group { display: flex; flex-direction: column; gap:0.375rem; }
+
+.actions-group-label {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  opacity: .75;
+}
+
+/* Full-width, icon then label — a stacked rail reads as a list of actions, not a
+   toolbar of equal-weight buttons. */
+.actions-side .action-btn {
+  display: flex;
+  align-items: center;
+  gap:0.5625rem;
+  width: 100%;
+  text-align: left;
+  padding:0 0.75rem;
+  line-height:2.125rem;
+  font-size: .82rem;
+}
+
+/* Collapsed: icons only, centred, labels hidden but still announced by title. */
+html.actions-collapsed .actions-side { width:3.5rem; padding:1rem 0.5rem; }
+
+html.actions-collapsed .app-content.has-actions { margin-right:3.5rem; }
+
+html.actions-collapsed .actions-side .action-label,
+html.actions-collapsed .actions-group-label { display: none; }
+
+html.actions-collapsed .actions-toggle-icon { transform: rotate(180deg); }
+
+/* Collapsed, an action is a square icon button: at 36px it is a comfortable
+   target, and square tiles in a column read as a toolbar, where the pill shape
+   of an expanded row would just look like a truncated button. */
+html.actions-collapsed .actions-side .action-btn {
+  width:2.25rem;
+  height:2.25rem;
+  min-width:2.25rem;
+  padding: 0;
+  gap: 0;
+  line-height:2.25rem;
+  border-radius:0.5rem;
+  justify-content: center;
+  align-self: center;
+}
+
+html.actions-collapsed .actions-toggle {
+  align-self: center;
+  width:2.25rem;
+  height:2.25rem;
+  padding: 0;
+  border-radius:0.5rem;
+  justify-content: center;
+}
+
+/* No labels to separate the groups, so a hairline does it instead. */
+html.actions-collapsed .actions-group + .actions-group {
+  border-top: 1px solid var(--line);
+  padding-top:0.625rem;
+}
+
+/* Workspace navigation, present on every page. Quieter than the page's own
+   actions — it is how you leave, not what you do here. */
+.actions-nav .action-btn {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-subtle);
+}
+
+.actions-nav .action-btn:hover {
+  background: var(--subtle-brand);
+  color: var(--brand-primary);
+}
+
+/* The page you are on, so a column of nineteen icons still says where you are. */
+.actions-nav .action-btn.is-current {
+  background: var(--subtle-brand);
+  color: var(--brand-primary);
+  font-weight: 600;
+}
+
+html.actions-collapsed .actions-nav .action-btn.is-current {
+  box-shadow: inset 2px 0 0 var(--brand-primary);
+}
+
+/* Nineteen workspaces plus the page's actions will outrun a short viewport, so
+   the rail scrolls its own content rather than the page. */
+.actions-side { scrollbar-width: thin; }
+
+@media (max-width: 59.9375em) {
+  .actions-side,
+  html.actions-collapsed .actions-side {
+    position: static;
+    width: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    border-left: 0;
+    border-bottom: 1px solid var(--line);
+    padding:0.75rem 0.875rem;
+  }
+  .app-content.has-actions,
+  html.actions-collapsed .app-content.has-actions { margin-right: 0; }
+  html.actions-collapsed .actions-side .action-label,
+  html.actions-collapsed .actions-group-label { display: inline; }
+  .actions-rail-inner { flex-direction: row; flex-wrap: wrap; gap:0.625rem; }
+  .actions-side .action-btn { width: auto; }
+  .actions-toggle { display: none; }
+  /* Workspace navigation goes icon-only here. Twenty labelled links laid out
+     horizontally made the rail 893px tall on a 900px viewport — the whole first
+     screen before any content. The page's own actions keep their labels. */
+  .actions-nav { flex-direction: row; flex-wrap: wrap; gap:0.375rem; }
+  .actions-nav .actions-group-label,
+  html.actions-collapsed .actions-nav .actions-group-label,
+  .actions-nav .action-label,
+  html.actions-collapsed .actions-nav .action-label { display: none; }
+  .actions-nav .action-btn,
+  html.actions-collapsed .actions-nav .action-btn {
+    width:2.125rem;
+    min-width:2.125rem;
+    height:2.125rem;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    border-radius:0.5rem;
+    border-color: var(--line);
+  }
+}
+
+.app-content { margin-right: 15.5rem; transition: margin-right .18s ease; }
+html.actions-collapsed .app-content { margin-right: 3.5rem; }
+
+@media (max-width: 1199px) {
+  .app-content { margin-right: 0; }
+  html.actions-collapsed .app-content { margin-right: 0; }
+}
+
+.ws-handle { cursor: grab; opacity: .45; }
+.ws-item.is-dragging { opacity: .5; border-style: dashed; }
+
+/* Job toasts: a running command follows you around the dashboard rather than living in the page
+   that started it. Bottom-right, newest last, never wider than the screen. */
+.job-toasts {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  max-width: calc(100vw - 2rem);
+  pointer-events: none;
+}
+.job-toasts > * { pointer-events: auto; }
+
+.job-toast {
+  margin: 0 !important;
+  box-sizing: border-box;
+  width: min(34rem, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, .18);
+  overflow: hidden;
+}
+.job-toast.is-running { border-left: 0.1875rem solid var(--brand-1); }
+.job-toast.is-done { border-left: 0.1875rem solid var(--ok); }
+.job-toast.is-failed { border-left: 0.1875rem solid var(--danger); }
+
+.job-toast-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.65rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+.job-toast-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-toast-status { opacity: .8; white-space: nowrap; }
+.job-toast-btn { background: none; border: 0; cursor: pointer; padding: 0.15rem; opacity: .6; color: inherit; }
+.job-toast-btn:hover { opacity: 1; }
+.job-toast .terminal-pre { max-height: 15rem; overflow: auto; margin: 0; font-size: 0.78rem; }
+.job-toast.is-collapsed .terminal-pre { display: none; }
+.job-toast.is-collapsed .job-toast-head { border-bottom: 0; }
+
+/* The eight grips that make a job toast resizable. */
+/* Above the head's text, below its buttons. */
+.toast-grip {
+  position: absolute;
+  z-index: 2;
+  touch-action: none;                /* a pointerdown here must not scroll the stack */
+}
+
+/* Edges first, corners after: the corners must win where they overlap. */
+.toast-grip-t, .toast-grip-b { left: 0.875rem; right: 0.875rem; height: 0.4375rem; cursor: ns-resize; }
+
+.toast-grip-l, .toast-grip-r { top: 0.875rem; bottom: 0.875rem; width: 0.4375rem; cursor: ew-resize; }
+
+.toast-grip-t { top: 0; }
+
+.toast-grip-b { bottom: 0; }
+
+.toast-grip-l { left: 0; }
+
+.toast-grip-r { right: 0; }
+
+.toast-grip-tl, .toast-grip-tr, .toast-grip-bl, .toast-grip-br { width: 0.875rem; height: 0.875rem; }
+
+.toast-grip-tl { top: 0; left: 0; cursor: nwse-resize; }
+
+.toast-grip-tr { top: 0; right: 0; cursor: nesw-resize; }
+
+.toast-grip-bl { bottom: 0; left: 0; cursor: nesw-resize; }
+
+.toast-grip-br { bottom: 0; right: 0; cursor: nwse-resize; }
+
+/* Corner marks only, and only while hovered: eight permanent marks per toast would be noise. */
+.job-toast:hover .toast-grip-tl::before,
+.job-toast:hover .toast-grip-tr::before,
+.job-toast:hover .toast-grip-bl::before,
+.job-toast:hover .toast-grip-br::before {
+  content: "";
+  position: absolute;
+  inset: 0.1875rem;
+  border-color: var(--brand-primary);
+  opacity: 0.55;
+}
+
+.job-toast:hover .toast-grip-tl::before { border-top: 2px solid; border-left: 2px solid; }
+
+.job-toast:hover .toast-grip-tr::before { border-top: 2px solid; border-right: 2px solid; }
+
+.job-toast:hover .toast-grip-bl::before { border-bottom: 2px solid; border-left: 2px solid; }
+
+.job-toast:hover .toast-grip-br::before { border-bottom: 2px solid; border-right: 2px solid; }
+
+/* While dragging, nothing else should take the pointer or select text. */
+body.toast-resizing { user-select: none; }
+
+body.toast-resizing .job-toast { pointer-events: none; }
+
+body.toast-resizing .toast-grip { pointer-events: auto; }
+
+@media (max-width: 47.9375em) {
+  .job-toasts { right: 0.5rem; left: 0.5rem; bottom: 0.5rem; }
+  /* No room to drag on a phone, and grips over a small box are just clutter. */
+  .job-toast { width: 100%; }
+  .toast-grip { display: none; }
+}
+
+/* A resized toast has to stop shrink-wrapping its content, and its output has to fill it. */
+.job-toast { position: relative; }
+.job-toast[style*="height"] { display: flex; flex-direction: column; }
+.job-toast[style*="height"] .terminal-pre { flex: 1; max-height: none; }
+
+/* Tabler icons render as an <svg><use> into the vendored sprite, so they take their colour from
+   the text around them rather than from a fill. */
+/* Tabler icons come from the vendored sprite; UIKit's come from uk-icon. Both must
+   sit on the same baseline and take the current colour. */
+.tabler-icon { display: inline-block; vertical-align: middle; }
+/* Tabler icons come through <use> from an EXTERNAL sprite, and presentation
+   attributes on that file's root <svg> do NOT cross into this document — the symbol
+   inherits from the host <svg>, which had none, so every icon drew at the default
+   1px stroke and looked thin and wrong. Stating them here fixes every use at once
+   and keeps the sprite free of 4736 repetitions. */
+.tabler-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* And they are brand-coloured where the old uk-icon carried uk-text-primary: the
+   card tile, the page heading and the chooser's preview. Dropping that class when I
+   moved to <svg> is why they turned grey. */
+.workspace-card .icon .tabler-icon,
+.page-heading-icon .tabler-icon,
+.pres-icon .tabler-icon { color: var(--brand-primary); }
+/* A slightly lighter stroke at large sizes: 1.75 reads heavy at 28px+. */
+.workspace-card .icon .tabler-icon,
+.page-heading-icon .tabler-icon { stroke-width: 1.6; }
+
+/* The drag handle on a workspace card. */
+.ws-list > .uk-sortable-drag { background: var(--subtle-brand); }
+
+.ws-list > .uk-sortable-placeholder { opacity: .35; }

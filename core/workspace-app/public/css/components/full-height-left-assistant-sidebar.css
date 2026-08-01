@@ -1,0 +1,109 @@
+/* ---------- Full-height left assistant sidebar (all pages) ---------- */
+
+.assistant-side {
+  position: fixed;
+  top: 65px;
+  left: 0;
+  bottom: 0;
+  width: 400px;
+  padding: 16px 8px 16px 16px;
+  display: flex;
+  z-index: 30;
+}
+
+.assistant-side .assistant-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+}
+
+.assistant-side .assistant-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.assistant-side .chat-log {
+  flex: 1;
+  max-height: none;
+  min-height: 0;
+}
+
+.app-content { margin-left: 400px; }
+
+/* Toolbar spans full width; its content aligns with the shell */
+.toolbar-inner { padding: 0 24px; }
+
+/* Stack on tablets/phones: sidebar becomes a normal block above content */
+@media (max-width: 959px) {
+  .assistant-side {
+    position: static;
+    width: auto;
+    padding: 14px 14px 0;
+  }
+  .assistant-side .chat-log { max-height: 320px; }
+  .app-content { margin-left: 0; }
+}
+
+/* Markdown tables etc. inside chat replies */
+.chat-log .msg table { border-collapse: collapse; margin: 6px 0; font-size: 13px; }
+.chat-log .msg th, .chat-log .msg td { border: 1px solid var(--line); padding: 4px 8px; }
+.chat-log .msg code { background: rgba(109, 91, 208, .1); padding: 1px 4px; border-radius: 4px; font-size: 12px; }
+html.dark .chat-log .msg th, html.dark .chat-log .msg td { border-color: var(--line-strong); }
+
+/* Builder Arguments group */
+.builder-args { margin-bottom: 0; }
+.builder-args .uk-accordion-title { font-size: 15px; }
+.builder-args .arg-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.builder-args .arg-row code { min-width: 190px; }
+.builder-args .arg-value { max-width: 340px; }
+
+/* Hierarchical project-domain alias on running rows */
+.proj-alias { display: block; font-size: 11px; margin-top: 2px; color: var(--brand-2) !important; }
+.proj-alias:hover { text-decoration: underline; }
+
+/* Prompt mode: the selector is moved into deep-chat's input toolbar by ui.js and takes its
+   styling with it, since styles do not cross a shadow boundary. This row only holds it for the
+   moment before that happens. */
+.assistant-body .chat-tools { padding: 4px 12px; }
+
+/* Settings: a form of labelled rows grouped the way the file is, so which keys belong together
+   survives the trip from YAML to inputs. */
+.settings-tabs { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: 1rem; }
+
+.settings-row { display: grid; grid-template-columns: minmax(9rem, 14rem) 1fr; gap: .6rem 1rem;
+  align-items: start; padding: .45rem 0; border-bottom: 1px solid var(--line); }
+.settings-row:last-child { border-bottom: 0; }
+.settings-key { font-weight: 600; font-size: .92rem; display: flex; flex-direction: column; gap: .15rem; }
+.settings-hint { font-weight: 400; font-size: .78rem; opacity: .7; line-height: 1.35; }
+
+.settings-group { border: 1px solid var(--line); border-radius: .6rem; padding: .35rem .9rem .6rem;
+  margin: 0 0 1rem; }
+.settings-group-name { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em;
+  opacity: .65; padding: 0 .35rem; }
+
+.settings-toggle { display: inline-flex; align-items: center; gap: .5rem; font-size: .9rem; }
+.settings-row-block { padding: .6rem 0; }
+
+/* An ordered list is shown as the order it is: numbered, with the move controls beside each row. */
+.ws-list { list-style: none; margin: .4rem 0 0; padding: 0; }
+.ws-item, .set-item { display: flex; align-items: center; gap: .55rem; padding: .35rem .5rem;
+  border: 1px solid var(--line); border-radius: .5rem; margin-bottom: .3rem; font-size: .9rem; }
+.ws-order { min-width: 1.4rem; text-align: right; opacity: .55; font-variant-numeric: tabular-nums; }
+.ws-name { flex: 1; }
+.ws-move { display: flex; gap: .25rem; }
+
+@media (max-width: 640px) {
+  .settings-row { grid-template-columns: 1fr; }
+}
+
+/* The actions rail: what this page can do, and the way to every other one. Kept in the media
+   queries it was written for — the rail is a wide-screen affordance. */

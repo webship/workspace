@@ -12,6 +12,7 @@ const path = require('path');
 const { CONFIG_DIR, loadYaml, loadWorkspaces } = require('./workspaces');
 const { esc } = require('./html');
 const { iconHtml, tablerIcons } = require('./icons');
+const { listThemes, themeLabel } = require('./themes');
 
 const SETTINGS_FILE_RE = /^(settings\.yml|workspace\.[a-z0-9_-]+\.settings\.yml)$/;
 
@@ -215,7 +216,11 @@ function settingsFieldHtml(r, file) {
       </div>`;
   }
 
-  const options = fieldConfig().enums[r.dotted];
+  // The themes on disk are the valid values, so the dropdown is built from the directory rather
+  // than from a list in the fields file that would have to be edited alongside it.
+  const options = r.dotted === 'style.theme'
+    ? listThemes().map((t) => [t, themeLabel(t)])
+    : fieldConfig().enums[r.dotted];
   if (options) {
     const cur = String(r.value).trim();
     // An unknown value is kept as an extra option rather than silently corrected: the file says

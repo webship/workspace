@@ -1,0 +1,45 @@
+/* ---------- Top toolbar (logo + breadcrumb) ---------- */
+
+.toolbar {
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.toolbar-logo {
+  gap: 8px;
+  font-weight: 700;
+  color: var(--ink) !important;
+  font-size: 17px;
+  text-transform: none;
+}
+
+.toolbar-logo img { border-radius: 8px; }
+
+.toolbar-logo span { font-size: 20px; }
+
+.toolbar .uk-breadcrumb {
+  padding-left: 6px;
+  align-self: center;
+}
+
+.toolbar .uk-breadcrumb a { color: var(--brand-2); }
+
+/* Compact page heading under the toolbar */
+.page-heading { gap: 12px; margin-bottom: 18px; }
+
+.page-heading-icon {
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  border-radius: 12px;
+  background: var(--subtle-brand);
+  color: var(--brand-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-heading h1 { font-size: 26px; line-height: 1.2; }

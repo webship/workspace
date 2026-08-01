@@ -1,0 +1,170 @@
+/**
+ * The default theme: the dashboard's own palette, in both halves.
+ *
+ * A theme is a palette file. It sets the tokens for light and for dark, and may add rules of
+ * its own — nothing else in the stylesheet needs to know which theme is loaded.
+ */
+
+/**
+ * The palette every component asks for by name.
+ *
+ * A theme supplies these and nothing else has to change: a component that says
+ * `var(--surface-raised)` looks right in any theme, and one that says `#fff` looks right in
+ * exactly one. The dark half lives here too, because dark is not a separate theme — it is the
+ * other half of the one you chose, and the toggle switches between them.
+ */
+:root {
+  --brand-1: #1e87f0;
+  --brand-2: #6d5bd0;
+  --brand-3: #9b5cf6;
+  --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2) 65%, var(--brand-3));
+  --brand-primary: var(--brand-2);
+  --ink: #232946;
+  --ink-soft: #4a5178;
+  --text-subtle: #6f77a3;
+  --surface: #f6f7fc;
+  --surface-raised: #fff;
+  --surface-sunken: #eef0fa;
+  --line: #e6e8f4;
+  --line-strong: #cfd3ee;
+  --ok: #2fb344;
+  --ok-soft: #f2fbf5;
+  --ok-ink: #14532d;
+  --danger: #f0506e;
+  --danger-soft: #fef4f6;
+  --danger-ink: #7d1a2e;
+  --link: #1e87f0;
+  --subtle-brand: #f0f6fd;
+  --danger-armed: #a4133c;
+  --busy-soft: #f1eefb;
+  --busy-ink: var(--brand-2);
+  --subtle-light: #f7f9ff;
+}
+
+html.dark {
+  --ink: #e8eaf6;
+  --ink-soft: #c3c8e8;
+  --text-subtle: #9aa4c2;
+  --surface: #131624;
+  --surface-raised: #1c2136;
+  --surface-sunken: #161a2e;
+  --line: #2b3049;
+  --line-strong: #3d437c;
+  --ok-soft: #12291c;
+  --ok-ink: #b7e8c8;
+  --danger-soft: #2c1420;
+  --danger-ink: #f6b8c6;
+  --link: #4aa8ff;
+  --subtle-brand: #232941;
+  --danger-armed: #ff5c7a;
+  --busy-soft: #10131f;
+  --busy-ink: #c9f7d4;
+  --subtle-light: #1a1f33;
+}
+
+/* ---------- what the palette alone cannot express ---------- */
+/* ---------- Dark mode (html.dark; light is the default) ---------- */
+
+.theme-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink);
+  padding: 0 6px;
+}
+
+.theme-toggle:hover { color: var(--brand-1); }
+.theme-icon-sun { display: none; }
+html.dark .theme-icon-sun { display: inline; }
+html.dark .theme-icon-moon { display: none; }
+
+html.dark {
+  --ink: #e8eaf6;
+  --surface: #131624;
+  --line: #2b3049;
+}
+
+html.dark body.uk-background-muted { background: #131624 !important; color: #e8eaf6; }
+
+html.dark .toolbar { background: #1a1e30; border-bottom-color: #2b3049; }
+html.dark .toolbar-logo { color: #e8eaf6 !important; }
+html.dark .toolbar .uk-breadcrumb a { color: #9aa4f0; }
+html.dark .toolbar .uk-breadcrumb > :last-child span { color: #c3c8e8; }
+html.dark .theme-toggle { color: #c3c8e8; }
+
+html.dark .uk-card-default {
+  background: #1c2136;
+  color: #dfe3f5;
+  border-color: #2b3049;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .35);
+}
+
+html.dark .uk-card-default .uk-card-title,
+html.dark h1, html.dark h2, html.dark h3, html.dark h4 { color: #eef0fb; }
+html.dark .uk-text-meta, html.dark .uk-text-lead { color: #9aa1c2 !important; }
+
+html.dark .workspace-card { background: #1c2136; }
+html.dark .workspace-card:hover { border-color: #46508a; }
+html.dark .workspace-card .icon,
+html.dark .page-heading-icon { background: #252c48; }
+
+html.dark .ws-backups { background: #252c48; color: #b9aef8; }
+html.dark .ws-backups:hover { background: var(--brand-2); color: #fff; }
+
+html.dark .uk-badge { background: #3d437c; }
+html.dark .uk-label { background: #3d437c; }
+html.dark .uk-label-success { background: #2fb344; }
+
+html.dark .uk-input, html.dark .uk-select {
+  background: #12162a;
+  color: #e8eaf6;
+  border-color: #2b3049;
+}
+
+html.dark .uk-input::placeholder { color: #6f77a3; }
+
+html.dark .uk-button-default {
+  background: #252c48;
+  color: #cdd3f0;
+  border-color: #343b5e;
+}
+
+html.dark .uk-button-default:hover { background: #2f3760; color: #fff; }
+html.dark .uk-button-secondary { background: #0f1322; }
+
+html.dark .chat-log { background: #161a2c; border-color: #2b3049; }
+html.dark .chat-log .msg.assistant,
+html.dark .chat-log .msg.error { background: #1f2540; border-color: #2f3556; color: #dfe3f5; }
+html.dark .chat-log .msg.error { color: #ff8aa1; border-color: #a2374f; }
+html.dark .chat-log .msg.user::after { background: #343b5e; }
+html.dark .chat-typing { background: #1f2540; border-color: #2f3556; }
+
+html.dark #webship-workspace-output .msg.assistant { background: #1f2540; border-color: #2f3556; color: #dfe3f5; }
+html.dark #webship-workspace-output .msg.error { background: #2a1a22; }
+
+html.dark .project-row { background: #1c2136; border-color: #2b3049; }
+html.dark .project-row:hover { border-color: #46508a; }
+
+html.dark .global-working-pill { background: #1c2136; border-color: #2b3049; color: #b9aef8; }
+
+html.dark footer.uk-section, html.dark footer.uk-section a { color: #6f77a3; }
+
+/* Item editor */
+.editor-card .editor-area {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+html.dark .editor-card .editor-area { background: #12162a; color: #e8eaf6; border-color: #2b3049; }
+
+/* When the floating assistant is open on a wide screen, shift the page
+ * content left so the widget never covers buttons; collapsing the widget
+ * (launcher) restores normal centering. */
+@media (min-width: 1200px) {
+  body:has(.assistant-float.open) .page-body.webship-workspace-page {
+    margin-right: auto;
+    margin-left: 540px;
+  }
+}

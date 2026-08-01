@@ -34,6 +34,7 @@ const { assistantHtml } = require('./assistant');
 const { SETTINGS_FILE_RE, settingsFormHtml, listSettingsFiles, listEditorHtml } = require('./settings');
 const { DDEV_ACTIONS, DDEV_MENU_ORDER } = require('./ddev');
 const { graphMenuHtml } = require('./graphs');
+const { cssVersion } = require('./themes');
 const { ragMenuHtml, ragInstanceFor, ragCollections } = require('./rag');
 const {
   defaultListState,
@@ -424,7 +425,7 @@ try{var st=localStorage.getItem('ws-theme'),m='${style.mode}';
 var dark = st ? st==='dark' : (m==='dark' || (m==='system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches));
 if(dark)d.classList.add('dark');}catch(e){}})();</script>
 <link rel="stylesheet" href="/vendor/uikit.min.css">
-<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/style.css?v=${cssVersion(style.theme)}">
 <script src="/vendor/uikit.min.js"></script>
 <script src="/vendor/uikit-icons.min.js"></script>
 <script src="/htmx.min.js"></script>

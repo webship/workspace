@@ -1,0 +1,15 @@
+/* ---------- Workspace cards ---------- */
+
+.workspace-card { border-radius: 8px; }
+
+.workspace-card .icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 8px;
+  border-radius: 12px;
+  background: var(--subtle-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}

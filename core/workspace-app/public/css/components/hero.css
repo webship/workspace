@@ -1,0 +1,16 @@
+/* ---------- Hero ---------- */
+
+.logo {
+  width: 84px;
+  height: 84px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: linear-gradient(150deg, var(--brand-1), var(--link));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  box-shadow: 0 10px 24px rgba(30, 135, 240, .35);
+}
+
+.logo-sm { width: 66px; height: 66px; font-size: 30px; }
