@@ -234,6 +234,96 @@ function commands_pull() {
   [ "${pulled}" -gt 0 ] || { echo "No '${file}' in ${WORKSPACE_REPO}@${WORKSPACE_REPO_REF}." ; return 1 ; }
 }
 
+# Bring the repository's commands down in bulk.
+#
+# Two categories, treated differently on purpose:
+#
+#   missing   this machine does not have it. Safe to take: nothing is lost.
+#   differs   both have it and they are not the same. NOT safe to take blindly — the difference
+#             may be a local fix that has not been proposed yet, which is exactly what the first
+#             comparison of this workspace found.
+#
+# So a plain --sync reports and changes nothing, --confirm takes the missing ones, and only
+# --overwrite replaces the ones that differ. Each replaced file is kept under backups/ first,
+# the same as a single --pull.
+function commands_sync() {
+  local confirmed="$1" overwrite="$2";
+  commands_repo_sync || return 1 ;
+  local tmp;
+  tmp=$(commands_repo_tree) || return 1 ;
+
+  local ws file dest missing=() differs=() same=0;
+  for ws in $(commands_workspaces) ; do
+    [ -d "${tmp}/${ws}" ] || continue ;
+    for file in $(cd "${tmp}/${ws}" && ls cmd-*.sh 2>/dev/null) ; do
+      dest="${WORKSPACE_ROOT}/${ws}/${file}";
+      if [ ! -f "${dest}" ] ; then
+        missing+=("${ws}/${file}") ;
+      elif cmp -s "${dest}" "${tmp}/${ws}/${file}" ; then
+        same=$((same+1)) ;
+      else
+        differs+=("${ws}/${file}") ;
+      fi
+    done
+  done
+
+  echo "*---------------------------------------------------------------------*";
+  echo "  Sync from ${WORKSPACE_REPO}@${WORKSPACE_REPO_REF}";
+  echo "*---------------------------------------------------------------------*";
+  echo "  ${same} identical · ${#missing[@]} missing here · ${#differs[@]} differ";
+  echo "";
+  local entry;
+  for entry in "${missing[@]}" ; do echo "  missing    ${entry}" ; done
+  for entry in "${differs[@]}" ; do echo "  differs    ${entry}" ; done
+
+  if [ "${#missing[@]}" -eq 0 ] && [ "${#differs[@]}" -eq 0 ] ; then
+    echo "" ; echo "  Nothing to bring down — this machine matches the repository." ;
+    rm -rf "${tmp}" ; return 0 ;
+  fi
+
+  if [ ! "${confirmed}" == 'yes' ] ; then
+    echo "";
+    echo "  Nothing has been written. To take the missing ones:";
+    echo "    bash cmd-tools-commands.sh --sync --confirm";
+    if [ "${#differs[@]}" -gt 0 ] ; then
+      echo "  To replace the ones that differ as well (each is kept under backups/ first):";
+      echo "    bash cmd-tools-commands.sh --sync --confirm --overwrite";
+      echo "  Look at one first:  bash cmd-tools-commands.sh --diff <cmd-file.sh>";
+    fi
+    rm -rf "${tmp}" ; return 0 ;
+  fi
+
+  local took=0 replaced=0 keep;
+  for entry in "${missing[@]}" ; do
+    ws="${entry%%/*}" ; file="${entry##*/}" ;
+    mkdir -p "${WORKSPACE_ROOT}/${ws}" ;
+    cp "${tmp}/${ws}/${file}" "${WORKSPACE_ROOT}/${ws}/${file}" ;
+    chmod +x "${WORKSPACE_ROOT}/${ws}/${file}" ;
+    echo "  took       ${entry}" ;
+    took=$((took+1)) ;
+  done
+
+  if [ "${overwrite}" == 'yes' ] ; then
+    for entry in "${differs[@]}" ; do
+      ws="${entry%%/*}" ; file="${entry##*/}" ;
+      keep="${backups}/${doc_name}/${ws}---${file}--$(date '+%Y-%m-%d_%H-%M-%S').bak";
+      mkdir -p "${backups}/${doc_name}" ;
+      cp -a "${WORKSPACE_ROOT}/${ws}/${file}" "${keep}" ;
+      cp "${tmp}/${ws}/${file}" "${WORKSPACE_ROOT}/${ws}/${file}" ;
+      chmod +x "${WORKSPACE_ROOT}/${ws}/${file}" ;
+      echo "  replaced   ${entry}  (yours kept at ${keep})" ;
+      replaced=$((replaced+1)) ;
+    done
+  fi
+
+  rm -rf "${tmp}" ;
+  echo "";
+  echo "  ${took} taken · ${replaced} replaced";
+  if [ "${overwrite}" != 'yes' ] && [ "${#differs[@]}" -gt 0 ] ; then
+    echo "  ${#differs[@]} left alone because they differ — add --overwrite to replace them too.";
+  fi
+}
+
 # Retarget a command at a workspace: the settings file it reads and the folder
 # name in its comments. A builder copied from dev to demos that still reads
 # workspace.dev.settings.yml would build into the wrong folder, which is the one

@@ -17,7 +17,7 @@ source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 # the mirror checkout and the backup path are built from.
 doc_name="commands";
 
-ARGPARSE_DESCRIPTION="List, create, clone, pull, diff or propose cmd-*.sh commands"
+ARGPARSE_DESCRIPTION="List, create, clone, sync, pull, diff or propose cmd-*.sh commands"
 source ${WORKSPACE_SCRIPTS}/args/arg-commands.sh || exit 1 ;
 
 shift $#;
@@ -32,6 +32,8 @@ elif [ ! "${DIFF}" == '_none_' ] ; then
   commands_diff "${DIFF}" ;
 elif [ ! "${PROPOSE}" == '_none_' ] ; then
   commands_propose "${PROPOSE}" "${SUMMARY}" "$([ "${CONFIRM}" == 'yes' ] && echo yes || echo no)" ;
+elif [ "${SYNC}" == 'yes' ] ; then
+  commands_sync "$([ "${CONFIRM}" == 'yes' ] && echo yes || echo no)" "$([ "${OVERWRITE}" == 'yes' ] && echo yes || echo no)" ;
 elif [ "${LIST_REMOTE}" == 'yes' ] ; then
   commands_list_remote ;
 else

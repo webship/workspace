@@ -33,6 +33,9 @@ source ${WORKSPACE_SCRIPTS}/functions/fun-ragify.sh || exit 1 ;
 # Include rag workspace (the index store) functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-rag.sh || exit 1 ;
 
+# Include proposing an agent, skill or prompt back to the shared repository.
+source ${WORKSPACE_SCRIPTS}/functions/fun-items-propose.sh || exit 1 ;
+
 # Include commands workspace (managing every cmd-*.sh against the tooling repository) functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-commands.sh || exit 1 ;
 
