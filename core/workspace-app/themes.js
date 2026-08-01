@@ -154,13 +154,18 @@ function themeLogos(themeName, style) {
     if (configured && fs.existsSync(path.join(PUBLIC_DIR, configured))) return `/${configured}`;
     return shipped(names) || (configured ? `/${configured}` : null);
   };
-  // The one the whole dashboard falls back to when neither the settings nor the theme name a mark.
-  const SHIPPED = '/logo.png';
-  const logo = set(style.logo, ['logo.svg', 'logo.png']) || SHIPPED;
+  // What ships, when neither the settings nor the theme names a mark: the Webship logo, in the
+  // variant that suits the background.
+  const shippedLogo = fs.existsSync(path.join(PUBLIC_DIR, 'logo.svg')) ? '/logo.svg' : '/logo.png';
+  const shippedDark = fs.existsSync(path.join(PUBLIC_DIR, 'logo-dark.svg')) ? '/logo-dark.svg' : shippedLogo;
+  const shippedIcon = fs.existsSync(path.join(PUBLIC_DIR, 'favicon.ico')) ? '/favicon.ico' : shippedLogo;
+  const logo = set(style.logo, ['logo.svg', 'logo.png']) || shippedLogo;
   return {
     logo,
-    logoOnDark: set(style.logoOnDark, ['logo-dark.svg', 'logo-dark.png']) || logo,
-    favicon: set(style.favicon, ['favicon.svg', 'favicon.png', 'favicon.ico']) || logo,
+    logoOnDark: set(style.logoOnDark, ['logo-dark.svg', 'logo-dark.png'])
+      || (logo === shippedLogo ? shippedDark : logo),
+    favicon: set(style.favicon, ['favicon.svg', 'favicon.png', 'favicon.ico'])
+      || (logo === shippedLogo ? shippedIcon : logo),
   };
 }
 
