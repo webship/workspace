@@ -1,1 +1,6 @@
 actions.log
+
+# Test output: reports, screenshots and recordings are evidence of one run, not source.
+tests/reports/
+tests/screenshots/
+tests/videos/

@@ -1,6 +1,8 @@
 doc:
   name: themes
-vdo_drupal:
+# The scratch project the theme builders create and destroy. The key name matters: parse_yaml
+# flattens it to $drupal_template_drupal_theme_name, which is the variable those scripts read.
+drupal:
   template_drupal_theme_name: template_drupal
 themes:
   - flexi_pattern_lab

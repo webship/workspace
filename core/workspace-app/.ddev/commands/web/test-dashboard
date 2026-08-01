@@ -1,0 +1,32 @@
+#!/bin/bash
+
+## Description: Run the dashboard's own tests (unit, then webship-js in a real browser)
+## Usage: test-dashboard [unit|browser] [extra cucumber args]
+## Example: "ddev test-dashboard" runs both; "ddev test-dashboard browser tests/features/theme.feature"
+
+# Inside the web container, which is where node_modules, the browser and the dashboard itself all
+# are — so the tests exercise the thing that serves rather than a copy stood up for the occasion.
+
+set -e
+cd /var/www/html
+
+# The site under test is this project's own URL. webship-js defaults to localhost:8080, which is
+# nothing here.
+export LAUNCH_URL="${LAUNCH_URL:-https://workspace.ddev.site}"
+
+case "${1:-all}" in
+  unit)
+    node --test "tests/unit/*.test.js"
+    ;;
+  browser)
+    shift
+    npx cucumber-js --config cucumber.js "$@"
+    ;;
+  *)
+    echo "── unit ──────────────────────────────────────────────"
+    node --test "tests/unit/*.test.js"
+    echo
+    echo "── browser (webship-js) ──────────────────────────────"
+    npx cucumber-js --config cucumber.js
+    ;;
+esac

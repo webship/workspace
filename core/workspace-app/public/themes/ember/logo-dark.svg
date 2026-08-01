@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46 46" width="46" height="46" role="img" aria-label="workspace">
+  <!-- The dark half: brighter, because the same amber that reads as warm on sand reads as muddy
+       on near-black. -->
+  <defs><linearGradient id="ember-gd" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#fbbf24"/><stop offset="0.65" stop-color="#f59e0b"/><stop offset="1" stop-color="#fb923c"/>
+  </linearGradient></defs>
+  <path d="M23 4C23 4 9 18.5 9 27a14 14 0 0 0 28 0C37 18.5 23 4 23 4z" fill="url(#ember-gd)"/>
+  <path d="M23 12c0 0-7 8-7 13a7 7 0 0 0 14 0c0-5-7-13-7-13z" fill="#17130f" opacity=".25"/>
+</svg>

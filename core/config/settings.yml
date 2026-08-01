@@ -105,9 +105,9 @@ style:
   mode: light
   editor_theme: auto
   theme: default
-  logo: logo.png
-  logo_on_dark: logo.png
-  favicon: logo.png
+  logo:
+  logo_on_dark:
+  favicon:
   page_size: 50
   page_sort: newest
 

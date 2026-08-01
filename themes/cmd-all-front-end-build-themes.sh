@@ -16,6 +16,15 @@ source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 # Load workspace settings and extra lists.
 eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.themes.settings.yml);
 
+# Refuse to run with an empty name. `rm -rf ${WORKSPACE_ROOT}/themes/${name}` with an unset name
+# deletes the whole themes workspace, which is what the old `vdo_`-prefixed settings key caused:
+# it flattened to a different variable than the one read here, so this was empty every time.
+if [ -z "${drupal_template_drupal_theme_name}" ] ; then
+  echo "drupal.template_drupal_theme_name is not set in core/config/workspace.themes.settings.yml — refusing to run." ;
+  exit 1 ;
+fi
+
+
 cd ${WORKSPACE_ROOT}/themes/ ;
 
 # Delete old themes.

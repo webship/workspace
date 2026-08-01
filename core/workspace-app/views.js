@@ -34,7 +34,7 @@ const { assistantHtml } = require('./assistant');
 const { SETTINGS_FILE_RE, settingsFormHtml, listSettingsFiles, listEditorHtml } = require('./settings');
 const { DDEV_ACTIONS, DDEV_MENU_ORDER } = require('./ddev');
 const { graphMenuHtml } = require('./graphs');
-const { cssVersion } = require('./themes');
+const { cssVersion, themeLogos } = require('./themes');
 const { ragMenuHtml, ragInstanceFor, ragCollections } = require('./rag');
 const {
   defaultListState,
@@ -404,6 +404,9 @@ function pageActionsHtml(context) {
 }
 function pageShell(title, body, crumbs = [], context = 'home') {
   const style = styleSettings();
+  // The mark can come from the theme as well as from the settings — a logo drawn for one palette
+  // is wrong on another.
+  const marks = themeLogos(style.theme, style);
   const crumbHtml = crumbs.length ? `
     <ul class="uk-breadcrumb uk-margin-remove uk-visible@s">
       ${crumbs.map((c, i) => i === crumbs.length - 1
@@ -416,7 +419,7 @@ function pageShell(title, body, crumbs = [], context = 'home') {
 <meta charset="utf-8">
 <title>${esc(title)}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="/${esc(style.favicon)}">
+<link rel="icon" href="${esc(marks.favicon)}">
 <script>(function(){var d=document.documentElement;
 // The configured default, applied before first paint so a dark page never flashes white. A stored
 // choice always wins: style.mode is the default for someone who has not used the toggle, not an
@@ -442,8 +445,8 @@ if(dark)d.classList.add('dark');}catch(e){}})();</script>
     <div uk-navbar>
       <div class="uk-navbar-left">
         <a class="uk-navbar-item uk-logo toolbar-logo" href="${HOME_URL()}">
-          <img src="/${esc(style.logo)}" alt="${esc(style.workspaceName)}" width="46" height="46" class="brand-logo brand-logo-on-light">
-          <img src="/${esc(style.logoOnDark)}" alt="${esc(style.workspaceName)}" width="46" height="46" class="brand-logo brand-logo-on-dark">
+          <img src="${esc(marks.logo)}" alt="${esc(style.workspaceName)}" width="46" height="46" class="brand-logo brand-logo-on-light">
+          <img src="${esc(marks.logoOnDark)}" alt="${esc(style.workspaceName)}" width="46" height="46" class="brand-logo brand-logo-on-dark">
           <span>${esc(style.workspaceName)}</span>
         </a>
         ${crumbHtml}
