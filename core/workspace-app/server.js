@@ -49,6 +49,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const { esc } = require('./html');
 const { readListState, setListCookies } = require('./lists');
 const { DDEV_ACTIONS } = require('./ddev');
+const { graphStoreDir, GRAPH_FILES } = require('./graphs');
 const { iconHtml, tablerIcons } = require('./icons');
 const { run, jobs, runningJobKey, startJob, jobFragment } = require('./jobs');
 const { assistantReply } = require('./assistant');
@@ -605,6 +606,68 @@ async function handleAction(pathname, form, res) {
     return send(jobFragment(id).html);
   }
 
+  if (pathname === '/actions/graphify') {
+    const dir = workspaceDir(workspace);
+    const script = 'cmd-tools-graphify.sh';
+    const projectName = String(form.projectName || '');
+    if (!fs.existsSync(path.join(dir, script))) return send('<div class="msg error">This workspace has no graphify script.</div>', 400);
+    if (!NAME_RE.test(projectName) || !listProjects(dir).includes(projectName)) {
+      return send('<div class="msg error">Unknown project.</div>', 400);
+    }
+    // graphify has no cross-process lock: two runs against one output directory race on the
+    // manifest and the graph itself, and the loser's atomic replace silently wins.
+    const jobKey = `graphify:${workspace}/${projectName}`;
+    if (runningJobKey(jobKey)) {
+      return send('<div class="msg error">A graph is already being built for this project.</div>', 409);
+    }
+    // Local parsing only — no API key, nothing leaves the machine. A large codebase takes a
+    // while, so it gets the long build timeout rather than the default.
+    const id = startJob(`🕸️ Graph <strong>${esc(projectName)}</strong>`, 'bash', [script, projectName], dir,
+      { timeoutMs: 60 * 60 * 1000, echoLine: `bash ${script} ${projectName}`, key: jobKey });
+    return send(jobFragment(id).html);
+  }
+
+  if (pathname === '/actions/graph-remove') {
+    if (form.confirm !== 'yes') return send('<div class="msg error">Deleting requires confirmation.</div>', 400);
+    const projectName = String(form.projectName || '');
+    // The project itself may be long gone — a graph outlives it, and that is exactly a graph
+    // worth throwing away. So the name is validated but not looked up.
+    if (!NAME_RE.test(projectName)) return send('<div class="msg error">Unknown project.</div>', 400);
+    if (runningJobKey(`graphify:${workspace}/${projectName}`)) {
+      return send('<div class="msg error">A graph run is in progress for this project — wait for it to finish.</div>', 409);
+    }
+    const out = graphStoreDir(workspace, projectName);
+    let real;
+    try {
+      real = fs.realpathSync(out);
+      const base = fs.realpathSync(path.join(ROOT, 'graphs'));
+      // Symlinks are resolved before anything is deleted: a project directory that is a link
+      // would otherwise put rm outside the graph store entirely.
+      if (!real.startsWith(base + path.sep) || !fs.statSync(real).isDirectory()) throw new Error('outside the store');
+    } catch (_) {
+      return send('<div class="msg error">No graph to delete.</div>', 404);
+    }
+    fs.rmSync(real, { recursive: true, force: true });
+    res.setHeader('HX-Trigger', 'refresh-projects');
+    return send(`<div class="msg assistant">🗑️ Deleted the graph of <strong>${esc(projectName)}</strong>. It is regenerable — build it again whenever you need it.</div>`);
+  }
+
+  if (pathname === '/actions/graph-mcp-command') {
+    const projectName = String(form.projectName || '');
+    if (!NAME_RE.test(projectName)) return send('<div class="msg error">Unknown project.</div>', 400);
+    const graph = path.join(graphStoreDir(workspace, projectName), GRAPH_FILES.json);
+    if (!fs.existsSync(graph)) return send('<div class="msg error">No graph yet — build it first.</div>', 409);
+    const shown = graph.replace(ROOT, '~/workspace');
+    return send(`
+      <div class="msg assistant">
+        <p>Serve the <strong>${esc(workspace)}/${esc(projectName)}</strong> graph to the Claude Code CLI:</p>
+        <pre>claude mcp add --scope user graph-${esc(workspace)}-${esc(projectName)} -- graphify-mcp ${esc(shown)}</pre>
+        <p class="uk-text-meta">Run it <strong>on the host</strong>, in a terminal. It speaks stdio, so there is no port
+        and no daemon — the CLI starts the server when a session needs it. Open a NEW session to see the tools;
+        rebuilding the graph needs no re-registration.</p>
+      </div>`);
+  }
+
   if (pathname === '/actions/status') {
     const result = await run('ddev', ['list', '--json-output'], ROOT, { timeoutMs: 60 * 1000 });
     let lines = '';
@@ -754,6 +817,73 @@ const server = http.createServer(async (req, res) => {
               <div class="uk-width-1-4@s"><button type="submit" class="uk-button uk-button-primary uk-width-1-1">Generate</button></div>
             </form>
           </div>`);
+      }
+      // The graph as a single archive, to hand to another workspace. Streamed straight out of
+      // tar: a graph runs to tens of megabytes and buffering it would hold the whole thing in the
+      // app's memory.
+      const graphDlMatch = pathname.match(/^\/graph\/([a-z0-9_-]+)\/([a-zA-Z0-9_.-]+)\/download$/);
+      if (graphDlMatch && isValidWorkspace(graphDlMatch[1])) {
+        const [, wsKey, project] = graphDlMatch;
+        if (project.includes('..')) { res.writeHead(400); return res.end('bad name'); }
+        let real;
+        try {
+          real = fs.realpathSync(graphStoreDir(wsKey, project));
+          const base = fs.realpathSync(path.join(ROOT, 'graphs'));
+          if (!real.startsWith(base + path.sep) || !fs.statSync(real).isDirectory()) throw new Error('outside');
+        } catch (_) {
+          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+          return res.end('No graph yet — build one from the Graph menu on the project row.');
+        }
+        const archive = `${wsKey}--${project}--graph.tar.gz`;
+        res.writeHead(200, {
+          'Content-Type': 'application/gzip',
+          'Content-Disposition': `attachment; filename="${archive.replace(/[^A-Za-z0-9._-]/g, '_')}"`,
+          'X-Content-Type-Options': 'nosniff',
+        });
+        const tar = spawn('tar', ['-czf', '-', '-C', path.dirname(real), path.basename(real)],
+          { stdio: ['ignore', 'pipe', 'pipe'] });
+        tar.stdout.pipe(res);
+        tar.stderr.resume();
+        tar.on('error', () => { try { res.destroy(); } catch (_) { /* client gone */ } });
+        res.on('close', () => { try { tar.kill(); } catch (_) { /* already exited */ } });
+        return;
+      }
+
+      // The picture, and the report. Symlinks are resolved before the path is trusted: a project
+      // directory that is a link would otherwise read outside the workspace, and this container
+      // bind-mounts ~/.claude as well as ~/workspace.
+      const graphMatch = pathname.match(/^\/graph\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)(\/report)?$/);
+      if (graphMatch && isValidWorkspace(graphMatch[1])) {
+        const wantsReport = !!graphMatch[3];
+        const file = path.join(graphStoreDir(graphMatch[1], graphMatch[2]),
+          wantsReport ? GRAPH_FILES.report : GRAPH_FILES.html);
+        let real = null;
+        try {
+          const base = fs.realpathSync(path.join(ROOT, 'graphs'));
+          real = fs.realpathSync(file);
+          if (!real.startsWith(base + path.sep)) real = null;
+          if (real && !fs.statSync(real).isFile()) real = null;
+        } catch (_) { real = null; }
+        if (!real) {
+          res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end('<div class="msg error">No graph yet — build one from the Graph menu on the project row.</div>');
+        }
+        if (wantsReport) {
+          // The report opens in the dialog, so it is delivered as a fragment rather than as a
+          // file: markdown in a <pre>, which is what it is.
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(`
+    <div class="uk-card uk-card-default uk-card-body editor-card">
+      <h3 class="uk-margin-small-bottom">${esc(graphMatch[2])} — graph report</h3>
+      <pre class="graph-report">${esc(fs.readFileSync(real, 'utf8'))}</pre>
+      <div class="uk-margin-small-top">
+        <a class="uk-button uk-button-default" href="/graph/${esc(graphMatch[1])}/${esc(graphMatch[2])}" target="_blank"><span uk-icon="icon: image; ratio: .8"></span> Open the graph</a>
+        <button type="button" class="uk-button uk-button-default uk-modal-close">Close</button>
+      </div>
+    </div>`);
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return fs.createReadStream(real).pipe(res);
       }
       const reviewMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/review\/([a-zA-Z0-9_%.-]+)$/);
       if (reviewMatch && isValidWorkspace(reviewMatch[1])) {

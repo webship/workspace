@@ -29,10 +29,11 @@ const {
 } = require('./workspaces');
 const { esc } = require('./html');
 const { iconHtml } = require('./icons');
-const { run, jobFragment } = require('./jobs');
+const { run, jobFragment, runningJobKey } = require('./jobs');
 const { assistantHtml } = require('./assistant');
 const { SETTINGS_FILE_RE, settingsFormHtml, listSettingsFiles, listEditorHtml } = require('./settings');
 const { DDEV_ACTIONS, DDEV_MENU_ORDER } = require('./ddev');
+const { graphMenuHtml } = require('./graphs');
 const {
   defaultListState,
   searchSortPage,
@@ -552,6 +553,7 @@ async function projectRowsHtml(key, dir, state = defaultListState()) {
   const canBackup = !!findBackupScript(dir);
   const canRemove = !!findRemoveScript(dir);
   const canTest = fs.existsSync(path.join(dir, 'cmd-tools-testing.sh'));
+  const canGraph = fs.existsSync(path.join(dir, 'cmd-tools-graphify.sh'));
   const statuses = await ddevStatusMap();
   const url = `/fragments/${key}/projects`;
   const target = '#webship-workspace-projects';
@@ -633,6 +635,7 @@ async function projectRowsHtml(key, dir, state = defaultListState()) {
               </ul></div>
             </div>`;
           })()}
+          ${canGraph ? graphMenuHtml(key, p, vals, !!runningJobKey(`graphify:${key}/${p}`)) : ''}
           ${(() => {
             // Start, Stop and Launch are what a row is for; everything else goes behind one
             // button so a row reads at a glance instead of as eight controls.
