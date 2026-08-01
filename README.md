@@ -1,6 +1,19 @@
 # Webship Workspace
 
-Helps Drupal developers manage the base-code development work cycle for custom recipes/distributions/profiles/starter-kit templates, on top of [DDEV](https://ddev.com) — no host-level Apache, PHP, or MySQL required.
+A Drupal development workspace that runs entirely on [DDEV](https://ddev.com) — no host-level Apache, PHP or MySQL — with a web dashboard for the whole of it.
+
+Every project you build gets its own containers and its own database. Nothing is shared, nothing is
+installed on the host, and a fresh clone works with no setup: each script locates the workspace from
+its own path.
+
+What it is for, in one line each:
+
+- **Build** a Drupal, Drupal CMS or Webship site from a single command, or from a dropdown.
+- **Test** it with [webship-js](https://github.com/webship/webship-js) (Playwright + Cucumber-js),
+  scaffolded for you and reported back into the dashboard.
+- **Ask** it questions — a project's code as a queryable knowledge graph, its prose and config as a
+  searchable index, and an AI assistant on every page that can build, start and back things up.
+- **Release** the modules, themes and distributions the workspace holds.
 
 ## Layout
 
@@ -24,7 +37,15 @@ Each of the folders below holds a set of `cmd-*.sh` scripts. Running one builds 
     ~/workspace/graphs      Knowledge graphs of a project's code
     ~/workspace/rag         Vector databases and project RAG indexes
     ~/workspace/recipes     Drupal recipe packages
+    ~/workspace/prompts     Reusable AI prompts
+    ~/workspace/specs       Structured prompts and specifications
+    ~/workspace/videos      Screen recordings and their posters
+    ~/workspace/worklogs    Dated session worklogs
 ```
+
+`agents`, `skills`, `prompts`, `docs`, `specs`, `videos` and `worklogs` hold **files** rather than
+projects: markdown items you can write and edit in the dashboard, and install into
+`~/.claude/{agents,skills,commands}`.
 
 ### `core/`
 
@@ -55,14 +76,25 @@ vim ~/workspace/core/config/settings.yml
 ```
 
 ```yaml
-host: 127.0.0.1
-web: http://127.0.0.1/core
-protocol: http
 account:
   name: webmaster
   pass: CHANGE_ME
   mail: info@webship.co
-config_sync_directory: ../config/sync
+
+# How the dashboard looks: the palette, the marks, and what a list does before it pages.
+style:
+  workspace_name: Workspace
+  theme: default          # a directory under core/workspace-app/public/themes
+  mode: light             # light | dark | system — the half of the theme you see first
+  page_size: 50
+  page_sort: newest
+
+# The assistant panel. Voice is a preference about the room you work in.
+assistant:
+  voice_input: true
+  voice_output: true
+  intro: true
+
 workspaces:
   - products
   - dev
@@ -81,6 +113,9 @@ workspaces:
   - skills
   - prompts
   - docs
+  - specs
+  - videos
+  - worklogs
 ```
 
 Keep real passwords and API keys in your own copy — never commit them back.
@@ -137,9 +172,12 @@ Things you can do from the dashboard UI:
 - `/dev` → pick **"Drupal 11.4.0 (recommended project)"** from the Build
   dropdown, name it `blog1`, press **Build** — and watch the real terminal
   output stream until the site is installed at `https://blog1.ddev.site`.
-- Press **Stop** / **Start** / **Launch** on any project row (buttons follow
-  the live DDEV status), **Backup** to archive it, or open
-  `/dev/backups` to **Restore** an archive (files + automatic DB import).
+- Every project row carries four menus — **DDEV** (start, stop, launch, restart,
+  describe, logs, cache rebuild, login link, database export), **Graph**,
+  **RAG**, and **More** (tests, backup, remove). Each reports real state: a
+  stopped site is not offered a login link, and an unmapped project is only
+  offered "Build the graph".
+- `/dev/backups` to **Restore** an archive (files + automatic DB import).
 - `/agents` → **Generate with AI** → describe the agent you want; then
   **Install** it into `~/.claude/agents/` for Claude Code.
 - `/docs` → write a doc, press **PDF** or **HTML** to render it, or
@@ -155,6 +193,45 @@ Things you can ask the Workspace AI Assistant (it really does them):
 - "Generate an agent that reviews cmd- scripts and save it as cmd-linter"
 - "Write a doc about demo1 and make a PDF"
 
+
+### Themes
+
+The dashboard's stylesheet is assembled per request: a base layer, one file per component, then a
+theme. A theme is a single file that sets the tokens every component asks for, in both halves —
+dark is not a separate theme, it is the other half of the one you picked, which is why the toggle
+keeps working across all of them.
+
+```
+core/workspace-app/public/
+  css/base.css              structure — names no colour of its own
+  css/components/*.css      one file per component
+  themes/<name>/theme.css   the palette, light and dark
+  themes/<name>/logo.svg    optional: a mark drawn for that palette
+```
+
+Three ship — **Default**, **Slate**, **Ember** — and `style.theme` picks one. Adding a fourth is
+adding a directory: the settings dropdown is built from what is on disk.
+
+A theme may carry its own `logo.svg`, `logo-dark.svg` and `favicon.*`. A mark drawn for a purple
+dashboard is wrong on an amber one, so the logo travels with the palette unless `style.logo` names
+something else.
+
+### Testing the dashboard itself
+
+```
+cd ~/workspace/core/workspace-app
+ddev test-dashboard            # both halves
+ddev test-dashboard unit       # just the fast one
+ddev test-dashboard browser    # just webship-js
+```
+
+Two layers, both **inside DDEV**, because that is where the dashboard runs:
+
+- **Unit** — `node --test`, no dependencies. The list state, the theme assembly, and the action
+  registry, including the assertion that every path the interface posts to has a handler.
+- **Browser** — [webship-js](https://github.com/webship/webship-js) (Playwright + Cucumber-js), the
+  same stack the workspace scaffolds for every project it builds. The features are read-only: a
+  suite that mutates a working machine is one nobody runs twice.
 
 ## Building a project
 
@@ -192,6 +269,8 @@ vim cmd-example.sh
 #!/bin/usr/env bash
 
 # Bootstrap.
+# Find the workspace tooling from this script, so a fresh clone needs no setup.
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
 source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.

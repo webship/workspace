@@ -124,4 +124,49 @@ function cssVersion(themeName) {
   return Math.floor(newest);
 }
 
-module.exports = { listThemes, themeLabel, resolveTheme, assembleCss, cssVersion, THEMES_DIR };
+/**
+ * The brand mark a theme carries, if it carries one.
+ *
+ * A palette and a logo are the same decision: a mark drawn for a purple dashboard is wrong on an
+ * amber one. So a theme may ship its own — `themes/<name>/logo.svg`, `logo-dark.svg`, `favicon.*` —
+ * and the settings keys stay as the override for a workspace that wants its own mark whatever the
+ * theme says.
+ *
+ * Resolution, in order: what settings.yml names, then what the theme ships, then what is in
+ * public/. Each step falls through only when the file is not there, so naming a file that does not
+ * exist shows the theme's mark rather than a broken image.
+ */
+function themeAsset(themeName, names) {
+  const theme = resolveTheme(themeName);
+  if (!theme) return null;
+  for (const n of names) {
+    if (fs.existsSync(path.join(THEMES_DIR, theme, n))) return `/themes/${theme}/${n}`;
+  }
+  return null;
+}
+
+// The three marks a page needs, each resolved the same way.
+function themeLogos(themeName, style) {
+  const shipped = (names) => themeAsset(themeName, names);
+  const set = (configured, names) => {
+    // A configured name wins, but only if the file is really in public/ — otherwise it is a
+    // broken image where a mark should be.
+    if (configured && fs.existsSync(path.join(PUBLIC_DIR, configured))) return `/${configured}`;
+    return shipped(names) || (configured ? `/${configured}` : null);
+  };
+  // What ships, when neither the settings nor the theme names a mark: the Webship logo, in the
+  // variant that suits the background.
+  const shippedLogo = fs.existsSync(path.join(PUBLIC_DIR, 'logo.svg')) ? '/logo.svg' : '/logo.png';
+  const shippedDark = fs.existsSync(path.join(PUBLIC_DIR, 'logo-dark.svg')) ? '/logo-dark.svg' : shippedLogo;
+  const shippedIcon = fs.existsSync(path.join(PUBLIC_DIR, 'favicon.ico')) ? '/favicon.ico' : shippedLogo;
+  const logo = set(style.logo, ['logo.svg', 'logo.png']) || shippedLogo;
+  return {
+    logo,
+    logoOnDark: set(style.logoOnDark, ['logo-dark.svg', 'logo-dark.png'])
+      || (logo === shippedLogo ? shippedDark : logo),
+    favicon: set(style.favicon, ['favicon.svg', 'favicon.png', 'favicon.ico'])
+      || (logo === shippedLogo ? shippedIcon : logo),
+  };
+}
+
+module.exports = { listThemes, themeLabel, resolveTheme, assembleCss, cssVersion, themeLogos, THEMES_DIR };

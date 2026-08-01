@@ -32,6 +32,24 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/b
        uv tool install 'graphifyy[sql]==0.9.28' --with 'mcp<2' \
     && graphify --version
 
+# The browser webship-js drives, plus the system libraries it needs. Chromium only: the suite
+# asserts behaviour, not rendering differences between engines.
+#
+# The apt dance is the same one the automated-testing builder does: a third-party PHP repository
+# with an expired signing key is enabled in this image, and `apt-get update` fails while it is —
+# which makes playwright's own dependency install fail with a message about chromium rather than
+# about apt. The list is parked for the install and put straight back.
+#
+# playwright-core rather than the playwright CLI: the package that ships the browser downloader is
+# already a dependency of webship-js, so nothing extra is installed to install it.
+RUN npm install -g playwright-core@1.56.0 \
+    && mkdir -p /tmp/apt-off \
+    && (mv /etc/apt/sources.list.d/php.list /tmp/apt-off/ 2>/dev/null || true) \
+    && apt-get update -qq \
+    && npx --yes playwright-core@1.56.0 install --with-deps chromium \
+    && (mv /tmp/apt-off/php.list /etc/apt/sources.list.d/ 2>/dev/null || true) \
+    && rm -rf /var/lib/apt/lists/*
+
 # The host's /var/run/docker.sock (bind-mounted in) is owned by root:docker
 # with the HOST's docker group GID — find yours with `getent group docker`
 # and adjust the 984 below if it differs. It must be the web user's PRIMARY

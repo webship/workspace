@@ -58,7 +58,7 @@ function styleSettings() {
   // A filename under public/, not a path or a URL: everything is served locally, and a settings
   // file that could point the logo at another host would be a way to make this page load one.
   const asset = (v, fallback) => (typeof v === 'string' && /^[A-Za-z0-9._-]+$/.test(v) && !v.startsWith('.') ? v : fallback);
-  const logo = asset(s.logo, 'logo.png');
+  const logo = asset(s.logo, '');
   return {
     workspaceName: typeof s.workspace_name === 'string' && s.workspace_name.trim()
       ? s.workspace_name.trim() : 'workspace',
@@ -67,11 +67,11 @@ function styleSettings() {
     // Which palette the dashboard wears. Validated against what is on disk by themes.js rather
     // than against a list here, so adding a theme is adding a directory.
     theme: typeof s.theme === 'string' && /^[a-z0-9-]+$/.test(s.theme) ? s.theme : 'default',
+    // Empty is meaningful: it means the theme's mark, and the shipped logo.png only if no theme
+    // carries one. A name here overrides both.
     logo,
-    // Falls back to the one logo rather than to a second file that may not exist: most marks read
-    // on both surfaces, and a broken image is worse than a slightly dim one.
-    logoOnDark: asset(s.logo_on_dark, logo),
-    favicon: asset(s.favicon, logo),
+    logoOnDark: asset(s.logo_on_dark, ''),
+    favicon: asset(s.favicon, ''),
   };
 }
 
