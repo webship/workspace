@@ -16,3 +16,63 @@ presentation:
   subtitle: Vector Databases & Project RAG Indexes
   noun: instance
   kind: projects
+  also_files: true
+
+# Milvus, self-hosted in DDEV (rag/cmd-milvus-project.sh).
+# These are the DEFAULTS for that command; every one is overridable per run by the matching
+# argument, so a one-off instance needs no settings edit.
+milvus:
+  # Default project name, and so the hostname:
+  #   bash cmd-milvus-project.sh milvus
+  # gives https://milvus.rag.workspace.ddev.site (Attu, the web UI) and the canonical
+  # https://milvus.ddev.site. More than one instance is fine — each gets its own etcd, object
+  # store and gRPC port.
+  project: milvus
+  # Milvus image tag. 2.6.x is the mature line; its standalone mode needs etcd (metadata) and
+  # MinIO (segments) and uses the built-in Woodpecker WAL, so no Pulsar or Kafka.
+  # v3.0.0 was released 2026-07-29 — new enough that the default stays on 2.6 until it has run
+  # here for a while. Override per run with --milvus-version.
+  version: "v2.6.21"
+  # Attu, the Milvus web UI (https://github.com/zilliztech/attu). The 3.0.0 tags are betas, so
+  # the default is the newest stable 2.6 line.
+  attu_version: "v2.6.5"
+  # The gRPC/REST port Milvus is published on, on the HOST. The DDEV router serves HTTP(S) only,
+  # so a client outside the project's network — pymilvus on this machine, the MCP server, a
+  # notebook — reaches Milvus on 127.0.0.1:<this>. Taken as the first free port from here up, so
+  # a second instance does not fail to start.
+  grpc_port: 19530
+  # Which hostname Attu is served on: `hub` is <project>.rag.workspace.ddev.site, `canonical` is
+  # <project>.ddev.site, anything else is used verbatim.
+  public_uri: hub
+  # Milvus authentication. Off by default: this is a local development database on a DDEV
+  # network, and every tool here would otherwise need the credential threaded through it. Set
+  # `authorization: true` and Milvus enforces its default root:Milvus login (change the password
+  # inside Milvus after the first start).
+  authorization: false
+  token: "root:Milvus"
+  # The Milvus MCP server (rag/cmd-milvus-mcp.sh) — what gives the Claude Code CLI its
+  # milvus_* tools. PyPI ships it under pre-release version numbers only, so the pin carries the
+  # .devN suffix; uvx refuses a bare `mcp-server-milvus` without one.
+  mcp:
+    package: "mcp-server-milvus==0.1.1.dev9"
+
+# How cmd-tools-ragify.sh indexes a project into that database.
+rag:
+  # Collection naming: <prefix>_<workspace>_<project>, non-alphanumerics folded to _ because
+  # Milvus collection names allow letters, digits and underscore only.
+  collection_prefix: ws
+  # Retrieval mode.
+  #   bm25   — Milvus's built-in BM25 function builds the sparse vectors inside the database.
+  #            No model, no API key, nothing leaves this machine. THE DEFAULT.
+  #   openai — additionally embeds each chunk with the OpenAI API (the key in settings.yml) and
+  #            searches dense + sparse together. Better on paraphrase; it does send every indexed
+  #            chunk to OpenAI, so it is opt-in per run (--embedding openai).
+  embedding: bm25
+  openai_model: text-embedding-3-small
+  # Chunking. Lines rather than tokens: a code chunk that keeps whole lines is one you can open
+  # at the reported line number, and the overlap keeps a function that straddles a boundary
+  # findable from either side.
+  chunk_lines: 60
+  chunk_overlap: 10
+  # Files larger than this are skipped — a 4 MB minified library is not prose worth retrieving.
+  max_file_kb: 512

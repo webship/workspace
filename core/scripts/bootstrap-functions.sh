@@ -24,6 +24,15 @@ source ${WORKSPACE_SCRIPTS}/functions/fun-testing.sh || exit 1 ;
 # Include graphify (knowledge graph) functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-graphify.sh || exit 1 ;
 
+# Include Milvus (the vector database behind RAG) functions.
+source ${WORKSPACE_SCRIPTS}/functions/fun-milvus.sh || exit 1 ;
+
+# Include ragify (building a project's RAG index) functions.
+source ${WORKSPACE_SCRIPTS}/functions/fun-ragify.sh || exit 1 ;
+
+# Include rag workspace (the index store) functions.
+source ${WORKSPACE_SCRIPTS}/functions/fun-rag.sh || exit 1 ;
+
 # Include graphs workspace (the graph store) functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-graphs.sh || exit 1 ;
 
