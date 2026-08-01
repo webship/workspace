@@ -34,7 +34,7 @@ const { graphStoreDir, GRAPH_FILES } = require('./graphs');
 const { milvusPost, ragInstanceFor, ragCollectionName, ragCollections } = require('./rag');
 const { iconHtml, tablerIcons } = require('./icons');
 const { assembleCss } = require('./themes');
-const { commandRowsHtml, commandFile } = require('./commands');
+const { commandRowsHtml, commandFile, toolingRepo } = require('./commands');
 const { run, jobs, runningJobKey, startJob, jobFragment } = require('./jobs');
 const { assistantReply } = require('./assistant');
 const {
@@ -407,6 +407,96 @@ const server = http.createServer(async (req, res) => {
         const state = readListState(req);
         setListCookies(res, state);
         const body = commandRowsHtml(state);
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(body);
+      }
+      // Creating a command: by hand in the editor, or written by the AI. One form, because the
+      // choice is the same decision made twice and two forms would drift apart.
+      const cmdNewMatch = pathname.match(/^\/fragments\/commands\/new(?:\/([a-z0-9_-]+))?$/);
+      if (cmdNewMatch) {
+        const preset = cmdNewMatch[1] && isValidWorkspace(cmdNewMatch[1]) ? cmdNewMatch[1] : '';
+        const options = Object.entries(loadWorkspaces())
+          .filter(([, m]) => m.kind !== 'files')
+          .map(([k, m]) => `<option value="${esc(k)}"${k === preset ? ' selected' : ''}>${esc(m.label)}</option>`).join('');
+        const body = `
+    <div class="uk-card uk-card-default uk-card-body editor-card">
+      <h3 class="uk-margin-small-bottom">New command</h3>
+      <p class="uk-text-meta">A command lives in the workspace it runs from, and is named <code>cmd-&lt;something&gt;.sh</code>.
+        Either way you get the bootstrap chain, the settings load and the argparse block already right.</p>
+      <div class="uk-grid uk-grid-small uk-margin-small-bottom" uk-grid>
+        <div class="uk-width-1-3@s">
+          <label class="uk-text-meta">Workspace
+            <select class="uk-select" id="cmd-new-target" name="target">${options}</select></label>
+        </div>
+        <div class="uk-width-1-3@s">
+          <label class="uk-text-meta">File name
+            <input class="uk-input" id="cmd-new-name" name="newName" placeholder="cmd-my-thing.sh"
+                   pattern="cmd-[a-zA-Z0-9_.\\-]+\\.sh" required></label>
+        </div>
+        <div class="uk-width-1-3@s">
+          <label class="uk-text-meta">Shown as (optional)
+            <input class="uk-input" id="cmd-new-label" name="label" placeholder="Drupal 11.4 (recommended project)"></label>
+        </div>
+      </div>
+      <ul uk-tab class="uk-margin-small-bottom">
+        <li class="uk-active"><a href>Write it myself</a></li>
+        <li><a href>Have the AI write it</a></li>
+      </ul>
+      <ul class="uk-switcher">
+        <li>
+          <p class="uk-text-meta">Creates the scaffold and nothing else — open it in the editor afterwards to fill it in.</p>
+          <button class="uk-button uk-button-primary" hx-post="/actions/command-new"
+                  hx-include="#cmd-new-target, #cmd-new-name, #cmd-new-label"
+                  hx-target="#webship-workspace-output" hx-swap="innerHTML">
+            <span uk-icon="icon: file-add; ratio: .8"></span> Create the scaffold</button>
+        </li>
+        <li>
+          <p class="uk-text-meta">Describe what it should do. It reads the workspace and the other commands first, so what it
+            writes matches how they are written.</p>
+          <textarea class="uk-textarea" id="cmd-new-desc" name="description" rows="4"
+                    placeholder="Back up every project in this workspace, oldest first, keeping the last five archives"></textarea>
+          <p class="uk-margin-small-top">
+            <button class="uk-button uk-button-secondary" hx-post="/actions/command-generate"
+                    hx-include="#cmd-new-target, #cmd-new-name, #cmd-new-desc"
+                    hx-target="#webship-workspace-output" hx-swap="innerHTML">
+              <span uk-icon="icon: bolt; ratio: .8"></span> Write it with AI</button>
+          </p>
+        </li>
+      </ul>
+      <div class="uk-margin-small-top"><button type="button" class="uk-button uk-button-default uk-modal-close">Close</button></div>
+    </div>`;
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(body);
+      }
+      // Proposing one back: the summary is not optional in practice — it becomes the issue.
+      const cmdProposeMatch = pathname.match(/^\/fragments\/commands\/propose\/([a-z0-9_-]+)\/([a-zA-Z0-9_%.-]+)$/);
+      if (cmdProposeMatch) {
+        const [, wsKey, rawName] = cmdProposeMatch;
+        const name = decodeURIComponent(rawName);
+        if (!commandFile(wsKey, name)) { res.writeHead(404); return res.end('not a command'); }
+        const { repo, ref } = toolingRepo();
+        const vals = `hx-vals='{"workspace":"${esc(wsKey)}","file":"${esc(name)}"}'`;
+        const body = `
+    <div class="uk-card uk-card-default uk-card-body editor-card">
+      <h3 class="uk-margin-small-bottom">Propose ${esc(wsKey)}/${esc(name)}</h3>
+      <p class="uk-text-meta">To <strong>${esc(repo)}</strong>, against <code>${esc(ref)}</code>.
+        Nothing is pushed from here: the agent files an issue and opens a pull request, leaves the
+        human-review boxes unticked, and never merges.</p>
+      <label class="uk-text-meta">What is it for? This becomes the issue and the pull request description.
+        <textarea class="uk-textarea" id="cmd-propose-summary" name="summary" rows="3"
+                  placeholder="Builds a Drupal 11.4 site with the testing stack already configured"></textarea></label>
+      <div class="uk-margin-small-top">
+        <button class="uk-button uk-button-default" hx-post="/actions/command-propose" ${vals}
+                hx-include="#cmd-propose-summary" hx-target="#webship-workspace-output" hx-swap="innerHTML">
+          <span uk-icon="icon: search; ratio: .8"></span> Show me the plan</button>
+        <button class="uk-button uk-button-primary arm-step" data-armed="0"
+                hx-post="/actions/command-propose" hx-vals='{"workspace":"${esc(wsKey)}","file":"${esc(name)}","confirm":"yes"}'
+                hx-include="#cmd-propose-summary" hx-trigger="confirmed-remove"
+                hx-target="#webship-workspace-output" hx-swap="innerHTML">
+          <span uk-icon="icon: git-pull-request; ratio: .8"></span> Open the pull request</button>
+        <button type="button" class="uk-button uk-button-default uk-modal-close">Close</button>
+      </div>
+    </div>`;
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(body);
       }
