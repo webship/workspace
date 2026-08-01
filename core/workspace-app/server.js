@@ -50,6 +50,7 @@ const { esc } = require('./html');
 const { readListState, setListCookies } = require('./lists');
 const { DDEV_ACTIONS } = require('./ddev');
 const { graphStoreDir, GRAPH_FILES } = require('./graphs');
+const { milvusPost, ragInstanceFor, ragCollectionName, ragCollections } = require('./rag');
 const { iconHtml, tablerIcons } = require('./icons');
 const { run, jobs, runningJobKey, startJob, jobFragment } = require('./jobs');
 const { assistantReply } = require('./assistant');
@@ -606,6 +607,97 @@ async function handleAction(pathname, form, res) {
     return send(jobFragment(id).html);
   }
 
+  if (pathname === '/actions/ragify') {
+    const dir = workspaceDir(workspace);
+    const script = 'cmd-tools-ragify.sh';
+    const projectName = String(form.projectName || '');
+    if (!fs.existsSync(path.join(dir, script))) return send('<div class="msg error">This workspace has no ragify script.</div>', 400);
+    if (!NAME_RE.test(projectName) || !listProjects(dir).includes(projectName)) {
+      return send('<div class="msg error">Unknown project.</div>', 400);
+    }
+    // Two indexers writing one collection interleave their upserts, and the result is a
+    // collection that is neither run's.
+    const jobKey = `ragify:${workspace}/${projectName}`;
+    if (runningJobKey(jobKey)) {
+      return send('<div class="msg error">This project is already being indexed.</div>', 409);
+    }
+    const state = await ragCollections(ragInstanceFor(workspace, projectName));
+    if (!state || !state.up) {
+      return send(`<div class="msg error">${esc(ragInstanceFor(workspace, projectName))} is not running — start it in the RAG workspace first.</div>`, 409);
+    }
+    // The default mode is BM25: Milvus builds the sparse vectors itself, so no model, no key, and
+    // nothing leaves this machine. Dense embeddings are opt-in from the command line.
+    const id = startJob(`📚 Index <strong>${esc(projectName)}</strong>`, 'bash', [script, projectName], dir,
+      { timeoutMs: 60 * 60 * 1000, echoLine: `bash ${script} ${projectName}`, key: jobKey });
+    return send(jobFragment(id).html);
+  }
+
+  if (pathname === '/actions/rag-info') {
+    const projectName = String(form.projectName || '');
+    if (!NAME_RE.test(projectName)) return send('<div class="msg error">Unknown project.</div>', 400);
+    const instance = ragInstanceFor(workspace, projectName);
+    const collection = ragCollectionName(workspace, projectName);
+    const stats = await milvusPost('/v2/vectordb/collections/describe', { collectionName: collection }, 6000, instance);
+    if (!stats || stats.code !== 0) {
+      return send(`<div class="msg error">Could not read ${esc(collection)} from ${esc(instance)}.</div>`, 409);
+    }
+    const count = await milvusPost('/v2/vectordb/entities/query',
+      { collectionName: collection, filter: 'id >= 0', outputFields: ['count(*)'], limit: 1 }, 8000, instance);
+    const chunks = count && count.code === 0 && count.data && count.data[0] ? count.data[0]['count(*)'] : null;
+    const fields = (stats.data.fields || []).map((f) => f.name).join(', ');
+    const functions = (stats.data.functions || []).map((f) => `${f.name} (${f.type})`).join(', ');
+    return send(`
+      <div class="msg assistant">
+        <p><strong>${esc(collection)}</strong> on <strong>${esc(instance)}</strong></p>
+        <pre>chunks:    ${chunks === null ? 'unknown' : esc(String(chunks))}
+fields:    ${esc(fields || '—')}
+functions: ${esc(functions || '—')}</pre>
+        <p class="uk-text-meta">A function is what builds the sparse vector inside the database — that is
+        what BM25 mode means, and why indexing needs no model and no key.</p>
+      </div>`);
+  }
+
+  if (pathname === '/actions/rag-remove') {
+    if (form.confirm !== 'yes') return send('<div class="msg error">Deleting requires confirmation.</div>', 400);
+    const projectName = String(form.projectName || '');
+    if (!NAME_RE.test(projectName)) return send('<div class="msg error">Unknown project.</div>', 400);
+    if (runningJobKey(`ragify:${workspace}/${projectName}`)) {
+      return send('<div class="msg error">This project is being indexed — wait for it to finish.</div>', 409);
+    }
+    const instance = ragInstanceFor(workspace, projectName);
+    const collection = ragCollectionName(workspace, projectName);
+    // Milvus's drop is idempotent and answers code 0 for a collection that was never there, so
+    // without this the dashboard would report having deleted something that did not exist.
+    const state = await ragCollections(instance);
+    if (!state || !state.up) {
+      return send(`<div class="msg error">${esc(instance)} is not running — nothing can be dropped while it is down.</div>`, 409);
+    }
+    if (!state.list.includes(collection)) {
+      return send(`<div class="msg error">No index to delete — ${esc(collection)} is not in ${esc(instance)}.</div>`, 404);
+    }
+    const out = await milvusPost('/v2/vectordb/collections/drop', { collectionName: collection }, 10000, instance);
+    if (!out || out.code !== 0) {
+      return send(`<div class="msg error">Could not drop ${esc(collection)}: ${esc((out && out.message) || 'no answer from ' + instance)}</div>`, 409);
+    }
+    res.setHeader('HX-Trigger', 'refresh-projects');
+    return send(`<div class="msg assistant">🗑️ Dropped <strong>${esc(collection)}</strong>. It is regenerable — index the project again whenever you need it.</div>`);
+  }
+
+  if (pathname === '/actions/rag-mcp-command') {
+    const projectName = String(form.projectName || '');
+    if (!NAME_RE.test(projectName)) return send('<div class="msg error">Unknown project.</div>', 400);
+    const instance = ragInstanceFor(workspace, projectName);
+    const collection = ragCollectionName(workspace, projectName);
+    return send(`
+      <div class="msg assistant">
+        <p>Serve <strong>${esc(collection)}</strong> to the Claude Code CLI:</p>
+        <pre>cd ~/workspace/rag &amp;&amp; bash cmd-milvus-mcp.sh ${esc(instance)}</pre>
+        <p class="uk-text-meta">Run it <strong>on the host</strong>. It prints the <code>claude mcp add</code> line for this
+        instance, including the gRPC port it was published on — the database is reached on 127.0.0.1 from
+        outside its own network, so the port is the part worth not guessing.</p>
+      </div>`);
+  }
+
   if (pathname === '/actions/graphify') {
     const dir = workspaceDir(workspace);
     const script = 'cmd-tools-graphify.sh';
@@ -818,6 +910,71 @@ const server = http.createServer(async (req, res) => {
             </form>
           </div>`);
       }
+      // Searching an index, in the dialog. A GET renders the form; the same path with ?q= runs the
+      // search, so the form posts to itself and there is one route rather than two.
+      const ragSearchMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/rag-search\/([a-zA-Z0-9_%.-]+)$/);
+      if (ragSearchMatch && isValidWorkspace(ragSearchMatch[1])) {
+        const wsKey = ragSearchMatch[1];
+        const project = decodeURIComponent(ragSearchMatch[2]);
+        if (!NAME_RE.test(project)) { res.writeHead(400); return res.end('bad name'); }
+        const q = String(new URL(req.url, 'http://localhost').searchParams.get('q') || '').trim().slice(0, 500);
+        const instance = ragInstanceFor(wsKey, project);
+        const collection = ragCollectionName(wsKey, project);
+        const url = `/fragments/${encodeURIComponent(wsKey)}/rag-search/${encodeURIComponent(project)}`;
+
+        let results = '';
+        if (q) {
+          // Sparse search against the BM25 function the collection carries. `data` is the raw
+          // query text: the database embeds it with the same function it indexed with, which is
+          // the whole point of building the vectors inside Milvus.
+          const body = await milvusPost('/v2/vectordb/entities/search', {
+            collectionName: collection,
+            data: [q],
+            annsField: 'sparse',
+            limit: 10,
+            outputFields: ['path', 'start_line', 'end_line', 'text'],
+          }, 15000, instance);
+          if (!body || body.code !== 0) {
+            results = `<div class="msg error">${esc((body && body.message) || `No answer from ${instance}.`)}</div>`;
+          } else if (!body.data || !body.data.length) {
+            results = `<p class="uk-text-meta">Nothing in ${esc(collection)} matches “${esc(q)}”.</p>`;
+          } else {
+            // A chunk is a line RANGE, and the range is what makes a hit openable: it is the
+            // difference between "it is in this file" and "it is at this line".
+            results = body.data.map((hit) => {
+              const lines = hit.start_line ? `${hit.start_line}${hit.end_line && hit.end_line !== hit.start_line ? `–${hit.end_line}` : ''}` : '';
+              return `
+              <div class="rag-hit">
+                <div class="rag-hit-head"><code>${esc(String(hit.path || '?'))}${lines ? `:${esc(lines)}` : ''}</code><span class="uk-text-meta">score ${esc(String(Math.round((hit.distance || 0) * 1000) / 1000))}</span></div>
+                <pre>${esc(String(hit.text || '').slice(0, 1200))}</pre>
+              </div>`;
+            }).join('');
+          }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(`
+    <div class="uk-card uk-card-default uk-card-body editor-card">
+      <h3 class="uk-margin-small-bottom">Search ${esc(project)}</h3>
+      <p class="uk-text-meta">${esc(collection)} on ${esc(instance)} — the prose, templates and config a graph does not read.</p>
+      <div class="list-controls">
+        <div class="lc-group lc-find">
+          <input class="uk-input uk-form-small list-search" type="search" name="q" value="${esc(q)}"
+                 placeholder="Ask it something…" aria-label="Search this index" autofocus
+                 hx-get="${esc(url)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
+                 hx-trigger="keyup[key=='Enter'], search">
+          <button class="uk-button uk-button-primary uk-button-small" type="button"
+                  hx-get="${esc(url)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
+                  hx-include="closest .list-controls"><span uk-icon="icon: search; ratio: .7"></span> Search</button>
+        </div>
+      </div>
+      <div class="rag-results">${results}</div>
+      <div class="uk-margin-small-top">
+        <button type="button" class="uk-button uk-button-default uk-modal-close">Close</button>
+      </div>
+    </div>`);
+      }
+
       // The graph as a single archive, to hand to another workspace. Streamed straight out of
       // tar: a graph runs to tens of megabytes and buffering it would hold the whole thing in the
       // app's memory.
