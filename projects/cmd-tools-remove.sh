@@ -24,7 +24,13 @@ cd ${WORKSPACE_ROOT}/${doc_name};
 if [ -d "${PROJECT_NAME}" ]; then
   echo "--------------";
   (cd ${PROJECT_NAME} && ddev delete -y -O 2>/dev/null) ;
-  sudo rm -rf ${PROJECT_NAME}
-  echo "Deleted: ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}";
+  # DDEV projects are owned by the user running them, so no sudo: under the
+  # dashboard (stdin closed) a sudo prompt would fail and leave the files.
+  rm -rf ${PROJECT_NAME}
+  if [ -d "${PROJECT_NAME}" ]; then
+    echo "Could not delete: ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}";
+  else
+    echo "Deleted: ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}";
+  fi
   echo "--------------";
 fi

@@ -35,6 +35,7 @@ const { SETTINGS_FILE_RE, settingsFormHtml, listSettingsFiles, listEditorHtml } 
 const { DDEV_ACTIONS, DDEV_MENU_ORDER } = require('./ddev');
 const { graphMenuHtml } = require('./graphs');
 const { cssVersion, themeLogos } = require('./themes');
+const { commandRowsHtml } = require('./commands');
 const { ragMenuHtml, ragInstanceFor, ragCollections } = require('./rag');
 const {
   defaultListState,
@@ -297,10 +298,12 @@ function editorFormHtml(key, name, content, isNew) {
     </div>`;
 }
 // Only the workspace's own configuration is editable here — never an arbitrary path.
-function settingsPage(section) {
+function settingsPage(section, state = defaultListState()) {
   const files = listSettingsFiles();
-  const current = files.includes(section) ? section : files[0];
-  const tabs = files.map((f) => `
+  const isCommands = section === 'commands';
+  const current = isCommands ? null : (files.includes(section) ? section : files[0]);
+  const tabs = `<a class="uk-button uk-button-${isCommands ? 'primary' : 'default'} uk-button-small"
+       href="/settings/commands">commands</a> ` + files.map((f) => `
     <a class="uk-button uk-button-${f === current ? 'primary' : 'default'} uk-button-small"
        href="/settings/${encodeURIComponent(f)}">${esc(f.replace(/^workspace\.|\.settings\.yml$/g, '') || f)}</a>`).join(' ');
   return pageShell('Settings · workspace', `
@@ -308,14 +311,19 @@ function settingsPage(section) {
   <div class="uk-flex uk-flex-middle page-heading">
     <span class="page-heading-icon"><span uk-icon="icon: cog; ratio: 1.1"></span></span>
     <div>
-      <h1 class="uk-margin-remove">Settings</h1>
-      <span class="uk-text-meta">${esc(CONFIG_DIR)}</span>
+      <h1 class="uk-margin-remove">${isCommands ? 'Commands' : 'Settings'}</h1>
+      <span class="uk-text-meta">${isCommands ? 'Every cmd-*.sh in the workspace, in the folder it runs from' : esc(CONFIG_DIR)}</span>
     </div>
   </div>
   <div class="uk-card uk-card-default uk-card-body">
     <p>${tabs || '<span class="uk-text-meta">No settings files found.</span>'}</p>
-    ${current ? settingsFormHtml(current) : ''}
+    ${isCommands
+      ? `<div id="webship-workspace-projects" hx-get="/fragments/commands/list" hx-trigger="refresh-projects from:body">
+           ${commandRowsHtml(state)}
+         </div>`
+      : (current ? settingsFormHtml(current) : '')}
     <div id="settings-output"></div>
+    <div id="webship-workspace-output"></div>
   </div>
 </main>`, [{ label: 'Workspaces', href: HOME_URL() }, { label: 'Settings' }], 'settings');
 }

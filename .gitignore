@@ -28,3 +28,6 @@
 # Node dependencies (workspace-app)
 node_modules/
 .playwright-mcp/
+
+# The local mirror of the tooling repository, fetched by commands/cmd-tools-commands.sh.
+commands/workspace-repo/

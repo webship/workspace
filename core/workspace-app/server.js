@@ -34,6 +34,7 @@ const { graphStoreDir, GRAPH_FILES } = require('./graphs');
 const { milvusPost, ragInstanceFor, ragCollectionName, ragCollections } = require('./rag');
 const { iconHtml, tablerIcons } = require('./icons');
 const { assembleCss } = require('./themes');
+const { commandRowsHtml, commandFile } = require('./commands');
 const { run, jobs, runningJobKey, startJob, jobFragment } = require('./jobs');
 const { assistantReply } = require('./assistant');
 const {
@@ -124,6 +125,7 @@ const ACTIONS = {
   ...require('./actions/graphs'),
   ...require('./actions/rag'),
   ...require('./actions/assistant'),
+  ...require('./actions/commands'),
 };
 
 // Actions that carry no workspace to validate: the assistant is asked about anything, status is
@@ -401,6 +403,41 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return fs.createReadStream(real).pipe(res);
       }
+      if (pathname === '/fragments/commands/list') {
+        const state = readListState(req);
+        setListCookies(res, state);
+        const body = commandRowsHtml(state);
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(body);
+      }
+      const cmdEditMatch = pathname.match(/^\/fragments\/commands\/edit\/([a-z0-9_-]+)\/([a-zA-Z0-9_%.-]+)$/);
+      if (cmdEditMatch) {
+        const [, wsKey, rawName] = cmdEditMatch;
+        const name = decodeURIComponent(rawName);
+        const full = commandFile(wsKey, name);
+        if (!full) { res.writeHead(404); return res.end('not a command'); }
+        const content = fs.readFileSync(full, 'utf8');
+        const lines = content.split('\n').length;
+        // data-ace="sh": the same editor the markdown items get, in shell mode — which the
+        // vendored markdown mode file already defines, so no extra download.
+        const body = `
+    <div class="uk-card uk-card-default uk-card-body editor-card">
+      <h3 class="uk-margin-small-bottom">${esc(wsKey)}/${esc(name)}</h3>
+      <p class="uk-text-meta">${lines} lines · runs from <code>${esc(wsKey)}/</code></p>
+      <form hx-post="/actions/command-save" hx-target="#webship-workspace-output" hx-swap="innerHTML">
+        <input type="hidden" name="workspace" value="${esc(wsKey)}">
+        <input type="hidden" name="file" value="${esc(name)}">
+        <textarea class="uk-textarea editor-area" name="content" rows="20" spellcheck="false"
+                  data-ace="sh" aria-label="${esc(name)}">${esc(content)}</textarea>
+        <div class="uk-margin-small-top">
+          <button type="submit" class="uk-button uk-button-primary"><span uk-icon="icon: check; ratio: .8"></span> Save</button>
+          <button type="button" class="uk-button uk-button-default uk-modal-close">Close</button>
+        </div>
+      </form>
+    </div>`;
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(body);
+      }
       const reviewMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/review\/([a-zA-Z0-9_%.-]+)$/);
       if (reviewMatch && isValidWorkspace(reviewMatch[1])) {
         const key = reviewMatch[1];
@@ -523,7 +560,8 @@ const server = http.createServer(async (req, res) => {
 
       if (pathname === '/settings' || pathname.startsWith('/settings/')) {
         const wanted = decodeURIComponent(pathname.slice('/settings/'.length) || '');
-        const body = settingsPage(SETTINGS_FILE_RE.test(wanted) ? wanted : '');
+        const section = wanted === 'commands' || SETTINGS_FILE_RE.test(wanted) ? wanted : '';
+        const body = settingsPage(section, readListState(req));
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(body);
       }
