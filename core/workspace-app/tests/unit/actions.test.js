@@ -18,6 +18,7 @@ const ACTIONS = {
   ...require('../../actions/graphs'),
   ...require('../../actions/rag'),
   ...require('../../actions/assistant'),
+  ...require('../../actions/commands'),
 };
 const { DDEV_ACTIONS, DDEV_MENU_ORDER } = require('../../ddev');
 
@@ -75,5 +76,13 @@ test('every DDEV entry has what both halves need', () => {
     assert.ok(Array.isArray(a.args) && a.args.length, `${path} has no command`);
     assert.ok(a.label && a.menuLabel && a.menuIcon, `${path} is missing its menu text`);
     assert.ok(a.ms > 0, `${path} has no timeout`);
+  }
+});
+
+test('the commands actions are registered and shell out rather than reimplementing', () => {
+  // Every one of these has a matching verb in commands/cmd-tools-commands.sh; the point of the
+  // dashboard half is the job toast, not a second implementation.
+  for (const n of ['command-list-remote', 'command-diff', 'command-pull', 'command-propose', 'command-save']) {
+    assert.ok(ACTIONS[`/actions/${n}`], `/actions/${n} is not registered`);
   }
 });
