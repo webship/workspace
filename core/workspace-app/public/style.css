@@ -1590,3 +1590,12 @@ html.dark .review-image { border-color: #2b3049; }
   padding: 1.5rem;
   text-align: center;
 }
+
+/* The graph report in the dialog: it is Markdown, shown as what it is. */
+.graph-report {
+  max-height: min(60vh, 34rem);
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}

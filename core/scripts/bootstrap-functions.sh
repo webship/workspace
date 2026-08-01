@@ -21,5 +21,11 @@ source ${WORKSPACE_SCRIPTS}/functions/fun-build-distribution.sh || exit 1 ;
 # Include automated-testing functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-testing.sh || exit 1 ;
 
+# Include graphify (knowledge graph) functions.
+source ${WORKSPACE_SCRIPTS}/functions/fun-graphify.sh || exit 1 ;
+
+# Include graphs workspace (the graph store) functions.
+source ${WORKSPACE_SCRIPTS}/functions/fun-graphs.sh || exit 1 ;
+
 # Include structured-prompt (spec) functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-spdd.sh || exit 1 ;

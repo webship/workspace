@@ -19,6 +19,19 @@ RUN curl -fsSL https://github.com/ddev/ddev/releases/download/v1.24.7/ddev_linux
 # bind-mounted in via docker-compose.dood.yaml.
 RUN npm install -g @anthropic-ai/claude-code
 
+# graphify (github.com/Graphify-Labs/graphify) parses a codebase with tree-sitter into a knowledge
+# graph. Installed with uv rather than pip: this base image has no pip at all, and Debian's python
+# is externally managed (PEP 668), so a virtual environment is the supported way in — which is what
+# `uv tool install` makes. Pinned, because graphify's node-id scheme changed inside 0.9.x and its
+# CLI ignores unknown flags, so an unpinned upgrade degrades quietly instead of failing.
+#
+# The mcp extra is pinned below 2 separately: graphify 0.9.28 imports `AnyUrl` from a module mcp
+# 2.x moved, and the failure surfaces only as "Connection closed" from whatever tries to use it.
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh \
+    && UV_TOOL_BIN_DIR=/usr/local/bin UV_TOOL_DIR=/opt/uv-tools \
+       uv tool install 'graphifyy[sql]==0.9.28' --with 'mcp<2' \
+    && graphify --version
+
 # The host's /var/run/docker.sock (bind-mounted in) is owned by root:docker
 # with the HOST's docker group GID — find yours with `getent group docker`
 # and adjust the 984 below if it differs. It must be the web user's PRIMARY
