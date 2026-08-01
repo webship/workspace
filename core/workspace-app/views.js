@@ -361,6 +361,10 @@ function pageActionsHtml(context) {
       create.push(btn('secondary', 'bolt', 'Generate site doc', `hx-get="/fragments/docs/site-doc-form" ${opens}`));
       create.push(btn('secondary', 'image', 'Screenshot a site', `hx-get="/fragments/docs/screenshot-form" ${opens}`));
     }
+    if (fs.existsSync(path.join(ROOT, 'commands', 'cmd-tools-commands.sh'))) {
+      create.push(btn('default', 'terminal', 'New command', `hx-get="/fragments/commands/new/${esc(key)}" ${opens}`,
+        `Add a cmd-*.sh to ${meta.label} — write it yourself, or have the AI write it`));
+    }
     groups.push({ label: 'Create', items: create });
 
     if (findSyncScript(meta.dir)) {
@@ -372,6 +376,14 @@ function pageActionsHtml(context) {
         sync('claude', 'home', 'From ~/.claude', `Copy this machine's webship ${meta.nounPlural} into this folder`),
       ] });
     }
+  }
+
+  // A project workspace has no Create group of its own: a command is the one thing you make there.
+  if (meta && meta.kind !== 'files' && fs.existsSync(path.join(ROOT, 'commands', 'cmd-tools-commands.sh'))) {
+    groups.push({ label: 'Create', items: [
+      btn('default', 'terminal', 'New command', `hx-get="/fragments/commands/new/${esc(key)}" ${opens}`,
+        `Add a cmd-*.sh to ${meta.label} — write it yourself, or have the AI write it`),
+    ] });
   }
 
   const backups = key ? listBackups(key).length : 0;

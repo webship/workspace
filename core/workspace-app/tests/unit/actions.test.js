@@ -82,7 +82,8 @@ test('every DDEV entry has what both halves need', () => {
 test('the commands actions are registered and shell out rather than reimplementing', () => {
   // Every one of these has a matching verb in commands/cmd-tools-commands.sh; the point of the
   // dashboard half is the job toast, not a second implementation.
-  for (const n of ['command-list-remote', 'command-diff', 'command-pull', 'command-propose', 'command-save']) {
+  for (const n of ['command-list-remote', 'command-diff', 'command-pull', 'command-propose', 'command-save',
+                   'command-sync', 'command-new', 'command-generate']) {
     assert.ok(ACTIONS[`/actions/${n}`], `/actions/${n} is not registered`);
   }
 });
