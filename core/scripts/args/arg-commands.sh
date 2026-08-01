@@ -30,6 +30,14 @@ parser.add_argument('-n', '--new',
 parser.add_argument('-b', '--label',
                     default='_none_',
                     help="With --new, the '# workspace-name:' header — the human name the dashboard shows.")
+parser.add_argument('-S', '--sync',
+                    action='store_true',
+                    default=False,
+                    help='Bring every command down from the tooling repository. Reports what would change; --confirm takes the ones this machine is missing.')
+parser.add_argument('-O', '--overwrite',
+                    action='store_true',
+                    default=False,
+                    help='With --sync --confirm, also replace the commands that differ. Each one is kept under backups/ first.')
 parser.add_argument('-o', '--propose',
                     default='_none_',
                     help='Hand one cmd-*.sh to the AI agent to file the issue and open the PR on the tooling repository.')

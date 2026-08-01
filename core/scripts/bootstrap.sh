@@ -8,6 +8,8 @@ user_name="$USER";
 # and an export is meant to win for a one-off run.
 _env_workspace_repo="${WORKSPACE_REPO}";
 _env_workspace_repo_ref="${WORKSPACE_REPO_REF}";
+_env_ai_items_repo="${AI_ITEMS_REPO}";
+_env_ai_items_ref="${AI_ITEMS_REF}";
 
 # These were WEBSHIP_WORKSPACE_* until the rename. Anyone still exporting the old names meant them
 # as an override, so honour them rather than silently ignoring the override and picking the
@@ -48,7 +50,12 @@ backups="${backups:-${root}/backups}";
 # against it, pulls from it, and proposes back to it.
 WORKSPACE_REPO="${_env_workspace_repo:-${sources_tooling_repo:-webship/workspace}}";
 WORKSPACE_REPO_REF="${_env_workspace_repo_ref:-${sources_tooling_ref:-1.0.x}}";
-export WORKSPACE_REPO WORKSPACE_REPO_REF ;
+
+# The shared AI agents, skills and prompts come from their own repository, and go back to it the
+# same way commands go back to the tooling one.
+AI_ITEMS_REPO="${_env_ai_items_repo:-${sources_ai_items_repo:-webship/ai-agents}}";
+AI_ITEMS_REF="${_env_ai_items_ref:-${sources_ai_items_ref:-main}}";
+export WORKSPACE_REPO WORKSPACE_REPO_REF AI_ITEMS_REPO AI_ITEMS_REF ;
 
 # The backups folder is the one directory that is not in the checkout.
 mkdir -p "${backups}" 2>/dev/null ;
