@@ -18,6 +18,7 @@ const PRESENTATION = {
   test:       { icon: 'tabler:checkbox',       subtitle: 'Testing Environment', noun: 'project' },
   demos:      { icon: 'tabler:device-desktop',     subtitle: 'Demo Sites', noun: 'demo' },
   sandboxes:  { icon: 'tabler:flask',      subtitle: 'Experimental Projects', noun: 'sandbox', plural: 'sandboxes' },
+  'site-templates': { icon: 'tabler:layout-board', subtitle: 'Drupal CMS Site Templates', label: 'Site Templates', noun: 'site' },
   projects:   { icon: 'tabler:folder',      subtitle: 'Client Projects', noun: 'project' },
   profiles:   { icon: 'tabler:world',       subtitle: 'Distros', noun: 'profile' },
   themes:     { icon: 'tabler:paint', subtitle: 'Contrib & Private Themes', noun: 'theme' },
