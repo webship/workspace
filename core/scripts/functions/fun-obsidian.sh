@@ -209,10 +209,29 @@ grouped = defaultdict(list)
 for nid in shown:
     grouped[by_id[nid].get('community', 0)].append(nid)
 
-cluster_x = 0
-for ci, c in enumerate(sorted(grouped, key=lambda k: str(k))):
+# Clusters are packed into ROWS rather than laid end to end. Sixteen clusters in one line
+# made a canvas 13,000 wide and 440 tall: fitted to a screen that is an eight-fold shrink,
+# and every label goes sub-pixel. Wrapping at a target width keeps the map roughly the
+# shape of the thing looking at it.
+MARGIN = 160
+blocks = []
+for c in sorted(grouped, key=lambda k: str(k)):
     members = sorted(grouped[c], key=lambda i: names[i])
-    cols = max(1, int(len(members) ** 0.5))
+    cols = max(1, round(len(members) ** 0.5))
+    rows = (len(members) + cols - 1) // cols
+    blocks.append((c, members, cols, cols * GAP_X, rows * GAP_Y))
+
+# Aim for a 16:10-ish sheet: wrap once a row is wider than the square root of the total
+# area, stretched by that ratio.
+area = sum(w * h for _, _, _, w, h in blocks) or 1
+target_w = max(max((w for _, _, _, w, _ in blocks), default=GAP_X), int((area ** 0.5) * 1.6))
+
+cx = cy = row_h = 0
+for ci, (c, members, cols, bw, bh) in enumerate(blocks):
+    if cx > 0 and cx + bw > target_w:
+        cx = 0
+        cy += row_h + MARGIN
+        row_h = 0
     for i, nid in enumerate(members):
         cid = f'n{len(canvas_nodes)}-{re.sub(r"[^A-Za-z0-9]", "", str(nid))[:24] or "x"}'
         canvas_id[nid] = cid
@@ -220,13 +239,14 @@ for ci, c in enumerate(sorted(grouped, key=lambda k: str(k))):
             'id': cid,
             'type': 'file',
             'file': f'notes/{names[nid]}.md',
-            'x': cluster_x + (i % cols) * GAP_X,
-            'y': (i // cols) * GAP_Y,
+            'x': cx + (i % cols) * GAP_X,
+            'y': cy + (i // cols) * GAP_Y,
             'width': NODE_W,
             'height': NODE_H,
             'color': PRESET[ci % len(PRESET)],
         })
-    cluster_x += cols * GAP_X + GAP_X
+    cx += bw + MARGIN
+    row_h = max(row_h, bh)
 
 for e in links:
     s, t = e.get('source'), e.get('target')

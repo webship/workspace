@@ -62,7 +62,7 @@ function graphMenuHtml(key, project, vals, busy) {
       // Opened in a tab rather than the dialog: the viewer is an interactive canvas you pan and
       // zoom, and it wants the whole window. It also loads vis-network from a CDN, so it is the
       // one thing here that needs the internet.
-      items.push(`<li><a href="/graph/${esc(key)}/${esc(project)}" target="_blank" title="Loads vis-network from unpkg.com, so it needs internet"><span uk-icon="icon: image; ratio: .7"></span> Open the graph</a></li>`);
+      items.push(`<li><a href hx-get="/graph/${esc(key)}/${esc(project)}/frame" hx-target="#editor-modal-body" hx-swap="innerHTML" title="Loads vis-network from unpkg.com, so it needs internet"><span uk-icon="icon: image; ratio: .7"></span> Open the graph</a></li>`);
     }
     if (hasGraph(key, project, GRAPH_FILES.report)) {
       items.push(`<li><a href hx-get="/graph/${esc(key)}/${esc(project)}/report" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: file-text; ratio: .7"></span> Read the report</a></li>`);
