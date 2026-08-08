@@ -31,10 +31,10 @@ const { esc } = require('./html');
 const { readListState, setListCookies } = require('./lists');
 const { DDEV_ACTIONS } = require('./ddev');
 const { graphStoreDir, GRAPH_FILES } = require('./graphs');
-const { vaultDir, indexNote } = require('./obsidian');
+const { vaultDir, indexNote, vaultView, vaultCanvas } = require('./obsidian');
 const { milvusPost, ragInstanceFor, ragCollectionName, ragCollections } = require('./rag');
 const { iconHtml, tablerIcons } = require('./icons');
-const { assembleCss } = require('./themes');
+const { assembleCss, cssVersion } = require('./themes');
 const { commandRowsHtml, commandFile, toolingRepo } = require('./commands');
 const { run, jobs, runningJobKey, startJob, jobFragment } = require('./jobs');
 const { assistantReply } = require('./assistant');
@@ -341,7 +341,7 @@ const server = http.createServer(async (req, res) => {
       // The vault: its index note, and the whole thing as an archive. Same symlink discipline
       // as the graph routes below — a project directory that is a link would otherwise read
       // outside the workspace, and this container bind-mounts ~/.claude as well as ~/workspace.
-      const vaultMatch = pathname.match(/^\/obsidian\/([a-z0-9_-]+)\/([a-zA-Z0-9_.-]+)\/(index|download)$/);
+      const vaultMatch = pathname.match(/^\/obsidian\/([a-z0-9_-]+)\/([a-zA-Z0-9_.-]+)\/(index|download|view|canvas)$/);
       if (vaultMatch && isValidWorkspace(vaultMatch[1])) {
         const [, wsKey, project, what] = vaultMatch;
         if (project.includes('..')) { res.writeHead(400); return res.end('bad name'); }
@@ -353,6 +353,23 @@ const server = http.createServer(async (req, res) => {
         } catch (_) {
           res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
           return res.end('No vault yet — build one from the Graph menu on the project row.');
+        }
+
+        if (what === 'view' || what === 'canvas') {
+          // Built before the head is written: a throw after writeHead becomes a 200 with an
+          // empty body, which reads as "the vault is empty" rather than "this broke".
+          let page;
+          try {
+            const themed = cssVersion(styleSettings().theme);
+            page = what === 'view'
+              ? vaultView(wsKey, project, String(new URL(req.url, 'http://localhost').searchParams.get('note') || ''), themed)
+              : vaultCanvas(wsKey, project, themed);
+          } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+            return res.end(`Could not read the vault: ${e.message}`);
+          }
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(page);
         }
 
         if (what === 'index') {
