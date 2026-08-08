@@ -21,4 +21,8 @@ parser.add_argument('-l', '--launch',
                     action='store_true',
                     default=False,
                     help='Open the site in a browser when it is ready.')
+parser.add_argument('-r', '--require',
+                    default="_none_",
+                    nargs='+',
+                    help='Require more packages by composer. Example: --require "drupal/token:~1.0"')
 ARGEOF

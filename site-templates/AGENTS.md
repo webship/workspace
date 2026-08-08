@@ -6,6 +6,20 @@ before you have written anything: its content types, its editorial workflow, its
 Part of the **Webship Workspace** (`~/workspace`), a DDEV-only harness. The rules in the root
 `CLAUDE.md` apply here too; what follows is what is specific to this folder.
 
+## What a build does
+
+Three steps, the same for every template here:
+
+1. `composer create-project drupal/cms` — the Drupal CMS codebase.
+2. `composer require drupal/<template>` — the template lands in **`recipes/`**, next to `web/`,
+   because that is where a `drupal-recipe` package installs.
+3. `drush site:install drupal_cms_installer installer_site_template_form.add_ons=<template>` —
+   only with `--install`; without it the build stops at step 2 and you choose the template in the
+   browser installer yourself.
+
+There is no `--profile`, no `--require` and no `--enable`: the template decides what the site is,
+which is the whole point of it.
+
 ## What a site template is
 
 A [site template](https://new.drupal.org/browse/site-templates) is a Composer package of type
@@ -39,11 +53,10 @@ ddev delete -y -O              # not a dropped database
 ## Building one
 
 ```bash
-bash cmd-website_starter-project.sh mysite                              # build and install
-bash cmd-byte-project.sh mysite --skip-install                          # codebase only, pick it in the installer
-bash cmd-haven-project.sh mysite --site-template-version "^1.0"         # pin the template
-bash cmd-summit-project.sh mysite --require drupal/token drupal/ctools  # extra packages
-bash cmd-local-project.sh mysite --launch                               # open it when it is ready
+bash cmd-byte-project.sh mysite                                  # codebase only — pick the template in the installer
+bash cmd-byte-project.sh mysite --install                        # build and install it for you
+bash cmd-haven-project.sh mysite --site-template-version "^1.0"  # pin the template
+bash cmd-local-project.sh mysite --install --launch              # open it when it is ready
 ```
 
 `--help` on any of them lists its arguments.

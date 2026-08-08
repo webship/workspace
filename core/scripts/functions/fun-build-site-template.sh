@@ -61,18 +61,12 @@ function build_site_template() {
     ddev composer require "${site_template_package}" --no-interaction;
   fi
 
-  # Require all custom required packages.
-  # argparse.sh emits an nargs='+' option as a bash ARRAY, so plain ${REQUIRE} is only its FIRST
-  # element: `--require a b` used to drop b. [0] still reads the sentinel on a scalar default.
-  if [ "${REQUIRE[0]}" == '_none_' ] ; then
-    echo "No extra composer required." ;
-  else
-    ddev composer require ${REQUIRE[*]} ;
-  fi
-
-  if [ "${SKIP_INSTALL}" == 'yes' ] ; then
+  # Installing is opt-in, like every other builder here: without --install the build stops at a
+  # codebase and the template is chosen in the browser installer.
+  if [ ! "${INSTALL}" == 'yes' ] || [ "${SKIP_INSTALL}" == 'yes' ] ; then
     echo "${PROJECT_NAME} is ready to install!!!!";
     echo "Go to ${base_url}/core/install.php and pick the ${site_template_title:-${site_template_name}} site template.";
+    echo "Or rebuild with --install to have it installed for you.";
   else
     echo "Install ${distribution_title:-Drupal CMS} with the ${site_template_title:-${site_template_name}} site template.";
     # Stop here when the install fails: a site template that throws part way
