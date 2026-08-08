@@ -744,9 +744,18 @@ function parseBuilderArgs(dir, script) {
     if (/argparse "\$@"/.test(src) && src.includes('parser.add_argument(')) {
       return parseArgparseText(src);
     }
-    const dm = src.match(/distribution_name="([a-z_]+)"/);
-    if (!dm) return [];
-    const argFile = path.join(ROOT, 'core', 'scripts', 'args', `arg-${dm[1]}.sh`);
+    // Read the arg file the script actually SOURCES. Guessing it from distribution_name is wrong
+    // wherever the two differ: a site-template builder declares drupal_cms as its distribution but
+    // sources arg-site-template.sh, so the form offered flags that builder rejects and hid the
+    // ones it takes.
+    const sm = src.match(/args\/arg-([a-z0-9_-]+)\.sh/);
+    let base = sm && sm[1];
+    if (!base || base.includes('$')) {
+      const dm = src.match(/distribution_name="([a-z_]+)"/);
+      if (!dm) return [];
+      base = dm[1];
+    }
+    const argFile = path.join(ROOT, 'core', 'scripts', 'args', `arg-${base}.sh`);
     return parseArgparseText(fs.readFileSync(argFile, 'utf8'));
   } catch (_) {
     return [];
@@ -763,7 +772,7 @@ function builderArgsHtml(key, script) {
     if (a.bool) {
       return `
         <label class="arg-row" title="${esc(a.help)}">
-          <input class="uk-checkbox" type="checkbox" name="${esc(name)}" ${a.def === true || a.flag === '--install' ? 'checked' : ''}>
+          <input class="uk-checkbox" type="checkbox" name="${esc(name)}" ${a.def === true ? 'checked' : ''}>
           <code>${esc(a.flag)}</code> <span class="uk-text-meta">${esc(a.help)}</span>
         </label>`;
     }
@@ -775,7 +784,7 @@ function builderArgsHtml(key, script) {
   }).join('');
   return `
     <ul uk-accordion class="uk-margin-small-top builder-args">
-      <li>
+      <li class="uk-open">
         <a class="uk-accordion-title" href>Arguments <span class="uk-text-meta">(${args.length} for this builder)</span></a>
         <div class="uk-accordion-content">${rows}</div>
       </li>
@@ -877,19 +886,12 @@ async function workspacePage(key, state = defaultListState()) {
     </div>
   </div>
   <div class="uk-card uk-card-default uk-card-body">
-    ${builders.length ? `
-      <h3 class="uk-margin-small-bottom">Build a new ${esc(meta.noun)}</h3>
-      <form hx-post="/actions/build" hx-target="#webship-workspace-output" hx-swap="innerHTML">
-        <input type="hidden" name="workspace" value="${esc(key)}">
-        <div class="uk-grid uk-grid-small" uk-grid>
-          <div class="uk-width-2-5@s"><select class="uk-select" name="script"
-            hx-get="/fragments/${esc(key)}/builder-args" hx-trigger="change, load" hx-target="#builder-args" hx-swap="innerHTML" hx-include="this">${builderOptions}</select></div>
-          <div class="uk-width-2-5@s"><input class="uk-input" name="projectName" placeholder="new-project-name" required pattern="[a-zA-Z0-9_\\-]+"></div>
-          <div class="uk-width-1-5@s"><button type="submit" class="uk-button uk-button-primary uk-width-1-1">Build</button></div>
-        </div>
-        <div id="builder-args"></div>
-      </form>
-    ` : ''}
+      ${builders.length ? `
+        <h3 class="uk-margin-small-bottom">Build a new ${esc(meta.noun)}</h3>
+        <p class="uk-text-meta uk-margin-small-bottom">Pick what to build and what to pass it. Nothing runs until you say Build.</p>
+        <button class="uk-button uk-button-primary" hx-get="/fragments/${esc(key)}/build"
+                hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: plus; ratio: .8"></span> Build a new ${esc(meta.noun)}…</button>
+      ` : ''}
 
     ${listSection}
 
@@ -897,6 +899,43 @@ async function workspacePage(key, state = defaultListState()) {
   </div>
 </main>`, [{ label: meta.label }], `workspace:${key}`);
 }
+/**
+ * The Build form, for the dialog.
+ *
+ * The arguments used to sit in a collapsed accordion under an always-visible Build button, which is
+ * the wrong way round: the flags decide what the build DOES — whether it installs a site, whether
+ * it adds users — and they were the part you had to go looking for. In a dialog they are simply in
+ * front of you, and nothing runs until the button in that same dialog is pressed.
+ */
+function buildFormHtml(key, script) {
+  const meta = loadWorkspaces()[key];
+  const dir = workspaceDir(key);
+  const builders = findBuilderScripts(dir);
+  if (!builders.length) return '<div class="msg error">This workspace has no builders.</div>';
+  const chosen = builders.includes(script) ? script : builders[0];
+  const options = builders.map((b) => `<option value="${esc(b)}"${b === chosen ? ' selected' : ''}>${esc(builderLabel(dir, b))}</option>`).join('');
+
+  return `
+    <h3 class="uk-margin-small-bottom">Build a new ${esc(meta.noun)}</h3>
+    <form hx-post="/actions/build" hx-target="#webship-workspace-output" hx-swap="innerHTML">
+      <input type="hidden" name="workspace" value="${esc(key)}">
+      <div class="uk-margin-small">
+        <label class="uk-form-label">What to build</label>
+        <select class="uk-select" name="script"
+          hx-get="/fragments/${esc(key)}/builder-args" hx-trigger="change" hx-target="#builder-args" hx-swap="innerHTML" hx-include="this">${options}</select>
+      </div>
+      <div class="uk-margin-small">
+        <label class="uk-form-label">Name</label>
+        <input class="uk-input" name="projectName" placeholder="new-project-name" required pattern="[a-zA-Z0-9_\\-]+">
+        <span class="uk-text-meta">It becomes https://&lt;name&gt;.ddev.site</span>
+      </div>
+      <div id="builder-args">${builderArgsHtml(key, chosen)}</div>
+      <div class="uk-margin-top uk-text-right">
+        <button type="submit" class="uk-button uk-button-primary">Build</button>
+      </div>
+    </form>`;
+}
+
 function resultFragment(result, intro) {
   const text = (result.stdout || '') + (result.stderr ? `\n${result.stderr}` : '');
   return `
@@ -930,6 +969,7 @@ module.exports = {
   projectRowsHtml,
   parseBuilderArgs,
   builderArgsHtml,
+  buildFormHtml,
   backupRowsHtml,
   backupsPage,
   workspacePage,
