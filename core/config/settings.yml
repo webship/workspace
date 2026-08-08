@@ -118,6 +118,7 @@ workspaces:
   - test
   - demos
   - sandboxes
+  - site-templates
   - projects
   - profiles
   - modules

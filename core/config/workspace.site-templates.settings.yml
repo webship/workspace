@@ -1,0 +1,27 @@
+doc:
+  name: site-templates
+
+# The site templates this workspace builds. Website Starter first: it is the
+# reference one — the one to copy when starting a new template, and the one to
+# check a change against.
+site_templates:
+  - website_starter
+  - byte
+  - haven
+  - everbright
+  - forma
+  - archimedes
+  - convivial_gov
+  - healthcare
+  - pulse
+  - summit
+  - local
+  - provus_edu
+  - caresphere
+  - convene
+  - mercury_demo
+  - lupus_decoupled_starter
+
+# What this folder's projects are, and which actions their rows offer:
+# sites | code | files | media | ai-items — see core/workspace-app/WORKSPACES.md.
+type: sites
