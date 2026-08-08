@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Set up the automated-testing environment on an existing project in this workspace, or run its
 # suite. Both happen inside DDEV.

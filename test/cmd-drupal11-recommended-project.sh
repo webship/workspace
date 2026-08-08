@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # workspace-name: Drupal 11 (recommended project)
 

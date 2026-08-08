@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Include users functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-users.sh || exit 1 ;

@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Bootstrap.
 # Find the workspace tooling from this script, so a fresh clone needs no setup.

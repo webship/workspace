@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 echo "*-----------------------------------------------------------*";
 echo "| Install all Front-End themes                              |";

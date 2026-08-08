@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 current_path=$(pwd);
 user_name="$USER";

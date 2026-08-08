@@ -1,9 +1,9 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Install Cucumber with Drush.
 function install_cucumber_with_drush() {
   echo "Install Cucumber with Drush.";
-  ddev drush site-install cucumber --yes --site-name="${doc_name} ${PROJECT_NAME}" --account-name="${account_name}" --account-pass="${account_pass}" --account-mail="${account_mail}" --db-url="mysql://db:db@db/db" ;
+  ddev drush site:install cucumber --yes --site-name="${doc_name} ${PROJECT_NAME}" --account-name="${account_name}" --account-pass="${account_pass}" --account-mail="${account_mail}" --db-url="mysql://db:db@db/db" ;
 }
 
 # Enable Cucumber extra components.

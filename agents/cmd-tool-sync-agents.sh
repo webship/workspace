@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Sync the agents workspace with the two places agents really live: the shared
 # webship/ai-agents repository, and this machine's Claude Code setup in

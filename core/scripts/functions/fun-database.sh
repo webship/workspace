@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Each DDEV project gets its own isolated database container, so there is no
 # shared host database to drop between rebuilds -- deleting the DDEV project

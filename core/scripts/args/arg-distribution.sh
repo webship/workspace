@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 argparse "$@" <<EOF || exit 1
 parser.add_argument('PROJECT_NAME',
