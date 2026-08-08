@@ -31,10 +31,11 @@ const { esc } = require('./html');
 const { readListState, setListCookies } = require('./lists');
 const { DDEV_ACTIONS } = require('./ddev');
 const { graphStoreDir, GRAPH_FILES } = require('./graphs');
+const { vaultDir, indexNote, vaultView, vaultCanvas, vaultFrame } = require('./obsidian');
 const { milvusPost, ragInstanceFor, ragCollectionName, ragCollections } = require('./rag');
 const { iconHtml, tablerIcons } = require('./icons');
-const { assembleCss } = require('./themes');
-const { commandRowsHtml, commandFile } = require('./commands');
+const { assembleCss, cssVersion } = require('./themes');
+const { commandRowsHtml, commandFile, toolingRepo } = require('./commands');
 const { run, jobs, runningJobKey, startJob, jobFragment } = require('./jobs');
 const { assistantReply } = require('./assistant');
 const {
@@ -123,6 +124,7 @@ const ACTIONS = {
   ...require('./actions/config'),
   ...require('./actions/ddev'),
   ...require('./actions/graphs'),
+  ...require('./actions/obsidian'),
   ...require('./actions/rag'),
   ...require('./actions/assistant'),
   ...require('./actions/commands'),
@@ -336,6 +338,80 @@ const server = http.createServer(async (req, res) => {
     </div>`);
       }
 
+      // The vault: its index note, and the whole thing as an archive. Same symlink discipline
+      // as the graph routes below — a project directory that is a link would otherwise read
+      // outside the workspace, and this container bind-mounts ~/.claude as well as ~/workspace.
+      const vaultMatch = pathname.match(/^\/obsidian\/([a-z0-9_-]+)\/([a-zA-Z0-9_.-]+)\/(index|download|view|canvas|frame)$/);
+      if (vaultMatch && isValidWorkspace(vaultMatch[1])) {
+        const [, wsKey, project, what] = vaultMatch;
+        if (project.includes('..')) { res.writeHead(400); return res.end('bad name'); }
+        let real;
+        try {
+          real = fs.realpathSync(vaultDir(wsKey, project));
+          const base = fs.realpathSync(path.join(ROOT, 'graphs'));
+          if (!real.startsWith(base + path.sep) || !fs.statSync(real).isDirectory()) throw new Error('outside');
+        } catch (_) {
+          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+          return res.end('No vault yet — build one from the Graph menu on the project row.');
+        }
+
+        if (what === 'frame') {
+          const wanted = String(new URL(req.url, 'http://localhost').searchParams.get('what') || 'view');
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(vaultFrame(wsKey, project, wanted));
+        }
+
+        if (what === 'view' || what === 'canvas') {
+          // Built before the head is written: a throw after writeHead becomes a 200 with an
+          // empty body, which reads as "the vault is empty" rather than "this broke".
+          let page;
+          try {
+            const themed = cssVersion(styleSettings().theme);
+            page = what === 'view'
+              ? vaultView(wsKey, project, String(new URL(req.url, 'http://localhost').searchParams.get('note') || ''), themed)
+              : vaultCanvas(wsKey, project, themed);
+          } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+            return res.end(`Could not read the vault: ${e.message}`);
+          }
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(page);
+        }
+
+        if (what === 'index') {
+          // Read before the head is written: computing after writeHead turns a throw into a
+          // 200 with an empty body, which reads as "it worked and there is nothing there".
+          let md;
+          try {
+            md = fs.readFileSync(path.join(real, indexNote(project)), 'utf8');
+          } catch (_) {
+            res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+            return res.end('<div class="msg error">The vault has no index note. Rebuild it.</div>');
+          }
+          const vaultUri = `obsidian://open?path=${encodeURIComponent(real)}`;
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(`<h3>${esc(project)} <span class="uk-text-meta">Obsidian vault</span></h3>
+            <p class="uk-text-meta">${esc(real)}</p>
+            <p><a class="uk-button uk-button-primary uk-button-small" href="${esc(vaultUri)}">Open in Obsidian</a>
+               <a class="uk-button uk-button-default uk-button-small" href="/obsidian/${esc(wsKey)}/${esc(project)}/download">Download</a></p>
+            <pre class="uk-background-muted uk-padding-small" style="white-space:pre-wrap">${esc(md)}</pre>`);
+        }
+
+        const vaultArchive = `${wsKey}--${project}--obsidian.tar.gz`;
+        res.writeHead(200, {
+          'Content-Type': 'application/gzip',
+          'Content-Disposition': `attachment; filename="${vaultArchive.replace(/[^A-Za-z0-9._-]/g, '_')}"`,
+          'X-Content-Type-Options': 'nosniff',
+        });
+        const vtar = spawn('tar', ['-czf', '-', '-C', path.dirname(real), path.basename(real)],
+          { stdio: ['ignore', 'pipe', 'pipe'] });
+        vtar.stdout.pipe(res);
+        vtar.stderr.resume();
+        vtar.on('error', () => { try { res.destroy(); } catch (_) { /* client gone */ } });
+        res.on('close', () => { try { vtar.kill(); } catch (_) { /* already exited */ } });
+        return;
+      }
+
       // The graph as a single archive, to hand to another workspace. Streamed straight out of
       // tar: a graph runs to tens of megabytes and buffering it would hold the whole thing in the
       // app's memory.
@@ -365,6 +441,20 @@ const server = http.createServer(async (req, res) => {
         tar.on('error', () => { try { res.destroy(); } catch (_) { /* client gone */ } });
         res.on('close', () => { try { tar.kill(); } catch (_) { /* already exited */ } });
         return;
+      }
+
+      // The picture in the modal, as an iframe: graph.html is a whole document with its own
+      // script and its own canvas, so it cannot be spliced into this page.
+      const graphFrameMatch = pathname.match(/^\/graph\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)\/frame$/);
+      if (graphFrameMatch && isValidWorkspace(graphFrameMatch[1])) {
+        const [, wsKey, project] = graphFrameMatch;
+        const src = `/graph/${encodeURIComponent(wsKey)}/${encodeURIComponent(project)}`;
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(`<div class="uk-flex uk-flex-between uk-flex-middle uk-margin-small-bottom">
+            <h3 class="uk-margin-remove">${esc(project)} <span class="uk-text-meta">graph</span></h3>
+            <a class="uk-button uk-button-default uk-button-small" href="${esc(src)}" target="_blank">Open full screen</a>
+          </div>
+          <iframe src="${esc(src)}" title="${esc(project)} graph" style="width:100%;height:74vh;border:1px solid var(--line);border-radius:4px;background:var(--surface)"></iframe>`);
       }
 
       // The picture, and the report. Symlinks are resolved before the path is trusted: a project
@@ -407,6 +497,96 @@ const server = http.createServer(async (req, res) => {
         const state = readListState(req);
         setListCookies(res, state);
         const body = commandRowsHtml(state);
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(body);
+      }
+      // Creating a command: by hand in the editor, or written by the AI. One form, because the
+      // choice is the same decision made twice and two forms would drift apart.
+      const cmdNewMatch = pathname.match(/^\/fragments\/commands\/new(?:\/([a-z0-9_-]+))?$/);
+      if (cmdNewMatch) {
+        const preset = cmdNewMatch[1] && isValidWorkspace(cmdNewMatch[1]) ? cmdNewMatch[1] : '';
+        const options = Object.entries(loadWorkspaces())
+          .filter(([, m]) => m.kind !== 'files')
+          .map(([k, m]) => `<option value="${esc(k)}"${k === preset ? ' selected' : ''}>${esc(m.label)}</option>`).join('');
+        const body = `
+    <div class="uk-card uk-card-default uk-card-body editor-card">
+      <h3 class="uk-margin-small-bottom">New command</h3>
+      <p class="uk-text-meta">A command lives in the workspace it runs from, and is named <code>cmd-&lt;something&gt;.sh</code>.
+        Either way you get the bootstrap chain, the settings load and the argparse block already right.</p>
+      <div class="uk-grid uk-grid-small uk-margin-small-bottom" uk-grid>
+        <div class="uk-width-1-3@s">
+          <label class="uk-text-meta">Workspace
+            <select class="uk-select" id="cmd-new-target" name="target">${options}</select></label>
+        </div>
+        <div class="uk-width-1-3@s">
+          <label class="uk-text-meta">File name
+            <input class="uk-input" id="cmd-new-name" name="newName" placeholder="cmd-my-thing.sh"
+                   pattern="cmd-[a-zA-Z0-9_.\\-]+\\.sh" required></label>
+        </div>
+        <div class="uk-width-1-3@s">
+          <label class="uk-text-meta">Shown as (optional)
+            <input class="uk-input" id="cmd-new-label" name="label" placeholder="Drupal 11.4 (recommended project)"></label>
+        </div>
+      </div>
+      <ul uk-tab class="uk-margin-small-bottom">
+        <li class="uk-active"><a href>Write it myself</a></li>
+        <li><a href>Have the AI write it</a></li>
+      </ul>
+      <ul class="uk-switcher">
+        <li>
+          <p class="uk-text-meta">Creates the scaffold and nothing else — open it in the editor afterwards to fill it in.</p>
+          <button class="uk-button uk-button-primary" hx-post="/actions/command-new"
+                  hx-include="#cmd-new-target, #cmd-new-name, #cmd-new-label"
+                  hx-target="#webship-workspace-output" hx-swap="innerHTML">
+            <span uk-icon="icon: file-add; ratio: .8"></span> Create the scaffold</button>
+        </li>
+        <li>
+          <p class="uk-text-meta">Describe what it should do. It reads the workspace and the other commands first, so what it
+            writes matches how they are written.</p>
+          <textarea class="uk-textarea" id="cmd-new-desc" name="description" rows="4"
+                    placeholder="Back up every project in this workspace, oldest first, keeping the last five archives"></textarea>
+          <p class="uk-margin-small-top">
+            <button class="uk-button uk-button-secondary" hx-post="/actions/command-generate"
+                    hx-include="#cmd-new-target, #cmd-new-name, #cmd-new-desc"
+                    hx-target="#webship-workspace-output" hx-swap="innerHTML">
+              <span uk-icon="icon: bolt; ratio: .8"></span> Write it with AI</button>
+          </p>
+        </li>
+      </ul>
+      <div class="uk-margin-small-top"><button type="button" class="uk-button uk-button-default uk-modal-close">Close</button></div>
+    </div>`;
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(body);
+      }
+      // Proposing one back: the summary is not optional in practice — it becomes the issue.
+      const cmdProposeMatch = pathname.match(/^\/fragments\/commands\/propose\/([a-z0-9_-]+)\/([a-zA-Z0-9_%.-]+)$/);
+      if (cmdProposeMatch) {
+        const [, wsKey, rawName] = cmdProposeMatch;
+        const name = decodeURIComponent(rawName);
+        if (!commandFile(wsKey, name)) { res.writeHead(404); return res.end('not a command'); }
+        const { repo, ref } = toolingRepo();
+        const vals = `hx-vals='{"workspace":"${esc(wsKey)}","file":"${esc(name)}"}'`;
+        const body = `
+    <div class="uk-card uk-card-default uk-card-body editor-card">
+      <h3 class="uk-margin-small-bottom">Propose ${esc(wsKey)}/${esc(name)}</h3>
+      <p class="uk-text-meta">To <strong>${esc(repo)}</strong>, against <code>${esc(ref)}</code>.
+        Nothing is pushed from here: the agent files an issue and opens a pull request, leaves the
+        human-review boxes unticked, and never merges.</p>
+      <label class="uk-text-meta">What is it for? This becomes the issue and the pull request description.
+        <textarea class="uk-textarea" id="cmd-propose-summary" name="summary" rows="3"
+                  placeholder="Builds a Drupal 11.4 site with the testing stack already configured"></textarea></label>
+      <div class="uk-margin-small-top">
+        <button class="uk-button uk-button-default" hx-post="/actions/command-propose" ${vals}
+                hx-include="#cmd-propose-summary" hx-target="#webship-workspace-output" hx-swap="innerHTML">
+          <span uk-icon="icon: search; ratio: .8"></span> Show me the plan</button>
+        <button class="uk-button uk-button-primary arm-step" data-armed="0"
+                hx-post="/actions/command-propose" hx-vals='{"workspace":"${esc(wsKey)}","file":"${esc(name)}","confirm":"yes"}'
+                hx-include="#cmd-propose-summary" hx-trigger="confirmed-remove"
+                hx-target="#webship-workspace-output" hx-swap="innerHTML">
+          <span uk-icon="icon: git-pull-request; ratio: .8"></span> Open the pull request</button>
+        <button type="button" class="uk-button uk-button-default uk-modal-close">Close</button>
+      </div>
+    </div>`;
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(body);
       }

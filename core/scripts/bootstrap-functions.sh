@@ -23,6 +23,7 @@ source ${WORKSPACE_SCRIPTS}/functions/fun-testing.sh || exit 1 ;
 
 # Include graphify (knowledge graph) functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-graphify.sh || exit 1 ;
+source ${WORKSPACE_SCRIPTS}/functions/fun-obsidian.sh || exit 1 ;
 
 # Include Milvus (the vector database behind RAG) functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-milvus.sh || exit 1 ;

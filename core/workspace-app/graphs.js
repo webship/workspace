@@ -50,6 +50,7 @@ function hasGraph(wsKey, project, file) {
  * lock, and two runs against one output directory race on the manifest and the graph itself.
  */
 function graphMenuHtml(key, project, vals, busy) {
+  const { obsidianMenuItems } = require('./obsidian');
   const built = hasGraph(key, project, GRAPH_FILES.json);
   const items = [];
 
@@ -61,13 +62,14 @@ function graphMenuHtml(key, project, vals, busy) {
       // Opened in a tab rather than the dialog: the viewer is an interactive canvas you pan and
       // zoom, and it wants the whole window. It also loads vis-network from a CDN, so it is the
       // one thing here that needs the internet.
-      items.push(`<li><a href="/graph/${esc(key)}/${esc(project)}" target="_blank" title="Loads vis-network from unpkg.com, so it needs internet"><span uk-icon="icon: image; ratio: .7"></span> Open the graph</a></li>`);
+      items.push(`<li><a href hx-get="/graph/${esc(key)}/${esc(project)}/frame" hx-target="#editor-modal-body" hx-swap="innerHTML" title="Loads vis-network from unpkg.com, so it needs internet"><span uk-icon="icon: image; ratio: .7"></span> Open the graph</a></li>`);
     }
     if (hasGraph(key, project, GRAPH_FILES.report)) {
       items.push(`<li><a href hx-get="/graph/${esc(key)}/${esc(project)}/report" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: file-text; ratio: .7"></span> Read the report</a></li>`);
     }
     items.push(`<li><a href="/graph/${esc(key)}/${esc(project)}/download" title="The whole graph as a .tar.gz, to hand to another workspace"><span uk-icon="icon: download; ratio: .7"></span> Download to share</a></li>`);
     items.push(`<li><a href hx-post="/actions/graph-mcp-command" ${vals()}><span uk-icon="icon: link; ratio: .7"></span> Connect over MCP…</a></li>`);
+    items.push(obsidianMenuItems(key, project, vals, busy));
     items.push('<li class="uk-nav-divider"></li>');
     items.push(`<li><a href class="uk-text-danger arm-step" data-armed="0" hx-post="/actions/graph-remove" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete the graph</a></li>`);
   }

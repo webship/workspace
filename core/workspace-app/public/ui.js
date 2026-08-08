@@ -842,6 +842,12 @@ document.body.addEventListener('htmx:beforeSwap', (e) => {
 // empty dialog for as long as the fetch takes, which on a big document is long enough to see.
 document.body.addEventListener('htmx:afterSwap', (e) => {
   if (e.target && e.target.id === 'editor-modal-body' && window.UIkit) {
+    // Close whatever menu opened it first. A UIkit dropdown only closes on an outside click, and
+    // a click inside it is not one — so the menu stayed up, floating over the dialog it had just
+    // opened, and its items sat on top of the content.
+    document.querySelectorAll('.uk-dropdown.uk-open').forEach((d) => {
+      try { window.UIkit.dropdown(d).hide(false); } catch (_) { /* already gone */ }
+    });
     window.UIkit.modal('#editor-modal').show();
   }
 });

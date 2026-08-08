@@ -42,6 +42,7 @@ const SORTS = {
   oldest:   { label: 'Oldest first', cmp: (a, b) => a.mtime - b.mtime || a.name.localeCompare(b.name) },
   name:     { label: 'Name (A–Z)',   cmp: (a, b) => a.name.localeCompare(b.name) },
   nameDesc: { label: 'Name (Z–A)',   cmp: (a, b) => b.name.localeCompare(a.name) },
+  group:    { label: 'By workspace',  cmp: (a, b) => (a.groupRank - b.groupRank) || a.name.localeCompare(b.name) },
 };
 
 // What a project list can be narrowed to. Keyed, so an unknown value falls back to 'all' rather
@@ -169,7 +170,8 @@ function searchSortPage(list, state, textOf = (row) => row.name) {
   const q = (st.q || '').toLowerCase();
   const matched = q ? list.filter((row) => String(textOf(row) || '').toLowerCase().includes(q)) : list.slice();
   const cmp = (SORTS[st.sort] || SORTS.name).cmp;
-  matched.sort((a, b) => cmp({ name: a.name, mtime: a.mtime || 0 }, { name: b.name, mtime: b.mtime || 0 }));
+  const key = (r) => (r.mtime === undefined ? { ...r, mtime: 0 } : r);
+  matched.sort((a, b) => cmp(key(a), key(b)));
   return paginate(matched, st);
 }
 
