@@ -61,8 +61,8 @@ function obsidianMenuItems(key, project, vals, busy) {
     items.push(`<li><a href="${esc(uri)}" title="Opens the Obsidian app on this machine"><span uk-icon="icon: link-external; ratio: .7"></span> Open in Obsidian</a></li>`);
     // The reader first: the vault lives on the machine running the dashboard, which is not
     // necessarily the machine looking at it, and this needs nothing installed.
-    items.push(`<li><a href="/obsidian/${esc(key)}/${esc(project)}/view" target="_blank"><span uk-icon="icon: file-text; ratio: .7"></span> Read the notes</a></li>`);
-    items.push(`<li><a href="/obsidian/${esc(key)}/${esc(project)}/canvas" target="_blank"><span uk-icon="icon: git-fork; ratio: .7"></span> Open the map</a></li>`);
+    items.push(`<li><a href hx-get="/obsidian/${esc(key)}/${esc(project)}/frame?what=view" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: file-text; ratio: .7"></span> Read the notes</a></li>`);
+    items.push(`<li><a href hx-get="/obsidian/${esc(key)}/${esc(project)}/frame?what=canvas" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: git-fork; ratio: .7"></span> Open the map</a></li>`);
     items.push(`<li><a href="/obsidian/${esc(key)}/${esc(project)}/download" title="The vault as a .tar.gz, to open on another machine"><span uk-icon="icon: download; ratio: .7"></span> Download the vault</a></li>`);
     items.push(`<li><a href class="uk-text-danger arm-step" data-armed="0" hx-post="/actions/obsidian-remove" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete the vault</a></li>`);
   }
@@ -129,6 +129,7 @@ function renderNote(md, linkHref, exists) {
 
   const inline = (t) => esc(t)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\[\[([^\]|#]+)(\|[^\]]+)?\]\]/g, (_, name) => {
       const n = name.trim();
       return exists(n)
@@ -186,10 +187,13 @@ const VAULT_CSS = `
   .vault-bar a, .vault-bar span { font-size: .82rem; }
   #cv { width: 100%; height: calc(100vh - 7rem); background: var(--surface); cursor: grab; }
   #cv:active { cursor: grabbing; }
-  #cv text { font: 11px system-ui, sans-serif; fill: var(--ink); pointer-events: none; }
-  #cv .n rect { fill: var(--surface-raised); stroke: var(--line); }
-  #cv .n:hover rect { stroke: var(--link); stroke-width: 2; }
-  #cv .e { stroke: var(--line); fill: none; }
+  #cv text { font: 15px system-ui, sans-serif; fill: var(--ink); pointer-events: none; }
+  #cv .n rect { fill: var(--surface-raised); stroke: var(--line); stroke-width: 1.5; }
+  #cv .n:hover rect { stroke: var(--link); stroke-width: 3; }
+  #cv .e { stroke: var(--text-subtle); stroke-width: 1.5; fill: none; opacity: .55; }
+  .vault-bar button { font-size: .8rem; padding: .15rem .55rem; border: 1px solid var(--line);
+    border-radius: 4px; background: var(--surface-raised); color: var(--ink); cursor: pointer; }
+  .vault-bar button:hover { border-color: var(--link); }
 `;
 
 // A page frame that inherits the dashboard's assembled theme sheet.
@@ -321,6 +325,8 @@ function vaultCanvas(wsKey, project, cssVersion) {
       <span class="uk-text-meta">${nodes.length} on the map · ${edges.length} links</span>
       <a href="${view}">Notes</a>
       <a href="obsidian://open?path=${encodeURIComponent(vaultDir(wsKey, project))}">Open in the Obsidian app</a>
+      <button id="fit" type="button">Fit</button>
+      <button id="one" type="button">100%</button>
       <span class="uk-text-meta" style="margin-left:auto">drag to pan · scroll to zoom · click a node to read it</span>
     </div>
     <svg id="cv" viewBox="${minX} ${minY} ${w} ${h}">
@@ -331,8 +337,20 @@ function vaultCanvas(wsKey, project, cssVersion) {
       // links keep working — a CSS transform would break hit testing on the anchors.
       (function () {
         var svg = document.getElementById('cv');
-        var vb = { x: ${minX}, y: ${minY}, w: ${w}, h: ${h} };
+        var full = { x: ${minX}, y: ${minY}, w: ${w}, h: ${h} };
+        var vb = { x: full.x, y: full.y, w: full.w, h: full.h };
         function apply() { svg.setAttribute('viewBox', vb.x + ' ' + vb.y + ' ' + vb.w + ' ' + vb.h); }
+        function set(o) { vb.x = o.x; vb.y = o.y; vb.w = o.w; vb.h = o.h;
+          svg.setAttribute('viewBox', vb.x + ' ' + vb.y + ' ' + vb.w + ' ' + vb.h); }
+        function fit() { set(full); }
+        // 100%: one user unit per CSS pixel, anchored at the top-left of the map.
+        function oneToOne() {
+          set({ x: full.x, y: full.y, w: svg.clientWidth, h: svg.clientHeight });
+        }
+        document.getElementById('fit').addEventListener('click', fit);
+        document.getElementById('one').addEventListener('click', oneToOne);
+        // Fit only when the whole map already fits comfortably; otherwise open readable.
+        if (full.w <= svg.clientWidth * 1.4 && full.h <= svg.clientHeight * 1.4) { fit(); } else { oneToOne(); }
         var drag = null, moved = false;
         svg.addEventListener('pointerdown', function (e) { drag = { x: e.clientX, y: e.clientY }; moved = false; });
         window.addEventListener('pointerup', function () { drag = null; });
@@ -360,6 +378,27 @@ function vaultCanvas(wsKey, project, cssVersion) {
     </script>`);
 }
 
+/**
+ * The modal wrapper: one of the two views in an iframe, filling the dialog.
+ *
+ * An iframe rather than the page's markup inlined, because both views are whole documents — own
+ * stylesheet link, own script, own pan/zoom state — and splicing that into the dashboard would
+ * put two competing sets of handlers on one document.
+ */
+function vaultFrame(wsKey, project, what) {
+  const src = `/obsidian/${encodeURIComponent(wsKey)}/${encodeURIComponent(project)}/${what === 'canvas' ? 'canvas' : 'view'}`;
+  const other = what === 'canvas' ? 'view' : 'canvas';
+  return `<div class="uk-flex uk-flex-between uk-flex-middle uk-margin-small-bottom">
+      <h3 class="uk-margin-remove">${esc(project)} <span class="uk-text-meta">${what === 'canvas' ? 'map' : 'notes'}</span></h3>
+      <div>
+        <a class="uk-button uk-button-default uk-button-small" href hx-get="/obsidian/${esc(wsKey)}/${esc(project)}/frame?what=${other}" hx-target="#editor-modal-body" hx-swap="innerHTML">${other === 'canvas' ? 'Map' : 'Notes'}</a>
+        <a class="uk-button uk-button-default uk-button-small" href="${esc(src)}" target="_blank">Open full screen</a>
+      </div>
+    </div>
+    <iframe src="${esc(src)}" title="${esc(project)}" style="width:100%;height:74vh;border:1px solid var(--line);border-radius:4px;background:var(--surface)"></iframe>`;
+}
+
+module.exports.vaultFrame = vaultFrame;
 module.exports.vaultNotes = vaultNotes;
 module.exports.renderNote = renderNote;
 module.exports.vaultView = vaultView;

@@ -31,7 +31,7 @@ const { esc } = require('./html');
 const { readListState, setListCookies } = require('./lists');
 const { DDEV_ACTIONS } = require('./ddev');
 const { graphStoreDir, GRAPH_FILES } = require('./graphs');
-const { vaultDir, indexNote, vaultView, vaultCanvas } = require('./obsidian');
+const { vaultDir, indexNote, vaultView, vaultCanvas, vaultFrame } = require('./obsidian');
 const { milvusPost, ragInstanceFor, ragCollectionName, ragCollections } = require('./rag');
 const { iconHtml, tablerIcons } = require('./icons');
 const { assembleCss, cssVersion } = require('./themes');
@@ -341,7 +341,7 @@ const server = http.createServer(async (req, res) => {
       // The vault: its index note, and the whole thing as an archive. Same symlink discipline
       // as the graph routes below — a project directory that is a link would otherwise read
       // outside the workspace, and this container bind-mounts ~/.claude as well as ~/workspace.
-      const vaultMatch = pathname.match(/^\/obsidian\/([a-z0-9_-]+)\/([a-zA-Z0-9_.-]+)\/(index|download|view|canvas)$/);
+      const vaultMatch = pathname.match(/^\/obsidian\/([a-z0-9_-]+)\/([a-zA-Z0-9_.-]+)\/(index|download|view|canvas|frame)$/);
       if (vaultMatch && isValidWorkspace(vaultMatch[1])) {
         const [, wsKey, project, what] = vaultMatch;
         if (project.includes('..')) { res.writeHead(400); return res.end('bad name'); }
@@ -353,6 +353,12 @@ const server = http.createServer(async (req, res) => {
         } catch (_) {
           res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
           return res.end('No vault yet — build one from the Graph menu on the project row.');
+        }
+
+        if (what === 'frame') {
+          const wanted = String(new URL(req.url, 'http://localhost').searchParams.get('what') || 'view');
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(vaultFrame(wsKey, project, wanted));
         }
 
         if (what === 'view' || what === 'canvas') {
@@ -435,6 +441,20 @@ const server = http.createServer(async (req, res) => {
         tar.on('error', () => { try { res.destroy(); } catch (_) { /* client gone */ } });
         res.on('close', () => { try { tar.kill(); } catch (_) { /* already exited */ } });
         return;
+      }
+
+      // The picture in the modal, as an iframe: graph.html is a whole document with its own
+      // script and its own canvas, so it cannot be spliced into this page.
+      const graphFrameMatch = pathname.match(/^\/graph\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)\/frame$/);
+      if (graphFrameMatch && isValidWorkspace(graphFrameMatch[1])) {
+        const [, wsKey, project] = graphFrameMatch;
+        const src = `/graph/${encodeURIComponent(wsKey)}/${encodeURIComponent(project)}`;
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(`<div class="uk-flex uk-flex-between uk-flex-middle uk-margin-small-bottom">
+            <h3 class="uk-margin-remove">${esc(project)} <span class="uk-text-meta">graph</span></h3>
+            <a class="uk-button uk-button-default uk-button-small" href="${esc(src)}" target="_blank">Open full screen</a>
+          </div>
+          <iframe src="${esc(src)}" title="${esc(project)} graph" style="width:100%;height:74vh;border:1px solid var(--line);border-radius:4px;background:var(--surface)"></iframe>`);
       }
 
       // The picture, and the report. Symlinks are resolved before the path is trusted: a project
