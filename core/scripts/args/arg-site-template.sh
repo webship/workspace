@@ -1,24 +1,13 @@
 #!/usr/bin/env bash
 
-argparse "$@" <<ARGEOF || exit 1
+# A site-template build takes a name and nothing else.
+#
+# The template decides what the site is — that is the whole point of one — so there is
+# nothing left to choose: no profile, no extra packages, no modules to enable. The
+# version is the latest release, the PHP version is the one DDEV picks, and the build
+# runs the full three steps: the Drupal CMS codebase, the template, the install.
+
+argparse "$@" <<EOF || exit 1
 parser.add_argument('PROJECT_NAME',
                     help='The name of the project. It becomes https://<PROJECT_NAME>.ddev.site')
-parser.add_argument('-v', '--site-template-version',
-                    default="",
-                    help='Composer constraint for the site template. Example: --site-template-version "^1.0". Default: the latest release.')
-parser.add_argument('-p', '--php-version',
-                    default="8.3",
-                    help='PHP version for the DDEV project [default %(default)s].')
-parser.add_argument('-i', '--install',
-                    action='store_true',
-                    default=False,
-                    help='Install the site with this template after building it. Without this the build stops at a codebase, exactly as every other builder in the workspace does, and you pick the template in the browser installer.')
-parser.add_argument('-s', '--skip-install',
-                    action='store_true',
-                    default=False,
-                    help='Explicitly stop at the codebase. That is already what happens without --install; the flag exists so a script that passes it keeps working.')
-parser.add_argument('-l', '--launch',
-                    action='store_true',
-                    default=False,
-                    help='Open the site in a browser when it is ready.')
-ARGEOF
+EOF

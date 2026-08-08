@@ -14,11 +14,9 @@ Three steps, the same for every template here:
 2. `composer require drupal/<template>` — the template lands in **`recipes/`**, next to `web/`,
    because that is where a `drupal-recipe` package installs.
 3. `drush site:install drupal_cms_installer installer_site_template_form.add_ons=<template>` —
-   only with `--install`; without it the build stops at step 2 and you choose the template in the
-   browser installer yourself.
+   the installer's own site-template step, answered without a browser.
 
-There is no `--profile`, no `--require` and no `--enable`: the template decides what the site is,
-which is the whole point of it.
+All three run every time. There are no flags at all here.
 
 ## What a site template is
 
@@ -53,13 +51,14 @@ ddev delete -y -O              # not a dropped database
 ## Building one
 
 ```bash
-bash cmd-byte-project.sh mysite                                  # codebase only — pick the template in the installer
-bash cmd-byte-project.sh mysite --install                        # build and install it for you
-bash cmd-haven-project.sh mysite --site-template-version "^1.0"  # pin the template
-bash cmd-local-project.sh mysite --install --launch              # open it when it is ready
+bash cmd-byte-project.sh mysite
+bash cmd-haven-project.sh mysite
+bash cmd-website_starter-project.sh mysite
 ```
 
-`--help` on any of them lists its arguments.
+A name, and nothing else. The template decides what the site is — that is the whole point of one —
+so there is nothing left to choose: no profile, no extra packages, no modules to enable, no version
+to pin. It takes the latest release of the template and installs the site.
 
 ## Commands here
 
