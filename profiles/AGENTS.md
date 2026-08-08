@@ -24,6 +24,7 @@ ddev delete -y -O              # not a dropped database
 ```bash
 bash cmd-build-profiles-bear.sh
 bash cmd-build-profiles-commerce.sh
+bash cmd-build-profiles-cucumber.sh
 bash cmd-build-profiles-degov.sh
 bash cmd-build-profiles-droopler.sh
 bash cmd-build-profiles-dropsolid_rocketship.sh

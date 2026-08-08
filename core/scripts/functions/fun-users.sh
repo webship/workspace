@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Load the default user list of a distribution: `set_<distribution>_users` lives
 # in functions/fun-distribution-<distribution>.sh, next to that distribution's

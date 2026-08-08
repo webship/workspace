@@ -325,7 +325,7 @@ function settingsPage(section, state = defaultListState()) {
     <div id="settings-output"></div>
     <div id="webship-workspace-output"></div>
   </div>
-</main>`, [{ label: 'Workspaces', href: HOME_URL() }, { label: 'Settings' }], 'settings');
+</main>`, [{ label: 'Settings' }], 'settings');
 }
 // Present on every page: the actions this page has, then a way to every other. A rail that
 // appears and disappears makes the layout jump between pages and gives the eye no fixed place to
@@ -825,7 +825,7 @@ function backupsPage(key, state = defaultListState()) {
 
     <div id="webship-workspace-output"></div>
   </div>
-</main>`, [{ label: 'Workspaces', href: HOME_URL() }, { label: meta.label, href: wsUrl(key) }, { label: 'Backups' }], `backups:${key}`);
+</main>`, [{ label: meta.label, href: wsUrl(key) }, { label: 'Backups' }], `backups:${key}`);
 }
 async function workspacePage(key, state = defaultListState()) {
   const workspaces = loadWorkspaces();
@@ -883,7 +883,7 @@ async function workspacePage(key, state = defaultListState()) {
 
     <div id="webship-workspace-output"></div>
   </div>
-</main>`, [{ label: 'Workspaces', href: HOME_URL() }, { label: meta.label }], `workspace:${key}`);
+</main>`, [{ label: meta.label }], `workspace:${key}`);
 }
 function resultFragment(result, intro) {
   const text = (result.stdout || '') + (result.stderr ? `\n${result.stderr}` : '');

@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Include Bash YAML library.
 source ${WORKSPACE_SCRIPTS}/libs/bash-yaml.sh || exit 1 ;

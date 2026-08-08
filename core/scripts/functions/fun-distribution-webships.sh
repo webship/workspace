@@ -1,13 +1,9 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Install Webships with Drush.
 function install_webships_with_drush() {
   echo "Install Webships with Drush.";
-  ddev drush site-install webships --yes --site-name="${doc_name} ${PROJECT_NAME}" --account-name="${account_name}" --account-pass="${account_pass}" --account-mail="${account_mail}" --db-url="mysql://db:db@db/db" ;
-  ddev drush config:set system.performance css.preprocess 0 --yes ;
-  ddev drush config:set system.performance js.preprocess 0 --yes ;
-  ddev drush config:set system.logging error_level all --yes ;
-  ddev drush cache:rebuild ;
+  ddev drush site:install webships --yes --site-name="${doc_name} ${PROJECT_NAME}" --account-name="${account_name}" --account-pass="${account_pass}" --account-mail="${account_mail}" --db-url="mysql://db:db@db/db" ;
 }
 
 # Enable Webships extra components.

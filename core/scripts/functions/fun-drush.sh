@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Add Drush if it was not in the system.
 function add_drush() {

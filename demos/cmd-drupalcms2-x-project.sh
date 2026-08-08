@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # workspace-name: Drupal CMS 2.x
 
@@ -11,7 +11,7 @@ source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.demos.settings.yml);
 
 # Set site version.
-site_version="^2.1";
+site_version="^2";
 
 # Distribution.
 distribution_name="drupal_cms";

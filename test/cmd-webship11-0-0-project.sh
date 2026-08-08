@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # workspace-name: Webship 11.0.0
 
@@ -11,7 +11,10 @@ source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.test.settings.yml);
 
 # Set the version.
-site_version="~11.0";
+# The 11.0.0 line. Named down to the release candidate on purpose: rc1 is the only
+# release published so far, and a constraint of "~11.0" cannot select it under stable
+# stability — create-project fails outright. This picks up 11.0.0 as soon as it is tagged.
+site_version="~11.0.0-rc1";
 
 # Distribution.
 distribution_name="webship";

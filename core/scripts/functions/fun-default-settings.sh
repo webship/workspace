@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # DDEV owns the database connection: it generates settings.php and
 # settings.ddev.php (db host "db") for drupal-type projects itself. This
