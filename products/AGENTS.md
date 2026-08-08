@@ -26,6 +26,7 @@ ddev delete -y -O              # not a dropped database
 bash cmd-tool-backup-product.sh                       # Bootstrap.
 bash cmd-tool-git-change-filemode-to-false.sh         # Bootstrap.
 bash cmd-tools-graphify.sh                            # Map a project in this workspace into a queryable knowledge graph with
+bash cmd-tools-obsidian.sh                             # Turn a project graph into an Obsidian vault
 bash cmd-tools-ragify.sh                              # Index a project in this workspace into the Milvus vector database
 ```
 

@@ -68,6 +68,7 @@ bash cmd-provus_edu-project.sh                         # Provus EDU (Drupal CMS 
 bash cmd-pulse-project.sh                              # Pulse (Drupal CMS site template)
 bash cmd-summit-project.sh                             # Summit (Drupal CMS site template)
 bash cmd-tools-graphify.sh                             # Map a project in this workspace into a queryable knowledge graph
+bash cmd-tools-obsidian.sh                             # Turn a project graph into an Obsidian vault
 bash cmd-tools-ragify.sh                               # Index a project in this workspace into the Milvus vector database
 bash cmd-tools-remove.sh                               # Remove a project and its DDEV environment
 ```

@@ -33,6 +33,7 @@ bash cmd-build-theme.sh                               # Bootstrap.
 bash cmd-install-admin-theme.sh                       # Bootstrap.
 bash cmd-install-theme.sh                             # Bootstrap.
 bash cmd-tools-graphify.sh                            # Map a project in this workspace into a queryable knowledge graph with
+bash cmd-tools-obsidian.sh                             # Turn a project graph into an Obsidian vault
 bash cmd-tools-ragify.sh                              # Index a project in this workspace into the Milvus vector database
 bash cmd-tools-remove.sh                              # Bootstrap.
 bash cmd-tools-update-all.sh                          # Find the workspace tooling from this script, so a fresh clone needs no setup.

@@ -37,6 +37,7 @@ bash cmd-tools-backup-dev.sh                          # Bootstrap.
 bash cmd-tools-cancel-users.sh                        # Bootstrap.
 bash cmd-tools-git-change-filemode-to-false.sh        # Bootstrap.
 bash cmd-tools-graphify.sh                            # Map a project in this workspace into a queryable knowledge graph with
+bash cmd-tools-obsidian.sh                             # Turn a project graph into an Obsidian vault
 bash cmd-tools-ragify.sh                              # Index a project in this workspace into the Milvus vector database
 bash cmd-tools-remove.sh                              # Bootstrap.
 bash cmd-tools-testing.sh                             # Set up the automated-testing environment on an existing project in this workspace, or run its

@@ -31,6 +31,7 @@ const { esc } = require('./html');
 const { readListState, setListCookies } = require('./lists');
 const { DDEV_ACTIONS } = require('./ddev');
 const { graphStoreDir, GRAPH_FILES } = require('./graphs');
+const { vaultDir, indexNote } = require('./obsidian');
 const { milvusPost, ragInstanceFor, ragCollectionName, ragCollections } = require('./rag');
 const { iconHtml, tablerIcons } = require('./icons');
 const { assembleCss } = require('./themes');
@@ -123,6 +124,7 @@ const ACTIONS = {
   ...require('./actions/config'),
   ...require('./actions/ddev'),
   ...require('./actions/graphs'),
+  ...require('./actions/obsidian'),
   ...require('./actions/rag'),
   ...require('./actions/assistant'),
   ...require('./actions/commands'),
@@ -334,6 +336,57 @@ const server = http.createServer(async (req, res) => {
         <button type="button" class="uk-button uk-button-default uk-modal-close">Close</button>
       </div>
     </div>`);
+      }
+
+      // The vault: its index note, and the whole thing as an archive. Same symlink discipline
+      // as the graph routes below — a project directory that is a link would otherwise read
+      // outside the workspace, and this container bind-mounts ~/.claude as well as ~/workspace.
+      const vaultMatch = pathname.match(/^\/obsidian\/([a-z0-9_-]+)\/([a-zA-Z0-9_.-]+)\/(index|download)$/);
+      if (vaultMatch && isValidWorkspace(vaultMatch[1])) {
+        const [, wsKey, project, what] = vaultMatch;
+        if (project.includes('..')) { res.writeHead(400); return res.end('bad name'); }
+        let real;
+        try {
+          real = fs.realpathSync(vaultDir(wsKey, project));
+          const base = fs.realpathSync(path.join(ROOT, 'graphs'));
+          if (!real.startsWith(base + path.sep) || !fs.statSync(real).isDirectory()) throw new Error('outside');
+        } catch (_) {
+          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+          return res.end('No vault yet — build one from the Graph menu on the project row.');
+        }
+
+        if (what === 'index') {
+          // Read before the head is written: computing after writeHead turns a throw into a
+          // 200 with an empty body, which reads as "it worked and there is nothing there".
+          let md;
+          try {
+            md = fs.readFileSync(path.join(real, indexNote(project)), 'utf8');
+          } catch (_) {
+            res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+            return res.end('<div class="msg error">The vault has no index note. Rebuild it.</div>');
+          }
+          const vaultUri = `obsidian://open?path=${encodeURIComponent(real)}`;
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(`<h3>${esc(project)} <span class="uk-text-meta">Obsidian vault</span></h3>
+            <p class="uk-text-meta">${esc(real)}</p>
+            <p><a class="uk-button uk-button-primary uk-button-small" href="${esc(vaultUri)}">Open in Obsidian</a>
+               <a class="uk-button uk-button-default uk-button-small" href="/obsidian/${esc(wsKey)}/${esc(project)}/download">Download</a></p>
+            <pre class="uk-background-muted uk-padding-small" style="white-space:pre-wrap">${esc(md)}</pre>`);
+        }
+
+        const vaultArchive = `${wsKey}--${project}--obsidian.tar.gz`;
+        res.writeHead(200, {
+          'Content-Type': 'application/gzip',
+          'Content-Disposition': `attachment; filename="${vaultArchive.replace(/[^A-Za-z0-9._-]/g, '_')}"`,
+          'X-Content-Type-Options': 'nosniff',
+        });
+        const vtar = spawn('tar', ['-czf', '-', '-C', path.dirname(real), path.basename(real)],
+          { stdio: ['ignore', 'pipe', 'pipe'] });
+        vtar.stdout.pipe(res);
+        vtar.stderr.resume();
+        vtar.on('error', () => { try { res.destroy(); } catch (_) { /* client gone */ } });
+        res.on('close', () => { try { vtar.kill(); } catch (_) { /* already exited */ } });
+        return;
       }
 
       // The graph as a single archive, to hand to another workspace. Streamed straight out of
