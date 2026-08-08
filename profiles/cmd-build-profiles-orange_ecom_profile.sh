@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: Orange Ecom Profile
+
 echo "*---------------------------------------------------*";
 echo "| Orange E-commerce Profile                         |";
 echo "*---------------------------------------------------*";

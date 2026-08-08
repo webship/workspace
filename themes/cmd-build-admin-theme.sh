@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: Admin Theme
+
 # Bootstrap.
 # Find the workspace tooling from this script, so a fresh clone needs no setup.
 WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";

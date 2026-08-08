@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: OpenRestaurant
+
 echo "*---------------------------------------------------*";
 echo "| Build OpenRestaurant                              |";
 echo "*---------------------------------------------------*";

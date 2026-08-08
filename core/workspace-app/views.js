@@ -915,6 +915,10 @@ function buildFormHtml(key, script) {
   const chosen = builders.includes(script) ? script : builders[0];
   const options = builders.map((b) => `<option value="${esc(b)}"${b === chosen ? ' selected' : ''}>${esc(builderLabel(dir, b))}</option>`).join('');
 
+  // Whether this builder asks for a name at all: the cmd-build-<thing>.sh kind builds one
+  // particular profile or theme into a directory it already knows.
+  const takesName = /^cmd-.*-project\.sh$/.test(chosen);
+
   return `
     <h3 class="uk-margin-small-bottom">Build a new ${esc(meta.noun)}</h3>
     <form hx-post="/actions/build" hx-target="#webship-workspace-output" hx-swap="innerHTML">
@@ -924,11 +928,13 @@ function buildFormHtml(key, script) {
         <select class="uk-select" name="script"
           hx-get="/fragments/${esc(key)}/builder-args" hx-trigger="change" hx-target="#builder-args" hx-swap="innerHTML" hx-include="this">${options}</select>
       </div>
+      ${takesName ? `
       <div class="uk-margin-small">
         <label class="uk-form-label">Name</label>
         <input class="uk-input" name="projectName" placeholder="new-project-name" required pattern="[a-zA-Z0-9_\\-]+">
         <span class="uk-text-meta">It becomes https://&lt;name&gt;.ddev.site</span>
-      </div>
+      </div>` : `
+      <p class="uk-text-meta">This builder names its own output — there is nothing to fill in.</p>`}
       <div id="builder-args">${builderArgsHtml(key, chosen)}</div>
       <div class="uk-margin-top uk-text-right">
         <button type="submit" class="uk-button uk-button-primary">Build</button>

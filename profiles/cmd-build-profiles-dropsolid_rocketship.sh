@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: Dropsolid Rocketship
+
 echo "*---------------------------------------------------*";
 echo "| Build Dropsolid Rocketship                        |";
 echo "*---------------------------------------------------*";

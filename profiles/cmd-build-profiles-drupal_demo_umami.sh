@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: Drupal demo umami
+
 echo "*---------------------------------------------------*";
 echo "| Build Drupal demo umami                           |";
 echo "*---------------------------------------------------*";

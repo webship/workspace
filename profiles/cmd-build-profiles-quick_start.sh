@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: Quick Start
+
 echo "*---------------------------------------------------*";
 echo "| Build Quick Start                                 |";
 echo "*---------------------------------------------------*";

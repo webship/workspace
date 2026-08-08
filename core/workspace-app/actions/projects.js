@@ -22,7 +22,11 @@ const handlers = {
     const script = String(form.script || '');
     const projectName = String(form.projectName || '');
     if (!SCRIPT_RE.test(script) || !findBuilderScripts(dir).includes(script)) return send('<div class="msg error">Unknown build script.</div>', 400);
-    if (!NAME_RE.test(projectName)) return send('<div class="msg error">Invalid project name.</div>', 400);
+    // cmd-build-<thing>.sh builds one particular profile or theme into a directory it already
+    // knows, so it takes no name — asking for one and passing it would hand the script an
+    // argument it never reads.
+    const takesName = /^cmd-.*-project\.sh$/.test(script);
+    if (takesName && !NAME_RE.test(projectName)) return send('<div class="msg error">Invalid project name.</div>', 400);
     // Structured Arguments UI fields (argb: checkboxes, argv: value inputs)
     // take precedence; fall back to the legacy free-text `flags` (kept for
     // the API and the AI assistant).
@@ -49,8 +53,10 @@ const handlers = {
     // Full distribution builds (composer create-project + install) can far
     // exceed the default 15m on a cold composer cache.
     // Echo the exact final command as the first terminal line.
-    const finalCmd = `bash ${script} ${projectName}${flags.length ? ' ' + flags.join(' ') : ''}`;
-    const id = startJob(`🏗️ Build <strong>${esc(projectName)}</strong> (${esc(builderLabel(dir, script))})`, 'bash', [script, projectName, ...flags], dir, { timeoutMs: 60 * 60 * 1000, echoLine: finalCmd });
+    const argv = takesName ? [script, projectName, ...flags] : [script, ...flags];
+    const shown = takesName ? projectName : builderLabel(dir, script);
+    const finalCmd = `bash ${argv.join(' ')}`;
+    const id = startJob(`🏗️ Build <strong>${esc(shown)}</strong> (${esc(builderLabel(dir, script))})`, 'bash', argv, dir, { timeoutMs: 60 * 60 * 1000, echoLine: finalCmd });
     return send(jobFragment(id).html);
   },
   '/actions/quick-build': null, // set below to the same handler as /actions/build,

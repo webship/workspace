@@ -1,2 +1,10 @@
 doc:
   name: products
+
+# What this folder's items ARE, which decides what the dashboard offers on each row:
+#   sites     — real projects with a DDEV environment: build, start, back up, graph, index
+#   code      — repositories checked out to work on, without a site of their own
+#   files     — markdown documents, edited in place
+#   ai-items  — agents, skills and prompts, installable into ~/.claude
+#   media     — recordings and images
+type: sites

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: OpenLucius
+
 echo "*---------------------------------------------------*";
 echo "| Build OpenLucius                                  |";
 echo "*---------------------------------------------------*";

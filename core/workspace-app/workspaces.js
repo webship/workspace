@@ -12,6 +12,17 @@ const ROOT = process.env.WORKSPACE_ROOT || path.join(process.env.HOME, 'workspac
 // with the vendored uikit-icons.min.js.
 // `noun` is what one item in the folder is called (only real projects are
 // "projects"); `plural` overrides irregular plurals.
+// A folder's `type` says what it holds; `kind` is the older two-way split the row renderer uses.
+// One mapping in one place, so a new type does not have to be taught to both.
+const KIND_FOR_TYPE = {
+  sites: 'projects',
+  code: 'projects',
+  files: 'files',
+  'ai-items': 'files',
+  media: 'files',
+};
+const TYPE_FOR_KIND = { files: 'files', projects: 'sites' };
+
 const PRESENTATION = {
   products:   { icon: 'tabler:shopping-cart',        subtitle: 'Internal & External Products', noun: 'product' },
   dev:        { icon: 'tabler:code',        subtitle: 'Development Projects', noun: 'project' },
@@ -146,7 +157,14 @@ function _loadWorkspacesFresh() {
       label: pres.label || name.charAt(0).toUpperCase() + name.slice(1),
       noun: pres.noun || 'item',
       nounPlural: pres.plural || pres.nounPlural || `${pres.noun || 'item'}s`,
-      kind: pres.kind || 'projects',
+      // What the folder holds, from its own settings file rather than the table below: a
+      // workspace is added by dropping in a folder and a settings file, and it should not also
+      // need a line of JavaScript to say what it is.
+      //   sites | code | files | ai-items | media
+      type: wsSettings.type || TYPE_FOR_KIND[pres.kind] || 'sites',
+      // `kind` is the older, coarser split the row renderer still asks for. Derived from the
+      // type, so the two cannot disagree.
+      kind: KIND_FOR_TYPE[wsSettings.type] || pres.kind || 'projects',
     };
   }
   return map;
@@ -208,7 +226,11 @@ function findBuilderScripts(dir) {
     return [];
   }
   return files
-    .filter((f) => /^cmd-.*-project\.sh$/.test(f) && !/automated-testing|bulk-/.test(f))
+    // Two naming conventions, both of them builders: cmd-<thing>-project.sh builds a project you
+    // name, and cmd-build-<thing>.sh builds one particular thing whose name is already decided
+    // (a profile, a theme). Only the first kind takes a PROJECT_NAME — see buildFormHtml.
+    .filter((f) => (/^cmd-.*-project\.sh$/.test(f) || /^cmd-build-.*\.sh$/.test(f))
+      && !/automated-testing|bulk-/.test(f) && !/^cmd-tools?-/.test(f))
     .sort();
 }
 
