@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: Drupal template
+
 echo "*-----------------------------------------------------------*";
 echo "|  Build Drupal template                                    |";
 echo "*-----------------------------------------------------------*";

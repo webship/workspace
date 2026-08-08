@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: SplashAwards
+
 echo "*---------------------------------------------------*";
 echo "| Build SplashAwards                                |";
 echo "*---------------------------------------------------*";

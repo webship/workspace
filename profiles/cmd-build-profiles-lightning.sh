@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: Lightning
+
 echo "*---------------------------------------------------*";
 echo "| Build Lightning                                   |";
 echo "*---------------------------------------------------*";

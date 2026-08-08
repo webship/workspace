@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: Open Social
+
 echo "*-------------------------------------------------*";
 echo "| Build Open Social                               |";
 echo "*-------------------------------------------------*";

@@ -21,6 +21,10 @@ function build_site_template() {
   # Which install profile asks the site-template question.
   installer_profile="${installer_profile:-drupal_cms_installer}";
 
+  # No flags: the latest release of the template, and the PHP version DDEV chooses.
+  SITE_TEMPLATE_VERSION="";
+  PHP_VERSION="${PHP_VERSION:-8.3}";
+
   base_url="https://${PROJECT_NAME}.ddev.site";
   hub_url="https://${PROJECT_NAME}.${doc_name}.workspace.ddev.site";
 
@@ -61,46 +65,32 @@ function build_site_template() {
     ddev composer require "${site_template_package}" --no-interaction;
   fi
 
-  # Require all custom required packages.
-  # argparse.sh emits an nargs='+' option as a bash ARRAY, so plain ${REQUIRE} is only its FIRST
-  # element: `--require a b` used to drop b. [0] still reads the sentinel on a scalar default.
-  if [ "${REQUIRE[0]}" == '_none_' ] ; then
-    echo "No extra composer required." ;
-  else
-    ddev composer require ${REQUIRE[*]} ;
+  echo "Install ${distribution_title:-Drupal CMS} with the ${site_template_title:-${site_template_name}} site template.";
+  # Stop here when the install fails: a site template that throws part way
+  # through leaves a half-installed site (config applied, default content
+  # never imported), and running the user/debug steps on top of that hides
+  # which step actually broke.
+  if ! ddev drush site:install ${installer_profile} --yes \
+    installer_site_template_form.add_ons=${site_template_name} \
+    --site-name="${site_template_title:-${site_template_name}}" \
+    --account-name="${account_name}" --account-pass="${account_pass}" --account-mail="${account_mail}" \
+    --locale="en" ; then
+    echo "" ;
+    echo "The ${site_template_title:-${site_template_name}} install failed — the site is half-installed." ;
+    echo "Read the error above: a site template that pins a stale Canvas component_version," ;
+    echo "or ships config another module already provides, fails at the recipe step." ;
+    echo "To take the same steps by hand, use ${base_url}/core/install.php and pick the template there." ;
+    cd ${WORKSPACE_ROOT}/${doc_name} ;
+    return 1 ;
   fi
 
-  if [ "${SKIP_INSTALL}" == 'yes' ] ; then
-    echo "${PROJECT_NAME} is ready to install!!!!";
-    echo "Go to ${base_url}/core/install.php and pick the ${site_template_title:-${site_template_name}} site template.";
-  else
-    echo "Install ${distribution_title:-Drupal CMS} with the ${site_template_title:-${site_template_name}} site template.";
-    # Stop here when the install fails: a site template that throws part way
-    # through leaves a half-installed site (config applied, default content
-    # never imported), and running the user/debug steps on top of that hides
-    # which step actually broke.
-    if ! ddev drush site:install ${installer_profile} --yes \
-      installer_site_template_form.add_ons=${site_template_name} \
-      --site-name="${site_template_title:-${site_template_name}}" \
-      --account-name="${account_name}" --account-pass="${account_pass}" --account-mail="${account_mail}" \
-      --locale="en" ; then
-      echo "" ;
-      echo "The ${site_template_title:-${site_template_name}} install failed — the site is half-installed." ;
-      echo "Read the error above: a site template that pins a stale Canvas component_version," ;
-      echo "or ships config another module already provides, fails at the recipe step." ;
-      echo "To take the same steps by hand, rebuild with --skip-install and use ${base_url}/core/install.php." ;
-      cd ${WORKSPACE_ROOT}/${doc_name} ;
-      return 1 ;
-    fi
+  # Set aggregation off and the error level to all, then rebuild caches.
+  drush_set_debug_on;
+  drush_cr;
 
-    # Set aggregation off and the error level to all, then rebuild caches.
-    drush_set_debug_on;
-    drush_cr;
-
-    ## Add the default set of users.
-    if [ "${ADD_USERS}" == 'yes' ] ; then
-      add_users ;
-    fi
+  ## Add the default set of users.
+  if [ "${ADD_USERS}" == 'yes' ] ; then
+  add_users ;
   fi
 
   echo "";
@@ -109,10 +99,6 @@ function build_site_template() {
   echo "    ${hub_url}";
   echo "    ${base_url}";
   echo "*---------------------------------------------------------------------*";
-
-  if [ "${LAUNCH}" == 'yes' ] ; then
-    ddev launch ;
-  fi
 
   cd ${WORKSPACE_ROOT}/${doc_name};
 }

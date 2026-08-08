@@ -42,7 +42,7 @@ const {
   INSTALL_TARGETS, VIDEO_RE, REVIEWABLE_RE, humanSize, ITEM_TEMPLATES, NAME_RE, SCRIPT_RE,
   itemFile, listItems, testingStackOf, projectTestRuns, testRunHtml,
   itemRowsHtml, editorFormHtml, settingsPage, pageShell, homePage, workspaceCardsHtml,
-  ddevStatusMap, projectRowsHtml, parseBuilderArgs, builderArgsHtml, backupRowsHtml,
+  ddevStatusMap, projectRowsHtml, parseBuilderArgs, builderArgsHtml, buildFormHtml, backupRowsHtml,
   backupsPage, workspacePage, resultFragment, HOME_URL, wsUrl,
 } = require('./views');
 
@@ -827,6 +827,21 @@ const server = http.createServer(async (req, res) => {
       if (pathname === '/fragments/jobs/running') {
         const running = [...jobs.entries()].filter(([, j]) => !j.done);
         const body = running.map(([id]) => jobFragment(id).html).join('');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(body);
+      }
+
+      const buildFormMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/build$/);
+      if (buildFormMatch && isValidWorkspace(buildFormMatch[1])) {
+        // Built before the head is written, so a throw is a 500 that says why rather than a 200
+        // with an empty dialog.
+        let body;
+        try {
+          body = buildFormHtml(buildFormMatch[1], new URL(req.url, 'http://localhost').searchParams.get('script') || '');
+        } catch (e) {
+          res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(`<div class="msg error">Could not build the form: ${esc(e.message)}</div>`);
+        }
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(body);
       }

@@ -3,31 +3,16 @@
 # Install Drupal CMS with Drush.
 #
 # Drupal CMS ships the `drupal_cms_installer` profile, whose install tasks are
-# ordinary forms, so they can be driven non-interactively. Left alone, the site
-# template step (`installer_site_template_form`) defaults to `drupal_cms_starter`
-# on a non-interactive install; pass PROFILE a recipe/site-template name to pick
-# a different one (for example `drupal_cms_site_template_base` for a blank site).
+# ordinary forms, so they can be driven non-interactively. The site-template step
+# (`installer_site_template_form`) settles on `drupal_cms_starter` by itself on a
+# non-interactive install, which is what a plain Drupal CMS build wants.
+#
+# Choosing a different template is what the site-templates workspace is for: those
+# builders require the template package and name it to the same form.
 function install_drupal_cms_with_drush() {
   echo "Install Drupal CMS with Drush.";
 
-  # argparse hands --profile over as a bash array even at nargs=1, so read element [0]. One is all
-  # the installer can take: its site-template step is a '#type' => 'radios' element keyed by a
-  # single template name (SiteTemplateForm indexes $form['add_ons'][$choice]), and arg-drupal_cms.sh
-  # refuses a second value at the command line rather than letting one be dropped here.
-  #
-  # standard|minimal|umami are Drupal core profile names — they mean nothing to Drupal CMS, so they
-  # are accepted and ignored, leaving the installer on its own default of drupal_cms_starter.
-  site_template_form_values="";
-  site_template="${PROFILE[0]}";
-  case "${site_template}" in
-    standard|minimal|umami|"")
-      ;;
-    *)
-      site_template_form_values="installer_site_template_form.add_ons=${site_template}";
-      ;;
-  esac
-
-  ddev drush site:install drupal_cms_installer --yes --site-name="${doc_name} ${PROJECT_NAME}" --account-name="${account_name}" --account-pass="${account_pass}" --account-mail="${account_mail}" --db-url="mysql://db:db@db/db" --locale="en" installer_site_name_form.site_name="${doc_name} ${PROJECT_NAME}" ${site_template_form_values} ;
+  ddev drush site:install drupal_cms_installer --yes --site-name="${doc_name} ${PROJECT_NAME}" --account-name="${account_name}" --account-pass="${account_pass}" --account-mail="${account_mail}" --db-url="mysql://db:db@db/db" --locale="en" installer_site_name_form.site_name="${doc_name} ${PROJECT_NAME}" ;
 }
 
 # Enable Drupal CMS extra components.

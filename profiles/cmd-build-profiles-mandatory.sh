@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: Mandatory
+
 echo "*---------------------------------------------------*";
 echo "| Build Mandatory                                   |";
 echo "*---------------------------------------------------*";

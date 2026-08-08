@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: Stratus Meridian Developer Portal
+
 echo "*---------------------------------------------------*";
 echo "| Build Stratus Meridian Developer Portal           |";
 echo "*---------------------------------------------------*";

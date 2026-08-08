@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: Presto! -  Commerce Integration
+
 echo "*---------------------------------------------------*";
 echo "| Build Presto! -  Commerce Integration             |";
 echo "*---------------------------------------------------*";

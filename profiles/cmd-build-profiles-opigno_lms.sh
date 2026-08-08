@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: Opigno LMS
+
 echo "*---------------------------------------------------*";
 echo "| Build Opigno LMS                                  |";
 echo "*---------------------------------------------------*";

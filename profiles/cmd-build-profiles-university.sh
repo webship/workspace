@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: University
+
 echo "*---------------------------------------------------*";
 echo "| Build University                                  |";
 echo "*---------------------------------------------------*";

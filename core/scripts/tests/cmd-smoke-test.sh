@@ -41,7 +41,21 @@ for ws in "${workspaces[@]}"; do
       fi
     fi
 
-    # 3. Builder scripts must have the human-readable name header.
+    # 3. The function the script ends by calling must actually EXIST after bootstrap.
+    #    `--help` returns before that line, so a script whose function file was never added to
+    #    bootstrap-functions.sh passes every check above and then dies with "command not found"
+    #    the first time it is run for real. That is how sixteen site-template builders shipped.
+    if [ -z "$err" ]; then
+      for fn in $(grep -oE '^[a-z_][a-z0-9_]* ;$' "$f" | tr -d ' ;' | sort -u); do
+        if ! (cd "$dir" && bash -c 'source "$1" >/dev/null 2>&1; declare -F "$2" >/dev/null' \
+                _ "${WORKSPACE_SCRIPTS}/bootstrap.sh" "$fn") ; then
+          err="calls ${fn}() but nothing defines it — is its file sourced in bootstrap-functions.sh?"
+          break
+        fi
+      done
+    fi
+
+    # 4. Builder scripts must have the human-readable name header.
     #    A builder is cmd-<distribution><version>-project.sh. cmd-tool-*/cmd-tools-* are the
     #    workspace's own tools — projects/cmd-tool-backup-project.sh ends in -project.sh too,
     #    and is not a builder.

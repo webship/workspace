@@ -6,6 +6,18 @@ before you have written anything: its content types, its editorial workflow, its
 Part of the **Webship Workspace** (`~/workspace`), a DDEV-only harness. The rules in the root
 `CLAUDE.md` apply here too; what follows is what is specific to this folder.
 
+## What a build does
+
+Three steps, the same for every template here:
+
+1. `composer create-project drupal/cms` — the Drupal CMS codebase.
+2. `composer require drupal/<template>` — the template lands in **`recipes/`**, next to `web/`,
+   because that is where a `drupal-recipe` package installs.
+3. `drush site:install drupal_cms_installer installer_site_template_form.add_ons=<template>` —
+   the installer's own site-template step, answered without a browser.
+
+All three run every time. There are no flags at all here.
+
 ## What a site template is
 
 A [site template](https://new.drupal.org/browse/site-templates) is a Composer package of type
@@ -39,14 +51,14 @@ ddev delete -y -O              # not a dropped database
 ## Building one
 
 ```bash
-bash cmd-website_starter-project.sh mysite                              # build and install
-bash cmd-byte-project.sh mysite --skip-install                          # codebase only, pick it in the installer
-bash cmd-haven-project.sh mysite --site-template-version "^1.0"         # pin the template
-bash cmd-summit-project.sh mysite --require drupal/token drupal/ctools  # extra packages
-bash cmd-local-project.sh mysite --launch                               # open it when it is ready
+bash cmd-byte-project.sh mysite
+bash cmd-haven-project.sh mysite
+bash cmd-website_starter-project.sh mysite
 ```
 
-`--help` on any of them lists its arguments.
+A name, and nothing else. The template decides what the site is — that is the whole point of one —
+so there is nothing left to choose: no profile, no extra packages, no modules to enable, no version
+to pin. It takes the latest release of the template and installs the site.
 
 ## Commands here
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# workspace-name: Drupal minimal
+
 echo "*---------------------------------------------------*";
 echo "| Build Drupal minimal                              |";
 echo "*---------------------------------------------------*";
