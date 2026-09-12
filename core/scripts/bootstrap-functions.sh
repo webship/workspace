@@ -18,6 +18,7 @@ source ${WORKSPACE_SCRIPTS}/functions/fun-drush.sh || exit 1 ;
 # Include distribution functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-build-distribution.sh || exit 1 ;
 source ${WORKSPACE_SCRIPTS}/functions/fun-build-site-template.sh || exit 1 ;
+source ${WORKSPACE_SCRIPTS}/functions/fun-build-website.sh || exit 1 ;
 
 # Include automated-testing functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-testing.sh || exit 1 ;
