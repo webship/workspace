@@ -60,9 +60,28 @@ A name, and nothing else. The template decides what the site is — that is the 
 so there is nothing left to choose: no profile, no extra packages, no modules to enable, no version
 to pin. It takes the latest release of the template and installs the site.
 
+## The Website stack
+
+The Webship site templates on Drupal 11.4 and PHP 8.4, all at their 1.0.x-dev branches:
+
+```bash
+bash cmd-website-1-0-x-project.sh mysite                              # drupal/website + the Webship installer
+bash cmd-website-1-0-x-project.sh mysite --template webship_portal    # website_starter | webship_starter | webship_portal
+bash cmd-website_starter-1-0-x-project.sh mysite                      # the recipe on drupal/recommended-project 11.4.x
+bash cmd-webship_starter-1-0-x-project.sh mysite
+bash cmd-webship_portal-1-0-x-project.sh mysite
+```
+
+`--add-users` adds the default users. `--with-pending-fixes` pins web* issue-fork branches that are
+not merged yet (a `@todo` block in `core/scripts/functions/fun-build-website.sh`).
+
 ## Commands here
 
 ```bash
+bash cmd-website-1-0-x-project.sh                      # Website 1.0.x (Webship installer)
+bash cmd-website_starter-1-0-x-project.sh              # Website Starter 1.0.x (Drupal 11.4.x)
+bash cmd-webship_starter-1-0-x-project.sh              # Webship Starter 1.0.x (Drupal 11.4.x)
+bash cmd-webship_portal-1-0-x-project.sh               # Webship Portal 1.0.x (Drupal 11.4.x)
 bash cmd-website_starter-project.sh                    # Website Starter (Webship site template)
 bash cmd-archimedes-project.sh                         # Archimedes (Drupal CMS site template)
 bash cmd-byte-project.sh                               # Byte (Drupal CMS site template)
