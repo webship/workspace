@@ -12,6 +12,11 @@ One markdown file per agent. The dashboard writes and edits them, `cmd-tool-sync
 moves them between here, the shared repository and `~/.claude/agents`, and
 `cmd-tool-propose-agents.sh` opens a pull request for one.
 
+Reading from `~/.claude/agents` (`--source claude`) takes only the agents whose names start with
+one of the `--filter` prefixes, a comma-separated list that defaults to
+`webship,web,website,cucumber,drupal-gitlab-ci` (`_all_` takes every agent). A machine's
+`~/.claude` also holds client and third-party agents, and this folder is mirrored publicly.
+
 ## Commands here
 
 ```bash

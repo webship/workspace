@@ -8,7 +8,8 @@
 #   --source claude  pull this machine's installed agents out of ~/.claude/agents
 #   --install        push the workspace's agents into ~/.claude/agents
 #
-# `--source claude` only takes the agents matching --filter (webship by
+# `--source claude` only takes the agents matching --filter, a comma-separated
+# list of name prefixes (webship,web,website,cucumber,drupal-gitlab-ci by
 # default): a machine's ~/.claude also holds client and third-party agents,
 # and this workspace is mirrored to a public repository.
 
@@ -26,8 +27,8 @@ parser.add_argument('-s', '--source',
                     default='repo',
                     help='Where to read agents from: repo (webship/ai-agents) or claude (~/.claude/agents). default [ repo ]')
 parser.add_argument('-f', '--filter',
-                    default='webship',
-                    help='Only sync agents whose name starts with this, when reading from claude. Use _all_ for every agent. default [ webship ]')
+                    default='webship,web,website,cucumber,drupal-gitlab-ci',
+                    help='Comma-separated name prefixes: only sync agents whose name starts with one of them, when reading from claude. Use _all_ for every agent. default [ webship,web,website,cucumber,drupal-gitlab-ci ]')
 parser.add_argument('-i', '--install',
                     action='store_true',
                     default=False,
@@ -40,6 +41,18 @@ agents_dir="${WORKSPACE_ROOT}/${doc_name}" ;
 claude_dir="${HOME}/.claude/agents" ;
 repo_url="https://github.com/webship/ai-agents.git" ;
 repo_checkout="${agents_dir}/ai-agents" ;
+
+# True when an agent file name starts with one of the --filter prefixes.
+matches_filter() {
+  local name="$1" prefix ;
+  [ "$FILTER" == '_all_' ] && return 0 ;
+  IFS=',' read -r -a prefixes <<< "$FILTER" ;
+  for prefix in "${prefixes[@]}" ; do
+    prefix="${prefix// /}" ;
+    [ -n "$prefix" ] && [[ "$name" == ${prefix}* ]] && return 0 ;
+  done
+  return 1 ;
+}
 
 if [ "$INSTALL" == 'yes' ]; then
   mkdir -p "${claude_dir}" ;
@@ -62,9 +75,7 @@ if [ "$SOURCE" == 'claude' ]; then
   for f in "${claude_dir}"/*.md ; do
     [ -f "$f" ] || continue ;
     name=$(basename "$f") ;
-    if [ "$FILTER" != '_all_' ] && [[ "$name" != ${FILTER}* ]]; then
-      continue ;
-    fi
+    matches_filter "$name" || continue ;
     cp "$f" "${agents_dir}/" && synced=$((synced+1)) ;
   done
   echo "Synced ${synced} agents from ${claude_dir} (filter: ${FILTER})" ;
