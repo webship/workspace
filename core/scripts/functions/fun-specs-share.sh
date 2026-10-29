@@ -67,15 +67,15 @@ function specs_fetch_repo() {
   if [ -d "${checkout}/.git" ] ; then
     git -C "${checkout}" fetch --quiet origin || return 1 ;
   else
-    echo "Cloning ${WEBSHIP_AI_ITEMS_REPO}…" >&2 ;
-    git clone --quiet "https://github.com/${WEBSHIP_AI_ITEMS_REPO}.git" "${checkout}" || {
-      echo "Could not clone ${WEBSHIP_AI_ITEMS_REPO} — check gh auth and repository access." >&2 ;
+    echo "Cloning ${AI_ITEMS_REPO}…" >&2 ;
+    git clone --quiet "https://github.com/${AI_ITEMS_REPO}.git" "${checkout}" || {
+      echo "Could not clone ${AI_ITEMS_REPO} — check gh auth and repository access." >&2 ;
       return 1 ;
     }
   fi
   local remote_branch;
   remote_branch=$(git -C "${checkout}" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null) ;
-  echo "${remote_branch:-origin/${WEBSHIP_AI_ITEMS_REF:-main}}" ;
+  echo "${remote_branch:-origin/${AI_ITEMS_REF:-main}}" ;
 }
 
 # The shared specs as the repository has them, extracted to a temporary directory. Read from the
@@ -105,7 +105,7 @@ function specs_list_remote() {
   }
   base="${tmp}/$(specs_repo_path)";
   echo "";
-  echo "Shared specs in ${WEBSHIP_AI_ITEMS_REPO} (${branch#origin/})";
+  echo "Shared specs in ${AI_ITEMS_REPO} (${branch#origin/})";
   echo "";
   ( cd "${base}" && find . -type f \( -name '*.md' -o -name '*.yml' \) | sed 's|^\./||' | sort ) \
     | while read -r rel ; do printf '  %s\n' "${rel}" ; done
@@ -212,7 +212,7 @@ function specs_pull() {
   if [ "${pulled}" -eq 0 ] ; then
     echo "Nothing to pull — everything shared is already what you have." ;
   else
-    echo "${pulled} file(s) pulled from ${WEBSHIP_AI_ITEMS_REPO}." ;
+    echo "${pulled} file(s) pulled from ${AI_ITEMS_REPO}." ;
   fi
 }
 
@@ -222,14 +222,14 @@ function specs_pull() {
 function specs_propose() {
   local root; root="$(specs_root)";
   echo "";
-  echo "Sharing a spec back to ${WEBSHIP_AI_ITEMS_REPO}";
+  echo "Sharing a spec back to ${AI_ITEMS_REPO}";
   echo "";
   echo "  Nothing here pushes. A template or a constitution is inherited by everyone who pulls it,"
   echo "  so it is proposed and reviewed like any other change:";
   echo "";
   echo "    1. git -C $(specs_checkout) checkout -b <branch>";
   echo "    2. copy your file into $(specs_checkout)/$(specs_repo_path)/<same relative path>";
-  echo "    3. commit, push, and open the PR on ${WEBSHIP_AI_ITEMS_REPO}";
+  echo "    3. commit, push, and open the PR on ${AI_ITEMS_REPO}";
   echo "";
   echo "  What is shared: _defaults/ and every 00-constitution.md. A numbered spec is about one";
   echo "  change in one tree and is not shared — see fun-specs-share.sh for why.";

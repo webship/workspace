@@ -409,7 +409,7 @@ install would have written a project's prompts to `<project>/prompts`. Same spli
   `~/.claude`, usable after a session restart); `--pull <name>` (repo → workspace folder, to read or
   edit); `--install <name>` (workspace folder → `~/.claude`). Name omitted means all.
 - Fetching uses one sparse `git clone` of the repo, not N contents-API calls, because skills are
-  directories. `WEBSHIP_AI_ITEMS_REPO` / `_REF` override the source.
+  directories. `AI_ITEMS_REPO` / `_REF` override the source.
 - Dashboard: each row carries `installed` / `workspace only` / `shared` labels; items that exist only
   in the repo are listed under their own heading with **Fetch to ~/.claude** and **Copy here to edit**.
   The repo listing is cached 5 minutes.

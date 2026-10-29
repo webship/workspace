@@ -17,7 +17,7 @@
 #   promote workspace -> a PR on the repo (share it; that is the agents' job,
 #          via github-issue-manager / vardot-mr-pr-manager — never automatic)
 
-# WEBSHIP_AI_ITEMS_REPO / _REF are resolved in bootstrap.sh from settings.yml
+# AI_ITEMS_REPO / _REF are resolved in bootstrap.sh from settings.yml
 # `sources.ai_items`, because this file is sourced before settings.yml is parsed.
 
 # Where each kind lives, per source. `prompts` is `commands` in the CLI, and in the
@@ -103,7 +103,7 @@ function ai_items_sanitize_name() {
 # reporting the CLI as unauthenticated while `gh api user` answered fine.
 function ensure_gh_cli() {
   if ! command -v gh > /dev/null 2>&1 ; then
-    echo "The GitHub CLI is needed to read ${WEBSHIP_AI_ITEMS_REPO} (private).";
+    echo "The GitHub CLI is needed to read ${AI_ITEMS_REPO} (private).";
     echo "  install: https://cli.github.com   then: gh auth login";
     return 1 ;
   fi
@@ -131,7 +131,7 @@ function ensure_gh_cli() {
   if gh api user --jq .login > /dev/null 2>&1 ; then
     return 0 ;
   fi
-  echo "The GitHub CLI is installed but has no working account for ${WEBSHIP_AI_ITEMS_REPO} (private).";
+  echo "The GitHub CLI is installed but has no working account for ${AI_ITEMS_REPO} (private).";
   echo "";
   if [ -n "${IS_DDEV_PROJECT}" ]; then
     # Inside the dashboard container. `gh auth status` here reports the account from the
@@ -144,7 +144,7 @@ function ensure_gh_cli() {
     echo "";
     echo "  Or set git.github.token at https://${hub_domain:-workspace.ddev.site}/settings — the";
     echo "  dashboard keeps it server-side and this script picks it up with no restart.";
-    echo "  Prefer a fine-grained token that can only READ ${WEBSHIP_AI_ITEMS_REPO}: anything";
+    echo "  Prefer a fine-grained token that can only READ ${AI_ITEMS_REPO}: anything";
     echo "  running in this container, the AI assistant included, can use whatever you set.";
   else
     echo "  Sign in:  gh auth login";
@@ -173,10 +173,10 @@ function ai_items_list_remote() {
   ensure_gh_cli || return 1 ;
 
   if [ "${kind}" == 'ai-skills' ] ; then
-    gh api "repos/${WEBSHIP_AI_ITEMS_REPO}/contents/${repo_path}?ref=${WEBSHIP_AI_ITEMS_REF}" \
+    gh api "repos/${AI_ITEMS_REPO}/contents/${repo_path}?ref=${AI_ITEMS_REF}" \
       --jq '.[] | select(.type=="dir") | .name' 2>/dev/null ;
   else
-    gh api "repos/${WEBSHIP_AI_ITEMS_REPO}/contents/${repo_path}?ref=${WEBSHIP_AI_ITEMS_REF}" \
+    gh api "repos/${AI_ITEMS_REPO}/contents/${repo_path}?ref=${AI_ITEMS_REF}" \
       --jq '.[] | select(.type=="file") | select(.name|endswith(".md")) | select(.name!="README.md") | .name | sub("\\.md$";"")' 2>/dev/null ;
   fi
 }
@@ -198,9 +198,9 @@ function ai_items_status() {
     printf "  %-46s %s\n" "claude     ${claude_dir}" "$(ai_items_count_local "${kind}" "${claude_dir}")";
   fi
   if ensure_gh_cli > /dev/null 2>&1 ; then
-    printf "  %-46s %s\n" "repo       ${WEBSHIP_AI_ITEMS_REPO}@${WEBSHIP_AI_ITEMS_REF}" "$(ai_items_list_remote "${kind}" | wc -l)";
+    printf "  %-46s %s\n" "repo       ${AI_ITEMS_REPO}@${AI_ITEMS_REF}" "$(ai_items_list_remote "${kind}" | wc -l)";
   else
-    printf "  %-46s %s\n" "repo       ${WEBSHIP_AI_ITEMS_REPO}" "(gh not authenticated)";
+    printf "  %-46s %s\n" "repo       ${AI_ITEMS_REPO}" "(gh not authenticated)";
   fi
 }
 
@@ -237,18 +237,18 @@ function ai_items_fetch() {
   tmp=$(mktemp -d) ;
   ensure_git_github_auth ;
   if [ -d "${checkout}/.git" ]; then
-    echo "Fetching ${WEBSHIP_AI_ITEMS_REPO}…" ;
+    echo "Fetching ${AI_ITEMS_REPO}…" ;
     git -C "${checkout}" fetch --quiet origin || { rm -rf "${tmp}"; return 1 ; }
   else
-    echo "Cloning ${WEBSHIP_AI_ITEMS_REPO}…" ;
-    git clone --quiet "https://github.com/${WEBSHIP_AI_ITEMS_REPO}.git" "${checkout}" || {
+    echo "Cloning ${AI_ITEMS_REPO}…" ;
+    git clone --quiet "https://github.com/${AI_ITEMS_REPO}.git" "${checkout}" || {
       echo "Could not clone — check gh auth and repository access." ; rm -rf "${tmp}"; return 1 ;
     }
   fi
 
   local remote_branch;
   remote_branch=$(git -C "${checkout}" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null) ;
-  remote_branch="${remote_branch:-origin/${WEBSHIP_AI_ITEMS_REF}}" ;
+  remote_branch="${remote_branch:-origin/${AI_ITEMS_REF}}" ;
   git -C "${checkout}" archive "${remote_branch}" "${repo_path}" 2>/dev/null | tar -x -C "${tmp}" || {
     echo "Nothing at ${repo_path} in ${remote_branch}." ; rm -rf "${tmp}"; return 1 ;
   }
@@ -267,7 +267,7 @@ function ai_items_fetch() {
     local sha; sha=$(git -C "${checkout}" rev-parse "${remote_branch}:${path}" 2>/dev/null) ;
     [ -n "${sha}" ] || return 0 ;
     ai_items_lock_set "${target}" "${kind}" "${item}" \
-      "${WEBSHIP_AI_ITEMS_REPO}@${ref_name}" "repo" "${path}" "${sha}" ;
+      "${AI_ITEMS_REPO}@${ref_name}" "repo" "${path}" "${sha}" ;
   }
 
   if [ -z "${name}" ] || [ "${name}" == '_all_' ] ; then
@@ -288,13 +288,13 @@ function ai_items_fetch() {
   else
     if [ "${kind}" == 'ai-skills' ] ; then
       if [ ! -f "${source_dir}/${name}/SKILL.md" ]; then
-        echo "No skill '${name}' in ${WEBSHIP_AI_ITEMS_REPO}." ; rm -rf "${tmp}" ; return 1 ;
+        echo "No skill '${name}' in ${AI_ITEMS_REPO}." ; rm -rf "${tmp}" ; return 1 ;
       fi
       rsync -a --delete "${source_dir}/${name}/" "${target}/${name}/" ;
       _ai_items_lock_fetched "${name}" "${repo_path}/${name}" ;
     else
       if [ ! -f "${source_dir}/${name}.md" ]; then
-        echo "No ${kind%s} '${name}' in ${WEBSHIP_AI_ITEMS_REPO}." ; rm -rf "${tmp}" ; return 1 ;
+        echo "No ${kind%s} '${name}' in ${AI_ITEMS_REPO}." ; rm -rf "${tmp}" ; return 1 ;
       fi
       cp "${source_dir}/${name}.md" "${target}/" ;
       _ai_items_lock_fetched "${name}" "${repo_path}/${name}.md" ;
@@ -475,7 +475,7 @@ Keep what genuinely transfers, cut what does not apply, and reformat it so it re
 
 # Hand one draft to the AI agent to file the issue and open the PR on the
 # shared repo — the "promote" direction the header describes, and the only way
-# anything local reaches ${WEBSHIP_AI_ITEMS_REPO}.
+# anything local reaches ${AI_ITEMS_REPO}.
 #
 # Confirm-gated on purpose: filing an issue and opening a pull request are
 # public acts, so without --confirm this prints exactly what it would do and
@@ -506,18 +506,18 @@ function ai_items_propose() {
   local state="of unknown status against";
   if ensure_gh_cli > /dev/null 2>&1 ; then
     if [ "${kind}" == 'ai-skills' ] ; then
-      if gh api "repos/${WEBSHIP_AI_ITEMS_REPO}/contents/${item_repo_path}?ref=${WEBSHIP_AI_ITEMS_REF}" > /dev/null 2>&1 ; then
+      if gh api "repos/${AI_ITEMS_REPO}/contents/${item_repo_path}?ref=${AI_ITEMS_REF}" > /dev/null 2>&1 ; then
         state="a change to";
       else
         state="new to";
       fi
     else
       local remote_content;
-      remote_content=$(gh api "repos/${WEBSHIP_AI_ITEMS_REPO}/contents/${item_repo_path}?ref=${WEBSHIP_AI_ITEMS_REF}" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null) ;
+      remote_content=$(gh api "repos/${AI_ITEMS_REPO}/contents/${item_repo_path}?ref=${AI_ITEMS_REF}" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null) ;
       if [ -z "${remote_content}" ] ; then
         state="new to";
       elif [ "${remote_content}" == "$(cat "${path}")" ] ; then
-        echo "${kind}/${name} is identical to ${WEBSHIP_AI_ITEMS_REPO}@${WEBSHIP_AI_ITEMS_REF} — nothing to propose." ;
+        echo "${kind}/${name} is identical to ${AI_ITEMS_REPO}@${AI_ITEMS_REF} — nothing to propose." ;
         return 0 ;
       else
         state="a change to";
@@ -525,19 +525,19 @@ function ai_items_propose() {
     fi
   fi
   if [ "${state}" == 'of unknown status against' ] ; then
-    echo "  (could not read ${WEBSHIP_AI_ITEMS_REPO} to compare — the agent will work it out)" ;
+    echo "  (could not read ${AI_ITEMS_REPO} to compare — the agent will work it out)" ;
   fi
 
   echo "*---------------------------------------------------------------------*";
-  echo "  Propose ${kind}/${name} to ${WEBSHIP_AI_ITEMS_REPO}";
+  echo "  Propose ${kind}/${name} to ${AI_ITEMS_REPO}";
   echo "*---------------------------------------------------------------------*";
   echo "  file      ${path}";
-  echo "  status    ${state} ${WEBSHIP_AI_ITEMS_REPO}@${WEBSHIP_AI_ITEMS_REF}";
+  echo "  status    ${state} ${AI_ITEMS_REPO}@${AI_ITEMS_REF}";
   echo "  summary   ${summary:-'(no summary given)'}";
   echo "";
   echo "  The AI agent would: file an issue, push a review branch, open a PR";
-  echo "  against ${WEBSHIP_AI_ITEMS_REF}, and leave the human-review boxes unticked.";
-  echo "  It never merges, and it never pushes to ${WEBSHIP_AI_ITEMS_REF} directly.";
+  echo "  against ${AI_ITEMS_REF}, and leave the human-review boxes unticked.";
+  echo "  It never merges, and it never pushes to ${AI_ITEMS_REF} directly.";
 
   if [ ! "${confirmed}" == 'yes' ] ; then
     echo "";
@@ -560,18 +560,18 @@ function ai_items_propose() {
   echo "";
   echo "  Handing it to the AI agent…";
   local prompt;
-  prompt="Publish one local ${kind%s} to the ${WEBSHIP_AI_ITEMS_REPO} repository, following the Vardot issue/PR rules and that repository's own RULES.md.
+  prompt="Publish one local ${kind%s} to the ${AI_ITEMS_REPO} repository, following the Vardot issue/PR rules and that repository's own RULES.md.
 
 Source: ${path}$([ "${kind}" == 'ai-skills' ] && echo ' (the whole skill directory)')
 Belongs at: ${item_repo_path} in the repository
-Status: it is ${state} ${WEBSHIP_AI_ITEMS_REPO}@${WEBSHIP_AI_ITEMS_REF}
+Status: it is ${state} ${AI_ITEMS_REPO}@${AI_ITEMS_REF}
 What it is for: ${summary}
 
 Do this:
 1. Read the source, and the repository's README/RULES so the item matches how the shared ${kind} are written.
-2. File one issue on ${WEBSHIP_AI_ITEMS_REPO} describing the ${kind%s} and why it is needed.
-3. Push a review branch (a fork when forking is enabled, a same-repo feature branch otherwise) and open ONE pull request against ${WEBSHIP_AI_ITEMS_REF} containing only this item, referencing the issue, ending with the Vardot Checkpoints checklist.
-4. Leave 'Reviewed by a human' and 'Code review by maintainers' unticked. Never merge. Never push to ${WEBSHIP_AI_ITEMS_REF} directly.
+2. File one issue on ${AI_ITEMS_REPO} describing the ${kind%s} and why it is needed.
+3. Push a review branch (a fork when forking is enabled, a same-repo feature branch otherwise) and open ONE pull request against ${AI_ITEMS_REF} containing only this item, referencing the issue, ending with the Vardot Checkpoints checklist.
+4. Leave 'Reviewed by a human' and 'Code review by maintainers' unticked. Never merge. Never push to ${AI_ITEMS_REF} directly.
 5. Report the issue URL and the pull request URL.
 
 Only this one item. Do not include unrelated local changes.";

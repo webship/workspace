@@ -8,8 +8,8 @@ user_name="$USER";
 # in one of those files would otherwise always beat the setting.
 _env_workspace_repo="${WORKSPACE_REPO}";
 _env_workspace_repo_ref="${WORKSPACE_REPO_REF}";
-_env_ai_items_repo="${WEBSHIP_AI_ITEMS_REPO}";
-_env_ai_items_ref="${WEBSHIP_AI_ITEMS_REF}";
+_env_ai_items_repo="${AI_ITEMS_REPO}";
+_env_ai_items_ref="${AI_ITEMS_REF}";
 
 # Locate the workspace from this file, so a fresh clone works with no setup:
 # core/scripts/bootstrap.sh -> core/scripts -> core -> the workspace root.
@@ -35,9 +35,9 @@ eval $(parse_yaml ${WORKSPACE_CONFIG}/settings.yml);
 # still an env var.
 WORKSPACE_REPO="${_env_workspace_repo:-${sources_tooling_repo:-webship/workspace}}";
 WORKSPACE_REPO_REF="${_env_workspace_repo_ref:-${sources_tooling_ref:-1.0.x}}";
-WEBSHIP_AI_ITEMS_REPO="${_env_ai_items_repo:-${sources_ai_items_repo:-Vardot/dev-ai-agents}}";
-WEBSHIP_AI_ITEMS_REF="${_env_ai_items_ref:-${sources_ai_items_ref:-main}}";
-export WORKSPACE_REPO WORKSPACE_REPO_REF WEBSHIP_AI_ITEMS_REPO WEBSHIP_AI_ITEMS_REF ;
+AI_ITEMS_REPO="${_env_ai_items_repo:-${sources_ai_items_repo:-Vardot/dev-ai-agents}}";
+AI_ITEMS_REF="${_env_ai_items_ref:-${sources_ai_items_ref:-main}}";
+export WORKSPACE_REPO WORKSPACE_REPO_REF AI_ITEMS_REPO AI_ITEMS_REF ;
 unset _env_workspace_repo _env_workspace_repo_ref _env_ai_items_repo _env_ai_items_ref ;
 
 # settings.yml carries no paths: they follow the checkout, for whoever is running

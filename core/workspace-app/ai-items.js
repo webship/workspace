@@ -30,8 +30,8 @@ const INSTALL_TARGETS = {
 // (drafts), ~/.claude (what a session loads) and Vardot/dev-ai-agents (what
 // the team has). The item lists show all three, merged by name, so it is
 // obvious what is only local, only installed, or only in the repo.
-const AI_ITEMS_REPO = () => process.env.WEBSHIP_AI_ITEMS_REPO || sourceOf('ai_items', 'repo', 'Vardot/dev-ai-agents');
-const AI_ITEMS_REF = () => process.env.WEBSHIP_AI_ITEMS_REF || sourceOf('ai_items', 'ref', 'main');
+const AI_ITEMS_REPO = () => process.env.AI_ITEMS_REPO || sourceOf('ai_items', 'repo', 'Vardot/dev-ai-agents');
+const AI_ITEMS_REF = () => process.env.AI_ITEMS_REF || sourceOf('ai_items', 'ref', 'main');
 // A prompt is the whole `claude …` launch command for a NEW session, so the only way
 // to use one is to start a session with it — the dashboard's New screen form, or the
 // CLI by hand. It is not a slash command, so nothing of a prompt's syncs into ~/.claude

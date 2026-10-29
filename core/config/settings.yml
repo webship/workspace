@@ -62,8 +62,8 @@ git:
 sources:
   # Where a sync pulls from, and where "Propose PR" files. Change these to work from a fork or
   # a different host — nothing here is hardcoded to Vardot. An env var still wins for a one-off
-  # run: WORKSPACE_REPO / WORKSPACE_REPO_REF for the tooling, WEBSHIP_AI_ITEMS_REPO /
-  # WEBSHIP_AI_ITEMS_REF for the AI items.
+  # run: WORKSPACE_REPO / WORKSPACE_REPO_REF for the tooling, AI_ITEMS_REPO /
+  # AI_ITEMS_REF for the AI items.
   tooling:
     # This workspace's own commands, scripts and dashboard.
     host: github.com
