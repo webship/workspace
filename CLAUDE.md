@@ -36,7 +36,7 @@ Families: Drupal (9/10/10.3/11/11.0.x/11.4.x/11.4.0 recommended-project), Drupal
 
 ## Naming
 
-The tooling was renamed from "VDO" — no `vdo` in filenames, variables, or folder names (the dashboard wears the Webship mark, from the product's own image set — `public/logo.svg` on a light page, `logo-dark.svg` on a dark one). `vdo_*` env vars → `WORKSPACE_*`. Only real projects are called "projects" — each workspace names its items via the PRESENTATION table in `core/workspace-app/workspaces.js` (agents, skills, prompts, docs, modules, …).
+The tooling was renamed from "VDO" — no `vdo` in filenames, variables, or folder names (the dashboard wears the webshipco logo, `public/logo.png` (one blue mark that reads on a light and a dark page) with `favicon.ico` made from it; a `logo.svg`/`logo-dark.svg` dropped into `public/` would win over it). `vdo_*` env vars → `WORKSPACE_*`. Only real projects are called "projects" — each workspace names its items via the PRESENTATION table in `core/workspace-app/workspaces.js` (agents, skills, prompts, docs, modules, …).
 
 ## Related repo
 
