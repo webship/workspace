@@ -1,0 +1,290 @@
+/**
+ * @name Vardot Press
+ *
+ * The Vardot palette, set on a typographic scale built for reading rather than for a landing page.
+ *
+ * Same colours as the default theme, token for token — if a colour differs between the two, one of
+ * them is a mistake. What differs is the type, in four ways:
+ *
+ *   1. BODY IS 16px, not 15. The dashboard is read, not glanced at: a project table, a run log, a
+ *      settings form and a chat transcript are all continuous text, and 15px is a size chosen for
+ *      dense interfaces rather than for prose.
+ *   2. THE HEADINGS STEP FURTHER APART. 36 / 30 / 24 / 20 / 18 instead of 32 / 26 / 24 / 20 / 18,
+ *      so a page title reads as one and an h3 is not almost the same size as an h2.
+ *   3. TIGHTER LINE HEIGHT AS TYPE GETS BIGGER. 1.15 at h1 through 1.35 at h5. A line height that
+ *      suits body text leaves a large heading looking loose and unset.
+ *   4. OPTICAL TRACKING. Large type is tightened (-0.02em at h1, easing to -0.005em at h5) and the
+ *      h6 label is opened up to 0.08em. This is the part with no equivalent in the default theme,
+ *      which sets none at all: it is what stops a 36px heading reading as if nobody chose the
+ *      spacing.
+ *
+ * And h6 becomes a real small-caps LABEL — 13px, opened up, uppercase — rather than a sixth heading
+ * set at the same size as the body text it sits above, which is a heading that cannot be told from
+ * a bold sentence.
+ *
+ * Opt in with `style: theme: press` in core/config/settings.yml. Nothing selects it by default.
+ */
+:root {
+
+  /* ---------------------------------------------------------------------
+   * 1. Brand primitives — VDT Stylesheet (figma.com/design/Hwbkgkvxths84swEtWcmTv)
+   * ------------------------------------------------------------------ */
+
+  --brand-primary: #0074e0;
+  --brand-secondary: #2b447c;
+  --brand-accent: #e4dcff;
+  --brand-dark: #000000;
+  --brand-light: #ebe8e5;
+
+  /* Subtle (tinted surfaces) */
+  --subtle-light: #f5f3f2;
+  --subtle-brand: #deedff;
+  --subtle-accent: #f6f3ff;
+
+  /* Text */
+  --text-default: #000000;
+  --text-subtle: #4d4d4d;
+  --text-inverse: #ffffff;
+  --text-light: #ebe8e5;
+  --text-brand: var(--brand-primary);
+  --text-accent: var(--brand-accent);
+
+  /* ---------------------------------------------------------------------
+   * 2. Type — Figtree primary, DM Serif Text secondary, JetBrains Mono for code.
+   *    The faces are vendored as woff2 and declared in base.css; nothing is fetched.
+   * ------------------------------------------------------------------ */
+
+  --font-primary: Figtree, "Helvetica Neue", Arial, sans-serif;
+  --font-secondary: "DM Serif Text", Georgia, serif;
+  --font-code: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Typography scale, from the VDT Stylesheet (Figma 2070-473). Headings 1 and 2 are
+     Secondary; 3 to 6 are Primary SemiBold. The 62px/50px display sizes are the
+     landing-page scale — this is a dashboard, so the page heading uses the H3 step
+     and keeps the Secondary family, rather than setting a 62px h1 over a table. */
+  --weight-regular: 400;
+  --weight-semibold: 600;
+  --leading-heading: 1.4;
+  --leading-display: 1.3;
+  --leading-body: 1.6;
+  --tracking-wide: 0.0625em;      /* spacing/letter-wide */
+  --size-h1: 2rem;
+  --size-h2: 1.625rem;
+  --size-h3: 1.5rem;
+  --size-h4: 1.25rem;
+  --size-h5: 1.125rem;
+  --size-h6: 1rem;
+  --size-body: 0.9375rem;
+  --size-small: 0.875rem;
+
+  /* Type ROLES: one token per role, holding the weight, the size, the line-height and the
+     family together. A component writes `font: var(--type-h3)` and cannot then get the weight
+     right and the line-height wrong — which is how h3 drifted onto the serif once already.
+     The scale below stays the single source of the sizes; the role decides the rest. */
+  --type-h1: var(--weight-regular) var(--size-h1)/1.15 var(--font-secondary);
+  --type-h2: var(--weight-regular) var(--size-h2)/1.2 var(--font-secondary);
+  --type-h3: var(--weight-semibold) var(--size-h3)/1.25 var(--font-primary);
+  --type-h4: var(--weight-semibold) var(--size-h4)/1.3 var(--font-primary);
+  --type-h5: var(--weight-semibold) var(--size-h5)/1.35 var(--font-primary);
+  --type-h6: var(--weight-semibold) var(--size-h6)/1 var(--font-primary);
+  --type-body: var(--weight-regular) var(--size-body)/var(--leading-body) var(--font-primary);
+  --type-body-sm: var(--weight-regular) var(--size-small)/1.45 var(--font-primary);
+  --type-label: var(--weight-semibold) var(--size-body)/1 var(--font-primary);
+  --type-caption: var(--weight-regular) var(--size-small)/1.35 var(--font-primary);
+  --type-mono: var(--weight-regular) var(--size-body)/1.5 var(--font-code);
+  --type-mono-sm: var(--weight-regular) var(--size-small)/1.4 var(--font-code);
+
+  /* Optical tracking, per role. This theme sets none — its scale is the one it shipped with —
+     but the tokens exist so a heading never has to bring its own, and so a theme that wants
+     tightened display type only has to set these. */
+  --tracking-h1: normal;
+  --tracking-h2: normal;
+  --tracking-h3: normal;
+  --tracking-h4: normal;
+  --tracking-h5: normal;
+  --tracking-h6: var(--tracking-wide);        /* Components/Forms/Note/Default */
+
+  /* ---------------------------------------------------------------------
+   * 3. Semantic tokens — what the interface asks for by role.
+   *    Restated under html.dark below; nothing else is.
+   * ------------------------------------------------------------------ */
+
+  /* Surfaces, from the page backwards: the page, a card on it, a tinted well
+     inside the card, and the field you type into. */
+  --surface: var(--subtle-light);
+  --surface-card: #ffffff;
+  --surface-muted: #f1eef9;
+  --surface-input: #ffffff;
+
+  /* Text, three steps: body, a quieter step for secondary copy, then meta
+     (--text-subtle, a brand primitive, is the quietest). */
+  --text-subtle-2: #333333;
+
+  /* Rules and edges. -strong is the hover state, where an edge has to be seen. */
+  --line: #e2ddd8;
+  --line-strong: #c9c2ba;
+
+  /* Interactive. --link is the one brand value that moves in BOTH halves, because link text is the
+     one place a brand colour has to pass 4.5:1 rather than look right: Vardot blue is 4.59:1 on white
+     but 4.15:1 on --subtle-light and 3.86:1 on --subtle-brand, so prose links and the rail's current
+     row failed wherever they sat on a tint. This is a shade down — 5.35:1 and 4.98:1 on those two —
+     and brand/primary itself is untouched, since white ON blue was never the problem. */
+  --link: #0063c0;
+  --brand-pressed: #0063c0;        /* a primary button, held down */
+  --brand-2-pressed: #22355f;      /* a secondary button, held down */
+  --focus-ring: rgba(0, 116, 224, .35);
+
+  /* States. Each is a trio: the line/dot colour, the tint it sits on, and the
+     text colour that is readable on that tint. */
+  /* The solid colours and their subtle tints are the VDT Stylesheet's Alert Colors (status/*). */
+  --ok: #146c43;
+  --ok-soft: #d0e2d9;
+  --pcard-tool-label: 0rem;
+  --ok-ink: #14532d;
+  --danger: #e71139;
+  --danger-soft: #facfd7;
+  --danger-ink: #7d1a2e;
+  --danger-armed: #a4133c;       /* a destructive button, already armed */
+  /* Danger as TEXT on a card: status/danger is 4.47:1 on white, just under the 4.5:1 text needs. */
+  --danger-text: #c20f31;
+  --warning: #fdd26e;
+  --warning-soft: #fef1d3;
+  --warning-ink: #5c4300;
+  --info: #0dcaf0;
+  --info-soft: #cff4fc;
+  --info-ink: #055160;
+  --success: #146c43;       /* Figma VDT - Stylesheet, status/success */
+  --success-soft: #d0e2d9;
+  --success-ink: #0f5132;
+  --busy-soft: var(--subtle-brand);
+  --busy-ink: var(--brand-secondary);
+  --accent-soft: var(--subtle-accent);
+  --accent-ink: #4b3fa8;
+
+  /* Chips: badges, labels, counts. */
+  --chip-bg: var(--brand-primary);
+  --chip-ink: var(--text-inverse);
+
+  /* Elevation. A card is lifted with the brand's own navy rather than black,
+     which is what keeps a light page warm rather than grey. */
+  --shadow-card: 0 4px 16px rgba(35, 41, 70, .06);
+  --shadow-card-hover: 0 12px 28px rgba(43, 68, 124, .16);
+  --shadow-float: 0 1.5rem 3rem rgba(43, 68, 124, .28);
+  --shadow-toast: 0 14px 34px rgba(35, 41, 70, .26);
+  --toast-ring: rgba(255, 255, 255, .9);   /* the hairline that lifts a toast off a pale page */
+
+  /* Surfaces that do NOT follow the theme, and should not.
+   *
+   * Code is read as code: a terminal and a fenced block stay dark in both halves,
+   * the way every editor and every CI log the team looks at does. A video letterboxes
+   * on black because that is what the black bars are, and a rendered document is white
+   * paper whichever way the dashboard is lit — theming those would be theming the
+   * CONTENT rather than the interface around it. They are tokens all the same, so a
+   * theme that disagrees can say so in one line. */
+  --code-bg: #1f2437;
+  --code-ink: #e6e9f5;
+  --terminal-ink: #c9f7d4;
+  --media-bg: #000000;
+  --paper: #ffffff;
+
+  /* The chequerboard behind a transparent image, and the backdrop behind a modal. */
+  --checker-a: #dcdcdc;
+  --checker-b: #d8d8d8;
+  --checker-bg: #f4f4f4;
+  --overlay: rgba(0, 0, 0, .6);
+
+  /* Compatibility aliases. Older rules name the brand by number; keeping them
+     pointed at the primitives means one palette, not two. */
+  --brand-1: var(--brand-primary);
+  --brand-2: var(--brand-secondary);
+  --brand-3: var(--brand-accent);
+  --brand-grad: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+  --ink: var(--brand-secondary);
+
+  /* ------------------------------------------------------------------
+   * What this theme changes: the type scale, its line heights and its tracking.
+   * Everything above is the Vardot palette, identical to the default theme.
+   * ------------------------------------------------------------------ */
+
+  --size-h1: 2.25rem;             /* 36px */
+  --size-h2: 1.875rem;            /* 30px */
+  --size-h3: 1.5rem;              /* 24px */
+  --size-h4: 1.25rem;             /* 20px */
+  --size-h5: 1.125rem;            /* 18px */
+  --size-h6: 0.8125rem;           /* 13px — a label, not a heading */
+  --size-body: 1rem;              /* 16px */
+  --size-small: 0.875rem;         /* 14px */
+  --leading-body: 1.55;
+
+  --tracking-h1: -0.02em;
+  --tracking-h2: -0.015em;
+  --tracking-h3: -0.01em;
+  --tracking-h4: -0.01em;
+  --tracking-h5: -0.005em;
+  --tracking-h6: 0.08em;
+}
+
+/* ---------------------------------------------------------------------------
+ * The dark half. Same names, night values, on the hue of Vardot Secondary.
+ *
+ * Only semantic tokens are restated. The brand primitives are not: #0074e0 does
+ * not become a different blue after dark — the interface reaches for --link
+ * instead, wherever contrast demands it.
+ * ------------------------------------------------------------------------ */
+
+html.dark {
+  --surface: #0f1626;
+  --surface-card: #172033;
+  --surface-muted: #1f2a42;
+  --surface-input: #0f1729;
+
+  --text-default: #e8edf6;
+  --text-subtle-2: #c2cbdd;
+  --text-subtle: #93a0b8;
+
+  --line: #27334d;
+  --line-strong: #3b4a6d;
+
+  --link: #57a8ff;
+  --brand-pressed: #2f8fe8;
+  --brand-2-pressed: #1b2b4d;
+  --focus-ring: rgba(87, 168, 255, .40);
+
+  --ok-soft: #10261a;
+  --ok-ink: #a8e6b8;
+  --danger-soft: #2a1620;
+  --danger-ink: #ffd0da;
+  --danger-armed: #e0466b;
+  --danger-text: #ff8fa3;
+  --warning-soft: #2e2610;
+  --warning-ink: #fde4a3;
+  --info-soft: #0c2a33;
+  --info-ink: #9eeaf9;
+  --success-soft: #10291d;
+  --success-ink: #a3d9bd;
+  --busy-soft: #1a2440;
+  --busy-ink: #b9c9ff;
+  --accent-soft: #2c2550;
+  --accent-ink: #d9d2ff;
+
+  --chip-bg: #33406e;
+  --chip-ink: #e8edf6;
+
+  --subtle-light: #131b2c;
+  --subtle-brand: #10243d;
+  --subtle-accent: #221f3a;
+
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, .35);
+  --shadow-card-hover: 0 12px 28px rgba(0, 0, 0, .50);
+  --shadow-float: 0 1.5rem 3rem rgba(0, 0, 0, .55);
+  --shadow-toast: 0 14px 34px rgba(0, 0, 0, .50);
+  /* The white ring belongs to a light page; on a dark one it draws a halo. */
+  --toast-ring: rgba(0, 0, 0, .5);
+
+  --checker-a: #2a3550;
+  --checker-b: #26314a;
+  --checker-bg: #131b2c;
+  --overlay: rgba(0, 0, 0, .72);
+
+  --ink: var(--text-default);
+}

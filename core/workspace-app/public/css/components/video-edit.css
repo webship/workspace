@@ -1,0 +1,6 @@
+/* Edit a video: a tab per kind of change, then the fields of that tab. */
+.video-edit-tabs { margin: 0.25rem 0 0.75rem; flex-wrap: wrap; gap: 0.25rem; }
+.video-edit-side { border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.75rem; margin: 0 0 0.75rem; }
+.video-edit-side legend { padding: 0 0.375rem; }
+.video-edit-sections { max-height: 12rem; overflow: auto; margin: 0 0 1rem; }
+.video-edit-sections label { display: flex; align-items: baseline; gap: 0.5rem; }

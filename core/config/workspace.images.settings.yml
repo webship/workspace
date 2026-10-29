@@ -1,0 +1,66 @@
+doc:
+  name: images
+
+# What this folder's projects are, and which actions their rows offer:
+# sites | code | files | media | ai-items — see core/workspace-app/WORKSPACES.md.
+type: media
+
+# What the assistant is called on THIS workspace's page, and what its composer says when empty.
+# `default` in either means "whatever settings.yml says" — the global value, so a rename there
+# still reaches this page. Set a value here to override it for this workspace alone.
+assistant:
+  name: default
+  placeholder: default
+
+# Generate SVG: still or animated drawings, sanitised, on brand. Read live; no restart needed.
+#   brief            what every drawing should look like, sent with each request
+#   palette          brand-tokens takes primary, secondary, accent, dark and light from brand-tokens.json;
+#                    or give each one a hex. The form can change it for one run.
+#   max_attempts     how many tries a drawing gets when an answer is thin or unsafe
+#   request_timeout  seconds one request may take
+#   time_budget      seconds all the attempts together may take
+#   motion           how a Draw the strokes drawing animates: each part rises in turn, its strokes traced
+#   examples         prompts the form offers; picking one fills the prompt, which stays editable
+svg:
+  brief: Clean, flat line illustrations for a professional website. Simple geometric shapes, generous white space, consistent stroke widths, and no text unless asked.
+  palette: brand-tokens
+  max_attempts: 3
+  request_timeout: 180
+  time_budget: 240
+  motion:
+    animation: draw-rise
+    duration: 1100
+    stagger: 110
+    replay: true
+    threshold: 0.25
+  examples:
+    - title: Bars rising to a target
+      style: draw
+      prompt: Five rounded bars rising from left to right, a dashed target line across them, and the tallest bar ending in a dot beside a short headline figure.
+    - title: A hub and its network
+      style: draw
+      prompt: A central hub inside a soft outlined region, joined by thin lines to six small nodes around it, with a short legend of three line styles on the right.
+    - title: One start, three outcomes
+      style: draw
+      prompt: One circle on the left with a plus sign, a line that splits into three curved branches, each ending in a different simple shape, the top one a check mark.
+    - title: Routes that meet at a price
+      style: draw
+      prompt: A card on the left, a line that splits into three branches with a circle, a diamond and a hexagon, and the three joining again at a price tag on the right.
+    - title: An item and its parts
+      style: draw
+      prompt: A simple object on the left, an arrow to three small icons stacked in a bracket, and an arrow on to a document listing what each part costs.
+    - title: Before and after
+      style: draw
+      prompt: Two horizontal timelines with tick marks, a long one labelled BEFORE and a short one labelled AFTER ending in a check mark, and a bracket underneath labelled TIME SAVED.
+    - title: Twelve months and a peak
+      style: draw
+      prompt: Twelve thin monthly bars on a soft panel with month initials underneath, a smooth trend line over them, and one highlighted bar marked as the peak.
+    - title: Milestones on a rising path
+      style: draw
+      prompt: A curve rising from left to right over a soft panel, four milestone posts along it getting taller, and a small person standing on the last one.
+    - title: A document in progress rings
+      style: css
+      prompt: A simple document icon in the middle of three concentric arcs of different lengths, the outer arc ending in a dot, like a progress indicator.
+    - title: A badge with a check
+      style: still
+      prompt: A document with three lines of text inside a large circle outline, and a small round badge with a check mark at its lower right.

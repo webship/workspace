@@ -1,21 +1,28 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
-# workspace-name: Drupal 11 (recommended project)
+# workspace-name: Drupal 11 (latest)
 
 # Bootstrap.
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+# Find the workspace tooling from this script, so a fresh clone needs no setup.
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.dev.settings.yml);
+eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.dev.settings.yml);
 
 # Set site version.
-site_version="~11";
+site_version="^11";
+site_version_dev="11.x-dev";
 
-# Load distribution configs.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/distributions/drupal.yml);
+# Distribution.
+distribution_name="drupal";
+distribution_title="Drupal";
+distribution_webroot="web";
+distribution_profile_repo="drupal/core";
+distribution_project_template="drupal/recommended-project";
 
 ARGPARSE_DESCRIPTION="Build a ${distribution_title} ${site_version} project"
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/args/arg-${distribution_name}.sh || exit 1 ;
+source ${WORKSPACE_SCRIPTS}/args/arg-${distribution_name}.sh || exit 1 ;
 
 shift $#;
 

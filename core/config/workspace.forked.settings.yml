@@ -1,7 +1,0 @@
-doc:
-  name: forked
-  path: /home/YOUR_USER/workspace/forked
-web:
-  url: http://localhost/forked
-database:
-  prefix: forked_

@@ -1,5 +1,6 @@
-#!/bin/usr/env bash
-# Smoke-test every cmd-*.sh in every workspace folder.
+#!/usr/bin/env bash
+# Smoke-test every cmd-*.sh in every workspace folder, plus the machine-level scripts
+# in core/scripts that used to be cmd-*.sh in one.
 #
 # For each script:
 #  1. bash -n            — syntax check (always)
@@ -12,15 +13,36 @@
 #
 # Exit code: number of failing scripts (0 = all green).
 
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap-libraries.sh || exit 1
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/settings.yml)
+# Find the workspace tooling from this script, so a fresh clone needs no setup.
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1
 
 pass=0; fail=0; failures=()
 
-for ws in "${workspaces[@]}"; do
-  dir="${WEBSHIP_WORKSPACE_ROOT}/${ws}"
+# The registered workspaces, plus commands/ — which is a Settings section rather than
+# a workspace, but still ships a cmd-*.sh that must pass the same checks. Without it
+# here, deregistering that folder silently dropped its script from the run.
+# The machine-level scripts: autostart.sh, brand-tokens.sh and sync-tooling.sh were
+# cmd-*.sh in products/ until they moved here, and moving a script out of a workspace
+# folder must not quietly drop it from the run — that happened once already, to
+# commands/. Named explicitly rather than globbed, because core/scripts is also full
+# of libraries and bootstrap files that are sourced, never run. So every NEW machine
+# script has to be added here by hand — host-mounts.sh and upsun-ai.sh had been
+# sitting in core/scripts untested because that step was missed.
+MACHINE_SCRIPTS=(autostart.sh brand-tokens.sh sync-tooling.sh install.sh trust-https.sh docker-gid.sh host-mounts.sh upsun-ai.sh storage.sh)
+
+for ws in "${workspaces[@]}" commands core/scripts; do
+  dir="${WORKSPACE_ROOT}/${ws}"
   [ -d "$dir" ] || continue
-  for f in "$dir"/cmd-*.sh; do
+  if [ "$ws" == 'core/scripts' ] ; then
+    scripts=()
+    for name in "${MACHINE_SCRIPTS[@]}"; do
+      [ -f "${dir}/${name}" ] && scripts+=("${dir}/${name}")
+    done
+  else
+    scripts=("$dir"/cmd-*.sh)
+  fi
+  for f in "${scripts[@]}"; do
     [ -f "$f" ] || continue
     rel="${ws}/$(basename "$f")"
     err=""
@@ -31,7 +53,7 @@ for ws in "${workspaces[@]}"; do
     fi
 
     # 2. argparse scripts: run --help (safe, exercises the full bootstrap chain)
-    if [ -z "$err" ] && grep -q 'argparse "\$@"\|arg-${distribution_name}\|arg-\${distribution_name}' "$f"; then
+    if [ -z "$err" ] && grep -q 'argparse "\$@"\|arg-${distribution_name}\|arg-\${distribution_name}\|--help)' "$f"; then
       if ! (cd "$dir" && timeout 30 bash "$f" --help >/tmp/cmd-smoke-out 2>&1); then
         # argparse exits non-zero on --help in some versions; accept if usage was printed
         if ! grep -qi "usage" /tmp/cmd-smoke-out; then
@@ -41,7 +63,7 @@ for ws in "${workspaces[@]}"; do
     fi
 
     # 3. Builder scripts must have the human-readable name header
-    if [ -z "$err" ] && [[ "$(basename "$f")" == cmd-*-project.sh ]] && [[ "$(basename "$f")" != cmd-automated-testing-* ]] && [[ "$(basename "$f")" != cmd-bulk-* ]]; then
+    if [ -z "$err" ] && [[ "$(basename "$f")" == cmd-*-project.sh ]] && [[ "$(basename "$f")" != cmd-automated-testing-* ]] && [[ "$(basename "$f")" != cmd-tool-* ]] && [[ "$(basename "$f")" != cmd-tools-* ]]; then
       if ! grep -q "^# workspace-name:" "$f"; then
         err="missing '# workspace-name:' header"
       fi

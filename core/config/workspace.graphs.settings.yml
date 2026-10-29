@@ -1,0 +1,25 @@
+doc:
+  name: graphs
+
+# Knowledge graphs built by cmd-tools-graphify.sh, one directory per project:
+#   graphs/<workspace>/<project>/{graph.json,GRAPH_REPORT.md,graph.html}
+# They live HERE rather than inside the project on purpose: graphify writes tens of MB, Leiden
+# clustering is not bit-stable so every rebuild diffs in full, and half the projects worth mapping
+# are git repositories we ship — a recipe like products/educare must not gain a graphify-out/ or a
+# CLAUDE.md block just because someone mapped it.
+presentation:
+  icon: tabler:hierarchy-2
+  subtitle: Project Knowledge Graphs
+  noun: graph
+  kind: files
+
+# What this folder's projects are, and which actions their rows offer:
+# sites | code | files | media | ai-items — see core/workspace-app/WORKSPACES.md.
+type: code
+
+# What the assistant is called on THIS workspace's page, and what its composer says when empty.
+# `default` in either means "whatever settings.yml says" — the global value, so a rename there
+# still reaches this page. Set a value here to override it for this workspace alone.
+assistant:
+  name: default
+  placeholder: default

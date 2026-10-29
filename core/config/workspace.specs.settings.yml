@@ -1,0 +1,24 @@
+doc:
+  name: specs
+
+# The design artifacts of changes: one folder per change, holding its story, its analysis and its
+# REASONS Canvas. They live here rather than in the projects they describe, for the same reason
+# graphs do — a repository we ship must not gain a spec directory because somebody planned a
+# change to it.
+presentation:
+  icon: tabler:file-description
+  label: Specs
+  subtitle: Structured Prompts — Stories, Analyses & REASONS Canvases
+  noun: spec
+  kind: files
+
+# What this folder's projects are, and which actions their rows offer:
+# sites | code | files | media | ai-items — see core/workspace-app/WORKSPACES.md.
+type: files
+
+# What the assistant is called on THIS workspace's page, and what its composer says when empty.
+# `default` in either means "whatever settings.yml says" — the global value, so a rename there
+# still reaches this page. Set a value here to override it for this workspace alone.
+assistant:
+  name: default
+  placeholder: default

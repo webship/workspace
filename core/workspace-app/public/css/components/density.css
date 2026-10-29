@@ -1,0 +1,11 @@
+/* Project rows, comfortable or compact (ui.js, the density switch beside the page width).
+ *
+ * Compact keeps every button and folds away only the small caption under each ("36 commands", "linked",
+ * "locked"). The caption stays in the page for a screen reader and becomes the button's tooltip, so nothing
+ * is lost to a pointer or to assistive technology. Measured on the maintainer's Dev page: a card is 20 to 40px
+ * shorter, and three rows of buttons read as three rows of buttons rather than as buttons and notes. */
+html[data-density="compact"] .act-with-status > .act-status {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+html[data-density="compact"] .act-with-status { display: inline-flex; align-items: center; }

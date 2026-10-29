@@ -1,0 +1,71 @@
+doc:
+  name: designs
+
+# Designs both builds and holds: Penpot instances are DDEV projects (so the page needs the
+# project table, the Build form and the DDEV actions), and the Figma exports and mockups sit
+# in the same folder as files.
+presentation:
+  icon: tabler:palette
+  subtitle: Penpot Instances, Figma Sources & Exports
+  noun: design
+  kind: projects
+  also_files: true
+
+# Penpot, self-hosted in DDEV (designs/cmd-penpot-project.sh).
+# These are the DEFAULTS for that command; every one of them is overridable per run
+# by the matching argument, so a one-off instance needs no settings edit.
+penpot:
+  # Default project name, and so the hostname. One instance per design system is the point:
+  #   bash cmd-penpot-project.sh penpot-educare
+  #   bash cmd-penpot-project.sh penpot-horizonaid
+  # gives https://penpot-educare.designs.workspace.ddev.site (and the canonical
+  # https://penpot-educare.ddev.site), each with its own database, assets and account.
+  project: penpot
+  # First port for the instance's mail catcher. Each instance needs its own — the router
+  # publishes it on the host — so the command takes the next free pair from here upwards
+  # and prints the one it used.
+  mail_port: 1080
+  # Which hostname the instance IS. Penpot's frontend calls its API at PENPOT_PUBLIC_URI, so
+  # exactly one origin works in a browser: from any other host the calls are cross-origin and
+  # CORS blocks them, and the app boots to a blank page. `hub` is the hierarchical
+  # <project>.designs.workspace.ddev.site; `canonical` is <project>.ddev.site; anything else is
+  # used verbatim (a public domain, say).
+  public_uri: hub
+  # Image tag used for the frontend, backend and exporter.
+  version: "2.16"
+  # PENPOT_FLAGS, set on both the frontend and the backend. enable-plugins is what the
+  # Penpot MCP needs; enable-access-tokens is what the Drupal AI Penpot module needs —
+  # without it a token is silently ignored (requests resolve to Anonymous, not a 401).
+  flags: "disable-email-verification enable-smtp enable-prepl-server disable-secure-session-cookies enable-registration enable-plugins enable-access-tokens"
+  # PENPOT_SECRET_KEY. Left empty, each project gets its own derived key, so the session
+  # cookies of one instance are not forgeable from another instance's config.
+  secret_key:
+  # The first account the command registers, the same three facts the Drupal installs take
+  # from `account:` in settings.yml. Leave any of them empty to fall back to that block —
+  # one identity per machine rather than two. As with `account:`, the password here is a
+  # local development login, not a secret.
+  account:
+    fullname:
+    email:
+    password:
+  # The Penpot MCP server (cmd-penpot-mcp.sh), which is what lets a design agent read and write
+  # a live file. It runs in a node:22 container on the host network: the host's own Node may be
+  # too old, and @penpot/mcp needs node:sqlite. `package` is pinned by tag, not by version,
+  # because the published versions skip 2.16.x entirely.
+  mcp:
+    package: "@penpot/mcp@stable"
+    image: "node:22"
+    port: 4401
+    plugin_port: 4400
+    bridge_port: 4402
+
+# What this folder's projects are, and which actions their rows offer:
+# sites | code | files | media | ai-items — see core/workspace-app/WORKSPACES.md.
+type: sites
+
+# What the assistant is called on THIS workspace's page, and what its composer says when empty.
+# `default` in either means "whatever settings.yml says" — the global value, so a rename there
+# still reaches this page. Set a value here to override it for this workspace alone.
+assistant:
+  name: default
+  placeholder: default

@@ -3,14 +3,27 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "npm run test:unit && npm run test:browser",
+    "test:unit": "node --test \"tests/unit/*.test.js\" \"plugins/*/tests/*.test.js\"",
+    "test:browser": "cucumber-js --config cucumber.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "Visual dashboard + AI assistant for the webship ~/workspace tooling",
+  "description": "Visual dashboard + AI assistant for the Webship Workspace tooling",
   "dependencies": {
-    "js-yaml": "^5.2.1"
+    "@vardot/workspace-google-drive": "file:plugins/google-drive-sync",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-unicode11": "^0.9.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/xterm": "^5.5.0",
+    "ace-builds": "^1.44.0",
+    "htmx.org": "^4.0.0",
+    "js-yaml": "^5.2.1",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@vardot/varbase-e2e": "^2.0.0"
   }
 }

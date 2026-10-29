@@ -1,0 +1,172 @@
+# GitHub — core/config/theme.github.yml
+#
+# A style in the shape of GitHub. The LIGHT values were read straight off a GitHub page: its Primer
+# tokens (--fgColor-default, --bgColor-muted, --borderColor-default and the rest) resolved in the
+# browser, so they are the ones it actually renders with.
+#
+# The DARK half is Primer's published dark palette rather than a second measurement: GitHub ships
+# its dark tokens in a stylesheet that is only fetched when you switch, so they were not on the page
+# to read. Said plainly here because the two halves of this file were not established the same way.
+#
+# Its signatures: the #0969da accent blue, the #1f883d green on the primary button — GitHub is the
+# one product here whose main action is green, not its accent colour — a near-black #1f2328 ink, and
+# a 14px body. Mona Sans and Monaspace Neon are not vendored; the stacks fall back.
+
+# The TYPE is Primer's own scale, read off the page as custom properties rather than measured from
+# one heading: --text-title-size-large 2rem, -medium 1.25rem, -small 1rem, body-medium .875rem,
+# body-small .75rem, with line heights 1.5 / 1.625 / 1.5. It is a FLAT ramp — 32px to 20px to 16px,
+# then body at 14px — which is what a dense interface wants and is the opposite of a landing page.
+
+name: GitHub
+
+tokens:
+  brand-primary: "#0969da"
+  brand-secondary: "#1f2328"
+  brand-accent: "#ddf4ff"
+  brand-dark: "#1f2328"
+  brand-light: "#f6f8fa"
+  subtle-light: "#f6f8fa"
+  subtle-brand: "#ddf4ff"
+  subtle-accent: "#fbefff"
+  text-default: "#1f2328"
+  text-subtle: "#59636e"
+  text-inverse: "#ffffff"
+  text-light: "#f6f8fa"
+  text-brand: "var(--brand-primary)"
+  text-accent: "var(--brand-accent)"
+  font-primary: "\"Mona Sans\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Noto Sans\", Helvetica, Arial, sans-serif"
+  font-secondary: "\"Mona Sans\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Noto Sans\", Helvetica, Arial, sans-serif"
+  font-code: "\"Monaspace Neon\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace"
+  weight-regular: 400
+  weight-semibold: 600
+  leading-heading: 1.4
+  leading-display: 1.3
+  leading-body: 1.5
+  tracking-wide: 0.0625em
+  size-h1: 2rem
+  size-h2: 1.25rem
+  size-h3: 1rem
+  size-h4: 0.875rem
+  size-h5: 0.875rem
+  size-h6: 0.75rem
+  size-body: 0.875rem
+  size-small: 0.75rem
+  type-h1: "var(--weight-semibold) var(--size-h1)/1.5 var(--font-primary)"
+  type-h2: "var(--weight-semibold) var(--size-h2)/1.625 var(--font-primary)"
+  type-h3: "var(--weight-semibold) var(--size-h3)/1.5 var(--font-primary)"
+  type-h4: "var(--weight-semibold) var(--size-h4)/1.5 var(--font-primary)"
+  type-h5: "var(--weight-semibold) var(--size-h5)/1.5 var(--font-primary)"
+  type-h6: "var(--weight-semibold) var(--size-h6)/1.4 var(--font-primary)"
+  type-body: "var(--weight-regular) var(--size-body)/var(--leading-body) var(--font-primary)"
+  type-body-sm: "var(--weight-regular) var(--size-small)/1.45 var(--font-primary)"
+  type-label: "var(--weight-semibold) var(--size-body)/1 var(--font-primary)"
+  type-caption: "var(--weight-regular) var(--size-small)/1.35 var(--font-primary)"
+  type-mono: "var(--weight-regular) var(--size-body)/1.5 var(--font-code)"
+  type-mono-sm: "var(--weight-regular) var(--size-small)/1.4 var(--font-code)"
+  tracking-h1: normal
+  tracking-h2: normal
+  tracking-h3: normal
+  tracking-h4: normal
+  tracking-h5: normal
+  tracking-h6: 0.06em
+  surface: "#ffffff"
+  surface-card: "#ffffff"
+  surface-muted: "#f6f8fa"
+  surface-input: "#ffffff"
+  text-subtle-2: "#424a53"
+  line: "#d1d9e0"
+  line-strong: "#b7bfc7"
+  link: "#0969da"
+  brand-pressed: "#0550ae"
+  brand-2-pressed: "#22355f"
+  focus-ring: "#0969da66"
+  ok: "#1f883d"
+  ok-soft: "#dafbe1"
+  pcard-tool-label: 0rem
+  ok-ink: "#1a7f37"
+  danger: "#cf222e"
+  danger-soft: "#ffebe9"
+  danger-ink: "#d1242f"
+  danger-armed: "#a40e26"
+  danger-text: "#d1242f"
+  warning: "#9a6700"
+  warning-soft: "#fff8c5"
+  warning-ink: "#7d4e00"
+  info: "#0969da"
+  info-soft: "#ddf4ff"
+  info-ink: "#0550ae"
+  success: "#146c43"
+  success-soft: "#d0e2d9"
+  success-ink: "#0f5132"
+  busy-soft: "var(--subtle-brand)"
+  busy-ink: "var(--brand-secondary)"
+  accent-soft: "#fbefff"
+  accent-ink: "#8250df"
+  chip-bg: "#0969da"
+  chip-ink: "#ffffff"
+  shadow-card: "0 4px 16px rgba(35, 41, 70, .06)"
+  shadow-card-hover: "0 12px 28px rgba(43, 68, 124, .16)"
+  shadow-float: "0 1.5rem 3rem rgba(43, 68, 124, .28)"
+  shadow-toast: "0 14px 34px rgba(35, 41, 70, .26)"
+  toast-ring: "rgba(255, 255, 255, .9)"
+  code-bg: "#0d1117"
+  code-ink: "#f0f6fc"
+  terminal-ink: "#c9f7d4"
+  media-bg: "#000000"
+  paper: "#ffffff"
+  checker-a: "#dcdcdc"
+  checker-b: "#d8d8d8"
+  checker-bg: "#f4f4f4"
+  overlay: "#1f232899"
+  brand-1: "var(--brand-primary)"
+  brand-2: "var(--brand-secondary)"
+  brand-3: "var(--brand-accent)"
+  brand-grad: "linear-gradient(135deg, var(--brand-primary), var(--brand-secondary))"
+  ink: "var(--brand-secondary)"
+
+# The dark half.
+dark:
+  surface: "#0d1117"
+  surface-card: "#151b23"
+  surface-muted: "#151b23"
+  surface-input: "#010409"
+  text-default: "#f0f6fc"
+  text-subtle-2: "#d1d7e0"
+  text-subtle: "#9198a1"
+  line: "#3d444d"
+  line-strong: "#656c76"
+  link: "#4493f8"
+  brand-pressed: "#316dca"
+  brand-2-pressed: "#1b2b4d"
+  focus-ring: "#4493f866"
+  ok-soft: "#0f2f1a"
+  ok-ink: "#3fb950"
+  danger-soft: "#3c1618"
+  danger-ink: "#f85149"
+  danger-armed: "#da3633"
+  danger-text: "#ff7b72"
+  warning-soft: "#3a2d12"
+  warning-ink: "#d29922"
+  info-soft: "#121d2f"
+  info-ink: "#4493f8"
+  success-soft: "#10291d"
+  success-ink: "#a3d9bd"
+  busy-soft: "#1a2440"
+  busy-ink: "#b9c9ff"
+  accent-soft: "#211f36"
+  accent-ink: "#ab7df8"
+  chip-bg: "#316dca"
+  chip-ink: "#f0f6fc"
+  subtle-light: "#151b23"
+  subtle-brand: "#121d2f"
+  subtle-accent: "#211f36"
+  shadow-card: "0 4px 16px rgba(0, 0, 0, .35)"
+  shadow-card-hover: "0 12px 28px rgba(0, 0, 0, .50)"
+  shadow-float: "0 1.5rem 3rem rgba(0, 0, 0, .55)"
+  shadow-toast: "0 14px 34px rgba(0, 0, 0, .50)"
+  toast-ring: "rgba(0, 0, 0, .5)"
+  checker-a: "#2a3550"
+  checker-b: "#26314a"
+  checker-bg: "#131b2c"
+  overlay: "#010409cc"
+  ink: "var(--text-default)"

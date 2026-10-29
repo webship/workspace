@@ -1,10 +1,12 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Bootstrap.
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+# Find the workspace tooling from this script, so a fresh clone needs no setup.
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.sandboxes.settings.yml);
+eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.sandboxes.settings.yml);
 
 ARGPARSE_DESCRIPTION="Add users to a project"
 argparse "$@" <<EOF || exit 1
@@ -15,6 +17,7 @@ parser.add_argument('DISTRIBUTION_NAME',
 EOF
 
 shift $#;
+trim_project_name ;   # "v11x00b1/" -> "v11x00b1" — see functions/fun-project-name.sh
 
 distribution_name=${DISTRIBUTION_NAME};
 

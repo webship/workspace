@@ -1,0 +1,161 @@
+# Every token the "press" theme sets — core/config/theme.press.yml
+#
+# Vardot Press. A theme is a palette: it declares custom properties and selects nothing, so every
+# value in it is configuration. They are all here, editable on the Settings screen, rather than
+# only by editing a stylesheet inside the app.
+#
+# Names go without the leading dashes. `tokens:` applies to both halves; `dark:` applies to the
+# dark half only, exactly like the html.dark block in a theme file. Anything here overrides the
+# theme CSS, which is what you get with no YAML at all.
+
+tokens:
+  brand-primary: "#0074e0"
+  brand-secondary: "#2b447c"
+  brand-accent: "#e4dcff"
+  brand-dark: "#000000"
+  brand-light: "#ebe8e5"
+  subtle-light: "#f5f3f2"
+  subtle-brand: "#deedff"
+  subtle-accent: "#f6f3ff"
+  text-default: "#000000"
+  text-subtle: "#4d4d4d"
+  text-inverse: "#ffffff"
+  text-light: "#ebe8e5"
+  text-brand: "var(--brand-primary)"
+  text-accent: "var(--brand-accent)"
+  font-primary: "Figtree, \"Helvetica Neue\", Arial, sans-serif"
+  font-secondary: "\"DM Serif Text\", Georgia, serif"
+  font-code: "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, monospace"
+  weight-regular: 400
+  weight-semibold: 600
+  leading-heading: 1.4
+  leading-display: 1.3
+  leading-body: 1.55
+  tracking-wide: 0.0625em
+  size-h1: 2.25rem
+  size-h2: 1.875rem
+  size-h3: 1.5rem
+  size-h4: 1.25rem
+  size-h5: 1.125rem
+  size-h6: 0.8125rem
+  size-body: 1rem
+  size-small: 0.875rem
+  type-h1: "var(--weight-regular) var(--size-h1)/1.15 var(--font-secondary)"
+  type-h2: "var(--weight-regular) var(--size-h2)/1.2 var(--font-secondary)"
+  type-h3: "var(--weight-semibold) var(--size-h3)/1.25 var(--font-primary)"
+  type-h4: "var(--weight-semibold) var(--size-h4)/1.3 var(--font-primary)"
+  type-h5: "var(--weight-semibold) var(--size-h5)/1.35 var(--font-primary)"
+  type-h6: "var(--weight-semibold) var(--size-h6)/1 var(--font-primary)"
+  type-body: "var(--weight-regular) var(--size-body)/var(--leading-body) var(--font-primary)"
+  type-body-sm: "var(--weight-regular) var(--size-small)/1.45 var(--font-primary)"
+  type-label: "var(--weight-semibold) var(--size-body)/1 var(--font-primary)"
+  type-caption: "var(--weight-regular) var(--size-small)/1.35 var(--font-primary)"
+  type-mono: "var(--weight-regular) var(--size-body)/1.5 var(--font-code)"
+  type-mono-sm: "var(--weight-regular) var(--size-small)/1.4 var(--font-code)"
+  tracking-h1: -0.02em
+  tracking-h2: -0.015em
+  tracking-h3: -0.01em
+  tracking-h4: -0.01em
+  tracking-h5: -0.005em
+  tracking-h6: 0.08em
+  surface: "var(--subtle-light)"
+  surface-card: "#ffffff"
+  surface-muted: "#f1eef9"
+  surface-input: "#ffffff"
+  text-subtle-2: "#333333"
+  line: "#e2ddd8"
+  line-strong: "#c9c2ba"
+  link: "#0063c0"
+  brand-pressed: "#0063c0"
+  brand-2-pressed: "#22355f"
+  focus-ring: "rgba(0, 116, 224, .35)"
+  ok: "#146c43"
+  ok-soft: "#d0e2d9"
+  pcard-tool-label: 0rem
+  ok-ink: "#14532d"
+  danger: "#e71139"
+  danger-soft: "#facfd7"
+  danger-ink: "#7d1a2e"
+  danger-armed: "#a4133c"
+  danger-text: "#c20f31"
+  warning: "#fdd26e"
+  warning-soft: "#fef1d3"
+  warning-ink: "#5c4300"
+  info: "#0dcaf0"
+  info-soft: "#cff4fc"
+  info-ink: "#055160"
+  success: "#146c43"
+  success-soft: "#d0e2d9"
+  success-ink: "#0f5132"
+  busy-soft: "var(--subtle-brand)"
+  busy-ink: "var(--brand-secondary)"
+  accent-soft: "var(--subtle-accent)"
+  accent-ink: "#4b3fa8"
+  chip-bg: "var(--brand-primary)"
+  chip-ink: "var(--text-inverse)"
+  shadow-card: "0 4px 16px rgba(35, 41, 70, .06)"
+  shadow-card-hover: "0 12px 28px rgba(43, 68, 124, .16)"
+  shadow-float: "0 1.5rem 3rem rgba(43, 68, 124, .28)"
+  shadow-toast: "0 14px 34px rgba(35, 41, 70, .26)"
+  toast-ring: "rgba(255, 255, 255, .9)"
+  code-bg: "#1f2437"
+  code-ink: "#e6e9f5"
+  terminal-ink: "#c9f7d4"
+  media-bg: "#000000"
+  paper: "#ffffff"
+  checker-a: "#dcdcdc"
+  checker-b: "#d8d8d8"
+  checker-bg: "#f4f4f4"
+  overlay: "rgba(0, 0, 0, .6)"
+  brand-1: "var(--brand-primary)"
+  brand-2: "var(--brand-secondary)"
+  brand-3: "var(--brand-accent)"
+  brand-grad: "linear-gradient(135deg, var(--brand-primary), var(--brand-secondary))"
+  ink: "var(--brand-secondary)"
+
+# The dark half. Only the tokens that differ at night are listed.
+dark:
+  surface: "#0f1626"
+  surface-card: "#172033"
+  surface-muted: "#1f2a42"
+  surface-input: "#0f1729"
+  text-default: "#e8edf6"
+  text-subtle-2: "#c2cbdd"
+  text-subtle: "#93a0b8"
+  line: "#27334d"
+  line-strong: "#3b4a6d"
+  link: "#57a8ff"
+  brand-pressed: "#2f8fe8"
+  brand-2-pressed: "#1b2b4d"
+  focus-ring: "rgba(87, 168, 255, .40)"
+  ok-soft: "#10261a"
+  ok-ink: "#a8e6b8"
+  danger-soft: "#2a1620"
+  danger-ink: "#ffd0da"
+  danger-armed: "#e0466b"
+  danger-text: "#ff8fa3"
+  warning-soft: "#2e2610"
+  warning-ink: "#fde4a3"
+  info-soft: "#0c2a33"
+  info-ink: "#9eeaf9"
+  success-soft: "#10291d"
+  success-ink: "#a3d9bd"
+  busy-soft: "#1a2440"
+  busy-ink: "#b9c9ff"
+  accent-soft: "#2c2550"
+  accent-ink: "#d9d2ff"
+  chip-bg: "#33406e"
+  chip-ink: "#e8edf6"
+  subtle-light: "#131b2c"
+  subtle-brand: "#10243d"
+  subtle-accent: "#221f3a"
+  shadow-card: "0 4px 16px rgba(0, 0, 0, .35)"
+  shadow-card-hover: "0 12px 28px rgba(0, 0, 0, .50)"
+  shadow-float: "0 1.5rem 3rem rgba(0, 0, 0, .55)"
+  shadow-toast: "0 14px 34px rgba(0, 0, 0, .50)"
+  toast-ring: "rgba(0, 0, 0, .5)"
+  checker-a: "#2a3550"
+  checker-b: "#26314a"
+  checker-bg: "#131b2c"
+  overlay: "rgba(0, 0, 0, .72)"
+  ink: "var(--text-default)"

@@ -1,18 +1,20 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Bootstrap.
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+# Find the workspace tooling from this script, so a fresh clone needs no setup.
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.docs.settings.yml);
+eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.docs.settings.yml);
 
-ARGPARSE_DESCRIPTION="Backup a doc folder"
+ARGPARSE_DESCRIPTION="Backup a doc"
 argparse "$@" <<ARGEOF || exit 1
 parser.add_argument('PROJECT_NAME',
                     help='The name of the project.')
 ARGEOF
 
 shift $#;
+trim_project_name ;   # "v11x00b1/" -> "v11x00b1" — see functions/fun-project-name.sh
 
-backup_time=$( date '+%Y-%m-%d_%H-%M-%S' );
-tar -cvzf ${backups}/${doc_name}/${doc_name}---${PROJECT_NAME}--${backup_time}.tar.gz ${PROJECT_NAME} ;
+backup_workspace_item "${PROJECT_NAME}" || exit 1 ;

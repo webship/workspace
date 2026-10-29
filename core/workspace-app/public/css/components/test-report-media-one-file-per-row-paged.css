@@ -1,0 +1,144 @@
+/* ---------- Test-report media: one file per row, paged ---------- */
+
+.test-media-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.test-media-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3125rem 0.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.test-media-row:last-child { border-bottom: 0; }
+
+/* The name is the row's action: it opens the viewer, so it reads as a link, and it truncates
+   rather than wrapping — a varbase-e2e recording name easily runs to 120 characters. */
+.test-media-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--brand-primary);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.test-media-name:hover { text-decoration: underline; }
+
+.test-media-meta { flex: 0 0 auto; white-space: nowrap; }
+.test-media-actions { flex: 0 0 auto; display: flex; gap: 0.25rem; }
+
+.test-media-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  margin-top: 0.5rem;
+}
+
+/* The viewer's image: the modal's width, never wider, on its own row. */
+.test-view-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--subtle-light);
+}
+
+/* Screenshots: three thumbnails to a row. The thumbnail is the button that opens the viewer. */
+.test-shot-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.test-shot-card { min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+
+.test-shot-thumb {
+  display: block;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--subtle-light);
+  cursor: zoom-in;
+  overflow: hidden;
+}
+
+.test-shot-thumb img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  transition: transform .12s ease;
+}
+
+.test-shot-thumb:hover img { transform: scale(1.03); }
+
+.test-shot-caption {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+}
+
+.test-shot-meta { font-size: 0.7rem; display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; }
+
+@media (max-width: 47.9375em) {
+  .test-shot-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Deleting test evidence: the button is small and sits with the file's own metadata, because it
+   belongs to that file — not to the report. The bulk row is above the list, where you look before
+   you start scrolling through 300 thumbnails. */
+.test-media-bulk {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.test-shot-meta .test-media-del,
+.test-media-actions .test-media-del { padding: 0 0.4rem; line-height: 1.6; }
+
+.test-media-flash { margin-bottom: 0.5rem; }
+
+/* A menu that carries a state word — Graph, RAG, Tests — captions it UNDER the button.
+   The caption sits in an OUTER wrapper, never inside the .uk-inline element: UIkit positions the
+   dropdown panel against that element, and making it a flex column turned the panel into a flex
+   item, which laid it out in flow and stopped the menus opening. */
+.act-with-status {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.act-with-status .act-status {
+  font-size: 0.625rem;
+  line-height: 1;
+  letter-spacing: .02em;
+  color: var(--text-subtle);
+}
+
+.project-actions { align-items: flex-start; }

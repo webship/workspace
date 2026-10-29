@@ -1,0 +1,49 @@
+#!/bin/bash
+
+## Description: Run the dashboard's own tests (unit, then varbase-e2e in a real browser)
+## Usage: test-dashboard [unit|browser] [extra cucumber args]
+## Example: "ddev test-dashboard" runs both; "ddev test-dashboard browser tests/features/theme.feature"
+
+# Inside the web container, which is where node_modules, the browser and the dashboard itself all
+# are — so the tests exercise the thing that serves rather than a copy stood up for the occasion.
+
+set -e
+cd /var/www/html
+
+# The site under test is this project's own URL. varbase-e2e defaults to localhost:8080, which is
+# nothing here.
+export LAUNCH_URL="${LAUNCH_URL:-https://workspace.ddev.site}"
+
+# The browsers live in DDEV's global cache, not in ~/.cache inside this container.
+#
+# The container's own cache is its writable layer, so it is emptied by every `ddev restart` — and
+# this project restarts whenever its Dockerfile changes, which is often. The suite then failed
+# instantly with "Executable doesn't exist at …/chrome-headless-shell" and 21 scenarios red, which
+# reads like the dashboard broke rather than like the browser went missing. /mnt/ddev-global-cache
+# is a docker volume mounted into every DDEV web container: the download survives a restart, and
+# every project on this machine shares it. The install is idempotent, so it costs nothing once the
+# browser is there.
+# PLAYWRIGHT_SKIP_BROWSER_GC=1 because the cache is shared: `playwright install` deletes every
+# browser build its own version does not know about, so installing here would remove the build a
+# suite running in ANOTHER project is using. That is not hypothetical — it killed a 275-scenario
+# Varbase run twenty minutes in.
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/mnt/ddev-global-cache/ms-playwright}"
+export PLAYWRIGHT_SKIP_BROWSER_GC=1
+npx playwright install chromium > /dev/null
+
+case "${1:-all}" in
+  unit)
+    node --test "tests/unit/*.test.js"
+    ;;
+  browser)
+    shift
+    npx cucumber-js --config cucumber.js "$@"
+    ;;
+  *)
+    echo "── unit ──────────────────────────────────────────────"
+    node --test "tests/unit/*.test.js"
+    echo
+    echo "── browser (varbase-e2e) ──────────────────────────────"
+    npx cucumber-js --config cucumber.js
+    ;;
+esac

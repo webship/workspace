@@ -1,0 +1,23 @@
+/* The "Codebase" / "Files" menu: the Web IDE here, or an editor on the viewer's machine.
+ *
+ * Painted with tokens only — a unit test enforces that (a literal cannot be themed). */
+
+/* The unavailable note is a sentence with two commands in it, not a menu item, so it must
+ * be allowed to wrap inside the dropdown instead of stretching it to the width of the
+ * longest command. */
+.ide-unavailable {
+  display: block;
+  max-width: 22rem;
+  padding: .25rem .5rem .4rem;
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.ide-unavailable code {
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+/* On a files workspace the control sits under the heading rather than in a row, so it
+ * needs the row's spacing of its own. */
+.items-open-with { display: flex; gap: .5rem; align-items: center; }

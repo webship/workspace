@@ -1,0 +1,40 @@
+/* The one confirm dialog every important action goes through. It is small on purpose: a question
+   with two answers, never a panel. Tokens only, so both themes and dark mode follow. */
+
+#confirm-modal .uk-modal-dialog {
+  width: min(26rem, 92vw);
+  background: var(--surface-card);
+  color: var(--text-default);
+  border: 1px solid var(--line);
+  border-radius: 0.875rem;
+  box-shadow: var(--shadow-float);
+}
+
+/* "Wait!" is the alarm, so it is the loudest thing in the dialog — and the only one that shouts. */
+#confirm-modal .uk-modal-title {
+  color: var(--danger-ink);
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+#confirm-modal #confirm-text {
+  color: var(--text-default);
+  margin: 0 0 0.25rem;
+}
+
+/* What is about to happen, named. Empty when the button said nothing beyond its own label, and an
+   empty line of margin under the question reads as a rendering fault — so it collapses. */
+#confirm-modal .confirm-what {
+  color: var(--text-subtle);
+  margin: 0;
+  word-break: break-word;
+}
+#confirm-modal .confirm-what:empty { display: none; }
+
+/* No first and Yes last: the safe answer is the one under the thumb, and the one Escape gives. */
+#confirm-modal .confirm-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+}

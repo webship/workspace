@@ -1,0 +1,11 @@
+# What this spec is about, and how far it has got. Written by cmd-spdd.sh; edit by hand freely.
+target: products/workspace
+topic: Group the dashboard workspace cards by purpose
+stage: canvas
+created: 2026-07-30
+# The commit of the target the canvas was last true for; -a drift compares against it.
+# (No backticks in this heredoc: it interpolates ${target}, so a backtick would run as a command.)
+synced_commit: f897d91
+# Fill these in when they exist, so a merged change can be traced back to the prompt it came from.
+issue:
+pull_request:

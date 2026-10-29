@@ -1,0 +1,85 @@
+/* ---------- Reordering the workspace cards ---------- */
+
+/* The handle, not the card: the card is a link, so dragging it would fight navigation. Shown on
+   hover or focus only — a permanent grip on twenty cards is twenty pieces of furniture.
+   It sits INSIDE the card, because UIKit's grid puts a 15px padding-left on every grid child and
+   absolute positioning resolves against that padding box — anchored to the wrapper the grip drew
+   7px to the LEFT of the card it belongs to, out in the gutter. The card is the containing block
+   (.workspace-card is position: relative), so `left` here means the card's own edge. */
+.ws-card-handle {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  color: var(--text-subtle);
+  background: var(--subtle-light);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity .12s ease, color .12s ease;
+  touch-action: none;
+}
+
+.workspace-card { position: relative; }
+
+.ws-card-wrap:hover .ws-card-handle,
+.ws-card-handle:focus-visible { opacity: 1; }
+.ws-card-handle:hover { color: var(--brand-primary); }
+.ws-card-handle:active { cursor: grabbing; }
+
+/* The UIkit sortables still in use (the button layouts) show no floating clone: UIkit positions it in document
+   coordinates, which inside a scrolled container lands it far from the pointer. */
+.uk-sortable-drag { display: none !important; }
+
+/* Dragging with sortable.js: the item follows the pointer as a lifted copy, and its own place stays open as a
+   tinted, outlined slot that the others slide around. */
+.ws-list[data-sortable] > .ws-item { cursor: grab; }
+[data-sortable] :is(button, input, select, textarea, .ws-card-tool, .ws-backups, .ws-move) { cursor: auto; }
+[data-sortable] .workspace-card { -webkit-user-drag: none; }
+body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: none; }
+
+.sort-placeholder { position: relative; }
+.sort-placeholder > * { visibility: hidden; }
+.sort-placeholder::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 var(--sort-inset-left, 0);
+  border: 2px dashed var(--brand-primary);
+  border-radius: 0.5rem;
+  background: var(--subtle-brand);
+  opacity: .8;
+}
+
+.sort-ghost {
+  position: fixed;
+  z-index: 10000;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+  border-radius: 0.5rem;
+  transition: transform 160ms cubic-bezier(.2,.8,.2,1), box-shadow 160ms ease;
+  will-change: translate, transform;
+}
+.sort-ghost.ws-card-wrap { display: flex; flex-direction: column; }
+.sort-ghost > .workspace-card { flex: 1; }
+.sort-ghost.ws-item { background: var(--surface-card); border: 1px solid var(--line); }
+.sort-ghost.ws-item.is-lifted { transform: scale(1.01); }
+.sort-ghost .ws-order { visibility: hidden; }
+.sort-ghost.is-lifted { transform: scale(1.03) rotate(-1.2deg); box-shadow: 0 1.25rem 2.5rem -0.5rem rgb(0 0 0 / .28); }
+.sort-ghost.is-landing { transition: translate 200ms cubic-bezier(.2,.8,.2,1), transform 200ms ease, box-shadow 200ms ease; }
+.sort-ghost .ws-card-handle { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .sort-ghost, .sort-ghost.is-landing { transition: none; }
+  .sort-ghost.is-lifted { transform: none; }
+}
+
+/* Touch: no hover to reveal the handle, so it stays visible. */
+@media (hover: none) {
+  .ws-card-handle { opacity: .7; }
+}

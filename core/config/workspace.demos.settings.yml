@@ -1,7 +1,17 @@
 doc:
   name: demos
-  path: /home/YOUR_USER/workspace/demos
-web:
-  url: http://localhost/demos
-database:
-  prefix: demos_
+
+# What this folder's projects are, and which actions their rows offer:
+# sites | code | files | media | ai-items — see core/workspace-app/WORKSPACES.md.
+type: sites
+
+# What the COMPOSER menu may do here: full | manifest (the default). A site workspace is full:
+# install, update, scripts and the rest, run in screens through ddev composer.
+composer: full
+
+# What the assistant is called on THIS workspace's page, and what its composer says when empty.
+# `default` in either means "whatever settings.yml says" — the global value, so a rename there
+# still reaches this page. Set a value here to override it for this workspace alone.
+assistant:
+  name: default
+  placeholder: default

@@ -1,0 +1,7 @@
+/* New folder form: the Claude Code message only matters when Claude Code is what starts. */
+.folder-new-form .folder-prompt { display: none; }
+.folder-new-form:has(input[name="then"][value="claude"]:checked) .folder-prompt { display: block; }
+.folder-new-form .folder-ddev-type { display: none; }
+.folder-new-form:has(.folder-setup input:checked) .folder-ddev-type { display: block; }
+.folder-new-form .folder-upsun-id { display: none; }
+.folder-new-form:has(input[name="upsun"][value="link"]:checked) .folder-upsun-id { display: block; }

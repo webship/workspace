@@ -1,0 +1,244 @@
+/* The screen terminals: floating windows, arranged as a list or a grid.
+ *
+ * They are windows and not a modal, and that is the whole design. A modal is one thing at a time, in
+ * the middle, with the page behind it out of reach — the opposite of what watching a terminal is for:
+ * you open one to keep half an eye on it while you do something else, and two to watch two agents. So
+ * each floats, is dragged by its title bar, resizes from its corner, remembers where it was put, and
+ * the bar in the corner tidies them all at once.
+ *
+ * Geometry is set by public/terminal.js as inline styles, because it belongs to the browser that put
+ * the window there. Everything here is what a window LOOKS like, never where it is.
+ */
+
+#term-windows {
+  position: fixed;
+  inset: 0;
+  z-index: 1010;              /* over the page and the rails; under UIkit's modal, which is 1010+ */
+  pointer-events: none;       /* the layer itself is not a surface — only its windows are */
+}
+
+#term-windows > * { pointer-events: auto; }
+
+/* The bar lives in the top bar, beside Screens: one about the sessions running on this machine, one
+   about the terminals open in this browser. It is hidden until there is something to say, so the top
+   bar carries no control for a thing that is not there. */
+#term-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+#term-bar[hidden] { display: none; }
+
+#term-bar .term-count {
+  white-space: nowrap;
+}
+
+/* The two arrange buttons are a pair, and read as one control rather than two loose glyphs. */
+#term-bar .term-arrange { padding: 0 0.45rem; }
+
+.term-window {
+  position: fixed;
+  /* The declared width IS the footprint. UIkit sets border-box on its own components but not on a
+     bare <section> — the same trap the rails hit — so without this every drag re-applied the measured
+     rectangle as a content width and the window grew by its padding and border, 18px at a time. */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 26rem;
+  min-height: 13rem;
+  padding: 0 0 0.35rem;
+  border: 1px solid var(--term-bar, var(--line));
+  border-radius: 0.6rem;
+  /* The window wears the terminal's own palette, set by terminal.js as custom properties: the title
+     bar, the screen and the hints under it are one object, as they are in a real terminal. */
+  background: var(--term-bg, var(--code-bg));
+  color: var(--term-fg, var(--code-ink));
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+  container: term / inline-size;
+}
+
+/* Which terminal takes your keystrokes, said twice over: the one in front, and the one with focus.
+   With four windows open and one cursor blinking in each, nothing else answers it. */
+.term-window.is-front { border-color: var(--brand-primary); }
+.term-window:focus-within { border-color: var(--brand-primary); box-shadow: var(--shadow-card-hover); }
+
+.term-window.is-dragging { user-select: none; }
+
+.term-window-head {
+  display: flex;
+  flex-wrap: wrap;            /* a narrow window wraps its controls instead of clipping them */
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  min-width: 0;
+  padding: 0.35rem 0.5rem;
+  background: var(--term-bar, var(--surface));
+  color: var(--term-bar-ink, var(--text-default));
+  cursor: grab;               /* the title bar is the handle */
+}
+
+.term-window.is-dragging .term-window-head { cursor: grabbing; }
+
+.term-title {
+  flex: 1 1 8rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.term-window .term-status { white-space: nowrap; font-size: 0.75rem; color: inherit; opacity: 0.7; }
+.term-verbs { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.2rem; }
+
+/* The window's buttons sit on the title bar, so they take its ink and show a button only on hover,
+   as the controls of a header bar do. They are square at every width and grow when there is room. */
+.term-window .term-verbs button.uk-button:not([data-term-font]),
+.term-window .term-verbs a.uk-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 0;
+  padding: 0;
+  border-color: transparent;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+}
+.term-window .term-verbs button.uk-button:not([data-term-font]):hover,
+.term-window .term-verbs a.uk-button:hover,
+.term-window .term-verbs .uk-button:focus-visible {
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  color: inherit;
+}
+.term-window .term-verbs .uk-button:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
+.term-window .term-verbs .uk-button svg { width: 1rem; height: 1rem; }
+@container term (min-width: 56rem) {
+  .term-window .term-verbs button.uk-button:not([data-term-font]),
+  .term-window .term-verbs a.uk-button { width: 2rem; height: 2rem; }
+  .term-window .term-verbs .uk-button svg { width: 1.125rem; height: 1.125rem; }
+}
+@container term (max-width: 32rem) {
+  .term-window .term-status { display: none; }
+}
+
+/* The window's controls are not the session's: a hairline says which side of it a button is on, so
+   "close this terminal" and "kill this session" are not two adjacent glyphs of the same weight. */
+.term-verbs-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 0.15rem 0.2rem;
+  background: var(--line);
+}
+
+/* The two that end something get the colour of what they do, on hover only — a row of red buttons
+   reads as a warning about the terminal itself. */
+.term-window .term-interrupt:hover, .term-window .term-kill:hover { color: var(--danger-text); background: color-mix(in srgb, var(--danger) 20%, transparent); }
+
+.term-screen {
+  flex: 1 1 auto;
+  min-height: 0;              /* a flex child must be allowed to be shorter than its content */
+  padding: 0.35rem 0.6rem;
+  overflow: hidden;
+  background: var(--term-bg, var(--code-bg));
+}
+
+/* The scrollback is screen's, reached with the wheel and the scroll-back button, so xterm's own bar
+   would be a track with nothing to scroll and a pale stripe down the side of a dark screen. */
+.term-screen .xterm-viewport { scrollbar-width: none; }
+.term-screen .xterm-viewport::-webkit-scrollbar { display: none; }
+
+.term-cli-hint { flex: none; margin: 0.15rem 0.6rem 0; }
+/* The dashboard forces the meta ink with !important for contrast on a page surface. Here the surface
+   is the terminal's, so the text takes the terminal's ink, and says so with the same weight. */
+.term-window .uk-text-meta { color: inherit !important; }
+.term-window .term-cli-hint .uk-text-meta,
+.term-window .term-cli-hint summary { opacity: 0.85; }
+/* The disclosure reads as a control: a pill with a chevron that turns when it is open, not a line of
+   text. The terminal's own ink, so it works on every style. */
+.term-window .term-cli-hint summary {
+  display: inline-flex; align-items: center; gap: 0.4rem; list-style: none; cursor: pointer;
+  padding: 0.1rem 0.65rem 0.1rem 0.5rem; border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 999px; opacity: 1; user-select: none;
+}
+.term-cli-hint summary::-webkit-details-marker { display: none; }
+.term-cli-hint summary::before {
+  content: ""; width: 0.4rem; height: 0.4rem; margin-left: 0.1rem;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg); transition: transform 0.15s ease;
+}
+.term-cli-hint[open] summary::before { transform: rotate(45deg); }
+.term-window .term-cli-hint summary:hover { background: color-mix(in srgb, currentColor 16%, transparent); }
+.term-cli-hint summary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.term-cli-hint[open] summary { margin-bottom: 0.3rem; }
+@media (prefers-reduced-motion: reduce) { .term-cli-hint summary::before { transition: none; } }
+.term-window .term-cli-hint code { background: color-mix(in srgb, currentColor 14%, transparent); color: inherit; }
+
+/* The menu: size, text size and style, in one place so the title bar stays a title and a few icons. */
+/* base.css underlines every link in a list item; a menu entry is not a link in a paragraph. */
+.term-look-menu li a:not(.uk-button):not(.uk-link-reset) { text-decoration: none; }
+.term-look-menu .term-font-row { display: flex; align-items: center; gap: 0.35rem; padding: 0.15rem 0.9rem; }
+.term-look-menu .term-font-size { min-width: 3.25rem; text-align: center; font-variant-numeric: tabular-nums; }
+.term-look-menu [data-term-style] { display: flex; align-items: center; gap: 0.5rem; }
+.term-look-menu [data-term-style].is-on { font-weight: 600; color: var(--brand-primary); }
+.term-swatch {
+  flex: none;
+  display: inline-block;
+  width: 1.5rem;
+  height: 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.25rem;
+  background: linear-gradient(90deg, var(--sw-ink, var(--brand-primary)) 0 30%, var(--sw-bg, var(--code-bg)) 30%);
+}
+
+/* The corner grip. The CSS resize property needs a scroll container and drags the element's own box,
+   which fights an absolutely placed window — so the drag is terminal.js's and this is its handle. */
+.term-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1.1rem;
+  height: 1.1rem;
+  cursor: nwse-resize;
+  background:
+    linear-gradient(135deg, transparent 50%, var(--line-strong) 50%, var(--line-strong) 62%, transparent 62%),
+    linear-gradient(135deg, transparent 72%, var(--line-strong) 72%, var(--line-strong) 84%, transparent 84%);
+}
+
+.term-window.is-full {
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+  border-radius: 0;
+  padding: 0.3rem;
+}
+.term-window.is-full .term-cli-hint,
+.term-window.is-full .term-resize { display: none; }
+
+/* Asking for a terminal that is already open raises it rather than opening a second; this is what
+   says so. */
+.term-window.is-flash { animation: term-flash .6s ease-out; }
+@keyframes term-flash {
+  from { box-shadow: 0 0 0 3px var(--brand-primary); }
+  to   { box-shadow: var(--shadow-float); }
+}
+
+/* The session's own tab (/terminal/<name>): one terminal, filling it. Nothing floats, nothing is
+   dragged, and the button that opens a tab has nothing to offer. */
+body.is-terminal-page #term-windows { position: static; }
+body.is-terminal-page #term-bar { display: none; }
+body.is-terminal-page .term-window {
+  position: static;
+  width: auto !important;
+  height: calc(100vh - 7rem) !important;
+  box-shadow: none;
+}
+body.is-terminal-page .term-newtab,
+body.is-terminal-page .term-resize { display: none; }

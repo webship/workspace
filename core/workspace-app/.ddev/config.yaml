@@ -12,27 +12,81 @@ additional_hostnames:
 - "*.demos.workspace"
 - "*.sandboxes.workspace"
 - "*.profiles.workspace"
+- "*.site-templates.workspace"
 - "*.modules.workspace"
 - "*.themes.workspace"
 - "*.libraries.workspace"
-- "*.forked.workspace"
 - "*.recipes.workspace"
-- "*.components.workspace"
-- "*.agents.workspace"
-- "*.skills.workspace"
-- "*.prompts.workspace"
+- "*.projects.workspace"
+- "*.specs.workspace"
+- "*.graphs.workspace"
+- "*.rag.workspace"
+- "*.ai-agents.workspace"
+- "*.ai-skills.workspace"
+- "*.ai-commands.workspace"
+- "*.ai-prompts.workspace"
+- "*.designs.workspace"
+- "*.images.workspace"
+- "*.videos.workspace"
+- "*.audio.workspace"
+- "*.avatars.workspace"
 - "*.docs.workspace"
+- "*.commands.workspace"
+- "*.worklogs.workspace"
 additional_fqdns: []
+
+# Every URL this project serves is https, signed by mkcert's local CA. A machine
+# that has never run mkcert has no CA, so the first thing a new install sees is
+# ERR_CERT_AUTHORITY_INVALID rather than the dashboard — and `ddev start` says so
+# only in a warning, in the middle of a long build log, where it is missed.
+#
+# exec-host, because trust stores live on the host, not in the container. The
+# script is idempotent and silent when there is nothing to do, so it costs a
+# fraction of a second on every later start.
+hooks:
+  # BEFORE the container exists: Docker creates any missing bind-mount source as a
+  # root-owned directory, which quietly breaks the tool it was meant to share — and
+  # takes ~/.local/bin with it, so nothing can install a user binary there either.
+  # Creating those paths as you first, and dropping the twg mount while twg is not
+  # installed, is what keeps a fresh machine clean.
+  pre-start:
+    # `|| true`: this reports damage it cannot fix without root, and a start must not
+    # fail because a path needs a chown. The message is the point, not the exit code.
+    - exec-host: bash "${DDEV_APPROOT}/../scripts/host-mounts.sh" --quiet || true
+  post-start:
+    - exec-host: bash "${DDEV_APPROOT}/../scripts/trust-https.sh" --quiet
+    # Every web_extra_daemon that is not running, started. Normally a no-op.
+    #
+    # DDEV starts these itself at the end of `ddev start` — and that step RACES supervisord
+    # coming up. When it loses, ddev prints
+    #
+    #   Unable to start web_extra_daemons using supervisorctl,
+    #   stdout=error: <class 'http.client.RemoteDisconnected'> …
+    #
+    # and then says **Successfully started workspace** anyway. The daemons are left
+    # "Not started", so nginx answers **502 Bad Gateway** — the proxy is up and the thing
+    # behind it never came up. A start that reports success and leaves the dashboard dead is
+    # the worst shape a failure can take, because nothing suggests the start is where to look.
+    # Reproduced on this machine, and fixed by this line.
+    #
+    # supervisord is asked which daemons are actually down rather than everything being
+    # started blindly, so a healthy start does nothing; `|| true` because a daemon that will
+    # not come up is still not a reason to fail the project's start — the 502 says the rest.
+    - exec: supervisorctl status webextradaemons:* 2>/dev/null | grep -v RUNNING | awk '{print $1}' | xargs -r supervisorctl start || true
 database:
     type: mariadb
     version: "10.11"
 use_dns_when_possible: true
 composer_version: "2"
 web_environment: []
-corepack_enable: false
+# The workspace packages are Yarn Berry: 63 of them carry `packageManager: yarn@4.9.3`, and yarn
+# refuses to run their scripts under the 1.22 shim without corepack. This container is where a
+# PACKAGE's checks run — a product, a module or a theme has no DDEV project of its own — so the
+# checks verb cannot work here without it.
+corepack_enable: true
 omit_containers: [db]
 nodejs_version: "22"
-webimage_extra_packages: []
+webimage_extra_packages: [screen]
 web_extra_daemons:
 - name: "workspace-app"
   # `sg docker` runs the app with the container's "docker" group (GID matched
@@ -42,6 +96,23 @@ web_extra_daemons:
   # change made at image build time. The ddev binary refuses to run as root,
   # so sudo is not an option here.
   command: "sg docker -c 'npm install && npm start'"
+  directory: /var/www/html
+# The Web IDE: VS Code in the browser, at https://ide.workspace.ddev.site.
+#
+# Bound to LOOPBACK on purpose — the only way in is the ide.* vhost in
+# .ddev/nginx_full/nginx-site.conf, so it is reachable exactly where the dashboard is and
+# nowhere else. `--auth none` because the dashboard itself has no login: adding a second
+# password in front of one door of an unauthenticated tool would be theatre, and the
+# dashboard already offers a browser terminal at /terminal/<session>. If the hub is ever
+# put on a public domain, BOTH need real auth in front of them — see the README.
+#
+# Its state lives under the workspace tree (gitignored) rather than in the container, so
+# settings, keybindings and installed extensions survive an image rebuild.
+- name: "code-server"
+  # The flags live in the script, which also seeds default settings on a machine that
+  # has none — including turning Workspace Trust off, without which the terminal
+  # refuses to start until a prompt is answered for every folder.
+  command: "bash scripts/code-server-start.sh"
   directory: /var/www/html
 
 # Key features of DDEV's config.yaml:

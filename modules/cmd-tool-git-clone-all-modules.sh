@@ -1,25 +1,32 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
+
+# Clone every module named in workspace.modules.settings.yml from git.drupal.org.
+#
+# Fills an empty modules/ folder in one go: each name in the `modules:` list is cloned over SSH,
+# so it needs a drupal.org account with a key on it. An existing folder is left as it is.
 
 echo "*-----------------------------------------------------------*";
 echo "| GIT clone all modules in                                  |";
 echo "*-----------------------------------------------------------*";
-echo "| ${WEBSHIP_WORKSPACE_CONFIG}/workspace.modules.settings.yml";
+echo "| ${WORKSPACE_CONFIG}/workspace.modules.settings.yml";
 echo "*-----------------------------------------------------------*"
 
 current_path=$(pwd);
 
 # Bootstrap.
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+# Find the workspace tooling from this script, so a fresh clone needs no setup.
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.modules.settings.yml);
+eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.modules.settings.yml);
 
-cd ${WEBSHIP_WORKSPACE_ROOT}/modules/ ;
+cd ${WORKSPACE_ROOT}/modules/ ;
 
 # Delete modules.
 for module_name in "${modules[@]}"
 do
-  sudo rm -rf ${WEBSHIP_WORKSPACE_ROOT}/modules/${module_name};
+  sudo rm -rf ${WORKSPACE_ROOT}/modules/${module_name};
 done
 
 # GIT clone modules.

@@ -1,0 +1,40 @@
+doc:
+  name: avatars
+
+# Avatars builds and holds talking AI characters: each avatar app is a DDEV project (so the page
+# needs the project table, the Build form and the DDEV actions).
+presentation:
+  icon: tabler:mood-smile
+  subtitle: Talking AI Characters, Their Agents & Voices
+  noun: avatar
+  kind: projects
+
+# What the assistant on this workspace's page is called, and the hint in its prompt box.
+assistant:
+  name: default
+  placeholder: default
+
+# Defaults for avatars/cmd-avatar-project.sh and the cmd-tools-avatar-*.sh commands. Every one is
+# overridable per run by the matching argument.
+avatar:
+  # The avatar app every new avatar project is cloned from: a Node app on DDEV (no database) with a
+  # VRM character, Claude Code as its mind, and browser, Piper or ElevenLabs voices. Set it per
+  # machine (or pass --repo); cmd-avatar-project.sh refuses to run until it is set.
+  repo: CHANGE_ME
+  branch: main
+  # Default project name, and so the hostname: https://<project>.ddev.site and
+  # https://<project>.avatars.workspace.ddev.site.
+  project: my-avatar
+  # Prefix for the Claude Code agent a character gets: avatar-<character id>.
+  agent_prefix: avatar-
+  # The voice a new character gets when none is given: free by default. Piper is free and offline;
+  # browser is free too. ElevenLabs spends credits, so it is never the default.
+  voice_engine: piper
+  voice: en_US-lessac-medium
+  # Where Piper voices live on this machine. The avatar app mounts it read-only.
+  piper_voices_dir: ~/.local/share/piper-voices
+  # Where Piper voices are downloaded from: the rhasspy/piper-voices model card (MIT; a voice may
+  # carry its own terms in its MODEL_CARD).
+  piper_voices_url: https://huggingface.co/rhasspy/piper-voices/resolve/main
+  # The Open Source Avatars registry (free VRM avatars, licence per collection).
+  osa_index_url: https://raw.githubusercontent.com/ToxSam/open-source-avatars/main/data

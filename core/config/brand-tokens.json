@@ -1,0 +1,45 @@
+{
+  "source": {
+    "file": "Hwbkgkvxths84swEtWcmTv",
+    "name": "VDT - Stylesheet",
+    "url": "https://www.figma.com/design/Hwbkgkvxths84swEtWcmTv",
+    "nodes": {
+      "brand": "2070:1386",
+      "subtle": "12142:17015",
+      "text": "12142:17097",
+      "typography": "2070:473"
+    }
+  },
+  "fetched_at": "2026-07-27",
+  "fetched_by": "figma-mcp",
+  "tokens": {
+    "brand-primary": "#0074e0",
+    "brand-secondary": "#2b447c",
+    "brand-accent": "#e4dcff",
+    "brand-dark": "#000000",
+    "brand-light": "#ebe8e5",
+    "subtle-light": "#f5f3f2",
+    "subtle-brand": "#deedff",
+    "subtle-accent": "#f6f3ff",
+    "text-default": "#000000",
+    "text-subtle": "#4d4d4d",
+    "text-light": "#ebe8e5",
+    "text-inverse": "#ffffff",
+    "text-brand": "#0074e0",
+    "text-accent": "#e4dcff"
+  },
+  "logos": {
+    "emblem": "vardot-emblem.svg",
+    "lockup-on-light": "vardot-logo-on-light.svg",
+    "lockup-on-dark": "vardot-logo-on-dark.svg",
+    "favicon": "vardot-favicon.svg",
+    "favicon_png": "vardot-favicon.png",
+    "touch_icon": "vardot-touch-icon.png"
+  },
+  "note": "Last values fetched from Figma. cmd-tools-brand-tokens.sh refreshes this when a Figma token is configured, and falls back to these values when it is not.",
+  "fonts": {
+    "primary": "Figtree",
+    "secondary": "DM Serif Text",
+    "code": "JetBrains Mono"
+  }
+}

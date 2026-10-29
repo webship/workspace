@@ -1,0 +1,182 @@
+/**
+ * @name Slate
+ *
+ * A cooler, quieter palette: less brand gradient, more paper. For long sessions reading job output
+ * and diffs, where the default's purple is more presence than the work needs.
+ *
+ * It sets the same tokens as the default and nothing else — which is the point of the token layer.
+ */
+
+:root {
+  --brand-primary: #3d7ea6;
+  --brand-secondary: #4f6d8c;
+  --brand-accent: #6b8fa8;
+  --brand-grad: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary) 65%, var(--brand-accent));
+  --brand-primary: var(--brand-secondary);
+  --text-default: #1f2933;
+  --text-subtle-2: #3e4c59;
+  --text-subtle: #7b8794;
+  --surface: #f4f6f8;
+  --surface-card: #fff;
+  --surface-muted: #e9edf1;
+  --line: #dde3e9;
+  --line-strong: #c3ccd5;
+  --ok: #2f855a;
+  --ok-soft: #f0f8f3;
+  --pcard-tool-label: 0rem;
+  --ok-ink: #1c4532;
+  --danger: #c53030;
+  --danger-soft: #fdf2f2;
+  --danger-ink: #742a2a;
+  --danger-armed: #9b2c2c;
+  --danger-text: #c53030;
+  --warning: #d69e2e;
+  --warning-soft: #fdf6e3;
+  --warning-ink: #744210;
+  --info: #3182ce;
+  --info-soft: #ebf4fb;
+  --info-ink: #2a4365;
+  --success: #146c43;       /* Figma VDT - Stylesheet, status/success */
+  --success-soft: #d0e2d9;
+  --success-ink: #0f5132;
+  --link: #2f6a8d;   /* 4.44:1 on white was under AA for text; this is 5.9:1 */
+  --subtle-brand: #eef3f7;
+  --busy-soft: #eaf1f5;
+  --busy-ink: var(--brand-secondary);
+  --subtle-light: #f7fafc;
+}
+
+html.dark {
+  --text-default: #e4e9ee;
+  --text-subtle-2: #bcc6d0;
+  --text-subtle: #8b97a5;
+  --surface: #12171c;
+  --surface-card: #1a2027;
+  --surface-muted: #161b21;
+  --line: #2a323b;
+  --line-strong: #3c4753;
+  --ok-soft: #14251c;
+  --ok-ink: #a7d9bd;
+  --danger-soft: #2a1618;
+  --danger-ink: #f0b4b4;
+  --danger-armed: #e05252;
+  --danger-text: #f28b8b;
+  --warning-soft: #2a2412;
+  --warning-ink: #f6d58e;
+  --info-soft: #12202c;
+  --info-ink: #9cc9ee;
+  --success-soft: #10291d;
+  --success-ink: #a3d9bd;
+  --link: #6aa9cc;
+  --subtle-brand: #1e262e;
+  --busy-soft: #10151a;
+  --busy-ink: #a7d9bd;
+  --subtle-light: #171d23;
+}
+
+/**
+ * Inherited from the Vardot design system: the type scale, the spacing rhythm and every token
+ * this palette does not restate. A theme is a palette — not a fork of the system — and a token a
+ * component asks for that no theme defines drops the whole declaration without a word.
+ */
+:root {
+  --brand-1: var(--brand-primary);
+  --brand-2: var(--brand-secondary);
+  --font-code: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-primary: Figtree, "Helvetica Neue", Arial, sans-serif;
+  --font-secondary: "DM Serif Text", Georgia, serif;
+  --ink: var(--brand-secondary);
+  --leading-body: 1.6;
+  --leading-display: 1.3;
+  --leading-heading: 1.4;
+  --size-body: 0.9375rem;
+  --size-h1: 2rem;
+  --size-h2: 1.625rem;
+  --size-h3: 1.5rem;
+  --size-h4: 1.25rem;
+  --size-h5: 1.125rem;
+  --size-h6: 1rem;
+  --subtle-accent: #eef4f8;
+  --weight-regular: 400;
+  --weight-semibold: 600;
+  --tracking-wide: 0.0625em;
+  --size-small: 0.875rem;        /* Components/Forms/Note/Default */
+  /* Type ROLES: one token per role, holding the weight, the size, the line-height and the
+     family together. A component writes `font: var(--type-h3)` and cannot then get the weight
+     right and the line-height wrong — which is how h3 drifted onto the serif once already.
+     The scale above stays the single source of the sizes; the role decides the rest. */
+  --type-h1: var(--weight-regular) var(--size-h1)/1.15 var(--font-secondary);
+  --type-h2: var(--weight-regular) var(--size-h2)/1.2 var(--font-secondary);
+  --type-h3: var(--weight-semibold) var(--size-h3)/1.25 var(--font-primary);
+  --type-h4: var(--weight-semibold) var(--size-h4)/1.3 var(--font-primary);
+  --type-h5: var(--weight-semibold) var(--size-h5)/1.35 var(--font-primary);
+  --type-h6: var(--weight-semibold) var(--size-h6)/1 var(--font-primary);
+  --type-body: var(--weight-regular) var(--size-body)/var(--leading-body) var(--font-primary);
+  --type-body-sm: var(--weight-regular) var(--size-small)/1.45 var(--font-primary);
+  --type-label: var(--weight-semibold) var(--size-body)/1 var(--font-primary);
+  --type-caption: var(--weight-regular) var(--size-small)/1.35 var(--font-primary);
+  --type-mono: var(--weight-regular) var(--size-body)/1.5 var(--font-code);
+  --type-mono-sm: var(--weight-regular) var(--size-small)/1.4 var(--font-code);
+
+  /* Optical tracking, per role. This theme sets none — its scale is the one it shipped with —
+     but the tokens exist so a heading never has to bring its own, and so a theme that wants
+     tightened display type only has to set these. */
+  --tracking-h1: normal;
+  --tracking-h2: normal;
+  --tracking-h3: normal;
+  --tracking-h4: normal;
+  --tracking-h5: normal;
+  --tracking-h6: var(--tracking-wide);
+
+  /* The rest of the semantic layer, in this palette's own terms. */
+  --brand-3: var(--brand-accent);
+  --brand-dark: #12171c;
+  --brand-light: #e4e9ee;
+  --text-inverse: #ffffff;
+  --text-light: #e4e9ee;
+  --text-brand: var(--brand-primary);
+  --text-accent: var(--brand-accent);
+  --surface-input: #ffffff;
+  --brand-pressed: #33698a;
+  --brand-2-pressed: #405a75;
+  --focus-ring: rgba(61, 126, 166, .35);
+  --accent-soft: #eaf1f6;
+  --accent-ink: #2f5f7d;
+  --chip-bg: var(--brand-primary);
+  --chip-ink: var(--text-inverse);
+  --shadow-card: 0 4px 16px rgba(31, 41, 51, .07);
+  --shadow-card-hover: 0 12px 28px rgba(31, 41, 51, .16);
+  --shadow-float: 0 1.5rem 3rem rgba(31, 41, 51, .26);
+  --shadow-toast: 0 14px 34px rgba(31, 41, 51, .24);
+  --toast-ring: rgba(255, 255, 255, .9);
+  --code-bg: #1b2229;
+  --code-ink: #dde5ec;
+  --terminal-ink: #a7d9bd;
+  --media-bg: #000000;
+  --paper: #ffffff;
+  --checker-a: #dcdcdc;
+  --checker-b: #d8d8d8;
+  --checker-bg: #f4f4f4;
+  --overlay: rgba(10, 14, 18, .6);
+}
+
+html.dark {
+  --surface-input: #12171c;
+  --brand-pressed: #6aa9cc;
+  --brand-2-pressed: #3d566f;
+  --focus-ring: rgba(106, 169, 204, .40);
+  --accent-soft: #1c2830;
+  --accent-ink: #a8cee2;
+  --chip-bg: #2f4250;
+  --chip-ink: #e4e9ee;
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, .38);
+  --shadow-card-hover: 0 12px 28px rgba(0, 0, 0, .52);
+  --shadow-float: 0 1.5rem 3rem rgba(0, 0, 0, .58);
+  --shadow-toast: 0 14px 34px rgba(0, 0, 0, .52);
+  --toast-ring: rgba(0, 0, 0, .5);
+  --checker-a: #2b343d;
+  --checker-b: #262e36;
+  --checker-bg: #171d23;
+  --overlay: rgba(0, 0, 0, .72);
+  --ink: var(--text-default);
+}

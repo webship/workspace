@@ -1,10 +1,12 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Bootstrap.
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+# Find the workspace tooling from this script, so a fresh clone needs no setup.
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.projects.settings.yml);
+eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.projects.settings.yml);
 
 ARGPARSE_DESCRIPTION="Backup a project"
 argparse "$@" <<EOF || exit 1
@@ -13,7 +15,7 @@ parser.add_argument('PROJECT_NAME',
 EOF
 
 shift $#;
+trim_project_name ;   # "v11x00b1/" -> "v11x00b1" — see functions/fun-project-name.sh
 
-backup_time=$( date '+%Y-%m-%d_%H-%M-%S' );
-tar -cvzf ${backups}/${doc_name}/${doc_name}---${PROJECT_NAME}--${backup_time}.tar.gz ${PROJECT_NAME} ;
-(cd ${PROJECT_NAME} && ddev export-db --file=${backups}/${doc_name}/${doc_name}---${PROJECT_NAME}--${backup_time}-db.sql.gz) ;
+backup_workspace_item "${PROJECT_NAME}" || exit 1 ;
+(cd ${PROJECT_NAME} && ddev export-db --file=${backups}/${doc_name}/${doc_name}---${PROJECT_NAME}--${BACKUP_TIME}-db.sql.gz) ;

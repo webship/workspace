@@ -1,23 +1,45 @@
 services:
   web:
+    # Docker-outside-of-Docker needs this process to be in the host's docker
+    # group, and DDEV pins the container to `user: 1000:1000` — which overrides
+    # whatever the Dockerfile did to /etc/passwd, so a build-time `usermod -g`
+    # never reaches the running process. group_add is granted by the kernel at
+    # container start, so it is in the process credentials before supervisord
+    # starts and is inherited by every daemon it spawns.
+    #
+    # The number is this machine's docker GID, so it is written by
+    # core/scripts/docker-gid.sh — install.sh runs it during setup and
+    # sync-tooling.sh runs it after mirroring, because this file is mirrored.
+    group_add:
+      - "999"
     volumes:
       # Docker-outside-of-Docker: talk to the host's real docker daemon so
       # `ddev`/bash cmd-*.sh scripts run from inside this container manage
       # sibling ddev projects exactly like they would on the host.
       - /var/run/docker.sock:/var/run/docker.sock
+      # DDEV's project registry. Without it the `ddev` in here has its own empty
+      # ~/.ddev and knows only the project it is standing in — so `ddev list`
+      # returns 1 project instead of 12, and the dashboard reports every other
+      # project as Stopped no matter what it is really doing. The daemon is the
+      # host's; the registry that says where the projects live has to be too.
+      # Safe to share because the tree is bind-mounted at the SAME absolute path,
+      # so every approot in it resolves identically on both sides.
+      - ${HOME}/.ddev:${HOME}/.ddev
       # Bind the whole workspace tree at the SAME absolute path the host
-      # uses, so WEBSHIP_WORKSPACE_ROOT and every cmd-*.sh script's
+      # uses, so WORKSPACE_ROOT and every cmd-*.sh script's
       # references resolve identically whether run on the host or in here.
       # ${HOME} is interpolated on the HOST when ddev invokes docker compose.
       - ${HOME}/workspace:${HOME}/workspace
       # Claude Code auth/config for the AI assistant chat.
       - ${HOME}/.claude:${HOME}/.claude
       - ${HOME}/.claude.json:${HOME}/.claude.json
+      # gh's auth, for reading and fetching from the private dev-ai-agents repo.
+      - ${HOME}/.config/gh:${HOME}/.config/gh
     environment:
-      - WEBSHIP_WORKSPACE_ROOT=${HOME}/workspace
-      - WEBSHIP_WORKSPACE_PATH=${HOME}/workspace/core
-      - WEBSHIP_WORKSPACE_SCRIPTS=${HOME}/workspace/core/scripts
-      - WEBSHIP_WORKSPACE_CONFIG=${HOME}/workspace/core/config
+      - WORKSPACE_ROOT=${HOME}/workspace
+      - WORKSPACE_PATH=${HOME}/workspace/core
+      - WORKSPACE_SCRIPTS=${HOME}/workspace/core/scripts
+      - WORKSPACE_CONFIG=${HOME}/workspace/core/config
       # Without this, the `ddev` binary can't find its global config/project
       # registry and fails with "Could not connect to a Docker provider".
       - HOME=${HOME}

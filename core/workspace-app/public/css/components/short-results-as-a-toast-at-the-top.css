@@ -1,0 +1,203 @@
+/* ---------- Short results, as a toast at the top ---------- */
+
+.flash-toasts {
+  position: fixed;
+  top: 4.25rem;                     /* clear of the toolbar */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1015;                    /* over the rails and the job stack */
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  /* 40rem wrapped a single sentence onto eight lines on a wide screen, which made a
+     transient result look like a message block demanding attention. A toast is read at a
+     glance or not at all, so it gets the width to be one or two lines — still bounded, so
+     it never spans a 2500px display end to end. */
+  width: min(64rem, calc(100vw - 3rem));
+  pointer-events: none;
+}
+
+.flash-toasts > * { pointer-events: auto; }
+
+/* An alert, not a terminal: an icon says what happened before the sentence is read, the tint
+   carries it at a glance, and a countdown bar shows it is going to leave on its own. Deliberately
+   unlike the job toasts at the bottom, which are output to watch rather than a result to read. */
+.flash-toast {
+  margin: 0 !important;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.75rem 2.25rem 0.75rem 0.875rem !important;
+  /* A pale tint on a pale page needs a stated edge, not a hint of one: the 1px pale-green hairline
+     disappeared against the toolbar and the card behind it, so the toast read as floating text.
+     A 2px border in the status colour plus a ring and a deeper shadow give it a definite edge in
+     both themes. */
+  border: 2px solid var(--ok);
+  border-left-width: 4px;
+  border-radius: 0.5rem;
+  background: var(--ok-soft) !important;
+  color: var(--ok-ink) !important;
+  box-shadow: 0 0 0 1px var(--toast-ring), var(--shadow-toast);
+  overflow: hidden;
+  animation: flash-in .18s ease-out;
+}
+
+/* The mark, sized so a one-line and a three-line message both look deliberate. */
+.flash-toast::before {
+  content: '✓';
+  flex: 0 0 1.25rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.0625rem;
+  border-radius: 50%;
+  background: var(--ok);
+  color: var(--text-inverse);
+  font-size: 0.78rem;
+  line-height: 1.25rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.flash-toast.error {
+  border-color: var(--danger);
+  background: var(--danger-soft) !important;
+  color: var(--danger-ink) !important;
+}
+
+.flash-toast.error::before { content: '!'; background: var(--danger); }
+
+/* How long it has left. Pauses with the timer when the pointer is over it. */
+.flash-toast::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--ok);
+  opacity: .55;
+  transform-origin: left;
+  animation: flash-countdown var(--flash-ms, 6000ms) linear forwards;
+}
+
+.flash-toast.error::after { background: var(--danger); }
+.flash-toast.is-held::after { animation-play-state: paused; }
+
+@keyframes flash-countdown {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+.flash-toast-close {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.5rem;
+  background: none;
+  border: 0;
+  padding: 0.125rem;
+  cursor: pointer;
+  color: inherit;
+  opacity: .6;
+  line-height: 1;
+}
+
+.flash-toast-close:hover { opacity: 1; }
+
+@keyframes flash-in {
+  from { opacity: 0; transform: translateY(-0.375rem); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (max-width: 47.9375em) {
+  .flash-toasts { top: 3.5rem; width: calc(100vw - 1rem); }
+}
+
+/* The machine name beside the readable one: still needed — it is what you invoke, and what
+   --fetch and --install take — but secondary to the name a person reads. */
+.item-machine {
+  font-family: var(--font-code);
+  font-size: 0.72rem;
+  font-weight: 400;
+  /* No opacity: .uk-text-meta is already the quiet colour, and fading it again took this 11px code
+     name to 4.08:1 — under AA, on the one string you have to read character by character to type it.
+     Secondary is said by the size and the monospace, which is what the eye reads here anyway. */
+}
+
+/* The controls read as three jobs, not eight widgets: find it, order it, narrow it. One bar, with
+   a hairline between the groups — before this the search field, two buttons, a checkbox, a sort
+   and a state filter sat in one undifferentiated row. */
+.list-controls {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  background: var(--surface);
+  gap: 0;
+}
+
+.list-controls { flex-wrap: wrap; row-gap: 0.5rem; }
+
+.lc-group {
+  display: flex;
+  align-items: center;
+  /* A group never breaks internally: Reset and Auto belong beside the field they act on. The BAR
+     wraps between groups instead, which is why the search field can shrink but the buttons cannot
+     be orphaned onto their own line. */
+  flex-wrap: nowrap;
+  gap: 0.375rem;
+  padding: 0 0.625rem;
+  border-left: 1px solid var(--line);
+}
+
+.lc-group:first-child { padding-left: 0; border-left: 0; }
+
+/* The find row owns a line of its own — field, Search, Reset, in that order, with the field
+   absorbing the slack. Sort, the filters and the auto-search preference sit on the line below,
+   where they do not compete with it for width. */
+.lc-find { flex: 1 1 100%; min-width: 0; }
+
+.lc-rest {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  row-gap: 0.5rem;
+  flex: 1 1 100%;
+}
+
+.lc-rest .lc-group:first-child { padding-left: 0; border-left: 0; }
+
+/* Whether the dividers make sense depends on the width of the LIST, not of the window: the
+   assistant rail takes 400px, so a 1250px window leaves this bar about 630px and the groups
+   already stack. A container query asks the right question. */
+#webship-workspace-projects,
+#webship-workspace-backups { container-type: inline-size; }
+
+@container (max-width: 44rem) {
+  .lc-group { border-left: 0; padding: 0; }
+  /* Without the dividers the groups need their own gap to stay apart. */
+  .lc-rest { gap: 0.75rem; }
+}
+
+/* No container support: fall back to the window, erring towards stacked. */
+@supports not (container-type: inline-size) {
+  @media (max-width: 74.9375em) {
+    .lc-group { border-left: 0; padding: 0; }
+  }
+}
+
+/* The head's buttons stay clickable over the top grips that run beneath them. */
+.job-toast-btn { position: relative; z-index: 4; }
+
+/* The row reads name → what it is called and its state → what it does. The machine name, the
+   timestamp and the labels used to trail the readable name on one line, where the name a person
+   looks for was the shortest thing on a long line of small print. */
+.item-meta-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.125rem;
+}
+
+.item-meta-line .uk-label { line-height: 1.4; }

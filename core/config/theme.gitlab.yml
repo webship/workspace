@@ -1,0 +1,168 @@
+# GitLab — core/config/theme.gitlab.yml
+#
+# A style in the shape of GitLab. The values were read off a GitLab page from its Pajamas design
+# system — --gl-text-color-default, --gl-background-color-strong, --gl-border-color-default and the
+# --gl-color-* ramp — resolved in the browser rather than sampled from a screenshot.
+#
+# Its signatures: the #6d49cb brand purple, an #ececef page under white cards (GitLab tints the page
+# and keeps the cards white, which is the opposite of what most of these do), a #3a383f warm-grey
+# ink rather than a black one, and a 14px body. GitLab Sans and GitLab Mono are not vendored.
+
+# The TYPE was measured from GitLab's own .gl-heading-1 … .gl-heading-6 classes, rendered in the
+# page and read back: 30 / 25 / 20 / 16 / 14 / 14px, all at 600 and all on a 1.25 line height, with
+# -0.01em tracking on the first two only. Body is 14px on 1.5. Every step is 600 — GitLab does not
+# use weight to separate heading levels, only size.
+
+name: GitLab
+
+tokens:
+  brand-primary: "#6d49cb"
+  brand-secondary: "#28272d"
+  brand-accent: "#fd7e14"
+  brand-dark: "#18171d"
+  brand-light: "#fbfafd"
+  subtle-light: "#fbfafd"
+  subtle-brand: "#ece7fb"
+  subtle-accent: "#fdf1dd"
+  text-default: "#3a383f"
+  text-subtle: "#626168"
+  text-inverse: "#ffffff"
+  text-light: "#fbfafd"
+  text-brand: "var(--brand-primary)"
+  text-accent: "var(--brand-accent)"
+  font-primary: "\"GitLab Sans\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Noto Sans\", Ubuntu, Cantarell, sans-serif"
+  font-secondary: "\"GitLab Sans\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Noto Sans\", Ubuntu, Cantarell, sans-serif"
+  font-code: "\"GitLab Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+  weight-regular: 400
+  weight-semibold: 600
+  leading-heading: 1.4
+  leading-display: 1.3
+  leading-body: 1.5
+  tracking-wide: 0.0625em
+  size-h1: 1.875rem
+  size-h2: 1.5625rem
+  size-h3: 1.25rem
+  size-h4: 1rem
+  size-h5: 0.875rem
+  size-h6: 0.875rem
+  size-body: 0.875rem
+  size-small: 0.75rem
+  type-h1: "var(--weight-semibold) var(--size-h1)/1.25 var(--font-primary)"
+  type-h2: "var(--weight-semibold) var(--size-h2)/1.25 var(--font-primary)"
+  type-h3: "var(--weight-semibold) var(--size-h3)/1.25 var(--font-primary)"
+  type-h4: "var(--weight-semibold) var(--size-h4)/1.25 var(--font-primary)"
+  type-h5: "var(--weight-semibold) var(--size-h5)/1.25 var(--font-primary)"
+  type-h6: "var(--weight-semibold) var(--size-h6)/1.2 var(--font-primary)"
+  type-body: "var(--weight-regular) var(--size-body)/var(--leading-body) var(--font-primary)"
+  type-body-sm: "var(--weight-regular) var(--size-small)/1.45 var(--font-primary)"
+  type-label: "var(--weight-semibold) var(--size-body)/1 var(--font-primary)"
+  type-caption: "var(--weight-regular) var(--size-small)/1.35 var(--font-primary)"
+  type-mono: "var(--weight-regular) var(--size-body)/1.5 var(--font-code)"
+  type-mono-sm: "var(--weight-regular) var(--size-small)/1.4 var(--font-code)"
+  tracking-h1: -0.01em
+  tracking-h2: -0.01em
+  tracking-h3: normal
+  tracking-h4: normal
+  tracking-h5: normal
+  tracking-h6: normal
+  surface: "#ececef"
+  surface-card: "#ffffff"
+  surface-muted: "#fbfafd"
+  surface-input: "#ffffff"
+  text-subtle-2: "#4c4b51"
+  line: "#dcdcde"
+  line-strong: "#bfbfc3"
+  link: "#1f75cb"
+  brand-pressed: "#6a4fb4"
+  brand-2-pressed: "#22355f"
+  focus-ring: "#1f75cb66"
+  ok: "#108548"
+  ok-soft: "#ecf4ee"
+  pcard-tool-label: 0rem
+  ok-ink: "#0d7038"
+  danger: "#dd2b0e"
+  danger-soft: "#fcf1ef"
+  danger-ink: "#ae1800"
+  danger-armed: "#ae1800"
+  danger-text: "#dd2b0e"
+  warning: "#ab6100"
+  warning-soft: "#fdf1dd"
+  warning-ink: "#8f4700"
+  info: "#1f75cb"
+  info-soft: "#e9f3fc"
+  info-ink: "#1068bf"
+  success: "#146c43"
+  success-soft: "#d0e2d9"
+  success-ink: "#0f5132"
+  busy-soft: "var(--subtle-brand)"
+  busy-ink: "var(--brand-secondary)"
+  accent-soft: "#ece7fb"
+  accent-ink: "#6d49cb"
+  chip-bg: "#6d49cb"
+  chip-ink: "#ffffff"
+  shadow-card: "0 4px 16px rgba(35, 41, 70, .06)"
+  shadow-card-hover: "0 12px 28px rgba(43, 68, 124, .16)"
+  shadow-float: "0 1.5rem 3rem rgba(43, 68, 124, .28)"
+  shadow-toast: "0 14px 34px rgba(35, 41, 70, .26)"
+  toast-ring: "rgba(255, 255, 255, .9)"
+  code-bg: "#28272d"
+  code-ink: "#ececef"
+  terminal-ink: "#c9f7d4"
+  media-bg: "#000000"
+  paper: "#ffffff"
+  checker-a: "#dcdcdc"
+  checker-b: "#d8d8d8"
+  checker-bg: "#f4f4f4"
+  overlay: "#18171dcc"
+  brand-1: "var(--brand-primary)"
+  brand-2: "var(--brand-secondary)"
+  brand-3: "var(--brand-accent)"
+  brand-grad: "linear-gradient(135deg, var(--brand-primary), var(--brand-secondary))"
+  ink: "var(--brand-secondary)"
+
+# The dark half.
+dark:
+  surface: "#18171d"
+  surface-card: "#28272d"
+  surface-muted: "#3a383f"
+  surface-input: "#28272d"
+  text-default: "#ececef"
+  text-subtle-2: "#dcdcde"
+  text-subtle: "#bfbfc3"
+  line: "#4c4b51"
+  line-strong: "#626168"
+  link: "#63a6e9"
+  brand-pressed: "#a989f5"
+  brand-2-pressed: "#1b2b4d"
+  focus-ring: "#63a6e966"
+  ok-soft: "#0a4020"
+  ok-ink: "#91d4a8"
+  danger-soft: "#4b140b"
+  danger-ink: "#f57f6c"
+  danger-armed: "#e0466b"
+  danger-text: "#ff8fa3"
+  warning-soft: "#422800"
+  warning-ink: "#e9be74"
+  info-soft: "#0b2640"
+  info-ink: "#9dc7f1"
+  success-soft: "#10291d"
+  success-ink: "#a3d9bd"
+  busy-soft: "#1a2440"
+  busy-ink: "#b9c9ff"
+  accent-soft: "#232150"
+  accent-ink: "#cbbbf2"
+  chip-bg: "#6d49cb"
+  chip-ink: "#ffffff"
+  subtle-light: "#28272d"
+  subtle-brand: "#232150"
+  subtle-accent: "#3a2c17"
+  shadow-card: "0 4px 16px rgba(0, 0, 0, .35)"
+  shadow-card-hover: "0 12px 28px rgba(0, 0, 0, .50)"
+  shadow-float: "0 1.5rem 3rem rgba(0, 0, 0, .55)"
+  shadow-toast: "0 14px 34px rgba(0, 0, 0, .50)"
+  toast-ring: "rgba(0, 0, 0, .5)"
+  checker-a: "#2a3550"
+  checker-b: "#26314a"
+  checker-bg: "#131b2c"
+  overlay: "#18171de5"
+  ink: "var(--text-default)"

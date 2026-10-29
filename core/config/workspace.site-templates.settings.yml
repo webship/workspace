@@ -1,0 +1,42 @@
+doc:
+  name: site-templates
+site_templates:
+  # The free templates on https://new.drupal.org/browse/site-templates and in the Drupal CMS
+  # installer's own curated list (drupal_cms_installer's site-templates.yml), plus the four
+  # Vardot ones. One cmd-<name>-project.sh each. Paid templates are not built here, and the
+  # Dripyard Meridian Charter one is not on Packagist at all: it comes from a private
+  # repository behind a bearer token.
+  - archimedes
+  - byte
+  - caresphere
+  - convene
+  - convivial_gov
+  - dashi
+  - everbright
+  - forma
+  - goodwell
+  - haven
+  - healthcare
+  - hourglass_inc
+  - local
+  - lupus_decoupled_starter
+  - mercury_demo
+  - provus_edu
+  - pulse
+  - summit
+  # Vardot's own, each with a released (~1.0.0) and a development (1.0.x-dev) builder.
+  - educare
+  - horizonaid
+  - rightup
+  - varbase_starter
+
+# What this folder's projects are, and which actions their rows offer:
+# sites | code | files | media | ai-items — see core/workspace-app/WORKSPACES.md.
+type: sites
+
+# What the assistant is called on THIS workspace's page, and what its composer says when empty.
+# `default` in either means "whatever settings.yml says" — the global value, so a rename there
+# still reaches this page. Set a value here to override it for this workspace alone.
+assistant:
+  name: default
+  placeholder: default

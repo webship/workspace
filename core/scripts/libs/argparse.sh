@@ -51,8 +51,20 @@ EOF
     # Define variables corresponding to the options if the args can be
     # parsed without errors; otherwise, print the text of the error
     # message.
+    #
+    # The command substitution MUST be quoted. Unquoted, the shell word-splits
+    # and glob-expands the generated assignments before eval ever sees them, so
+    # any argument value containing *, ? or [...] is silently rewritten to
+    # whatever it happens to match in the current directory:
+    #
+    #   --summary "manage every cmd-*.sh here"
+    #     run from commands/  ->  "manage every cmd-tools-commands.sh here"
+    #     run from elsewhere  ->  unchanged
+    #
+    # It corrupts quietly and the result depends on the working directory, which
+    # is why it went unnoticed: a glob matching nothing survives untouched.
     if python "$argparser" "$@" &> /dev/null; then
-        eval $(python "$argparser" "$@")
+        eval "$(python "$argparser" "$@")"
         retval=0
     else
         python "$argparser" "$@"

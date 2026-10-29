@@ -1,0 +1,23 @@
+/* ---------- How much of the window a page's content may use ----------
+ *
+ * `uk-container-small` capped every page at 900px, which was the right answer when the assistant was a
+ * fixed 25rem column and the rail was a fixed column opposite it: 900px was what was left. Both move
+ * now — the assistant can be closed, floating or on its own page — so on a wide screen the pages that
+ * most want the room were rendering in a ribbon with empty page beside them.
+ *
+ * Comfortable stays the default, because a reading width is a real constraint rather than an oversight:
+ * a settings form at 1900px is worse than one at 900px. The wider ones are offered, not imposed.
+ *
+ * The selector has to beat UIKit's own `.uk-container-small` max-width, which is a single class in a
+ * stylesheet linked after this one — so it is qualified, never `!important`.
+ */
+
+/* Every page body, not just the ones capped at UIKit's `small`: the home page is a `large` container
+   and the width control did nothing there at all, which is the page most worth widening — 22 cards. */
+html[data-page-width="wide"] .page-body { max-width: 87.5rem; }
+html[data-page-width="full"] .page-body { max-width: none; }
+
+/* The rail row that chooses it. It is a control, not a link, so it does not take the nav's current
+   marking — and collapsed, the icon and its title still say what it is. */
+.actions-nav .actions-width { cursor: pointer; }
+.width-dropdown { min-width: 12rem; }

@@ -1,0 +1,279 @@
+/* The assistant's avatar: Druplicon, free on the page, and nothing else there. Shown from the robot button in
+   the assistant's header (html.assistant-avatar-on, decided before first paint), it lives in a frameless
+   layer of its own, flying from place to place. Every control is on the assistant's side: the bar under
+   the robot button's menu holds show or hide, the board, the windows and the settings. */
+.assistant-avatar-stage { display: none; }
+/* The drawing covers the whole window, transparent and click-through, so a move or a flight can reach
+   anywhere on the page and is never cut at a square edge. The card (.avatar-float) is invisible: it is
+   where the figure stands, and what you drag; the page around it stays usable. */
+.avatar-layer { position: fixed; inset: 0; z-index: 990; pointer-events: none; }
+.avatar-layer .assistant-avatar-stage { display: block; width: 100%; height: 100%; }
+.assistant-avatar-canvas { display: block; width: 100%; height: 100%; opacity: 0; transition: opacity .3s ease; touch-action: none; }
+.avatar-float { cursor: grab; touch-action: none; }
+.avatar-float.is-dragging { cursor: grabbing; }
+.assistant-avatar-stage.is-ready .assistant-avatar-canvas { opacity: 1; }
+.avatar-layer.is-listening .assistant-avatar-canvas { filter: drop-shadow(0 0 0.6rem var(--brand-primary)); }
+.assistant-avatar-menu-btn.is-current { background: rgba(255, 255, 255, 0.22); }
+
+.avatar-float {
+  position: fixed; z-index: 991; width: 13rem; height: 17rem; left: calc(100vw - 14rem); top: 40vh;
+  background: transparent; border: 0;
+  transition: left 1.2s cubic-bezier(.35, .1, .25, 1), top 1.2s cubic-bezier(.35, .1, .25, 1), width .3s ease, height .3s ease;
+}
+.avatar-float[data-size="small"] { width: 9rem; height: 12rem; }
+.avatar-float[data-size="large"] { width: 18rem; height: 23rem; }
+/* Very big and huge: to show it off, or to see its hands and face from across the room. */
+.avatar-float[data-size="xl"] { width: 26rem; height: 34rem; }
+.avatar-float[data-size="huge"] { width: min(40rem, 60vw); height: calc(100vh - 5rem); }
+.avatar-float.is-dragging { transition: none; }
+
+/* The robot button's menu: show or hide, the tools, and every setting. */
+.assistant-avatar-bar { width: min(22rem, calc(100vw - 2rem)); padding: 0.75rem; }
+.assistant-avatar-bar.uk-open { display: flex; flex-direction: column; gap: 0.5rem; }
+.assistant-avatar-toggle { align-self: flex-start; }
+.assistant-avatar-toggle[aria-pressed="true"] { background: var(--subtle-brand); color: var(--brand-primary); }
+.assistant-avatar-tools { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.assistant-avatar-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 2.125rem; height: 2.125rem;
+  border: 1px solid var(--line); border-radius: 50%; cursor: pointer;
+  background: var(--surface); color: var(--brand-secondary);
+}
+.assistant-avatar-btn:hover, .assistant-avatar-btn:focus-visible { color: var(--brand-primary); border-color: var(--brand-primary); }
+.assistant-avatar-btn:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+.assistant-avatar-mute[aria-pressed="true"], .assistant-avatar-btn[aria-expanded="true"] { background: var(--subtle-brand); color: var(--brand-primary); }
+.assistant-avatar-mic { width: auto; padding: 0 0.7rem; border-radius: 999px; gap: 0.3rem; }
+.assistant-avatar-mic[aria-pressed="true"] { background: var(--brand-primary); color: white; border-color: var(--brand-primary); }
+.assistant-avatar-pops:empty { display: none; }
+.assistant-avatar-pops { padding: 0.5rem; border: 1px solid var(--line); border-radius: 0.6rem; background: var(--surface); }
+.avatar-browser-address:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
+.avatar-kit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.avatar-kit-list li { display: flex; align-items: center; gap: 0.3rem; }
+.avatar-kit-list li span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.875rem; }
+.avatar-kit-empty { margin: 0; font-size: 0.8125rem; color: var(--text-subtle, inherit); }
+.avatar-kit-credit { margin: 0; font-size: 0.75rem; line-height: 1.35; color: var(--text-subtle, inherit); }
+.avatar-kit-settings { display: flex; flex-direction: column; gap: 0.45rem; font-size: 0.875rem; }
+.avatar-kit-settings > div { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.avatar-kit-settings > div > span, .avatar-kit-range > span { min-width: 3.5rem; font-weight: 600; }
+.avatar-kit-range { display: flex; align-items: center; gap: 0.5rem; }
+.avatar-kit-range input { flex: 1; accent-color: var(--brand-primary); }
+.avatar-kit-check { display: flex; align-items: center; gap: 0.4rem; }
+.avatar-kit-check input { accent-color: var(--brand-primary); }
+
+/* Quick replies, in the panel under its header: for a while after an answer, and while a video plays. */
+.assistant-avatar-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.4rem 0.75rem; border-bottom: 1px solid var(--line); }
+.assistant-avatar-chips[hidden] { display: none; }
+.avatar-chip {
+  padding: 0.15rem 0.6rem; font: inherit; font-size: 0.8125rem; line-height: 1.5;
+  border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+  background: var(--surface); color: var(--brand-secondary);
+}
+.avatar-chip:hover, .avatar-chip:focus-visible { border-color: var(--brand-primary); color: var(--brand-primary); }
+.avatar-chip:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
+.avatar-chip-media { background: var(--subtle-brand); }
+.avatar-chip[aria-pressed="true"] { background: var(--brand-primary); color: white; border-color: var(--brand-primary); }
+
+/* The windows beside it. */
+.avatar-window {
+  position: fixed; z-index: 993;   /* above the avatar (990, 991): a board, a video or a page is never covered by it */ display: flex; flex-direction: column; max-height: calc(100vh - 6rem);
+  border: 1px solid var(--line); border-radius: 0.875rem; overflow: hidden;
+  background: var(--surface); box-shadow: 0 0.75rem 2.25rem rgba(0, 0, 0, 0.16);
+  animation: avatar-window-in .25s ease-out;
+}
+.avatar-window-head {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.4rem 0.3rem 0.75rem;
+  cursor: grab; user-select: none; touch-action: none;
+  background: var(--brand-secondary); color: white;
+}
+.avatar-window-head strong { flex: 1; font-weight: 600; font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avatar-window-tools { display: inline-flex; gap: 0.25rem; }
+.avatar-window-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 1.875rem; height: 1.875rem;
+  border: 0; border-radius: 50%; background: transparent; color: white; cursor: pointer;
+}
+.avatar-window-btn:hover, .avatar-window-btn:focus-visible { background: rgba(255, 255, 255, 0.18); color: white; }
+.avatar-window-btn:focus-visible { outline: 2px solid white; outline-offset: 1px; }
+.avatar-window-body { flex: 1; min-height: 0; overflow: auto; }
+
+/* The board: a whiteboard, its lines of text above the drawing. */
+.avatar-window-board .avatar-window-body { background: white; color: var(--brand-secondary); padding: 0.5rem 0.75rem 0.75rem; }
+.avatar-board-lines { margin: 0 0 0.25rem; padding-left: 1.25rem; font-size: 0.9375rem; }
+.avatar-board-lines:empty { display: none; }
+.avatar-board-svg { display: block; width: 100%; height: auto; color: var(--brand-secondary); }
+.avatar-stroke { fill: none; stroke: currentColor; stroke-width: 0.45; stroke-linecap: round; stroke-linejoin: round; }
+.avatar-board-label { font: 2.6px/1 var(--font-primary, system-ui), sans-serif; fill: var(--brand-secondary); text-anchor: middle; dominant-baseline: middle; }
+.avatar-board-text { text-anchor: start; font-size: 3px; }
+@keyframes avatar-draw { to { stroke-dashoffset: 0; } }
+@keyframes avatar-fade { from { opacity: 0; } }
+
+.avatar-video { position: relative; aspect-ratio: 16 / 9; background: black; }
+.avatar-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.avatar-window-browser { height: min(36rem, calc(100vh - 8rem)); }
+.avatar-reader { display: block; width: 100%; height: 100%; border: 0; background: white; }
+
+@keyframes avatar-window-in { from { opacity: 0; transform: translateY(0.5rem); } }
+@media (max-width: 40em) {
+  .avatar-float { width: 9rem; height: 12rem; }
+  .avatar-window { left: 0.5rem !important; right: 0.5rem; width: auto !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-avatar-canvas, .avatar-float { transition: none; }
+  .avatar-window { animation: none; }
+}
+
+/* The avatar's tools: three round buttons down the stage's left edge, each opening a small popover. */
+.assistant-avatar-kit { position: absolute; top: 0.5rem; left: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem; align-items: flex-start; }
+.avatar-kit-pop {
+  position: absolute; left: 2.5rem; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 0.25rem;
+  width: min(17rem, calc(100vw - 6rem)); padding: 0.5rem; border: 1px solid var(--line); border-radius: 0.75rem;
+  background: var(--surface); box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.14);
+}
+.avatar-kit-pop[hidden] { display: none; }
+
+/* Windows are not limited to their first size: a corner to drag, and one button to fill the page. */
+.avatar-window { resize: both; min-width: 18rem; min-height: 10rem; }
+.avatar-window.is-max { left: 1rem !important; top: 4.5rem !important; width: calc(100vw - 2rem) !important; height: calc(100vh - 5.5rem) !important; max-height: none; resize: none; }
+.avatar-window-board .avatar-window-body { display: flex; flex-direction: column; }
+
+/* The board's tools, its drawing area, the pen and the sticky notes. */
+.avatar-board-bar { display: flex; flex-wrap: wrap; gap: 0.25rem; padding-bottom: 0.4rem; margin-bottom: 0.4rem; border-bottom: 1px solid var(--line); }
+.avatar-board-area { position: relative; flex: 1; min-height: 0; }
+.avatar-board-area .avatar-board-svg { width: 100%; height: 100%; max-height: 100%; }
+.avatar-board-area.is-pen .avatar-board-svg { cursor: crosshair; touch-action: none; }
+.avatar-ink { stroke-width: 0.5; }
+.avatar-note {
+  position: absolute; width: 22%; min-width: 9rem; display: flex; flex-direction: column;
+  background: var(--subtle-accent); border: 1px solid var(--line); border-radius: 0.35rem;
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.12);
+}
+.avatar-note-grip { display: flex; justify-content: flex-end; height: 1.25rem; cursor: grab; touch-action: none; background: var(--brand-accent); border-radius: 0.35rem 0.35rem 0 0; }
+.avatar-note-x { border: 0; background: transparent; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.4rem; color: var(--brand-secondary); }
+.avatar-note-text { min-height: 3.5rem; padding: 0.35rem 0.5rem; font-size: 0.875rem; outline: none; color: var(--brand-secondary); }
+.avatar-note-text:focus-visible { box-shadow: inset 0 0 0 2px var(--brand-primary); }
+
+/* The browser's own bar, and each video's controls. */
+.avatar-window-browser .avatar-window-body { display: flex; flex-direction: column; }
+.avatar-browser-bar, .avatar-video-bar { display: flex; align-items: center; gap: 0.2rem; padding: 0.3rem 0.4rem; border-bottom: 1px solid var(--line); background: var(--subtle-light); }
+.avatar-video-bar { border-bottom: 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.avatar-browser-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 1.875rem; height: 1.875rem; flex: 0 0 auto;
+  border: 0; border-radius: 50%; background: transparent; color: var(--brand-secondary); cursor: pointer;
+}
+.avatar-browser-btn:hover, .avatar-browser-btn:focus-visible { background: var(--subtle-brand); color: var(--brand-primary); }
+.avatar-browser-btn:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
+.avatar-browser-btn[aria-pressed="true"] { color: var(--brand-primary); }
+.avatar-browser-address {
+  flex: 1; min-width: 0; padding: 0.25rem 0.6rem; font: inherit; font-size: 0.8125rem;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: inherit;
+}
+.avatar-window-browser .avatar-reader { flex: 1; height: auto; min-height: 0; }
+.avatar-video-gap { flex: 0 0 0.4rem; }
+
+/* The board: soft dotted paper, a palette and pen widths. */
+.avatar-window-board .avatar-board-area {
+  background-color: white;
+  background-image: radial-gradient(color-mix(in srgb, var(--brand-secondary) 18%, transparent) 1px, transparent 1.2px);
+  background-size: 1rem 1rem; border-radius: 0.4rem;
+}
+.avatar-board-palette, .avatar-board-widths { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0 0.2rem; }
+.avatar-swatch {
+  width: 1.25rem; height: 1.25rem; border-radius: 50%; cursor: pointer;
+  border: 2px solid white; box-shadow: 0 0 0 1px var(--line);
+}
+.avatar-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--brand-primary); }
+.avatar-swatch:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+
+/* The voice dock under the conversation, as in the avatar app: voice on or off, the big hold-to-talk
+   button (or the Space bar), and keep listening. */
+/* deep-chat keeps filling the panel, and the dock takes its own height under it. */
+/* deep-chat's container copies its host's height (height: inherit), so deep-chat keeps its own 100% and the
+   panel's body leaves room at the bottom instead, where the dock is pinned. */
+.assistant-body:has(> .assistant-dock) { position: relative; padding-bottom: 4.6rem !important; }
+.assistant-dock {
+  position: absolute; left: 1.25rem; right: 1.25rem; bottom: 0.9rem;
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  padding-top: 0.6rem; border-top: 1px solid var(--line);
+}
+@media (max-width: 40em) { .assistant-dock { left: 0.875rem; right: 0.875rem; bottom: 0.6rem; } }
+.dock-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
+  min-width: 2.6rem; height: 2.6rem; padding: 0 0.7rem; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--brand-secondary);
+  font: inherit; font-size: 0.875rem; user-select: none; touch-action: none;
+}
+.dock-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.dock-btn:focus-visible { outline: 3px solid var(--brand-primary); outline-offset: 2px; }
+.dock-btn[hidden] { display: none; }
+.dock-voice[aria-pressed="false"] { color: var(--danger); border-color: var(--danger); }
+.dock-talk { flex: 1; max-width: 16rem; background: var(--brand-grad); color: white; border-color: transparent; font-weight: 600; }
+.dock-talk:hover { color: white; filter: brightness(1.06); }
+.dock-talk-icon { display: inline-flex; }
+.dock-talk kbd {
+  font: inherit; font-size: 0.7rem; padding: 0.05rem 0.4rem; border-radius: 0.3rem;
+  color: white; background: rgba(255, 255, 255, 0.22); border: 1px solid rgba(255, 255, 255, 0.45);
+}
+.dock-talk.is-held { background: var(--danger); animation: dock-pulse 1.2s infinite; }
+.dock-mic[aria-pressed="true"] { background: var(--brand-primary); color: white; border-color: transparent; }
+.dock-mic.is-listening { animation: dock-breathe 2.4s ease-in-out infinite; }
+.dock-mic.is-blocked { color: var(--danger); border-color: var(--danger); }
+@keyframes dock-pulse { 50% { filter: brightness(1.15); } }
+@keyframes dock-breathe { 50% { box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--brand-primary) 30%, transparent); } }
+@media (max-width: 59.99em) { .dock-talk span, .dock-talk kbd { display: none; } }
+@media (prefers-reduced-motion: reduce) { .dock-talk.is-held, .dock-mic.is-listening { animation: none; } }
+.avatar-kit-range select { flex: 1; min-width: 0; padding: 0.2rem 0.4rem; font: inherit; font-size: 0.8125rem; border: 1px solid var(--line); border-radius: 0.4rem; background: var(--surface); color: inherit; }
+
+/* Hair colour swatches in the avatar's settings. */
+.avatar-swatch {
+  width: 1.4rem; height: 1.4rem; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line); color: var(--text-subtle, inherit); font-size: 0.75rem; line-height: 1;
+}
+.avatar-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--brand-primary); }
+.avatar-kit-settings input[type="color"] { width: 1.6rem; height: 1.6rem; padding: 0; border: 0; background: none; cursor: pointer; }
+/* On a big move the card follows its path frame by frame: no transition to lag behind it. */
+.avatar-float.is-travelling { transition: width .3s ease, height .3s ease; }
+
+/* The Vardot icons (Figma: VDT - Stylesheet), public/vendor/vardot-icons. An interface icon is its SVG used as a
+   mask, filled with the text colour, at the size the design gives it: so it is black (ink) at rest, brand blue on
+   hover, and light in dark mode, from CSS alone. A brand icon (value, service) is an image in its own colours. */
+.vi {
+  display: inline-block; flex: none; width: 1.25rem; height: 1.25rem; vertical-align: middle;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: center; mask-position: center;
+  -webkit-mask-size: auto; mask-size: auto;
+}
+.vi-menu, .vi-share { width: 1.5rem; height: 1.5rem; }
+.dock-btn:hover .vi, .avatar-browser-btn:hover .vi, .avatar-chip:hover .vi, .assistant-ctl:hover .vi { color: var(--brand-primary); }
+.assistant-head .assistant-ctl:hover .vi { color: inherit; }
+.avatar-chip-icon { display: inline-flex; align-items: center; gap: 0.25rem; }
+.avatar-note-stamp { width: 0.875rem; height: 0.875rem; margin: auto auto auto 0.35rem; }
+.avatar-float.is-sizing { transition: left 1.2s cubic-bezier(.35, .1, .25, 1), top 1.2s cubic-bezier(.35, .1, .25, 1); }
+
+/* Colours: a picker for each part of the avatar, in a wrapping grid, and a way back to its own. */
+.avatar-kit-colours { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+.avatar-kit-colours > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(6.2rem, 1fr)); gap: 0.25rem 0.5rem; width: 100%; max-height: 9.5rem; overflow-y: auto; }
+.avatar-kit-colour { display: flex; align-items: center; gap: 0.35rem; font-size: 0.8125rem; min-width: 0; }
+.avatar-kit-colour span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avatar-kit-colour input[type="color"] { flex: none; width: 1.5rem; height: 1.5rem; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: none; cursor: pointer; }
+.avatar-kit-colour input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.avatar-kit-colour input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 50%; }
+.avatar-kit-settings > .avatar-kit-colours { display: flex; flex-direction: column; align-items: stretch; }
+.avatar-kit-colours > span { font-weight: 600; text-align: left; }
+.avatar-kit-colours > .avatar-chip { align-self: flex-start; }
+
+/* The agent's status at the avatar's feet, as the Claude Code CLI shows it: a spinner, a verb, the time so far. */
+.avatar-status {
+  position: absolute; left: 50%; bottom: 1%; transform: translateX(-50%); z-index: 1;   /* at its feet: at home the feet are near the page's bottom, so below them it would be cut off */
+  display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; white-space: nowrap;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface); pointer-events: none;
+  font-size: 0.8125rem; color: var(--brand-secondary); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+.avatar-status[hidden] { display: none; }
+.avatar-status-spin { display: inline-block; width: 1em; text-align: center; color: var(--brand-primary); font-weight: 700; }
+.avatar-status-verb { font-weight: 600; color: var(--brand-primary); }
+.avatar-status-time { color: var(--text-subtle, inherit); font-variant-numeric: tabular-nums; }
+/* The alert colours of the Figma stylesheet: info while it works, success when done, danger when stopped. */
+.avatar-status-spin { color: var(--info); }
+.avatar-status.is-done { background: var(--success-soft); border-color: var(--success); }
+.avatar-status.is-done .avatar-status-spin, .avatar-status.is-done .avatar-status-verb { color: var(--success-ink); }
+.avatar-status.is-stopped { background: var(--danger-soft); border-color: var(--danger); }
+.avatar-status.is-stopped .avatar-status-spin, .avatar-status.is-stopped .avatar-status-verb { color: var(--danger-ink); }

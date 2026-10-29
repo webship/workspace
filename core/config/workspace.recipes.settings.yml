@@ -1,7 +1,18 @@
 doc:
   name: recipes
-  path: /home/YOUR_USER/workspace/recipes
-web:
-  url: http://localhost/recipes
-database:
-  prefix: recipes_
+
+# What this folder's projects are, and which actions their rows offer:
+# sites | code | files | media | ai-items — see core/workspace-app/WORKSPACES.md.
+type: code
+
+# What the COMPOSER menu may do here: full | manifest (the default). These folders hold package
+# clones, not sites: it only adds to composer.json without running an install (require/remove
+# --no-update, and validate). No install, update or scripts.
+composer: manifest
+
+# What the assistant is called on THIS workspace's page, and what its composer says when empty.
+# `default` in either means "whatever settings.yml says" — the global value, so a rename there
+# still reaches this page. Set a value here to override it for this workspace alone.
+assistant:
+  name: default
+  placeholder: default

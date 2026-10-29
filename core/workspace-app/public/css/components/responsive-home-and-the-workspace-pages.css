@@ -1,0 +1,467 @@
+/* ---------- Responsive: home and the workspace pages ---------- */
+
+/* UIKit's .uk-label is white-space: nowrap, so a status like "0 site templates ·
+   buildable" cannot wrap and drags its card wider than its grid column — a
+   horizontal scrollbar at 360px, and cards of unequal width at every size. A grid
+   child also needs min-width: 0, or its min-content width beats the column. */
+.workspace-card { min-width: 0; }
+.workspace-card .uk-label {
+  white-space: normal;
+  line-height: 1.35;
+  padding: 0.25rem 0.4rem;
+}
+
+
+/* A project name is one unbroken token — amd-educare-1-0-x-site-template-manager —
+   and at 360px it pushed the whole page sideways. Nothing else was overflowing. */
+.project-row .uk-text-bold,
+.ws-name,
+.settings-key { overflow-wrap: anywhere; }
+
+@media (max-width: 47.9375em) {         /* < 767px: phones and small tablets */
+  /* The cards are icon tiles, so they get tighter rather than narrower. */
+  .workspace-card { padding: 0.875rem 0.5rem; }
+  .workspace-card .icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-bottom: 0.375rem;
+    font-size: 1.25rem;
+  }
+  .workspace-card .uk-card-title { font-size: 0.9375rem; }
+
+
+  /* Name over actions, each on its own line: side by side, the actions were
+     squeezed into a 211px column and every row grew to 285px. */
+  .project-row .uk-flex-between { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+  .project-actions { width: 100%; }
+
+  /* Touch targets. These buttons were 26px tall, which is below any usable
+     minimum on a phone. */
+  .project-actions .uk-button-small,
+  .settings-tab { min-height: 2.25rem; line-height: 2.25rem; }
+
+  .page-body { padding-left: 0.75rem; padding-right: 0.75rem; }
+  .page-heading h1 { font-size: var(--size-h4); }
+  .uk-card-body { padding: 1rem; }
+}
+
+@media (max-width: 30em) {              /* < 480px: the narrowest phones */
+  .workspace-card .uk-card-title { font-size: 0.875rem; }
+  .project-row { padding: 0.875rem; }
+}
+
+/* Video player in the editor modal. Capped by viewport height so a tall recording
+   still leaves the controls and the Close button reachable. */
+.video-player {
+  display: block;
+  width: 100%;
+  /* UIKit's media reset puts `aspect-ratio: attr(width type(<number>))/attr(height
+     type(<number>))` on every canvas/img/svg/video. A <video> only learns its size when
+     the metadata loads, so it has no width/height ATTRIBUTES for attr() to read: both
+     calls fail and `height: auto` resolves to 0. The player drew as a 2px line — its own
+     two borders — with the file fully loaded, readyState 4 and no media error, which is
+     why this read as a broken video rather than a broken box.
+     `aspect-ratio: auto` does NOT fix it (measured: still 2px), so state a real ratio:
+     the box is then never zero, before metadata, with JS off, or for a format the browser
+     will not decode. `sizeVideoPlayers` in ui.js replaces it with the true ratio on
+     loadedmetadata — the browser is the only thing here that knows the real dimensions,
+     since the container has no ffprobe. `contain` letterboxes against the black
+     background instead of cropping the recording, which UIKit's `cover` would do. */
+  aspect-ratio: 16 / 9;
+  height: auto;
+  object-fit: contain;
+  max-height: min(64vh, 34rem);
+  background: var(--media-bg);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+/* The modal in dark mode. UIKit hardcodes .uk-modal-dialog to white, and the dark
+   rules only ever covered .uk-card-default — so the dialog stayed white behind a dark
+   card, with near-white text on it. Uses the same surface as a card so the modal reads
+   as part of the page rather than a light panel dropped on it. */
+#editor-modal .uk-modal-dialog {
+  background: var(--surface-card);
+  color: var(--text-subtle-2);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-float);
+}
+
+/* The bare × sits on the dialog itself, so it needs its own colour here. */
+#editor-modal .uk-modal-close-default { color: var(--text-subtle); }
+#editor-modal .uk-modal-close-default:hover { color: var(--text-default); }
+
+/* Inside the dialog the card is already dark, so drop its own frame and shadow —
+   two nested dark panels with two borders looks like a mistake. */
+html.dark #editor-modal .editor-card {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+/* Search + sort above a list. Stacks on a phone, where a row of three controls would
+   squeeze the search box to nothing. */
+.list-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0;
+}
+
+.list-controls .list-search {
+  /* The field takes every pixel the row's buttons do not: a 127px search box inside an 818px
+     bar was the widest thing on the page competing with the narrowest input on it. */
+  flex: 1 1 auto;
+  min-width: 6rem;
+  max-width: none;
+}
+
+.list-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.list-controls .uk-select {
+  width: auto;
+  min-width: 9rem;
+}
+
+/* The timestamp is context, not the row's subject: it must not compete with the name,
+   and it must not wrap mid-date. */
+.item-time {
+  white-space: nowrap;
+  font-weight: 400;
+}
+
+@media (max-width: 47.9375em) {
+  /* On a phone the two buttons are what wrap, not the field. */
+  .lc-find { flex-wrap: wrap; row-gap: 0.375rem; }
+  .list-controls .list-search { flex-basis: 100%; }
+}
+
+/* Review: a framed document inside the modal. Tall enough to read a page of a PDF,
+   capped so the modal's own buttons stay visible. */
+.review-frame {
+  display: block;
+  width: 100%;
+  height: min(70vh, 44rem);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--paper);
+}
+
+.review-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(70vh, 44rem);
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--subtle-light);
+}
+
+/* A framed document is white whatever the page theme is, so keep its border readable
+   rather than letting it float on the dark dialog. */
+/* Shown only when the browser cannot display a PDF itself. */
+.review-fallback {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-subtle);
+}
+
+/* One format = the extension button that opens it, joined to the arrow that saves it.
+   Joined rather than spaced so three formats read as three things, not six. */
+.format-group {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.format-group > .uk-button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.format-group > .format-dl {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-left: -1px;
+  padding: 0 0.5rem;
+}
+
+/* Test report modal. */
+.test-none { background: transparent; border: 1px dashed var(--line); color: var(--text-subtle); }
+
+.test-features { list-style: none; padding-left: 0; }
+.test-features > li { margin-bottom: 0.75rem; }
+
+.test-scenarios {
+  list-style: none;
+  padding-left: 0.75rem;
+  margin: 0.25rem 0 0;
+  border-left: 2px solid var(--line);
+}
+
+.test-scenarios > li {
+  padding: 0.125rem 0 0.125rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Failure shots: a grid of thumbnails, because 21 full-width screenshots is not a report,
+   it is a scroll. Each links to the full image. */
+.test-shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.75rem;
+}
+
+.test-shot { margin: 0; }
+
+.test-shot img {
+  width: 100%;
+  height: 7rem;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  background: var(--subtle-light);
+}
+
+.test-shot figcaption {
+  word-break: break-all;
+  line-height: 1.3;
+  margin-top: 0.25rem;
+}
+
+.test-videos { list-style: none; padding-left: 0; columns: 2; }
+.test-videos > li { font-size: 0.875rem; break-inside: avoid; }
+
+@media (max-width: 47.9375em) { .test-videos { columns: 1; } }
+
+/* An action dropdown on a project row. The row's buttons are 26px, so its trigger has to
+   sit on the same baseline as them rather than growing the row. */
+.act-menu > .uk-button { white-space: nowrap; }
+.act-menu .uk-dropdown { min-width: 15rem; padding: 0.5rem 0; }
+.act-menu .uk-dropdown-nav > li > a { padding: 0.25rem 1rem; display: flex; align-items: center; gap: 0.5rem; }
+.act-menu .uk-nav-header { padding: 0.25rem 1rem; font-size: 0.7rem; }
+.act-menu .uk-nav-divider { margin: 0.25rem 0; }
+/* COMPOSER: the package field and its buttons sit inside the dropdown, so it needs room for them. */
+.act-menu-composer .uk-dropdown { min-width: 19rem; max-height: 80vh; overflow-y: auto; }
+/* The full menu in two columns: commands left, a package and the composer.json scripts right.
+   Stacked again on a narrow screen, where two columns of command names would not fit. */
+.act-menu-composer .composer-dropdown-wide { width: min(40rem, calc(100vw - 2rem)); }
+.act-menu-composer .composer-columns { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+.act-menu-composer .composer-columns > ul + ul { border-left: 1px solid var(--line, rgba(0, 0, 0, 0.1)); }
+@media (max-width: 40em) {
+  .act-menu-composer .composer-columns { grid-template-columns: 1fr; }
+  .act-menu-composer .composer-columns > ul + ul { border-left: 0; border-top: 1px solid var(--line, rgba(0, 0, 0, 0.1)); }
+}
+/* A menu laid out in columns (Settings → Row actions): one list per column, side by side. */
+.menu-columns { display: grid; align-items: start; }
+.menu-columns-2 { grid-template-columns: repeat(2, minmax(11rem, 1fr)); width: min(30rem, calc(100vw - 2rem)); }
+.menu-columns-3 { grid-template-columns: repeat(3, minmax(11rem, 1fr)); width: min(45rem, calc(100vw - 2rem)); }
+.menu-columns-4 { grid-template-columns: repeat(4, minmax(11rem, 1fr)); width: min(60rem, calc(100vw - 2rem)); }
+.menu-columns > ul + ul { border-left: 1px solid var(--line, rgba(0, 0, 0, 0.1)); }
+@media (max-width: 40em) {
+  .menu-columns[class] { grid-template-columns: 1fr; width: auto; }
+  .menu-columns > ul + ul { border-left: 0; border-top: 1px solid var(--line, rgba(0, 0, 0, 0.1)); }
+}
+/* NODE: COMPOSER's two-column shape, under a yarn / npm tab. */
+.act-menu-node .uk-dropdown { min-width: 19rem; max-height: 80vh; overflow-y: auto; }
+.act-menu-node .node-dropdown { width: min(40rem, calc(100vw - 2rem)); }
+.act-menu-node .node-tabs { margin: 0.25rem 1rem 0; }
+.act-menu-node .node-columns { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+.act-menu-node .node-columns > ul + ul { border-left: 1px solid var(--line, rgba(0, 0, 0, 0.1)); }
+.act-menu-node .node-package { padding: 0.25rem 1rem; }
+.act-menu-node .node-package-buttons { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.375rem; }
+.act-menu-node .uk-dropdown-nav > li > .uk-text-meta { display: block; padding: 0.25rem 1rem; }
+.act-menu-node .node-warn { color: var(--brand-secondary, inherit); }
+@media (max-width: 40em) {
+  .act-menu-node .node-columns { grid-template-columns: 1fr; }
+  .act-menu-node .node-columns > ul + ul { border-left: 0; border-top: 1px solid var(--line, rgba(0, 0, 0, 0.1)); }
+}
+.act-menu-composer .composer-package { padding: 0.25rem 1rem; }
+/* A line of text in the menu (not a link) lines up with the headers and entries instead of the edge. */
+.act-menu-composer .uk-dropdown-nav > li > .uk-text-meta { display: block; padding: 0.25rem 1rem; }
+.act-menu-composer .composer-package-buttons { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.375rem; }
+
+/* Upsun link. Not brand blue: this says "deployed elsewhere", which is a different fact
+   from anything else on the row. UIKit uppercases .uk-label, but an Upsun project id is
+   lowercase and case-sensitive — shown uppercase it cannot be read off the screen and
+   used, so these two opt out. */
+.upsun-label, .upsun-mismatch { text-transform: none; font-family: var(--font-code); font-size: 0.72rem; }
+.upsun-label { background: var(--accent-soft); color: var(--accent-ink); }
+
+/* A project row is two lines: what it IS on the first, what you can DO on the second. With
+   eight controls (Start/Stop, Launch, DDEV, Backup, Graph, Tests, Remove) a single line
+   wrapped raggedly and pushed Remove under the name of the row above. */
+.project-head {
+  display: block;
+  margin-bottom: 0.625rem;
+}
+
+.project-head .uk-text-bold { margin-right: 0.25rem; }
+
+/* The state strip above the name: running/stopped and the test tally, on their own line so they
+   start at the same x on every row and a long list can be scanned down rather than read across. */
+.project-state {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+}
+
+/* Separated from the identity line, so the eye finds the same place on every row. */
+.project-row .project-actions {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.upsun-menu-id { text-transform: none; font-family: var(--font-code); }
+.upsun-menu-note { text-transform: none; font-weight: 400; opacity: .75; white-space: normal; }
+
+/* The link command carries a project name, so it is long. Left on one line it sets the width of
+   the whole dropdown, which then opens across the page instead of under its button — so it wraps,
+   and the menu keeps a sane width of its own. */
+.act-menu .uk-dropdown { max-width: min(26rem, 90vw); }
+.upsun-menu-note code { white-space: normal; overflow-wrap: anywhere; }
+
+/* A nested settings block reads as one thing. The heading carries the path, so each field
+   only needs its leaf name. */
+.settings-group {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem 0.25rem;
+  margin: 0 0 1rem;
+}
+
+.settings-group-name {
+  padding: 0 0.375rem;
+  font-family: var(--font-code);
+  font-size: 0.78rem;
+  color: var(--text-subtle);
+}
+
+/* The commit identity a forge block produces. Derived, not editable — it reads as a
+   consequence of the fields above it, not another field. */
+.settings-author {
+  margin: 0.25rem 0 0.5rem;
+  padding: 0.5rem 0.625rem;
+  background: var(--subtle-brand);
+  border-radius: 0.375rem;
+}
+
+.settings-author code { background: transparent; }
+
+/* Whether each credential in a forge block is present. Never the value: a secret reads
+   "set", so the line is safe to leave on screen or in a screenshot. */
+.cred-states { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.375rem; }
+
+.cred-state {
+  font-family: var(--font-code);
+  font-size: 0.72rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text-subtle);
+}
+
+.cred-state.is-set { background: var(--ok-soft); border-color: var(--ok); color: var(--ok-ink); }
+
+/* A settings value that names an image: what is set, and a way to choose another. */
+.image-field { display: flex; align-items: center; gap: 0.5rem; }
+.image-field .uk-input { flex: 1; }
+
+.image-preview {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.image-preview img { max-width: 100%; max-height: 100%; }
+.image-preview {
+  background-image:
+    linear-gradient(45deg, var(--checker-a) 25%, transparent 25%, transparent 75%, var(--checker-a) 75%),
+    linear-gradient(45deg, var(--checker-a) 25%, transparent 25%, transparent 75%, var(--checker-a) 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+}
+.image-missing { color: var(--danger); font-weight: 600; }
+
+.image-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.625rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+
+.image-choice {
+  background: var(--surface-card);
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  padding: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.image-choice:hover { border-color: var(--brand-primary); }
+/* A checkerboard behind the artwork: half these files are white-ink logos for dark mode, and
+   on a white tile they are invisible — the tile reads as a failed load. */
+.image-choice img {
+  width: 100%;
+  height: 3rem;
+  object-fit: contain;
+  background-image:
+    linear-gradient(45deg, var(--checker-b) 25%, transparent 25%, transparent 75%, var(--checker-b) 75%),
+    linear-gradient(45deg, var(--checker-b) 25%, transparent 25%, transparent 75%, var(--checker-b) 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 6px 6px;
+  background-color: var(--checker-bg);
+  border-radius: 0.25rem;
+}
+.image-choice span { word-break: break-all; line-height: 1.2; text-align: center; }
+.image-choices-close { align-self: end; }
+
+/* A yes/no setting. The word beside the box says the state, so it reads without inspecting
+   the control — and matches how the value is stored: a real YAML boolean. */
+.settings-toggle { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+/* What a field is for. Under the key, not beside the input: the inputs are already a column
+   and a second column of prose would squeeze them. */
+.settings-hint {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
+  font-family: var(--font-primary);
+  color: var(--text-subtle);
+  line-height: 1.35;
+  margin-top: 0.125rem;
+  max-width: 22rem;
+}
+
+/* An Upsun control on a project that is not linked yet. Present, because the workspace ships the
+ * command — but quieter than a linked one, so a row of thirty unlinked projects does not read as
+ * thirty cloud deployments. */
+.upsun-unlinked { opacity: .75; }
+.upsun-unlinked:hover { opacity: 1; }

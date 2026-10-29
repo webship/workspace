@@ -1,0 +1,203 @@
+/* ---------- Grid or list, on the home page and inside a workspace ----------
+ *
+ * Two different questions wearing one control. The home page is a grid of small cards and the sensible
+ * choices are how many across; a workspace is a list of project rows, each carrying a dozen buttons,
+ * and the sensible default there is one to a row with the whole width to lay them out in.
+ *
+ * The state is on <html> — data-home-view and data-rows-view, written by the pre-paint script from the
+ * shared cookie — so a layout is never drawn one way and then rearranged.
+ */
+
+.cards-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+/* The list is its own section, and on a workspace that builds projects it follows the Build form —
+   which ended flush against it: the form's last control and "Projects · how to lay them out" touched at
+   zero pixels, so one question ran straight into the next. A rule as well as the space, because they
+   are two different things to do rather than one thing with a gap in it. */
+.build-form + #webship-workspace-projects,
+.build-form + [id="webship-workspace-projects"] {
+  margin-top: 1.75rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+/* The three controls sit together: how many across, and how wide the page is, are one question. */
+.layout-controls { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+/* The switcher: one segmented control, so the options read as one question with several answers. */
+.view-switcher {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 62.4375rem;
+  padding: 0.125rem;
+  background: var(--surface-card);
+}
+
+.view-pick,
+.page-width-pick {
+  min-width: 2.125rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 2rem;
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  border: 0;
+  border-radius: 62.4375rem;
+  background: transparent;
+  color: var(--text-subtle);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.view-pick:hover,
+.page-width-pick:hover { color: var(--link); }
+.view-pick.is-current,
+.page-width-pick.is-current { background: var(--subtle-brand); color: var(--link); }
+/* Drawn to Tabler's rules, so they sit with the sprite icons rather than beside them: the stroke is
+   stated once here, as .tabler-icon does for the 4,736 in the sprite. */
+.view-mark { display: block; width: 1.125rem; height: 1.125rem; }
+.view-pick .view-mark { opacity: .85; }
+.view-pick.is-current .view-mark,
+.page-width-pick.is-current .view-mark { opacity: 1; }
+
+/* ---------- the home page's workspace cards ---------- */
+
+/* UIKit's uk-child-width-* classes are what the grid ships with, so they are overridden rather than
+   removed: the markup keeps working with no JavaScript, and these take over when a choice is made.
+   !important is not needed — the attribute selector out-specifies the class. */
+html[data-home-view="grid-1"] #workspace-cards > * { width: 100%; }
+
+/* One across is a column of CARDS, not one card stretched across the window: a 1300px-wide card with
+   its name centred in the middle of it is a banner, and it would be the same shape as the list view
+   with none of its density. Capped and centred, so it still reads as the card it is. */
+html[data-home-view="grid-1"] .workspace-card { max-width: 32rem; margin-inline: auto; }
+html[data-home-view="grid-2"] #workspace-cards > * { width: 50%; }
+html[data-home-view="grid-3"] #workspace-cards > * { width: 33.333%; }
+html[data-home-view="grid-4"] #workspace-cards > * { width: 25%; }
+html[data-home-view="grid-5"] #workspace-cards > * { width: 20%; }
+html[data-home-view="grid-6"] #workspace-cards > * { width: 16.666%; }
+
+/* Past four across the card is narrower than its own status label, so the label wraps instead of
+   dragging the card wider — the bug that put a horizontal scrollbar on this page once before. */
+html[data-home-view="grid-5"] .workspace-card .uk-label,
+html[data-home-view="grid-6"] .workspace-card .uk-label { white-space: normal; }
+
+/* What uk-text-center and uk-display-block used to do, said here so the list view can undo it. */
+.workspace-card { display: block; text-align: center; }
+
+/* List: the card unfolds onto one line — icon, name, what it is, how many — so thirty workspaces can
+   be read down a column instead of scanned across a wall of tiles. */
+html[data-home-view="list"] #workspace-cards > * { width: 100%; }
+html[data-home-view="list"] .workspace-card {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  text-align: left;
+  padding: 0.5rem 0.875rem;
+}
+html[data-home-view="list"] .workspace-card .icon { margin: 0; flex: none; }
+html[data-home-view="list"] .workspace-card .uk-card-title { flex: none; width: 12rem; }
+html[data-home-view="list"] .workspace-card .uk-text-meta { flex: 1; margin: 0; }
+html[data-home-view="list"] .workspace-card .ws-card-handle { position: static; flex: none; }
+html[data-home-view="list"] .workspace-card .uk-label { margin: 0; flex: none; }
+
+/* ---------- a workspace's project rows ---------- */
+
+/* List is the default and is what the rows already are, so only the grids need saying. A row in a grid
+   keeps everything it has — the buttons wrap instead of sitting on one line. */
+html[data-rows-view^="grid"] #webship-workspace-projects .project-row { margin: 0; }
+html[data-rows-view="grid-1"] #webship-workspace-projects,
+html[data-rows-view="grid-2"] #webship-workspace-projects,
+html[data-rows-view="grid-3"] #webship-workspace-projects {
+  display: grid;
+  gap: 0.75rem;
+  align-items: start;
+}
+/* Same for a workspace: one across is a column of cards down the middle of the page, which is what
+   makes it a different answer from the list rather than a second name for it. */
+html[data-rows-view="grid-1"] #webship-workspace-projects { grid-template-columns: 1fr; }
+html[data-rows-view="grid-1"] #webship-workspace-projects .project-row { max-width: 46rem; margin-inline: auto; width: 100%; }
+html[data-rows-view="grid-2"] #webship-workspace-projects { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+html[data-rows-view="grid-3"] #webship-workspace-projects { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* The controls above the rows are not rows: they span the grid rather than becoming a cell in it. */
+html[data-rows-view^="grid"] #webship-workspace-projects > :is(h3, p, .list-controls, .list-pager, .cards-head, .uk-alert) {
+  grid-column: 1 / -1;
+}
+
+/* Below the breakpoint where a workspace page stacks anyway, a multi-column grid of rows is a column
+   of slivers — so the grids collapse and the list is what is left. */
+@media (max-width: 63.99em) {
+  html[data-rows-view="grid-2"] #webship-workspace-projects,
+  html[data-rows-view="grid-3"] #webship-workspace-projects { grid-template-columns: 1fr; }
+  html[data-home-view="grid-3"] #workspace-cards > *,
+  html[data-home-view="grid-4"] #workspace-cards > *,
+  html[data-home-view="grid-5"] #workspace-cards > *,
+  html[data-home-view="grid-6"] #workspace-cards > * { width: 50%; }
+}
+
+/* On a page with no list, the width control sits at the end of the heading row rather than in the
+   middle of it — the heading is what names the page, and this is a preference beside it. */
+.page-heading .width-switcher { order: 9; margin-left: auto; }
+
+/* The help page is a document, so its control goes at the top right on its own rather than beside a
+   heading it does not have. */
+.help-head { justify-content: flex-end; margin-bottom: 0; }
+
+/* The Screens page, in one, two or three columns.
+ *
+ * Both children SPAN the container first, and that is not decoration: #webship-workspace-projects is
+ * itself a grid — the same one the project rows are laid out in — so a single wrapper dropped into it
+ * becomes one cell. Without the span, the toolbar took the first column and the whole list the second,
+ * and half the page was empty. The list owns its own columns inside the width it is given. One is the default — see ui.js — and the grid is
+   `minmax(0, 1fr)` rather than plain `1fr` so a long session name cannot push a column wider than its
+   share: `dev--amd-educare-1-0-x-site-template--build` is one unbroken token, and a grid track sized
+   to its content is how a list of them ends up scrolling sideways. */
+.screens-toolbar { grid-column: 1 / -1; }
+.screens-list { grid-column: 1 / -1; display: grid; gap: 0; grid-template-columns: minmax(0, 1fr); }
+.screens-list[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1rem; }
+.screens-list[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 1rem; }
+
+/* Below a laptop there is room for one, whatever was chosen on a wider screen. */
+@media (max-width: 63.9375em) {
+  .screens-list[data-cols="2"],
+  .screens-list[data-cols="3"] { grid-template-columns: minmax(0, 1fr); }
+}
+
+.screens-cols { display: inline-flex; gap: .15rem; margin-right: .35rem; }
+
+/* The Screens modal is as wide as what it is showing.
+ *
+ * It was a flat 1100px whatever was in it, so three columns of session cards came out at 338px each —
+ * narrower than the row of buttons inside them — while 463px of a 1563px window went unused. The width
+ * follows the column count now, and `min(…, 94vw)` is what keeps it inside the window: a fixed 1900px
+ * dialog on a 1440px laptop is a modal with its right-hand column off the screen.
+ *
+ * The numbers are what each card ends up with, measured rather than picked from a scale: 1146px at one
+ * column, 715 at two, 479 at three on a 1634px window — and the cap is what decides the last of those,
+ * not the 1900. A card narrower than that is what the page's own three-column view already renders at
+ * 412px, so this is the same trade, made where there is more room to give. */
+#editor-modal[data-screens-cols] .uk-modal-dialog { width: min(94vw, 1200px); }
+#editor-modal[data-screens-cols="2"] .uk-modal-dialog { width: min(94vw, 1500px); }
+#editor-modal[data-screens-cols="3"] .uk-modal-dialog { width: min(94vw, 1900px); }
+
+/* A session's glyph is a picture of the terminal it opens, scaled with the room the row has. It
+   dims when the session has ended and draws the eye, once, when one waits for an answer. */
+.term-glyph { flex: none; width: clamp(3.5rem, 5vw, 5.5rem); height: auto; }
+.screens-list[data-cols="3"] .term-glyph { width: 3.5rem; }
+.screen-tile.is-dead .term-glyph { filter: grayscale(1); opacity: 0.5; }
+.screen-tile.is-waiting .term-glyph-cursor { animation: term-glyph-blink 1.1s steps(2, start) infinite; }
+@keyframes term-glyph-blink { to { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) {
+  .screen-tile.is-waiting .term-glyph-cursor { animation: none; }
+}

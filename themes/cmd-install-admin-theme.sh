@@ -1,10 +1,12 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Bootstrap.
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+# Find the workspace tooling from this script, so a fresh clone needs no setup.
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.themes.settings.yml);
+eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.themes.settings.yml);
 
 # GET the project name argument.
 if [ "$1" != "" ]; then
@@ -20,7 +22,7 @@ echo "*-----------------------------------------------------------*";
 
 
 
-cd "${WEBSHIP_WORKSPACE_ROOT}/themes/${theme_name}/web";
+cd "${WORKSPACE_ROOT}/themes/${theme_name}/web";
 
 ddev drush site-install standard --yes \
 --site-name="Theme ${theme_name}" \

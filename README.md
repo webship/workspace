@@ -1,222 +1,88 @@
-# Webship Workspace
+<div align="center">
 
-Helps Drupal developers manage the base-code development work cycle for custom recipes/distributions/profiles/starter-kit templates, on top of [DDEV](https://ddev.com) — no host-level Apache, PHP, or MySQL required.
+<h1><picture><source media="(prefers-color-scheme: dark)" srcset="core/workspace-app/public/vardot-logo-on-dark.svg"><img alt="Vardot" src="core/workspace-app/public/vardot-logo-on-light.svg" height="40" align="absmiddle"></picture> Workspace</h1>
 
-## Layout
+**Build, test, record and document Varbase, Drupal, Drupal CMS and site-template projects from one dashboard.**<br>
+A set of `cmd-*.sh` commands and a web dashboard, on top of [DDEV](https://ddev.com). No host-level Apache, PHP or MySQL.
 
-Each of the folders below holds a set of `cmd-*.sh` scripts. Running one builds a fresh Drupal project into a subdirectory named after the project, wired up with its own DDEV environment (own containers, own database — nothing shared on the host).
+[User guide](core/workspace-app/docs/USER-GUIDE.md) &nbsp;·&nbsp; [Developer guide](core/workspace-app/docs/DEVELOPER-GUIDE.md) &nbsp;·&nbsp; [Reference](core/workspace-app/docs/REFERENCE.md) &nbsp;·&nbsp; [Releases](https://github.com/webship/workspace/releases)
 
-```
-    ~/workspace/products    Custom distributions/profiles base code
-    ~/workspace/dev         Development, enhancements, and optimization work
-    ~/workspace/test        Testing and functional automated testing
-    ~/workspace/demos       Demo templates and default content
-    ~/workspace/sandboxes   Private custom content templates
-    ~/workspace/projects    Development on a project based on a distribution/profile
-    ~/workspace/profiles    Other contrib or private installation profiles
-    ~/workspace/themes      Other contrib or private themes
-    ~/workspace/modules     Other contrib or private modules
-    ~/workspace/libraries   Other contrib or private libraries
-    ~/workspace/forked      Forked/customized copies of any of the above
-    ~/workspace/docs        Documentation projects/repos
-    ~/workspace/agents      AI agent definition repos
-    ~/workspace/skills      AI skill definition repos
-    ~/workspace/recipes     Drupal recipe packages
-    ~/workspace/components  Reusable SDC/component library repos
-```
+![DDEV only](https://img.shields.io/badge/runs_on-DDEV-0074e0) ![Varbase](https://img.shields.io/badge/Varbase-9.1_to_11.0-2b447c) ![Drupal](https://img.shields.io/badge/Drupal-11_%C2%B7_12-0678be) ![Drupal CMS](https://img.shields.io/badge/Drupal_CMS-2-0678be)
 
-### `core/`
+<a href="core/workspace-app/docs/screenshots/readme/dashboard-light.png"><picture><source media="(prefers-color-scheme: dark)" srcset="core/workspace-app/docs/screenshots/readme/dashboard-dark.png"><img alt="The Webship Workspace dashboard: one card per workspace" src="core/workspace-app/docs/screenshots/readme/dashboard-light.png"></picture></a>
 
-Where the shared configs and script libraries live.
+</div>
 
-```
-    ~/workspace/core/scripts
-    ~/workspace/core/config
-```
+> [!TIP]
+> **New here?** Start with the [user guide](core/workspace-app/docs/USER-GUIDE.md): day one, and the things you will actually do. It is also the dashboard's **Help** page. All the guides are in [`core/workspace-app/docs/`](core/workspace-app/docs/).
 
-## Setup
+## What it does
 
-```
-git clone --branch '1.0.x' https://github.com/webship/workspace.git ~/workspace
-cd ~/workspace
-```
+| | |
+| :---: | :---: |
+| <a href="core/workspace-app/docs/screenshots/readme/dev-light.png"><picture><source media="(prefers-color-scheme: dark)" srcset="core/workspace-app/docs/screenshots/readme/dev-dark.png"><img alt="Dev: build a new project and manage every project from its row" src="core/workspace-app/docs/screenshots/readme/dev-light.png"></picture></a> | <a href="core/workspace-app/docs/screenshots/readme/test-report-light.png"><picture><source media="(prefers-color-scheme: dark)" srcset="core/workspace-app/docs/screenshots/readme/test-report-dark.png"><img alt="Test: the report of an automated run, 8 scenarios in 1 feature, all passed" src="core/workspace-app/docs/screenshots/readme/test-report-light.png"></picture></a> |
+| **Dev.** Pick a builder, name the project, press **Build**. Every project row starts, stops, backs up, clones and opens it. | **Test.** Automated functional testing with Playwright and Cucumber, and the full report of each run, one click from the project. |
+| <a href="core/workspace-app/docs/screenshots/readme/test-scenarios.png"><img alt="Test: the report lists every feature and its scenarios" src="core/workspace-app/docs/screenshots/readme/test-scenarios.png"></a> | <a href="core/workspace-app/docs/screenshots/readme/test-steps.png"><img alt="Test: a scenario opened to show each step and how long it took" src="core/workspace-app/docs/screenshots/readme/test-steps.png"></a> |
+| **Scenarios.** Every feature and its scenarios, with their tags and counts. | **Steps.** Open a scenario to see each step, passed or failed, and how long it took. |
+| <a href="core/workspace-app/docs/screenshots/readme/videos-light.png"><picture><source media="(prefers-color-scheme: dark)" srcset="core/workspace-app/docs/screenshots/readme/videos-dark.png"><img alt="Videos: recorded walkthroughs and demos, with posters and transcripts" src="core/workspace-app/docs/screenshots/readme/videos-light.png"></picture></a> | <a href="core/workspace-app/docs/screenshots/readme/docs-light.png"><picture><source media="(prefers-color-scheme: dark)" srcset="core/workspace-app/docs/screenshots/readme/docs-dark.png"><img alt="Docs: guides, scripts and reports, searchable" src="core/workspace-app/docs/screenshots/readme/docs-light.png"></picture></a> |
+| **Videos.** Record, narrate, edit and play walkthroughs with posters and transcripts. | **Docs.** Guides, scripts and reports, searchable, with PDF and HTML made from Markdown. |
 
-Edit the settings file for your system:
-```
-vim ~/workspace/core/config/settings.yml
-```
+There is more: an AI assistant on every page, agents and skills for Claude Code, Upsun deploys, Jira, knowledge graphs and a RAG index. The user guide tours all of it.
 
-You'll see something like:
-```yaml
-root: /home/YOUR_USER/workspace
-path: /home/YOUR_USER/workspace/core
-scripts: /home/YOUR_USER/workspace/core/scripts
-config: /home/YOUR_USER/workspace/core/config
-host: 127.0.0.1
-web: http://127.0.0.1/core
-protocol: http
-backups: /home/YOUR_USER/workspace/backups
-database:
-  username: root
-  password: CHANGE_ME
-  host: localhost
-  port: 3306
-  namespace: Drupal\\Core\\Database\\Driver\\mysql
-  driver: mysql
-  collation: utf8mb4_general_ci
-account:
-  name: DRUPAL_WEBMASTER_NAME
-  pass: DRUPAL_WEBMASTER_PASSWORD
-  mail: DRUPAL_WEBMASTER_EMAIL
-config_sync_directory: ../config/sync
-workspaces:
-  - products
-  - dev
-  - test
-  - demos
-  - sandboxes
-  - profiles
-  - modules
-  - themes
-  - libraries
-  - forked
-  - docs
-  - agents
-  - skills
-  - recipes
-  - components
-```
+## What it builds
 
-`database.*` is no longer used by the build scripts (each DDEV project manages its own isolated database), but is kept for anything custom you add that still needs those values.
+| | Versions |
+| --- | --- |
+| [Varbase](https://www.drupal.org/project/varbase) | 9.1, 9.2, 10.0, 10.1, 11.0 (`x` and pinned) |
+| Site templates: [Varbase Starter](https://www.drupal.org/project/varbase_starter), [Educare](https://www.drupal.org/project/educare), [Horizon Aid](https://www.drupal.org/project/horizonaid), [The Rightup](https://www.drupal.org/project/rightup) | 1.0.x, on Varbase 11 or Drupal CMS |
+| [Drupal](https://www.drupal.org/project/drupal) | latest 11 and 12 |
+| [Drupal CMS](https://www.drupal.org/project/cms) | latest 2 |
 
-Install the global shell variables:
-```
-cd ~/workspace/core/scripts/install
-bash install.sh
-```
+## Get started
 
-Close all terminal windows and open a new one. Test that it's ready:
-```
-echo ${WEBSHIP_WORKSPACE_CONFIG}
-```
-It should print `~/workspace/core/config`.
+Four steps. Everything after them is done from the dashboard.
 
-Make sure [DDEV](https://ddev.readthedocs.io/en/stable/users/install/) and Docker are installed — that's the only runtime dependency now; there's nothing to install at the OS/package level.
+**1. Get the files.** Open [github.com/webship/workspace](https://github.com/webship/workspace) (it is private: sign in), switch to the **`1.0.x`** branch, **Code → Download ZIP**, unzip it and rename the folder to **`workspace`** in your home directory, so you have `~/workspace`.
 
-## Web dashboard (workspace.ddev.site)
-
-A visual dashboard + AI assistant for the whole workspace lives in
-`core/workspace-app` (basic Node.js + HTMX, served through DDEV):
-
-```
-cd ~/workspace/core/workspace-app
-ddev start
-```
-
-Then open **https://workspace.ddev.site** — workspace cards with live project
-counts, per-workspace pages (`/dev`, `/test`, …) with build/backup/remove
-actions, and an AI assistant on every page. See
-[`core/workspace-app/README.md`](core/workspace-app/README.md) for details
-(including the one per-machine docker-group tweak).
-
-### Domains
-
-The dashboard manages a hierarchical domain scheme by default:
-
-- `https://workspace.ddev.site` — the dashboard home
-- `https://<workspace>.workspace.ddev.site` — that workspace's page
-  (e.g. `dev.workspace.ddev.site`, `test.workspace.ddev.site`)
-- `https://<project>.<workspace>.workspace.ddev.site` — the project's real
-  site (e.g. `varbase11demo.dev.workspace.ddev.site`); the **Launch**
-  button uses these, and the canonical `https://<project>.ddev.site`
-  always keeps working
-
-No per-project configuration is needed — wildcard hostnames + an nginx
-tier in `core/workspace-app/.ddev/` route everything with valid TLS.
-
-All navigation links and the Launch buttons follow this scheme by
-default. The hub base domain is configurable (`hub_domain:` in
-`core/config/settings.yml`) — the same system is designed to run as one
-**remote development workspace hub on a public domain**, e.g.
-`workspace.example.com` → `dev.workspace.example.com` →
-`myproject.dev.workspace.example.com` (add matching `additional_fqdns`,
-DNS wildcards, and nginx server_names).
-
-### Examples
-
-Things you can do from the dashboard UI:
-
-- `/dev` → pick **"Drupal 11.4.0 (recommended project)"** from the Build
-  dropdown, name it `blog1`, press **Build** — and watch the real terminal
-  output stream until the site is installed at `https://blog1.ddev.site`.
-- Press **Stop** / **Start** / **Launch** on any project row (buttons follow
-  the live DDEV status), **Backup** to archive it, or open
-  `/dev/backups` to **Restore** an archive (files + automatic DB import).
-- `/agents` → **Generate with AI** → describe the agent you want; then
-  **Install** it into `~/.claude/agents/` for Claude Code.
-- `/docs` → write a doc, press **PDF** or **HTML** to render it, or
-  **Screenshot a site** to capture any URL into `docs/`.
-
-Things you can ask the Workspace AI Assistant (it really does them):
-
-- "Build a Drupal 11.4 site named d114test"
-- "Create a Drupal CMS 2.1 site called cms1"
-- "Create a Varbase 11 project called demo1 and open it"
-- "can you back up my d114test site please, then show me the backups page"
-- "what's running right now?"
-- "Generate an agent that reviews cmd- scripts and save it as cmd-linter"
-- "Write a doc about demo1 and make a PDF"
-
-
-## Building a project
-
-```
-cd ~/workspace/dev/
-bash cmd-drupal11-0-x-recommended-project.sh drupal11c1 --install
-```
-
-### Varbase 10.1.x distribution, for example:
-```
-cd ~/workspace/dev/
-bash cmd-varbase10-1-x-project.sh varbase10c1 --install --add-users
-```
-
-Each of these scripts creates the project folder, runs `ddev config` + `ddev start`, then `ddev composer create-project` and `ddev drush site:install` inside that project's own containers.
-
-## Removing / backing up a project
-
-```
-cd ~/workspace/dev/
-bash cmd-tools-remove.sh myproject
-bash cmd-tools-backup-dev.sh myproject
-```
-
-`cmd-tools-remove.sh` runs `ddev delete -y -O` before removing the folder. `cmd-tools-backup-*.sh` tars the project folder and runs `ddev export-db` for the database dump — no host MySQL client involved.
-
-## Create your own custom script
-
-```
-cd ~/workspace/dev/
-vim cmd-example.sh
-```
+**2. Install the tools.** Docker, DDEV, git, gh, Node.js, Claude Code and the rest, plus trusted local https certificates:
 
 ```bash
-#!/bin/usr/env bash
-
-# Bootstrap.
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
-
-# Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.dev.settings.yml);
-
-echo "*---------------------------------------------------------------------------------------*";
-echo "|  Build a Drupal project via DDEV";
-echo "*---------------------------------------------------------------------------------------*";
+bash ~/workspace/core/scripts/install.sh
 ```
 
-Have your own YAML files, read them in as arrays of variables, and use them however you like:
-```
-eval $(parse_yaml ${path_to_the_yml_file}/name-of-file.yml);
+On a fresh Ubuntu, **log out and back in** afterwards (Docker's group applies at login), then `gh auth login`.
+
+**3. Start the dashboard.**
+
+```bash
+cd ~/workspace/core/workspace-app && ddev start
 ```
 
-Have a look at the other `cmd-*.sh` scripts under `themes/`, `profiles/`, or `test/` for more examples — use whatever naming or scripting style works for you.
+**4. Open it.** <https://workspace.ddev.site>, and build your first site from the **Build** form.
+
+Updating, starting again after a reboot, and running it on a server are in the [reference](core/workspace-app/docs/REFERENCE.md#get-started).
+
+## What is where
+
+Every folder in `~/workspace` is a **workspace**: its own commands and its own page in the dashboard, one card each.
+
+| | | | | |
+| :---: | :---: | :---: | :---: | :---: |
+| <img src="core/workspace-app/docs/screenshots/readme/icons/sites.svg" width="56" alt=""> | <img src="core/workspace-app/docs/screenshots/readme/icons/code.svg" width="56" alt=""> | <img src="core/workspace-app/docs/screenshots/readme/icons/ai.svg" width="56" alt=""> | <img src="core/workspace-app/docs/screenshots/readme/icons/docs.svg" width="56" alt=""> | <img src="core/workspace-app/docs/screenshots/readme/icons/services.svg" width="56" alt=""> |
+| **Sites you build** | **Code we maintain** | **AI items** | **Documents and media** | **Services** |
+| Build, run and test Drupal projects | Git clones of what we ship | Drafts that install into Claude Code | Guides, worklogs, recordings | Penpot, Milvus, graphify, talking avatars |
+| `dev`<br>`test`<br>`sandboxes`<br>`demos`<br>`projects` | `products`<br>`modules`<br>`themes`<br>`profiles`<br>`recipes`<br>`site-templates` | `ai-agents`<br>`ai-skills`<br>`ai-commands`<br>`ai-prompts` | `docs`<br>`worklogs`<br>`specs`<br>`images`<br>`videos`<br>`audio` | `designs`<br>`rag`<br>`graphs`<br>`avatars` |
+
+`core/` holds the build chain (`core/scripts`), the settings (`core/config`) and the dashboard (`core/workspace-app`). Built projects are never committed here.
+
+A disk filling up? Any workspace without DDEV projects (`videos`, `docs`, `images`, …) can live on a second disk: set `storage.second` in `core/config/settings.yml`, then `bash core/scripts/storage.sh --move videos` and `--mounts`. It copies, verifies by checksum and leaves a symlink; `--back` reverses it. See [`CLAUDE.md`](CLAUDE.md#second-storage-corescriptsstoragesh-fun-storagesh).
+
+## Learn more
+
+- [User guide](core/workspace-app/docs/USER-GUIDE.md) and [developer guide](core/workspace-app/docs/DEVELOPER-GUIDE.md)
+- [Reference](core/workspace-app/docs/REFERENCE.md): every command, flag and setting
+- [`CLAUDE.md`](CLAUDE.md): how the tooling is built, and the rules it keeps
+- [`docs/workspace-tips-and-rules.md`](docs/workspace-tips-and-rules.md): the short list of rules and tips
+- [Releases](https://github.com/webship/workspace/releases)
+
+Never commit credentials, API keys or real project names to this repository: keep them in your own working copy.

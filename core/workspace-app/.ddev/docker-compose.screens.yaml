@@ -1,0 +1,15 @@
+# Screen sessions live on the machine, not in here — so `screen -r` in a real
+# terminal reaches them and a browser an agent opens is a window on the desktop.
+# The dashboard still has to list and attach them, and the host is unreachable
+# over the network (ufw drops the docker bridges), so it goes through the
+# sockets screen itself uses. Same screen version, same user, same default
+# socket directory, so `screen -ls` and `screen -x` work straight across.
+services:
+  web:
+    # screen's attach hands a pty over the socket and then signals the session
+    # process — so the client has to be able to name that process. Sharing the
+    # machine's pid namespace is what makes `screen -x` work from in here; the
+    # app runs as the same user, so it can reach nothing that user could not.
+    pid: "host"
+    volumes:
+      - "/run/screen:/run/screen"

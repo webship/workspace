@@ -1,0 +1,54 @@
+# How the dashboard LOOKS — core/config/style.yml
+#
+# Styling is its own concern, so it has its own file. Which palette, which mode, the logos and
+# favicons, how wide a page runs, how the assistant is shown. It used to sit inside settings.yml
+# under a `style:` key, in a file that is otherwise about where projects are built, who commits,
+# and which API keys this machine holds — so the one file nobody should open casually was also the
+# file you had to open to change a logo.
+#
+# A theme's own TOKENS are not here either: they live in core/config/theme.<name>.yml, one file per
+# theme. This file chooses the theme; that file sets its colours, sizes and spacing.
+#
+# Everything here is a DEFAULT, not an override. A mode, a width or an assistant view chosen from
+# the interface is remembered in that browser and wins — which is the difference between a default
+# and a setting that argues with the person using it.
+#
+# `style:` in settings.yml still works and fills in anything this file does not set, so a machine
+# that has not moved its block yet keeps the appearance it had. Where both set the same key, this
+# file wins.
+
+# The word beside the Vardot wordmark in the toolbar.
+workspace_name: Workspace
+
+# Which palette the dashboard wears: a directory under core/workspace-app/public/themes/.
+# `default` is the Vardot palette. The Settings screen lists every theme on disk, so this comment
+# does not name them — a list here goes stale the first time one is added.
+theme: default
+
+# light | dark | system. A default: someone who has used the toggle keeps their choice.
+mode: light
+# The code editor, independently of the page: auto | light | dark. A code editor is somewhere people
+# often want dark even on a light page.
+editor_theme: auto
+
+# How the AI assistant is shown, and whether it starts open: sidebar | wide | float | full,
+# and yes | no. Quoted, because unquoted `yes` is a BOOLEAN in YAML 1.1.
+assistant_view: sidebar
+assistant_open: "yes"
+
+# How much of the window a page's content may use: comfortable (a 900px reading width) | wide | full.
+page_width: comfortable
+
+# Rows before a list pages, and how it is sorted to begin with.
+page_size: 50
+page_sort: newest
+
+# Brand assets, from core/workspace-app/public/. Re-export them from Figma rather than hand-editing;
+# the wordmark is swapped by theme rather than recoloured.
+logo_on_light: vardot-logo-on-light.svg
+logo_on_dark: vardot-logo-on-dark.svg
+favicon_svg: vardot-favicon.svg
+favicon_png: vardot-favicon.png
+# A separate, larger file: a home-screen icon is 180px, and the 32px tab icon blown up to that is a
+# blurry tile.
+touch_icon: vardot-touch-icon.png

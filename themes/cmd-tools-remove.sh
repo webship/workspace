@@ -1,28 +1,42 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # Bootstrap.
-source ${WEBSHIP_WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
+# Find the workspace tooling from this script, so a fresh clone needs no setup.
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../core/scripts" && pwd)}";
+source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 
 # Load workspace settings and extra lists.
-eval $(parse_yaml ${WEBSHIP_WORKSPACE_CONFIG}/workspace.themes.settings.yml);
+eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.themes.settings.yml);
 
 
 ARGPARSE_DESCRIPTION="Remove a project"
 argparse "$@" <<EOF || exit 1
 parser.add_argument('PROJECT_NAME',
+                    default='_none_',
+                    nargs='?',
                     help='The name of the project.')
+parser.add_argument('-f', '--force',
+                    action='store_true',
+                    default=False,
+                    help='Remove even when the folder is the main git checkout other worktrees depend on, or holds commits and changes that are on no remote. Both are refused without it.')
+parser.add_argument('-o', '--orphans',
+                    action='store_true',
+                    default=False,
+                    help='List DDEV entries whose project directory is gone, instead of removing anything.')
 EOF
 
 shift $#;
+trim_project_name ;   # "v11x00b1/" -> "v11x00b1" — see functions/fun-project-name.sh
 
 
 # Change directory to the workspace for this full operation.
-cd ${WEBSHIP_WORKSPACE_ROOT}/${doc_name};
+cd ${WORKSPACE_ROOT}/${doc_name};
 
-if [ -d "${PROJECT_NAME}" ]; then
-  echo "--------------";
-  (cd ${PROJECT_NAME} && ddev delete -y -O 2>/dev/null) ;
-  sudo rm -rf ${PROJECT_NAME}
-  echo "Deleted: ${WEBSHIP_WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}";
-  echo "--------------";
+if [ "${ORPHANS}" == 'yes' ] ; then
+  report_orphans ;
+elif [ "${PROJECT_NAME}" == '_none_' ] ; then
+  echo "Name the project to remove, or pass --orphans to see DDEV entries with no directory." ;
+  exit 1 ;
+else
+  remove_project "${PROJECT_NAME}" || exit 1 ;
 fi

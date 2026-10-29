@@ -1,0 +1,139 @@
+/* ---------- Layout rhythm & spacing polish ---------- */
+
+.page-body {
+  padding-top:1.75rem;
+  padding-bottom:3rem;
+}
+
+/* Toolbar breathing room */
+.toolbar .uk-navbar-item { padding:0 0.75rem 0 0; min-height:4rem; }
+
+/* Workspace cards: even inner padding + consistent vertical spacing */
+.workspace-card { padding:1.5rem 1rem 1.25rem; height: 100%; }
+.workspace-card .icon { margin-bottom:0.75rem; }
+.workspace-card .uk-card-title { margin-top:0.125rem; font-size:1.0625rem; }
+.workspace-card .uk-text-meta { margin-top:0.125rem; min-height: 2.6em; display: block; }
+.workspace-card .uk-label { margin-top:0.625rem; }
+
+/* Equal-height card cells */
+.workspace-grid > div, .uk-grid > .uk-position-relative { display: flex; }
+.uk-grid > .uk-position-relative > .workspace-card { flex: 1; }
+
+/* Workspaces panel: balanced padding */
+.workspaces-card, .uk-card-body { border-radius:0.75rem; }
+
+/* Section headings inside cards */
+.webship-workspace-page .uk-card-body h3 { margin-top:1.5rem; }
+.webship-workspace-page .uk-card-body h3:first-child { margin-top: 0; }
+
+/* Project rows: consistent inner spacing */
+.project-row { padding:0.875rem 1.125rem; margin-bottom:0.625rem; }
+
+/* Footer: tighter */
+footer.uk-section { padding-top:1.25rem; padding-bottom:1.625rem; }
+
+/* Very large screens: cap content width, keep it centered comfortably */
+@media (min-width: 112.5em) {
+  .uk-container-xlarge { max-width:97.5rem; }
+}
+
+/* Tablets: assistant stacks above with sane spacing */
+@media (max-width: 59.9375em) {
+  .page-body { padding-top:1.125rem; }
+  .assistant-panel { margin-bottom:0.25rem; }
+}
+
+/* Phones: tighter cards, full-width floating assistant */
+@media (max-width: 40em) {
+  .workspace-card { padding:1.125rem 0.75rem 1rem; }
+  .workspace-card .uk-text-meta { min-height: 0; }
+  .project-row { padding:0.75rem 0.875rem; }
+  .project-row .uk-flex { gap:0.5rem; }
+  .assistant-float {
+    right:0.625rem;
+    left:0.625rem;
+    width: auto;
+    bottom:5.375rem;
+  }
+  .assistant-launcher { left:0.875rem; bottom:0.875rem; }
+  .toolbar-logo span { font-size:1.0625rem; }
+}
+
+/* The user guide at /help. Rendered from markdown, so it is the one page whose content is
+ * long-form prose rather than controls: it needs a measure that can be read, and tables that
+ * do not force the page sideways. */
+.help-page { max-width: 52rem; }
+.help-page h1 { margin-top: 0; }
+.help-page h2 { margin-top: 2.25rem; }
+.help-page h3 { margin-top: 1.5rem; }
+.help-page p, .help-page li { line-height: 1.65; }
+.help-page table { width: 100%; display: block; overflow-x: auto; }
+.help-page td, .help-page th { padding: .35rem .6rem; vertical-align: top; }
+/* The guide is mostly command lines, and they are longer than a phone is wide:
+ * `bash ~/workspace/core/scripts/trust-https.sh` measured 383px in a 345px viewport and
+ * pushed the whole document sideways. Two different fixes, because they are two cases:
+ *   - a BLOCK of code scrolls inside itself, and must be told it cannot exceed its column;
+ *   - INLINE code in a sentence has to wrap, and `overflow-wrap: anywhere` is what breaks a
+ *     path with no spaces in it. (`word-break: break-word` is non-standard and did not.) */
+/* Inline code in the guide is mostly file paths and commands, and the site's own `code`
+ * styling sets white-space: nowrap — which BEATS overflow-wrap entirely, so a 425px path sat
+ * in a 345px viewport and pushed the document sideways. Both properties are needed, and the
+ * nowrap has to be undone first; overflow-wrap alone did nothing, which is what made this
+ * look like the rule was not applying.
+ * Blocks keep `pre` semantics and scroll inside themselves instead. */
+.help-page :not(pre) > code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* Pandoc wraps a fenced block as div.sourceCode > pre > code, and it is the DIV that has to
+ * be constrained: constraining only the pre left the div sizing itself to an 784px line in a
+ * 345px viewport, which is what actually pushed the page. */
+.help-page pre,
+.help-page div.sourceCode { max-width: 100%; overflow-x: auto; }
+.help-page pre code { overflow-wrap: normal; white-space: pre; }
+.help-page hr { margin: 2rem 0 1rem; }
+
+/* ---- keyboard access ------------------------------------------------------------------
+ * Measured by walking Tab through /dev: the page's own content — the build form, the project
+ * list — was tab stop EIGHTEEN, after the toolbar, the whole assistant panel and eleven rail
+ * controls. That is the cost of a rich chrome, and a skip link is the standard answer.
+ *
+ * Invisible until focused, then a real target at the top-left. It must never be
+ * `display: none` or `visibility: hidden`: both remove it from the tab order, which is the
+ * usual way a skip link ends up not working. */
+.skip-link {
+  position: absolute;
+  left: .5rem;
+  top: -3rem;
+  z-index: 1100;
+  padding: .5rem .85rem;
+  background: var(--brand-primary);
+  color: var(--text-inverse);
+  border-radius: 0 0 8px 8px;
+  font-size: .8125rem;
+  text-decoration: none;
+  transition: top .12s ease-out;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: 0;
+  outline: 2px solid var(--text-default);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skip-link { transition: none; }
+}
+
+/* The target takes focus programmatically, so it must not draw a ring of its own when the
+ * skip link sends the caret there. */
+#main-content:focus { outline: none; }
+
+/* UIKit's checkbox draws no focus ring at all, so it was the one control on the page a
+ * keyboard user could land on without seeing where they were. */
+.uk-checkbox:focus-visible,
+.uk-radio:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
