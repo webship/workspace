@@ -1,7 +1,7 @@
 /**
  * Status chips say what they mean.
  *
- * Found by the local vardot-ai-ux-designer agent reviewing the live pages: an agent that had stopped to ask a
+ * Found by the local webship-ai-ux-designer agent reviewing the live pages: an agent that had stopped to ask a
  * question was labelled "agent running", the same words as one that was working (the difference was an amber
  * colour, an emoji and a tooltip); a Stopped site took the same brand blue as the agent chip and was the loudest
  * chip on its card; an attached session took the same amber as "waiting for you".

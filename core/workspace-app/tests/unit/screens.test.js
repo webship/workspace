@@ -45,7 +45,7 @@ test('workspace folders and projects are offered separately', () => {
 const NAME_RE = /^[a-z0-9][a-zA-Z0-9_.-]*$/;
 
 test('a session name may not start with a dash, and holds no shell characters', () => {
-  for (const ok of ['build1', 'jira-varbase-2307', 'a.b_c-d', 'x']) assert.ok(NAME_RE.test(ok), ok);
+  for (const ok of ['build1', 'jira-webship-2307', 'a.b_c-d', 'x']) assert.ok(NAME_RE.test(ok), ok);
   for (const bad of ['-d', '-S', '; rm -rf /', 'a b', '../x', 'a$b', 'A-first', '']) {
     assert.ok(!NAME_RE.test(bad), `${bad} is refused`);
   }

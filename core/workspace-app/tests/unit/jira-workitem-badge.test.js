@@ -6,7 +6,7 @@
  * missing: the key is what names the work, links to the description, and tells you whether the running
  * session is the one you are waiting for.
  *
- * The key is read from the SESSION NAME (`dev--blog1--jira-varbase-2199`), not from a store, so a
+ * The key is read from the SESSION NAME (`dev--blog1--jira-webship-2199`), not from a store, so a
  * session started by hand from the CLI shows up exactly like one started from the dashboard.
  */
 
@@ -20,10 +20,10 @@ const jiraRuns = require('../../jira-sessions');
 const server = fs.readFileSync(path.join(__dirname, '../../server.js'), 'utf8');
 
 test('the key comes out of the session name, in the shape Jira writes it', () => {
-  assert.equal(jiraRuns.keyOfSession('dev--blog1--jira-varbase-2199'), 'VARBASE-2199');
+  assert.equal(jiraRuns.keyOfSession('dev--blog1--jira-webship-2199'), 'WEBSHIP-2199');
   // A session name carries the project too, so the key has to be found in the middle as well as at
   // the end.
-  assert.equal(jiraRuns.keyOfSession('test--ruverify1--jira-varbase-9999--2'), 'VARBASE-9999');
+  assert.equal(jiraRuns.keyOfSession('test--ruverify1--jira-webship-9999--2'), 'WEBSHIP-9999');
 });
 
 test('a session that is not about a workitem has no key', () => {

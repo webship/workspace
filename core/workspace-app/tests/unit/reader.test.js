@@ -50,7 +50,7 @@ test('nothing that can run survives, and links stay in the reader', () => {
 test('a bot check is recognised, never worked around', () => {
   assert.ok(isChallenge('<html><head><title>Client Challenge</title></head></html>'));
   assert.ok(isChallenge('<title>Just a moment...</title>'));
-  assert.ok(!isChallenge('<title>Varbase | Drupal.org</title>'));
+  assert.ok(!isChallenge('<title>Webship | Drupal.org</title>'));
 });
 
 test('only a real YouTube video link becomes a video', () => {

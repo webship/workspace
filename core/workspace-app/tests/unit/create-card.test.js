@@ -36,7 +36,7 @@ test('the step writes a private prompt and payload, and the shell line holds onl
   try {
     const ai = require('../../build-ai');
     const { ROOT } = require('../../workspaces');
-    const r = ai.afterBuildStep({ ws: 'dev', dir: path.join(ROOT, 'dev'), project: 'v11x00b9', label: 'Varbase 11', installed: true,
+    const r = ai.afterBuildStep({ ws: 'dev', dir: path.join(ROOT, 'dev'), project: 'v11x00b9', label: 'Webship 11', installed: true,
       text: 'Run $(rm -rf /) and `whoami`' });
     assert.equal(r.session, 'dev--v11x00b9--claude');
     assert.doesNotMatch(r.step, /rm -rf|whoami/);
@@ -48,7 +48,7 @@ test('the step writes a private prompt and payload, and the shell line holds onl
     assert.match(payload.cmd, /^exec env WEBSHIP_WORKSPACE='dev' WEBSHIP_PROJECT='v11x00b9' .* claude "\$\(cat '.*dev--v11x00b9--claude\.txt'\)"$/);
     assert.equal(payload.dir, path.join(ROOT, 'dev', 'v11x00b9'));
     const prompt = fs.readFileSync(payload.cmd.match(/cat '([^']+)'/)[1], 'utf8');
-    assert.match(prompt, /^The project dev\/v11x00b9 was just built here with Varbase 11 and installed\.\n\nRun \$\(rm -rf \/\)/);
+    assert.match(prompt, /^The project dev\/v11x00b9 was just built here with Webship 11 and installed\.\n\nRun \$\(rm -rf \/\)/);
     assert.equal(fs.statSync(payloadFile).mode & 0o777, 0o600);
     fs.unlinkSync(payloadFile);
     fs.unlinkSync(payload.cmd.match(/cat '([^']+)'/)[1]);
@@ -69,10 +69,10 @@ test('Start AI offers the Claude Code options New screen offers, with the local 
 test('the chosen Claude Code options go on the claude line after the build', () => {
   const ai = require('../../build-ai');
   const { ROOT } = require('../../workspaces');
-  const r = ai.afterBuildStep({ ws: 'dev', dir: path.join(ROOT, 'dev'), project: 'v11x00b8', flags: ['--agent', 'varbase-ai-expert', '--permission-mode', 'plan'] });
+  const r = ai.afterBuildStep({ ws: 'dev', dir: path.join(ROOT, 'dev'), project: 'v11x00b8', flags: ['--agent', 'webship-ai-expert', '--permission-mode', 'plan'] });
   const payloadFile = r.step.match(/'([^']+\.start\.json)'$/)[1];
   const payload = JSON.parse(fs.readFileSync(payloadFile, 'utf8'));
-  assert.match(payload.cmd, / claude --agent varbase-ai-expert --permission-mode plan "\$\(cat '/);
+  assert.match(payload.cmd, / claude --agent webship-ai-expert --permission-mode plan "\$\(cat '/);
   fs.unlinkSync(payloadFile);
   fs.unlinkSync(payload.cmd.match(/cat '([^']+)'/)[1]);
 });

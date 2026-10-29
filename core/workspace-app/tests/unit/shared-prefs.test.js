@@ -41,7 +41,7 @@ test('localStorage stays as the fallback, so a browser that set one before is no
 });
 
 test('nothing writes these preferences straight to localStorage any more', () => {
-  for (const key of ['ws-theme', 'vardot-actions-collapsed', 'ws-assistant-view', 'ws-assistant-open', 'ws-page-width']) {
+  for (const key of ['ws-theme', 'actions-collapsed', 'ws-assistant-view', 'ws-assistant-open', 'ws-page-width']) {
     assert.ok(!new RegExp(`localStorage\\.setItem\\('${key}'`).test(ui), `${key} must go through wsPrefSet`);
     assert.ok(!new RegExp(`localStorage\\.getItem\\('${key}'`).test(ui), `${key} must be read with wsPref`);
     assert.ok(!new RegExp(`localStorage\\.getItem\\('${key}'`).test(server), `${key} must be read with wsPref`);

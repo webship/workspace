@@ -343,7 +343,7 @@ test('a plain clone is a byte for byte copy with its poster and script', { skip:
   assert.ok(fs.existsSync(videos('copy-poster.jpg')));
 });
 
-test('the Vardot logo scenes and music add their length, and the script moves later by the opening', { skip: !CAN_CARD }, async () => {
+test('the Webship logo scenes and music add their length, and the script moves later by the opening', { skip: !CAN_CARD }, async () => {
   const strings = path.join(root, 'strings.json');
   fs.writeFileSync(strings, JSON.stringify({ intro_title: 'Hello $(x) `y`', intro_subtitle: 'A "quoted" line', outro_title: 'Thank you' }));
   const script = path.join(root, 'docs/demo-voiceover-script.md');
@@ -357,7 +357,7 @@ test('the Vardot logo scenes and music add their length, and the script moves la
   assert.match(stdout, /video,320,180/, 'the scenes are drawn at the size of the video');
   assert.match(stdout, /audio/);
   const record = JSON.parse(fs.readFileSync(videos('scenes-edit.json'), 'utf8'));
-  assert.deepStrictEqual(record.changes, ['opens with the Vardot logo', 'closes with the Vardot logo', 'intro music', 'outro music']);
+  assert.deepStrictEqual(record.changes, ['opens with the Webship logo', 'closes with the Webship logo', 'intro music', 'outro music']);
 });
 
 test('a section added after another lands where it was asked, and an ElevenLabs one stops at its plan', { skip: !CAN_RUN }, async () => {

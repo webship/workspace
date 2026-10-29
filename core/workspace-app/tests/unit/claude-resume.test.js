@@ -56,7 +56,7 @@ test('a directory with no history at all lists nothing, rather than failing', ()
 });
 
 test('a transcript is resumable; a directory with no transcript is listed but never offered', () => {
-  transcript(1, userLine('build me a Varbase 11 site'));
+  transcript(1, userLine('build me a Webship 11 site'));
   fs.mkdirSync(path.join(projectDir, id(2)), { recursive: true });   // tool results only: --resume finds nothing
   fs.writeFileSync(path.join(projectDir, `${id(3)}.jsonl`), '');      // started and never got going
 

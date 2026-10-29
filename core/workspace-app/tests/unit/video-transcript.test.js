@@ -32,7 +32,7 @@ const SCRIPT = `# Demo: voiceover script (draft 1)
 
 **On screen:** the home page.
 
-> This is **Varbase 11**, running on [Drupal](https://drupal.org) 11.
+> This is **Webship 11**, running on [Drupal](https://drupal.org) 11.
 > *(optional)* A spare sentence.
 
 ## E02 Close (00:20.0 to 01:05.5)
@@ -57,7 +57,7 @@ test('a timed script gives sections with only the words spoken', () => {
   assert.strictEqual(p.title, 'Demo: voiceover script (draft 1)');
   assert.deepStrictEqual(p.sections.map((s) => [s.id, s.title, s.start, s.end]), [['E01', 'Opening', 0, 20], ['E02', 'Close', 20, 65.5]]);
   assert.deepStrictEqual(p.sections[0].lines, [
-    { text: 'This is Varbase 11, running on Drupal 11.', optional: false },
+    { text: 'This is Webship 11, running on Drupal 11.', optional: false },
     { text: 'A spare sentence.', optional: true },
   ]);
   assert.ok(!JSON.stringify(p).includes('On screen'));
@@ -161,7 +161,7 @@ test('the player shows the words under the video, with times that seek', async (
   assert.match(withScript, /<details class="transcript-details" open><summary>Transcript<\/summary>/);
   assert.match(withScript, /data-seek="20"/);
   assert.ok(!/<h4[^>]*>Transcript/.test(withScript), 'the summary says it, the body does not repeat it');
-  assert.match(withScript, /This is Varbase 11, running on Drupal 11\./);
+  assert.match(withScript, /This is Webship 11, running on Drupal 11\./);
   const without = await (await get('/fragments/videos/play/posted.mp4')).text();
   assert.ok(!/transcript/.test(without));
 });

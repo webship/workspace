@@ -31,7 +31,7 @@ const RUN = [
       { name: 'The Blog page is healthy', steps: [
         { keyword: 'Given ', name: 'I am an anonymous user', result: { status: 'passed', duration: 1e9 } },
         { keyword: 'Then ', name: 'the page should have a working header',
-          result: { status: 'failed', duration: 5e9, error_message: 'Header is missing the "About Varbase" link.' } },
+          result: { status: 'failed', duration: 5e9, error_message: 'Header is missing the "About Webship" link.' } },
       ] },
     ],
   },
@@ -117,7 +117,7 @@ test('the failures are collected before the detail, with the step that stopped',
   assert.ok(failuresAt > 0 && fullRunAt > 0, 'both sections are present');
   assert.ok(failuresAt < fullRunAt, 'the failures come first — that is the part that gets acted on');
   assert.match(html, /stopped on <strong>Then the page should have a working header<\/strong>/);
-  assert.match(html, /Header is missing the &quot;About Varbase&quot; link\./);
+  assert.match(html, /Header is missing the &quot;About Webship&quot; link\./);
 });
 
 test('an error message is escaped, not injected', () => {

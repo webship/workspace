@@ -93,11 +93,11 @@ test('the project list filters on what is running, and says how many in the menu
 const { setPageCookie } = require('../../lists');
 const cookieOf = (views) => `ws-view=${encodeURIComponent(JSON.stringify(views))}`;
 const reqWith = (qs, cookie) => ({ url: `/fragments/dev/projects?${qs}`, headers: { cookie: cookie || '' } });
-const SAVED = { 'dev/projects': { q: 'varbase', sort: 'name', status: 'agents' } };
+const SAVED = { 'dev/projects': { q: 'webship', sort: 'name', status: 'agents' } };
 
 test('a list opens the way it was left: search, sort and filter come from the cookie', () => {
   const st = readPageState(reqWith('', cookieOf(SAVED)), 'dev/projects');
-  assert.strictEqual(st.q, 'varbase');
+  assert.strictEqual(st.q, 'webship');
   assert.strictEqual(st.sort, 'name');
   assert.strictEqual(st.status, 'agents');
 });
@@ -105,7 +105,7 @@ test('a list opens the way it was left: search, sort and filter come from the co
 test('what the request says wins over what was saved, field by field', () => {
   const st = readPageState(reqWith('status=screens', cookieOf(SAVED)), 'dev/projects');
   assert.strictEqual(st.status, 'screens');
-  assert.strictEqual(st.q, 'varbase', 'a field the request did not name keeps what was saved');
+  assert.strictEqual(st.q, 'webship', 'a field the request did not name keeps what was saved');
   const cleared = readPageState(reqWith('q=', cookieOf(SAVED)), 'dev/projects');
   assert.strictEqual(cleared.q, '', 'an empty search typed on purpose is a choice, not an absence');
 });

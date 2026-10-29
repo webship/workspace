@@ -14,7 +14,7 @@ function project({ type = 'drupal', lock = true } = {}) {
   fs.mkdirSync(path.join(dir, '.ddev', 'commands', 'host'), { recursive: true });
   fs.writeFileSync(path.join(dir, '.ddev', 'config.yaml'), `name: x\ntype: ${type}\n`);
   const cmd = (where, name, body, mode = 0o755) => fs.writeFileSync(path.join(dir, '.ddev', 'commands', where, name), body, { mode });
-  cmd('web', 'add-testing-users', '#!/bin/bash\n## Description: Add testing users\n## Usage: add-testing-users\n## Aliases: varbase:add-testing-users\n');
+  cmd('web', 'add-testing-users', '#!/bin/bash\n## Description: Add testing users\n## Usage: add-testing-users\n## Aliases: webship:add-testing-users\n');
   cmd('web', 'helper.sh', 'echo sourced\n', 0o644);
   cmd('web', 'README.txt', 'docs\n');
   cmd('web', 'solrtail.example', '#!/bin/bash\n## Description: example\n');
@@ -29,7 +29,7 @@ function project({ type = 'drupal', lock = true } = {}) {
 test('every service folder is read, helpers and examples are not commands, ProjectTypes is honoured', () => {
   const list = customCommands(project());
   assert.deepStrictEqual(list.map((c) => `${c.service}/${c.name}`), ['web/add-testing-users', 'host/open-ide']);
-  assert.deepStrictEqual(list[0].aliases, ['varbase:add-testing-users']);
+  assert.deepStrictEqual(list[0].aliases, ['webship:add-testing-users']);
   assert.strictEqual(customCommands(project({ type: 'wordpress' })).length, 3);
 });
 
@@ -37,7 +37,7 @@ test('the DDEV menu gets three folding groups: custom commands, composer.json an
   const html = menuGroupsHtml({ key: 'dev', project: 'p', projectPath: project(), running: true });
   for (const h of ['custom commands', 'composer.json scripts', 'package.json scripts']) assert.match(html, new RegExp(`class="uk-nav-header" data-group="${h}"`));
   assert.match(html, /hx-post="\/actions\/ddev-project-command"[^>]*"command":"add-testing-users"/);
-  assert.match(html, /title="Add testing users — ddev add-testing-users — aliases: varbase:add-testing-users">/);
+  assert.match(html, /title="Add testing users — ddev add-testing-users — aliases: webship:add-testing-users">/);
   assert.match(html, /hx-post="\/actions\/composer-script"[^>]*"script":"lint"/);
   assert.match(html, /lint <span class="uk-text-meta">· cs/);
   assert.match(html, /hx-post="\/actions\/node-script"[^>]*"script":"build"/);

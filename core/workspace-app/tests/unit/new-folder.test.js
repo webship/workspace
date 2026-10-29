@@ -49,8 +49,8 @@ test('every workspace type takes new folders except the AI items, where a folder
 });
 
 test('a files workspace makes the folder inside the one being viewed, with readable names and nothing to set up', () => {
-  assert.equal(folders.nameProblem('Varbase Demo Guide 2.0', { files: true }), '');
-  assert.notEqual(folders.nameProblem('Varbase Demo Guide', {}), '');
+  assert.equal(folders.nameProblem('Webship Demo Guide 2.0', { files: true }), '');
+  assert.notEqual(folders.nameProblem('Webship Demo Guide', {}), '');
   for (const bad of ['..', '.x', 'a/b', 'ends.', 'ends ']) assert.notEqual(folders.nameProblem(bad, { files: true }), '', bad);
   const html = folders.filesFolderFormHtml('docs', { label: 'Docs', sub: 'guides', suggestion: 'new-folder-1' });
   assert.match(html, /New folder in Docs \/ guides/);
@@ -81,7 +81,7 @@ test('the Create group, the form route and the action are wired in', () => {
   assert.equal(typeof action['/actions/folder-new'], 'function');
 });
 
-test('the form offers Configure DDEV, and varbase-e2e only where the workspace can test', () => {
+test('the form offers Configure DDEV, and webship-js only where the workspace can test', () => {
   const types = require('../../actions/folders').projectTypes();
   assert.ok(types.includes('php') && types.includes('drupal11'));
   const withTests = folders.folderFormHtml('dev', { projectTypes: types, canTest: true });
@@ -93,37 +93,37 @@ test('the form offers Configure DDEV, and varbase-e2e only where the workspace c
   assert.match(css, /:has\(\.folder-setup input:checked\) \.folder-ddev-type \{ display: block; \}/);
 });
 
-test('the setup line chains DDEV, the varbase-e2e setup and the Upsun link, in that order', () => {
+test('the setup line chains DDEV, the webship-js setup and the Upsun link, in that order', () => {
   const fa = require('../../actions/folders');
   const line = fa.setupLine('dev', 'demo1', { ddev: '1', e2e: '1', project_type: 'php', upsun: 'link', upsun_id: 'abcd1234efgh5' });
   assert.ok(line.startsWith("( cd 'demo1' && ddev 'config' '--auto=false' '--project-name=demo1' '--project-type=php' '--docroot=' )"), line);
   assert.ok(line.indexOf("bash cmd-tools-testing.sh 'demo1'") > line.indexOf("'config'"));
   assert.ok(line.indexOf("bash cmd-tools-upsun.sh 'demo1' --link 'abcd1234efgh5'") > line.indexOf('cmd-tools-testing.sh'));
   assert.match(line, /git rev-parse --git-dir >\/dev\/null 2>&1 \|\| git init -q/);
-  // varbase-e2e alone still configures DDEV first, and an unknown type falls back to php.
+  // webship-js alone still configures DDEV first, and an unknown type falls back to php.
   assert.match(fa.setupLine('dev', 'demo1', { e2e: '1', project_type: 'nope' }), /'--project-type=php'/);
   assert.equal(fa.setupLine('dev', 'demo1', {}), '');
 });
 
 test('the AI tasks go to one Claude Code prompt, and the form is checked before anything is made', () => {
   const fa = require('../../actions/folders');
-  const p = fa.claudePrompt('dev', 'demo1', { jira: '1', jira_project: 'VARBASE', note: 'Try search', upsun: 'create', prompt: 'Then say hello' });
-  assert.match(p, /jira-workitem-manager agent to create one workitem in the Jira project VARBASE/);
+  const p = fa.claudePrompt('dev', 'demo1', { jira: '1', jira_project: 'WEBSHIP', note: 'Try search', upsun: 'create', prompt: 'Then say hello' });
+  assert.match(p, /jira-workitem-manager agent to create one workitem in the Jira project WEBSHIP/);
   assert.match(p, /ask me which organization, region and plan to use, and wait for my answer/);
   assert.ok(p.endsWith('Then say hello'));
   assert.equal(fa.claudePrompt('dev', 'demo1', {}), '');
   assert.match(fa.formProblem('dev', { upsun: 'link', upsun_id: 'BAD ID' }), /Upsun project id/);
   if (fa.jiraProject('dev')) {
-    assert.match(fa.formProblem('dev', { jira: '1', jira_project: 'VARBASE', note: '' }), /what the folder is for/);
+    assert.match(fa.formProblem('dev', { jira: '1', jira_project: 'WEBSHIP', note: '' }), /what the folder is for/);
     assert.match(fa.formProblem('dev', { jira: '1', jira_project: '1x', note: 'x' }), /Jira project key/);
   }
   assert.equal(fa.formProblem('dev', {}), '');
 });
 
 test('the form offers Jira and Upsun only where the workspace has them', () => {
-  const html = folders.folderFormHtml('dev', { jiraProject: 'VARBASE', canUpsun: true });
+  const html = folders.folderFormHtml('dev', { jiraProject: 'WEBSHIP', canUpsun: true });
   assert.match(html, /name="jira" value="1"/);
-  assert.match(html, /name="jira_project" value="VARBASE"/);
+  assert.match(html, /name="jira_project" value="WEBSHIP"/);
   for (const v of ['none', 'link', 'create']) assert.match(html, new RegExp(`name="upsun" value="${v}"`));
   const bare = folders.folderFormHtml('modules', {});
   assert.doesNotMatch(bare, /name="jira"|name="upsun"/);

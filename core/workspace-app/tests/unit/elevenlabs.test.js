@@ -295,10 +295,10 @@ test('speak sends nothing without --confirm, then writes the audio once and refu
   assert.strictEqual(api.posts().length, 1, 'refusing to overwrite must happen before any request');
 });
 
-test('brand names are respelled only in the text sent to the voice: Vardot as Var-dot, Varbase as Var-base, plus settings', { skip: !media }, async () => {
+test('brand names are respelled only in the text sent to the voice: Webship as Var-dot, Webship as Var-base, plus settings', { skip: !media }, async () => {
   const api = await stub();
   const dir = tmp();
-  fs.writeFileSync(path.join(dir, 't.txt'), "This is Varbase 11, Vardot's Drupal distribution, from Acme.");
+  fs.writeFileSync(path.join(dir, 't.txt'), "This is Webship 11, Webship's Drupal distribution, from Acme.");
   const env = { ELEVENLABS_API_KEY: KEY, ELEVENLABS_API_BASE: api.base };
   const args = ['-a', 'speak', '--text-file', path.join(dir, 't.txt'), '--voice', VOICE, '--confirm'];
   const one = await run([...args, '--out', path.join(dir, 'a.mp3')], { env });
@@ -308,7 +308,7 @@ test('brand names are respelled only in the text sent to the voice: Vardot as Va
   const two = await run([...args, '--out', path.join(dir, 'b.mp3')], { env, ws });
   assert.strictEqual(two.code, 0);
   assert.strictEqual(JSON.parse(api.posts()[1].body.toString()).text, "This is Var-base 11, Var-dot's Drupal distribution, from Ack-me.");
-  assert.strictEqual(fs.readFileSync(path.join(dir, 't.txt'), 'utf8'), "This is Varbase 11, Vardot's Drupal distribution, from Acme.", 'the text file keeps the real spelling');
+  assert.strictEqual(fs.readFileSync(path.join(dir, 't.txt'), 'utf8'), "This is Webship 11, Webship's Drupal distribution, from Acme.", 'the text file keeps the real spelling');
   api.close();
 });
 

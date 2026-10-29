@@ -21,13 +21,13 @@ const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'ws-note-'));
 
 test('a note is one file with two fields, written as a titled markdown note', () => {
   const dir = tmp();
-  notes.writeNote(dir, { title: 'Gleap widget spike', body: 'Reproducing VARBASE-1925.' });
+  notes.writeNote(dir, { title: 'Gleap widget spike', body: 'Reproducing WEBSHIP-1925.' });
   // A document, not a config format: an agent that opens it gets something to read.
   assert.equal(
     fs.readFileSync(path.join(dir, notes.NOTE_FILE), 'utf8'),
-    '# Gleap widget spike\n\nReproducing VARBASE-1925.\n',
+    '# Gleap widget spike\n\nReproducing WEBSHIP-1925.\n',
   );
-  assert.deepEqual(notes.readNote(dir), { title: 'Gleap widget spike', body: 'Reproducing VARBASE-1925.' });
+  assert.deepEqual(notes.readNote(dir), { title: 'Gleap widget spike', body: 'Reproducing WEBSHIP-1925.' });
 });
 
 test('either half can stand alone', () => {

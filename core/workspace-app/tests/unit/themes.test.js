@@ -236,7 +236,7 @@ test('every theme states tracking for every heading role', () => {
   }
 });
 
-// Press is the Vardot palette on a different type scale. Its own file says the colours are
+// Press is the Webship palette on a different type scale. Its own file says the colours are
 // identical to default's, and a claim in a comment is worth what a test makes it worth: a colour
 // that drifts apart here is a second palette nobody decided to have.
 test('press is default’s palette — only the type differs', () => {

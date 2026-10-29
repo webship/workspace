@@ -165,7 +165,7 @@ test('the package manager is chosen from what the package says, and says why', (
 });
 
 test('a stale .pnp.cjs is not an installed package', () => {
-  // products/varbase_core: a PnP file left over beside a .yarnrc.yml that now asks for node-modules.
+  // products/webship_core: a PnP file left over beside a .yarnrc.yml that now asks for node-modules.
   // Believing it made every check fail with "Couldn't find the node_modules state file".
   const stale = pkg({ 'lint:yaml': 'eslint --ext .yml .' }, {
     installed: false, extra: { '.pnp.cjs': '// old', '.yarnrc.yml': 'nodeLinker: node-modules\n' },

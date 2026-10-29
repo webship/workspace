@@ -20,7 +20,7 @@ test('the release URL is built from the configured source, not a hardcoded repo'
   assert.match(row, /sourceOf\('tooling', 'host', 'github\.com'\)/);
   assert.match(row, /sourceOf\('tooling', 'repo', ''\)/);
   assert.match(row, /https:\/\/\$\{host\}\/\$\{repo\}\/releases\/tag\/\$\{encodeURIComponent\(v\)\}/);
-  assert.ok(!/github\.com\/Vardot\/workspace\/releases/.test(server), 'the repo must not be hardcoded');
+  assert.ok(!/github\.com\/Webship\/workspace\/releases/.test(server), 'the repo must not be hardcoded');
 });
 
 // To the end of the entry, not a fixed number of characters: the comments around it grow, and a window

@@ -2,7 +2,7 @@
  * The addresses a DDEV project answers at.
  *
  * The bug these were written for: the dashboard read `additional_hostnames` and nothing else, so a
- * project with a Storybook showed no extra domains at all — Varbase writes its Storybook address
+ * project with a Storybook showed no extra domains at all — Webship writes its Storybook address
  * into `additional_fqdns`, which is a different key with different rules. Seven projects in the
  * tree had a Storybook the dashboard never mentioned.
  */

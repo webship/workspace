@@ -17,8 +17,8 @@ const before = (project, verb, workspace) => [workspace, project, verb].filter(B
 
 test('a name that fits is exactly what it always was', () => {
   for (const [p, v, w] of [
-    ['site1', 'composer-update', 'dev'], ['my-drupal-site-rightup', 'custom-say-hello', 'dev'],
-    ['ace_editor', 'yarn-install', 'products'], ['vb11t1', 'tests', 'test'], ['x', 'jira-varbase-1234', 'dev'],
+    ['site1', 'composer-update', 'dev'], ['my-drupal-site-pulse', 'custom-say-hello', 'dev'],
+    ['ace_editor', 'yarn-install', 'products'], ['vb11t1', 'tests', 'test'], ['x', 'jira-webship-1234', 'dev'],
     ['Some Name', 'git-status', 'dev'], ['', 'exec', 'dev'],
   ]) {
     assert.ok(before(p, v, w).length <= 60);
@@ -31,7 +31,7 @@ test('the real collisions are gone: every command on a long project gets its own
     ['entity-definition-update-manager', 'products', ['composer-update-dry-run', 'composer-update-lock', 'composer-update-package', 'composer-update']],
     ['entity_browser_generic_embed_plugins', 'products', ['composer-show', 'composer-show-tree', 'composer-require', 'composer-require-dev']],
     ['paragraphs_asymmetric_translation_widgets', 'products', ['yarn-install', 'yarn-ci', 'npm-install', 'git-status', 'git-stashes']],
-    ['amd-horizonaid-1-0-x-site-template', 'dev', ['custom-update-database', 'custom-update-database-staging']],
+    ['amd-haven-1-0-x-site-template', 'dev', ['custom-update-database', 'custom-update-database-staging']],
   ];
   for (const [p, w, verbs] of cases) {
     const names = verbs.map((v) => screenSessionName(p, v, w));
@@ -47,11 +47,11 @@ test('the real collisions are gone: every command on a long project gets its own
 });
 
 test('a Jira key is still read from the end of a long name, and the workspace is still in front', () => {
-  const n = screenSessionName('paragraphs_asymmetric_translation_widgets', 'jira-varbase-12345', 'products');
+  const n = screenSessionName('paragraphs_asymmetric_translation_widgets', 'jira-webship-12345', 'products');
   assert.ok(n.length <= 60);
   assert.ok(n.startsWith('products--'), n);
   // screens.js reads the key with exactly this pattern; a name cut at 60 lost the end of it.
-  assert.strictEqual((n.match(/(?:^|--)jira-([a-z0-9]+-[0-9]+)$/) || [])[1], 'varbase-12345');
+  assert.strictEqual((n.match(/(?:^|--)jira-([a-z0-9]+-[0-9]+)$/) || [])[1], 'webship-12345');
 });
 
 test('a verb too long to keep whole still gives a short, unique, stable name', () => {

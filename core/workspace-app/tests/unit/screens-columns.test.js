@@ -45,7 +45,7 @@ test('two and three across are offered, and only those', () => {
 });
 
 test('a column is sized by its share, never by the longest session name', () => {
-  // `dev--amd-educare-1-0-x-site-template--build` is one unbroken token, and a track sized to its
+  // `dev--amd-website_starter-1-0-x-site-template--build` is one unbroken token, and a track sized to its
   // content is how a list of them ends up scrolling sideways.
   assert.match(css, /repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(css, /repeat\(3, minmax\(0, 1fr\)\)/);

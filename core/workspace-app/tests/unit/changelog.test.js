@@ -89,20 +89,20 @@ test('a hard-wrapped entry is one entry, not four', () => {
   assert.match(rel.entries[0].text, /runs across three separate lines/);
 });
 
-test('the Varbase shape: a release is grouped by package', () => {
+test('the Webship shape: a release is grouped by package', () => {
   const [rel] = parseChangelog(`# 11.0.0
 ### At a glance
 * The suite reaches its first stable release.
 
-#### Varbase Starter 1.0.1
+#### Website Starter 1.0.1
 - fix: something in the starter
 
-#### Educare 1.0.1
-- feat: something in educare
+#### Website Starter 1.0.1
+- feat: something in website_starter
 `);
   assert.equal(rel.version, '11.0.0');
   assert.deepEqual(rel.entries.map((e) => e.group),
-    ['At a glance', 'Varbase Starter 1.0.1', 'Educare 1.0.1']);
+    ['At a glance', 'Website Starter 1.0.1', 'Website Starter 1.0.1']);
 });
 
 test('markdown is kept, because the reader must not show less than the file', () => {
@@ -128,7 +128,7 @@ test('a heading is a version or it is prose', () => {
   for (const v of ['1.0.3', '11.0.0-rc1', '8.x-1.1', 'Unreleased', 'v2.3']) {
     assert.ok(looksLikeVersion(v), `${v} is a version`);
   }
-  for (const p of ['At a glance', 'Changelog', 'Stability of Varbase 11.0.0', 'Added']) {
+  for (const p of ['At a glance', 'Changelog', 'Stability of Webship 11.0.0', 'Added']) {
     assert.ok(!looksLikeVersion(p), `${p} is not a version`);
   }
 });

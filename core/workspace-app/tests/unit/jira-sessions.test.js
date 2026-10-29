@@ -28,7 +28,7 @@ const KEY = 'UNIT-1';
 const clean = () => { try { fs.unlinkSync(runs.noteFile(SESSION)); } catch (_) { /* gone */ } };
 
 test('a workitem key is read back out of a session name', () => {
-  assert.equal(runs.keyOfSession('dev--blog1--jira-varbase-2199'), 'VARBASE-2199');
+  assert.equal(runs.keyOfSession('dev--blog1--jira-webship-2199'), 'WEBSHIP-2199');
   assert.equal(runs.keyOfSession('dev--blog1--build'), '', 'an ordinary session belongs to no workitem');
 });
 
