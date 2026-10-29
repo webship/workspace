@@ -12,8 +12,8 @@ const path = require('path');
 const { listProjects, workspaceDir } = require('../workspaces');
 const { esc } = require('../html');
 const { jobFragment, runningJobKey, startJob } = require('../jobs');
-const { NAME_RE } = require('../views');
-const { graphStoreDir, GRAPH_FILES } = require('../graphs');
+const { NAME_RE } = require('../validate');
+const { graphStoreDir } = require('../graphs');
 const { vaultDir } = require('../obsidian');
 
 module.exports = {
@@ -27,7 +27,7 @@ module.exports = {
     }
     // Said here rather than left to the script, because the menu is reached from a row that may
     // have had its graph deleted since the page was drawn.
-    if (!fs.existsSync(path.join(graphStoreDir(workspace, projectName), GRAPH_FILES.json))) {
+    if (!fs.existsSync(path.join(graphStoreDir(workspace, projectName), 'graph.json'))) {
       return send('<div class="msg error">No graph to convert yet — build the graph first, from the same menu.</div>', 409);
     }
     // One writer per vault: the build writes to a sibling directory and swaps it in, so two runs

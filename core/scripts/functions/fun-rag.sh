@@ -153,8 +153,8 @@ function rag_command() {
   local project uri token target_ws target_project;
 
   # An index named as <workspace>/<project> resolves to the instance THAT project is bound to,
-  # which is the whole point of binding: `-a search demos/educare` must reach the server holding
-  # educare's vectors, not the default one.
+  # which is the whole point of binding: `-a search demos/website_starter` must reach the server holding
+  # website_starter's vectors, not the default one.
   case "${RAG_NAME}" in
     */*) target_ws="${RAG_NAME%%/*}"; target_project="${RAG_NAME##*/}" ;;
     *)   target_ws=""; target_project="" ;;
@@ -194,7 +194,7 @@ function rag_command() {
       ;;
     bind)
       if [ -z "${target_ws}" ] ; then
-        echo "Name the project as <workspace>/<project>: bash cmd-tools-rag.sh demos/educare -a bind -m <server>";
+        echo "Name the project as <workspace>/<project>: bash cmd-tools-rag.sh demos/website_starter -a bind -m <server>";
         return 1 ;
       fi
       if [ "${MILVUS_PROJECT}" == '_settings_' ] ; then

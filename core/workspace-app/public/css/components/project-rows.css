@@ -3,11 +3,399 @@
 .project-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap:0.375rem;
 }
 
 /* Two-step remove arming */
-.arm-step.arm { background: var(--danger-armed) !important; color: var(--surface-raised) !important; }
+.arm-step.arm { background: var(--danger-armed) !important; color: var(--text-inverse) !important; }
 
 /* HTMX request-in-flight indicator */
 .htmx-request { opacity: .6; pointer-events: none; }
+
+/* A job toast polls itself every second, so this faded it once a second for the whole run — the
+   toast looked half-transparent and its buttons went dead between polls. A poll is not a click
+   the user is waiting on, so it gets no in-flight styling. Same for the stack it lives in and the
+   flash toasts, which must stay solid and clickable while anything else is loading. */
+.job-toast.htmx-request,
+.job-toasts.htmx-request,
+.flash-toast.htmx-request {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The checks a project declares, listed inside the Tests menu.
+ *
+ * The pair is the point: the canonical name on the left is what you type (`--only js`), the code on
+ * the right is the script the package itself declared for it. Seeing them together is how you know
+ * the mapping is right, so they are laid out as two columns rather than run together as a sentence. */
+.checks-sub .checks-alias {
+  display: inline-block;
+  min-width: 4.5rem;
+  font-weight: 600;
+}
+
+.checks-sub .checks-script {
+  font-family: var(--font-code);
+  font-size: 0.72rem;
+  background: transparent;
+  color: var(--text-subtle);
+}
+
+/* A check that cannot run is listed, not hidden — a gap you can see is a gap you can fix. It is not
+   a link, so it takes the row's padding from here rather than from UIKit's anchor rule. */
+.checks-sub .checks-alias-off {
+  display: block;
+  padding: 0.25rem 0;
+  opacity: .8;
+}
+
+/* A button drawn as its icon alone, or as its label alone.
+   Both halves stay in the markup — a screen reader still reads the name and the title still answers a
+   hover — so this is presentation only.
+
+   A row button's label is a bare TEXT NODE, not a span, so no selector can reach it: `SCREENS` sits
+   between the icon and the badge with nothing around it. Collapsing the button's font-size collapses
+   the text node and nothing else, and the children that are real elements get their size back. It does
+   NOT take the text out of the accessibility tree, which is the whole reason to do it this way rather
+   than wrapping ten buttons' labels in spans and hoping the eleventh gets one too. */
+.row-show-icon .uk-button { font-size: 0; gap: 0; }
+.row-show-icon .uk-button > *,
+.row-show-icon .uk-badge { font-size: 0.8125rem; }
+.row-show-icon .uk-badge { font-size: 0.625rem; }
+.row-show-text [uk-icon],
+.row-show-text .uk-icon,
+.row-show-text .tabler-icon { display: none; }
+/* The picker on a button card, beside the row it sits in. */
+.row-show { max-width: 8rem; }
+
+/* The state of a project, all of it at the right-hand end of its name line: what is WORKING on it,
+   then what DDEV says about it. One glance answers both — "is anything happening here, and is the
+   site up" — where splitting them to opposite ends made the eye cross the name to collect one. */
+.project-title-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+/* An agent that has stopped to ASK something raises its hand, on the row, with nothing opened: the
+   whole point of a detached session is that nobody is watching it, so a question nobody sees is a run
+   that is not happening. It pulses rather than just colouring — an amber label among labels is easy
+   to scan past on a page of twenty rows. */
+.screens-hand.is-waiting,
+.agent-live[title*="ask you"],
+.screens-waiting { animation: hand-wave 1.6s ease-in-out infinite; }
+
+@keyframes hand-wave {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .55; }
+}
+
+.screens-hand.is-waiting { margin-left: .25rem; }
+
+/* Somebody who does not want the movement keeps the colour, which carries the same message. */
+@media (prefers-reduced-motion: reduce) {
+  .screens-hand.is-waiting,
+  .agent-live[title*="ask you"],
+  .screens-waiting { animation: none; }
+}
+
+/* The agent badge gets its own colour, and not the green the DDEV state uses: two green pills side by
+   side say one thing twice, and they answer different questions — green is "the site is up", brand
+   blue is "something is working on it". Two classes, so it wins over uk-label-success without
+   !important. Amber still takes over when it has stopped to ask you something: that is the one state
+   worth shouting, and it must not be drowned out by a colour it shares with the ordinary case. */
+.project-title-status .agent-live {
+  background: var(--brand-primary);
+  color: var(--text-inverse);
+}
+.project-title-status .agent-live.uk-label-warning {
+  background: var(--warning);
+  color: var(--brand-dark);       /* the same pair base.css gives every warning label */
+}
+
+/* The robot takes the label's own colour and sits on its text baseline: an icon that keeps its
+   stroke colour would be brand blue on a green label, and one aligned to the box rides high. */
+.agent-live .tabler-icon {
+  color: currentColor;
+  vertical-align: -0.15em;
+  margin-right: .15rem;
+}
+
+/* The note on a row: its icon is quiet until there is something to read, and the folder's own name
+   sits beside a custom one in code type — it is what `cd` and every command here take, so it is data
+   rather than a label. */
+/* The card's bottom-right cluster: the workitem an agent here is working, then the pen for the note.
+   It is the LAST item of the last row of controls, pushed right — not a floating corner. A floating one
+   has to be paid for with reserved padding on every action row, and that padding pushed `More` onto a
+   line of its own while the row still had room for it. Pushed right it costs nothing until the row is
+   genuinely full, and then it wraps like every other control. */
+.project-note-corner { margin-left: auto; display: inline-flex; align-items: center; gap: .5rem; }
+.project-jira-keys:empty { display: none; }
+.project-jira-keys { display: inline-flex; align-items: center; gap: .4rem; }
+
+/* Quiet until there is something to read is the TOKEN's job, not an opacity: fading a colour that was
+   checked for contrast is how every contrast failure here started, and tests/unit/accessibility.test.js
+   refuses it. --text-subtle is the checked quiet ink; the brand blue says a note is waiting. */
+.project-note-corner .project-note { padding: .15rem .3rem; line-height: 1; color: var(--text-subtle); }
+.project-row:hover .project-note-corner .project-note,
+.project-note-corner .project-note:focus-visible { color: var(--link); }
+.project-note-corner .project-note.has-note { color: var(--link); }
+.project-real-name { font-size: .7rem; color: var(--text-subtle); }
+.project-title-row .project-title[title] { cursor: help; }
+
+/* The workitem an agent here is working: small text, because it is a reference rather than a state —
+   the states live on the name line, this says what the running agent is FOR. It opens the workitem in
+   Jira, so it is link-coloured and underlined on hover like every other outbound reference here.
+   Prefixed with the cluster because UIKit is linked AFTER this stylesheet: a single class of ours loses
+   the tie, which is what left this rendering as grey meta text rather than as the link it is. */
+.project-note-corner .jira-key {
+  font-size: .75rem; font-family: var(--font-code); font-weight: 600;
+  color: var(--link); text-decoration: none; white-space: nowrap;
+}
+.project-note-corner .jira-key:hover,
+.project-note-corner .jira-key:focus-visible { text-decoration: underline; }
+
+/* ---------- Browsing a folder of files (docs, designs) ---------- */
+
+/* Where you are in the tree, and the way back out. Above the controls, because it says what the list
+   IS: searching inside one folder and searching the workspace are different questions. */
+.folder-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-bottom: .5rem; font-size: .85rem; }
+.folder-crumbs .crumb { color: var(--link); text-decoration: none; }
+.folder-crumbs .crumb:hover { text-decoration: underline; }
+.folder-crumbs .crumb.is-here { color: var(--text-default); font-weight: 600; }
+.folder-crumbs .crumb-sep { color: var(--text-subtle); }
+
+.fx-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.fx-summary { margin: .15rem 0 0; }
+
+/* THE LIST.
+ *
+ * A folder is read down its left edge — you are looking for a name — so the names start at one x and
+ * the size and date line up in columns of their own. Thirty cards of different heights, each with its
+ * name wrapped around a row of buttons, is the shape this had and the reason nothing could be found in
+ * it. One card around the whole list, hairlines between the rows.
+ *
+ * It is ONE grid cell when the page itself is in a grid (`grid-column: 1 / -1`): a list wrapper that
+ * became a cell is how the screens list ended up squashed into the right-hand half. */
+.file-list {
+  grid-column: 1 / -1;
+  border: 1px solid var(--line);
+  border-radius: .6rem;
+  overflow: hidden;
+  background: var(--surface);
+}
+.file-list .fx-row + .fx-row { border-top: 1px solid var(--line); }
+
+.fx-row {
+  /* border-box, or the declared min-height is the CONTENT height and every row is 16px taller than
+     it says — the same trap that grew the terminal windows by 18px on every drag. */
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr) 6rem 12.5rem auto;
+  align-items: center;
+  gap: .75rem;
+  padding: .35rem .85rem;
+  min-height: 2.6rem;
+  color: inherit;
+  text-decoration: none;
+}
+.file-list, .file-list * { box-sizing: border-box; }
+.fx-row:hover { background: var(--surface-muted); }
+.fx-icon { display: inline-flex; color: var(--text-subtle); }
+.fx-folder .fx-icon { color: var(--brand-primary); }
+.fx-name {
+  font-weight: 600; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fx-folder .fx-name { color: var(--link); }
+.fx-formats { margin-left: .5rem; font-weight: 400; font-size: .68rem; color: var(--text-subtle); letter-spacing: .03em; }
+.fx-size, .fx-date { font-size: .78rem; color: var(--text-subtle); white-space: nowrap; }
+.fx-size { text-align: right; }
+.fx-actions { display: inline-flex; align-items: center; gap: .3rem; justify-self: end; }
+.fx-go { color: var(--text-subtle); transition: transform .12s ease; display: inline-flex; }
+.fx-folder:hover .fx-go { transform: translateX(3px); }
+.fx-folder:hover .fx-name { text-decoration: underline; }
+
+/* One control per format, and it is the one that OPENS the file. Everything else — the other formats,
+   a new tab, and the delete — is behind the row's own menu, so a folder of thirty files reads as
+   thirty names rather than as a wall of buttons. */
+.file-list .fx-open { padding: 0 .6rem; height: 26px; line-height: 24px; font-size: .75rem; }
+.file-list .fx-more { padding: 0 .25rem; color: var(--text-subtle); line-height: 1; }
+.file-list .fx-more:hover { color: var(--link); }
+
+/* A destructive item inside the menu keeps the danger ink, not a danger BUTTON: it is one line in a
+   list of lines, and it still goes through the confirm dialog before anything is deleted. */
+.file-list .uk-dropdown-nav .uk-text-danger { color: var(--danger); }
+
+/* THE GRID, one to six across. A folder of screenshots is a contact sheet, and a list of names is the
+   wrong shape for it — so the same rows become cards, with the columns stacked. */
+html[data-files-view^="grid"] .file-list {
+  display: grid;
+  gap: .6rem;
+  border: 0;
+  background: none;
+  overflow: visible;
+}
+html[data-files-view="grid-1"] .file-list { grid-template-columns: 1fr; }
+html[data-files-view="grid-2"] .file-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+html[data-files-view="grid-3"] .file-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+html[data-files-view="grid-4"] .file-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+html[data-files-view="grid-5"] .file-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+html[data-files-view="grid-6"] .file-list { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+html[data-files-view^="grid"] .file-list .fx-row {
+  grid-template-columns: 1.6rem minmax(0, 1fr);
+  grid-template-areas: "thumb thumb" "icon name" "meta meta" "actions actions";
+  align-content: start;
+  gap: .35rem .6rem;
+  border: 1px solid var(--line);
+  border-radius: .6rem;
+  background: var(--surface);
+  padding: .7rem .8rem;
+}
+html[data-files-view^="grid"] .file-list .fx-row + .fx-row { border-top: 1px solid var(--line); }
+html[data-files-view^="grid"] .fx-icon { grid-area: icon; }
+html[data-files-view^="grid"] .fx-name { grid-area: name; white-space: normal; overflow-wrap: anywhere; }
+html[data-files-view^="grid"] .fx-size { grid-area: meta; text-align: left; }
+/* Two facts on one line in a card: the date is the second half of the same meta line, not a column. */
+html[data-files-view^="grid"] .fx-date { grid-area: meta; justify-self: end; }
+html[data-files-view^="grid"] .fx-actions { grid-area: actions; justify-self: start; margin-top: .2rem; }
+/* The chevron is what tells a LIST row that it opens something. A card is already one target with a
+   heading in link ink, so on a card it is a mark on a line of its own saying nothing. */
+html[data-files-view^="grid"] .fx-folder .fx-actions { display: none; }
+/* A card is as tall as what is in it. Stretched to match its neighbours, a folder card beside a row
+   of thumbnails becomes a tall empty box: the row's height is set by the picture and a folder has
+   nothing to fill it with. */
+html[data-files-view^="grid"] .file-list { align-items: start; }
+
+/* The picture itself, in the grid views only: in a list a row is one line of text, and a thumbnail
+   there would set the row height for every file whether or not it has one. A fixed 4:3 box so a
+   column of cards does not jump about as portrait and landscape shots load. */
+.fx-thumb { display: none; }
+html[data-files-view^="grid"] .fx-thumb {
+  display: block; grid-area: thumb; margin-bottom: .2rem;
+  aspect-ratio: 4 / 3; overflow: hidden; border-radius: .4rem; background: var(--surface-muted);
+}
+html[data-files-view^="grid"] .fx-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* With the picture there, the kind icon beside the name is saying it twice. */
+html[data-files-view^="grid"] .fx-row.has-thumb .fx-icon { display: none; }
+html[data-files-view^="grid"] .fx-row.has-thumb { grid-template-areas: "thumb thumb" "name name" "meta meta" "actions actions"; }
+
+/* A file's kind icon in the old card rows (the ai-* workspaces still draw those). */
+.file-row .file-name { display: inline-flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+.file-row .file-name > .tabler-icon { color: var(--text-subtle); flex: none; }
+
+/* A text file read in the modal. Monospace, wrapped, and bounded by the modal's own height so the
+   page behind it does not grow a second scrollbar. */
+.review-text {
+  max-height: 60vh; overflow: auto; margin: 0;
+  background: var(--surface-muted); border-radius: .5rem; padding: .75rem 1rem;
+  font-family: var(--font-code); font-size: .8rem; line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+/* A recording's poster carries a play mark, so a still is never mistaken for a picture. */
+html[data-files-view^="grid"] .fx-thumb.is-video { position: relative; }
+html[data-files-view^="grid"] .fx-thumb .fx-play {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--text-inverse);
+  background: color-mix(in srgb, var(--brand-dark) 30%, transparent);
+}
+
+/* A screen in the row's menu: its name on the left, what it is doing on the right.
+   UIkit is linked after this stylesheet and paints .uk-label as a 21px UPPERCASE block, which in a
+   menu row shouts louder than the name you are reading — so the state is out-specified down to a
+   quiet pill the size of the line it sits on. */
+.uk-dropdown-nav a .screen-item-state { float: right; display: inline-flex; gap: .3rem; align-items: center; }
+.uk-dropdown-nav a .screen-item-state .uk-label {
+  height: 17px; display: inline-flex; align-items: center; border-radius: 500px;
+  padding: 0 7px; font-size: 10px; line-height: 1; text-transform: none; letter-spacing: .01em;
+}
+
+/* One snapshot per line: its name, what it is, and what can be done with it. The name leads because
+   that is what you are looking for; the engine and version sit with the date and size, because they
+   are the fact that decides whether Restore is even offered. */
+.snap-list .snap-line { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .15rem 0; }
+.snap-list .snap-name { font-weight: 600; display: inline-flex; align-items: center; gap: .4rem; }
+.snap-list .snap-meta { margin-left: auto; }
+.snap-list .snap-actions { display: inline-flex; align-items: center; gap: .35rem; }
+.snap-new { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.snap-new .uk-input { max-width: 22rem; }
+
+/* One add-on per line: its name, then what can be done with it, with the reason underneath where
+   there is one. The reason is the point of a recommendation, so it gets its own line rather than
+   being squeezed into the name's. */
+.addon-list .addon-line { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.addon-list .addon-name { font-weight: 600; }
+.addon-list .addon-actions { margin-left: auto; display: inline-flex; gap: .35rem; }
+.addon-list .addon-why { margin: .1rem 0 .2rem; }
+.addon-search { display: flex; gap: .5rem; align-items: center; }
+.addon-search .uk-input { max-width: 26rem; }
+.addon-pager { display: flex; gap: .75rem; align-items: center; }
+
+/* One dump per line, laid out like the snapshots list beside it: the file, then when and how big,
+   then the one thing that can be done with it. */
+.import-list .import-line { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.import-list .import-name { font-weight: 600; word-break: break-all; }
+.import-list .import-meta { margin-left: auto; }
+
+/* A mailbox: subject on the left, when and how big on the right, who it was for underneath. Unread
+   leads with a dot rather than bold type — a list where half the rows are bold is a list nobody can
+   scan, and the dot is the same mark Mailpit itself uses. */
+.mail-list .mail-line { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+.mail-list .mail-subject { font-weight: 600; color: var(--text-default); text-decoration: none; }
+.mail-list .mail-subject:hover { color: var(--link); text-decoration: underline; }
+.mail-list .mail-dot { color: var(--link); font-size: .7rem; vertical-align: middle; }
+.mail-list .mail-meta { margin-left: auto; white-space: nowrap; }
+.mail-list .mail-who { margin: .05rem 0 .1rem; overflow-wrap: anywhere; }
+.mail-list .mail-drop { color: var(--text-subtle); padding: 0 .25rem; line-height: 1; }
+.mail-list .mail-drop:hover { color: var(--danger); }
+.mail-tools { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; margin: .35rem 0 .6rem; }
+.mail-search { display: flex; gap: .4rem; align-items: center; }
+.mail-search .uk-input { max-width: 20rem; }
+.mail-bulk { display: inline-flex; gap: .4rem; align-items: center; margin-left: auto; }
+
+/* A recording or sound with no picture of its own: the kind icon on a brand tint, so a grid of them has
+   cards all the way down. */
+html[data-files-view^="grid"] .fx-thumb.is-default {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--brand-primary); background: linear-gradient(135deg, var(--subtle-brand), var(--subtle-accent));
+}
+html[data-files-view^="grid"] .fx-row:has(.fx-thumb.is-default) .fx-icon { display: none; }
+html[data-files-view^="grid"] .fx-row:has(.fx-thumb.is-default) { grid-template-areas: "thumb thumb" "name name" "meta meta" "actions actions"; }
+
+/* A recording's or sound's picture plays it, like its Play button. */
+.fx-thumb[hx-get] { cursor: pointer; }
+html[data-files-view^="grid"] .fx-thumb[hx-get]:hover, html[data-files-view^="grid"] .fx-thumb[hx-get]:focus-visible { filter: brightness(0.92); outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+
+/* In a narrow card the size, length and date no longer share a line: they stacked over each other. */
+html[data-files-view="grid-4"] .file-list .fx-row,
+html[data-files-view="grid-5"] .file-list .fx-row,
+html[data-files-view="grid-6"] .file-list .fx-row { grid-template-areas: "thumb thumb" "icon name" "size size" "date date" "actions actions"; }
+html[data-files-view="grid-4"] .file-list .fx-row.has-thumb,
+html[data-files-view="grid-5"] .file-list .fx-row.has-thumb,
+html[data-files-view="grid-6"] .file-list .fx-row.has-thumb,
+html[data-files-view="grid-4"] .file-list .fx-row:has(.fx-thumb.is-default),
+html[data-files-view="grid-5"] .file-list .fx-row:has(.fx-thumb.is-default),
+html[data-files-view="grid-6"] .file-list .fx-row:has(.fx-thumb.is-default) { grid-template-areas: "thumb thumb" "name name" "size size" "date date" "actions actions"; }
+html[data-files-view="grid-4"] .fx-size, html[data-files-view="grid-5"] .fx-size, html[data-files-view="grid-6"] .fx-size { grid-area: size; }
+html[data-files-view="grid-4"] .fx-date, html[data-files-view="grid-5"] .fx-date, html[data-files-view="grid-6"] .fx-date { grid-area: date; justify-self: start; }
+html[data-files-view^="grid"] .fx-actions { flex-wrap: wrap; }
+html[data-files-view^="grid"] .fx-actions .uk-button { white-space: nowrap; }
+
+/* The state of a DDEV project: a dot drawn by CSS (an emoji is drawn by each machine's own font) and, when it
+   is stopped, a quiet outline. Stopped used to take the same brand blue as "agent working" and was the loudest
+   chip on its card; Running is green and the agent keeps the blue. */
+.state-chip { display: inline-flex; align-items: center; gap: 0.375rem; }
+.state-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: currentColor; flex: none; }
+.uk-label.state-chip-off {
+  background: transparent;
+  color: var(--text-subtle);
+  border: 1px solid var(--line);
+}
+/* An attached session is somebody looking at it, not something to act on: amber is kept for "waiting for you". */
+.uk-label.screen-state-attached {
+  background: transparent;
+  color: var(--text-default);
+  border: 1px solid var(--line);
+}

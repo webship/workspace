@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+ARGPARSE_DESCRIPTION="Install every front-end theme listed in workspace.themes.settings.yml into the template project."
+
 echo "*-----------------------------------------------------------*";
 echo "| Install all Front-End themes                              |";
 echo "*-----------------------------------------------------------*";

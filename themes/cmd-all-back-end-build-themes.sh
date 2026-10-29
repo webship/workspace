@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+ARGPARSE_DESCRIPTION="Build every back-end admin theme listed in workspace.themes.settings.yml."
+
 echo "*-----------------------------------------------------------*";
 echo "| Build all Back-End admin themes                           |";
 echo "*-----------------------------------------------------------*";

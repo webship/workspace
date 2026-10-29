@@ -1,10 +1,18 @@
 doc:
   name: recipes
 
-# What this folder's items ARE, which decides what the dashboard offers on each row:
-#   sites     — real projects with a DDEV environment: build, start, back up, graph, index
-#   code      — repositories checked out to work on, without a site of their own
-#   files     — markdown documents, edited in place
-#   ai-items  — agents, skills and prompts, installable into ~/.claude
-#   media     — recordings and images
+# What this folder's projects are, and which actions their rows offer:
+# sites | code | files | media | ai-items — see core/workspace-app/WORKSPACES.md.
 type: code
+
+# What the COMPOSER menu may do here: full | manifest (the default). These folders hold package
+# clones, not sites: it only adds to composer.json without running an install (require/remove
+# --no-update, and validate). No install, update or scripts.
+composer: manifest
+
+# What the assistant is called on THIS workspace's page, and what its composer says when empty.
+# `default` in either means "whatever settings.yml says" — the global value, so a rename there
+# still reaches this page. Set a value here to override it for this workspace alone.
+assistant:
+  name: default
+  placeholder: default

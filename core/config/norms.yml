@@ -1,0 +1,50 @@
+# The rules every generated plan and every generated change must hold to.
+#
+# SPDD (martinfowler.com/articles/structured-prompt-driven) splits governance in two: NORMS are
+# the standards a change should follow, SAFEGUARDS are the boundaries it must not cross. This file
+# is that governance made machine-readable — until now it lived in CLAUDE.md, in AGENTS.md, and in
+# the heads of the people who had been told.
+#
+# cmd-spdd.sh injects both lists verbatim into every analysis and every REASONS Canvas, so a plan
+# is written against them rather than reviewed against them afterwards.
+#
+# Edit this file rather than repeating a rule inside a prompt: a rule stated in two places drifts.
+
+norms:
+  - Every command is a `cmd-*.sh` in a workspace folder, argument-parsed by an `args/arg-*.sh`
+    and implemented by a `functions/fun-*.sh`. Nothing is implemented inside the cmd script.
+  - Scripts locate the workspace from their own path through `core/scripts/bootstrap.sh`. No
+    installer, no exported variables, nothing written to a shell profile.
+  - Settings come from `core/config/settings.yml` and `workspace.<name>.settings.yml`, read with
+    `parse_yaml`. An argument that was actually given always beats a setting.
+  - Comments explain WHY, and state what a thing does not cover. A comment that repeats the code
+    earns nothing.
+  - Dashboard work is Node + HTMX in `core/workspace-app`, no framework, no build step.
+  - A new workspace is a settings file plus a folder — never a code change in the dashboard.
+  - Documentation that would go stale is not written; the command's `--help` and the workspace
+    `AGENTS.md` are the documentation.
+
+safeguards:
+  - DDEV only. `ddev composer`, `ddev drush`, `ddev delete -y -O`, `ddev export-db`. Never raw
+    composer, drush or mysql on the host.
+  - Never write a `$databases` block into `settings.php` — DDEV's `settings.ddev.php` owns it.
+  - Never run `git commit` locally, and never push to a branch. Fork or issue-fork, then a
+    reviewed MR/PR. One issue, one PR.
+  - Never create an issue, MR or PR without asking first; never close, reopen or delete one.
+  - Never release, tag or publish without explicit approval. Released tags are immutable.
+  - The file `core/config/settings.yml` holds real credentials, so it is never synced, never committed,
+    never echoed into a job log or a command line.
+  - CI jobs keep allow_failure set to false. Never mask a failing check.
+  - Destructive actions confirm first, and say exactly what will be lost.
+  - A generated change is proposed, never merged. The human reviews and merges.
+
+# What a canvas must state before it is allowed to be executable. The canvas command refuses to
+# write a section it has no content for, rather than filling it with a plausible sentence.
+canvas_required_sections:
+  - Requirements
+  - Entities
+  - Approach
+  - Structure
+  - Operations
+  - Norms
+  - Safeguards

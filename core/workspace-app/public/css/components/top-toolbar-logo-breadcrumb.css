@@ -1,0 +1,107 @@
+/* ---------- Top toolbar (logo) ---------- */
+
+/* `.uk-navbar-container.toolbar`, not `.toolbar`: UIKit paints this element with
+   `.uk-navbar-container:not(.uk-navbar-transparent)`, which is (0,2,0) — a lone
+   `.toolbar` at (0,1,0) never won, and the toolbar kept UIKit's own near-white in
+   both halves. It went unseen in the light half, where near-white and white differ
+   by almost nothing; in the dark half it was a white bar over a dark page. */
+.uk-navbar-container.toolbar {
+  background: var(--surface-card);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.toolbar-logo {
+  gap:0.5rem;
+  font-weight: 700;
+  color: var(--ink) !important;
+  font-size:1.0625rem;
+  text-transform: none;
+}
+
+.toolbar-logo img { border-radius:0.5rem; }
+
+.toolbar-logo span { font-size:1.25rem; }
+
+/* Compact page heading under the toolbar */
+.page-heading { gap:0.75rem; margin-bottom:1.125rem; }
+
+.page-heading-icon {
+  width:2.875rem;
+  height:2.875rem;
+  min-width:2.875rem;
+  border-radius:0.75rem;
+  background: var(--subtle-brand);
+  color: var(--brand-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The page title takes the H2 role rather than a size of its own: a dashboard heading over a
+   project table should not be the landing page's 62px h1, but it should still come from the
+   scale. A hardcoded 1.625rem here is how a heading stops tracking the design. */
+.page-heading h1 { font: var(--type-h2); letter-spacing: var(--tracking-h2); }
+
+/* The light/dark switch in the toolbar.
+ *
+ * These rules used to live in the default theme's file, which meant the only theme that styled
+ * the toggle was the default one: on Ember or Slate the button fell back to UIKit's own button
+ * chrome and the sun/moon swap still worked but looked borrowed. A theme is a palette — the
+ * control belongs to the toolbar, so it lives here and reads tokens like everything else. */
+.theme-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink);
+  padding: 0 0.375rem;
+}
+
+.theme-toggle:hover { color: var(--link); }
+
+/* One icon at a time: the sun is the way OUT of dark, so it only shows there. */
+.theme-icon-sun { display: none; }
+html.dark .theme-icon-sun { display: inline; }
+html.dark .theme-icon-moon { display: none; }
+
+/* The Webship lockup.
+ *
+ * One rule, in the component that owns the toolbar: the height was set in two other components at
+ * two different values (2rem and 1.375rem), so which one applied depended on the order the sheet
+ * was assembled in. `object-fit: contain` is the guard — UIKit's reset puts `object-fit: cover` on
+ * every img, which crops rather than scales the moment the box and the artwork disagree by a
+ * fraction, and a cropped logo is a brand error rather than a layout one. `width: auto` keeps the
+ * ratio the artwork's own. */
+.brand-logo {
+  display: block;
+  height: 2.25rem;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+/* UIKit gives .uk-logo a system font stack and its own grey. The lockup beside it is the brand's,
+   so the word next to it is set in the brand face and the theme's ink. */
+.toolbar-logo, .toolbar-logo:hover { font-family: var(--font-primary); color: var(--text-default); }
+
+/* The release, beside the product name. Quiet by default — it is reference, not navigation —
+ * and explicitly marked when it cannot be told, because a missing version must read as
+ * missing rather than as nothing at all. */
+/* The exposure banner. Deliberately the danger colour and deliberately not dismissible: it
+ * appears only when the machine has stopped being loopback-only, and the dashboard has no
+ * login to protect what is then reachable. */
+.exposure-banner {
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+  border: 1px solid var(--danger);
+  border-radius: 10px;
+  padding: .6rem .85rem;
+  margin: 0 0 1rem;
+  font-size: .8125rem;
+  line-height: 1.45;
+}
+
+.exposure-banner strong { display: block; margin-bottom: .25rem; color: var(--danger); }
+.exposure-banner code { background: transparent; }

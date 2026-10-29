@@ -1,21 +1,25 @@
 doc:
   name: graphs
 
-# Knowledge graphs of a project's code, one directory per project:
-#   graphs/<workspace>/<project>/
-# They live HERE rather than inside the project on purpose: a graph is tens of megabytes, its
+# Knowledge graphs built by cmd-tools-graphify.sh, one directory per project:
+#   graphs/<workspace>/<project>/{graph.json,GRAPH_REPORT.md,graph.html}
+# They live HERE rather than inside the project on purpose: graphify writes tens of MB, Leiden
 # clustering is not bit-stable so every rebuild diffs in full, and half the projects worth mapping
-# are repositories we ship — one must not gain a graph directory because somebody mapped it.
+# are git repositories we ship — a recipe like products/website_starter must not gain a graphify-out/ or a
+# CLAUDE.md block just because someone mapped it.
 presentation:
   icon: tabler:hierarchy-2
   subtitle: Project Knowledge Graphs
   noun: graph
   kind: files
 
-# What this folder's items ARE, which decides what the dashboard offers on each row:
-#   sites     — real projects with a DDEV environment: build, start, back up, graph, index
-#   code      — repositories checked out to work on, without a site of their own
-#   files     — markdown documents, edited in place
-#   ai-items  — agents, skills and prompts, installable into ~/.claude
-#   media     — recordings and images
+# What this folder's projects are, and which actions their rows offer:
+# sites | code | files | media | ai-items — see core/workspace-app/WORKSPACES.md.
 type: code
+
+# What the assistant is called on THIS workspace's page, and what its composer says when empty.
+# `default` in either means "whatever settings.yml says" — the global value, so a rename there
+# still reaches this page. Set a value here to override it for this workspace alone.
+assistant:
+  name: default
+  placeholder: default

@@ -145,7 +145,7 @@ def chunk_file(path: str, root: str, chunk_lines: int, overlap: int) -> List[dic
             "start_line": start + 1,
             "end_line": min(start + chunk_lines, len(lines)),
             # The path is part of the indexed text on purpose: "where is the
-            # Educare hero styled" should match a file called hero.twig even when
+            # Website Starter hero styled" should match a file called hero.twig even when
             # the word never appears inside it.
             "text": rel + "\n" + text,
         })

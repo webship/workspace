@@ -1,0 +1,74 @@
+/* Settings → Build order.
+ *
+ * The navigation editor's `.nav-entries` is a WRAPPING row of pills, which is right for a rail group of
+ * six short labels and wrong for this: forty builders whose names run to sixty characters, where the
+ * question is only ever "what is above what". So the list keeps the navigation's entry chrome — the
+ * handle, the drag behaviour, the classes ui.js already knows — and overrides the layout to a single
+ * column of full-width rows, numbered, so a position can be read rather than counted.
+ *
+ * Every rule here is written `.nav-entries.build-order-list`, TWO classes, rather than the one it
+ * needs: components with no entry in COMPONENT_ORDER are concatenated alphabetically, and
+ * `build-order` sorts before `commands-center` — which owns `.nav-entries { display: flex }`. At equal
+ * specificity the later file wins, so a single class here would lose the tie and this list would
+ * silently render as a wrapping row of forty pills. Out-specify rather than depend on file order.
+ */
+
+.nav-entries.build-order-list {
+  display: block;                      /* not the flex row .nav-entries is */
+  counter-reset: build-order;
+  margin: 0.75rem 0 1rem;
+  max-width: 46rem;
+}
+
+.nav-entries.build-order-list .build-order-row {
+  counter-increment: build-order;
+  width: 100%;
+  border-radius: 0.6rem;               /* a row, not a pill */
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.3rem;
+  gap: 0.6rem;
+}
+
+/* The position, as the list's own numbering rather than an <ol> marker: the marker sits outside the
+   row and does not move with a drag, so it would go on counting past an item that had been moved. */
+.nav-entries.build-order-list .build-order-row::before {
+  content: counter(build-order);
+  flex: 0 0 1.6rem;
+  text-align: right;
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+}
+
+/* The label takes the room, so the file name and the controls stay at the right edge in one column
+   down the list rather than wherever each name happens to end. */
+.nav-entries.build-order-list .nav-entry-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.build-order-file {
+  font-size: 0.7rem;
+  color: var(--text-subtle);
+  white-space: nowrap;
+}
+
+.build-order-where {
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+/* Below the phone breakpoint the file name is the first thing to go: it is the identity of the row for
+   somebody editing YAML, and the label is the identity for everyone else. */
+@media (max-width: 47.9375em) {
+  .build-order-file,
+  .build-order-where { display: none; }
+}
+
+.nav-entries.build-order-list .uk-sortable-drag .build-order-row,
+.nav-entries.build-order-list .build-order-row.uk-sortable-drag {
+  box-shadow: 0 6px 18px rgb(0 0 0 / 18%);
+}

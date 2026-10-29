@@ -27,7 +27,52 @@
 /nbproject/private/
 # Node dependencies (workspace-app)
 node_modules/
+
+# graphify knowledge graphs are generated per project, are large (tens of MB),
+# and Leiden clustering is not bit-stable, so they diff fully on every rebuild.
+graphify-out/
+
+# The dev-ai-agents checkout cmd-tools-ai-items.sh keeps for syncing.
+ai-agents/dev-ai-agents/
+ai-skills/dev-ai-agents/
+ai-prompts/dev-ai-agents/
+specs/dev-ai-agents/
+
+# The commands workspace keeps a mirror of the tooling repository to compare
+# against. Tens of MB, and it is a checkout, not source.
+commands/workspace-repo/
+
+# Playwright MCP writes page snapshots into the working directory when the
+# dashboard is driven from a browser session. Session artefacts, not source.
 .playwright-mcp/
 
-# The local mirror of the tooling repository, fetched by commands/cmd-tools-commands.sh.
-commands/workspace-repo/
+# The Web IDE keeps its user data, settings and installed extensions here, so they
+# survive an image rebuild. Machine state, never committed.
+.code-server/
+
+# The release a machine is on. Written by install.sh, sync-tooling.sh --pull and update.sh;
+# it describes THIS machine, so it is never committed.
+core/workspace-app/.app-version
+
+# The assistant's conversations: what was typed into the chat, on this machine. Runtime state like
+# actions.log, and it is a chat log — never committed, never synced.
+core/workspace-app/.chats/
+core/workspace-app/.memory/
+core/workspace-app/.voice-cache/
+core/workspace-app/.auth/
+
+# The dashboard runtime state: screen logs and the text a voice is made from.
+.screens/
+
+# The images workspace's pictures are the user's, not tooling; only its docs are committed.
+/images/*
+!/images/README.md
+!/images/AGENTS.md
+!/images/CLAUDE.md
+
+# Thumbnails the images gallery makes, kept to be fast the next time.
+core/workspace-app/.cache/
+
+# The dashboard's mounts for the second storage, written by core/scripts/storage.sh --mounts from
+# this machine's storage.second. Machine paths, never committed.
+core/workspace-app/.ddev/docker-compose.second-storage.yaml

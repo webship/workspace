@@ -6,11 +6,6 @@
    absolute positioning resolves against that padding box — anchored to the wrapper the grip drew
    7px to the LEFT of the card it belongs to, out in the gutter. The card is the containing block
    (.workspace-card is position: relative), so `left` here means the card's own edge. */
-/* The grid child carries UIKit's gutter as padding, so a handle positioned against it lands
-   OUTSIDE the card by exactly that gutter. This inner box is the card's own footprint, and the
-   handle and the backups badge position against it instead. */
-.ws-card-inner { height: 100%; }
-
 .ws-card-handle {
   position: absolute;
   top: 0.5rem;
@@ -30,41 +25,61 @@
   touch-action: none;
 }
 
+.workspace-card { position: relative; }
+
 .ws-card-wrap:hover .ws-card-handle,
 .ws-card-handle:focus-visible { opacity: 1; }
-
 .ws-card-handle:hover { color: var(--brand-primary); }
-
 .ws-card-handle:active { cursor: grabbing; }
 
-/* No floating clone. UIKit appends its drag element to <body> and positions it in document
-   coordinates — inside this grid that lands it about 1400px below the pointer, measured: the card
-   visibly shot out of the workspaces box while the placeholder stayed put. The placeholder IS
-   correctly positioned, so the drag reads as a gap moving between the cards, which is enough to
-   see where the card will land and cannot escape the container. */
+/* The UIkit sortables still in use (the button layouts) show no floating clone: UIkit positions it in document
+   coordinates, which inside a scrolled container lands it far from the pointer. */
 .uk-sortable-drag { display: none !important; }
 
-/* The gap has to look deliberate: an empty white slot reads as a broken card, so it is tinted
-   and outlined in brand. UIKit gives the placeholder no box of its own, hence the ::after. */
-/* UIKit hides its placeholder with `opacity: 0`, which takes the ::after slot with it — so the
-   gap rendered as blank white and the drop target was invisible. */
-#workspace-cards .uk-sortable-placeholder { position: relative; opacity: 1 !important; }
+/* Dragging with sortable.js: the item follows the pointer as a lifted copy, and its own place stays open as a
+   tinted, outlined slot that the others slide around. */
+.ws-list[data-sortable] > .ws-item { cursor: grab; }
+[data-sortable] :is(button, input, select, textarea, .ws-card-tool, .ws-backups, .ws-move) { cursor: auto; }
+[data-sortable] .workspace-card { -webkit-user-drag: none; }
+body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: none; }
 
-#workspace-cards .uk-sortable-placeholder::after {
+.sort-placeholder { position: relative; }
+.sort-placeholder > * { visibility: hidden; }
+.sort-placeholder::after {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: 0 0 0 var(--sort-inset-left, 0);
   border: 2px dashed var(--brand-primary);
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   background: var(--subtle-brand);
-  opacity: .75;
+  opacity: .8;
 }
 
-#workspace-cards .uk-sortable-placeholder .workspace-card,
-#workspace-cards .uk-sortable-placeholder .ws-backups { visibility: hidden; }
+.sort-ghost {
+  position: fixed;
+  z-index: 10000;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+  border-radius: 0.5rem;
+  transition: transform 160ms cubic-bezier(.2,.8,.2,1), box-shadow 160ms ease;
+  will-change: translate, transform;
+}
+.sort-ghost.ws-card-wrap { display: flex; flex-direction: column; }
+.sort-ghost > .workspace-card { flex: 1; }
+.sort-ghost.ws-item { background: var(--surface-card); border: 1px solid var(--line); }
+.sort-ghost.ws-item.is-lifted { transform: scale(1.01); }
+.sort-ghost .ws-order { visibility: hidden; }
+.sort-ghost.is-lifted { transform: scale(1.03) rotate(-1.2deg); box-shadow: 0 1.25rem 2.5rem -0.5rem rgb(0 0 0 / .28); }
+.sort-ghost.is-landing { transition: translate 200ms cubic-bezier(.2,.8,.2,1), transform 200ms ease, box-shadow 200ms ease; }
+.sort-ghost .ws-card-handle { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .sort-ghost, .sort-ghost.is-landing { transition: none; }
+  .sort-ghost.is-lifted { transform: none; }
+}
 
-/* While a drag is in progress the cards are targets, not links. */
-#workspace-cards.uk-sortable-empty .workspace-card,
-body.ws-dragging #workspace-cards .workspace-card { cursor: grabbing; }
-
-html.dark .ws-card-handle { background: var(--subtle-brand); color: var(--text-subtle); }
+/* Touch: no hover to reveal the handle, so it stays visible. */
+@media (hover: none) {
+  .ws-card-handle { opacity: .7; }
+}

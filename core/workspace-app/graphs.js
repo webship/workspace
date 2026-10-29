@@ -1,86 +1,104 @@
 /**
- * The knowledge graph a project can have, and the menu that builds and reads it.
+ * Where a project's knowledge graph lives, and what is in it.
  *
- * A graph is built by `cmd-tools-graphify.sh` in the project's own workspace and stored OUTSIDE
- * the project, in `graphs/<workspace>/<project>/`. That is deliberate: a graph runs to tens of
- * megabytes, its clustering is not bit-stable so every rebuild diffs in full, and many of the
- * projects worth mapping are repositories we ship — none of them should gain a graph directory
- * because somebody mapped it.
- *
- * Both halves read this file: `views.js` builds the row's menu from it and `server.js` serves what
- * the menu points at, so the menu cannot offer a file the server will not find.
+ * The graph is kept in the graphs workspace rather than inside the project — it is tens of MB, it
+ * re-diffs entirely on every rebuild, and half the projects worth mapping are repositories we ship.
+ * Everything here reads that store; building one is `cmd-tools-graphify.sh`.
  */
 
 const fs = require('fs');
 const path = require('path');
 
 const { ROOT } = require('./workspaces');
-const { esc } = require('./html');
 
-// Where a project's graph lives. Never inside the project.
+// Where a project's graph lives: the graphs workspace, never inside the project. graphify only
+// writes <project>/graphify-out, so cmd-tools-graphify.sh moves the result here — a graph is tens
+// of MB, it re-diffs entirely on every rebuild, and half the projects worth mapping are
+// repositories we ship.
 function graphStoreDir(wsKey, project) {
   return path.join(ROOT, 'graphs', wsKey, project);
 }
 
-// The three files a finished build leaves, and what each one is for.
-const GRAPH_FILES = {
-  html: 'graph.html',        // the picture, drawn by the clustering step
-  report: 'GRAPH_REPORT.md', // key concepts and questions worth asking
-  json: 'graph.json',        // what `graphify query` actually reads
-};
-
-// A row is re-rendered on every job poll — once a second while anything runs — and each render
-// asks about three files per project. Memoised for two seconds so a list of twenty projects does
-// not become sixty stat calls a second.
-let _cache = new Map();
-let _cacheAt = 0;
+// Graph lookups per project row, memoised for 2s: projectRowsHtml is
+// re-rendered on every job poll.
+let _graphCache = new Map();
+let _graphCacheAt = 0;
 function hasGraph(wsKey, project, file) {
   const now = Date.now();
-  if (now - _cacheAt > 2000) { _cache = new Map(); _cacheAt = now; }
+  if (now - _graphCacheAt > 2000) { _graphCache = new Map(); _graphCacheAt = now; }
   const k = `${wsKey}/${project}/${file}`;
-  if (!_cache.has(k)) _cache.set(k, fs.existsSync(path.join(graphStoreDir(wsKey, project), file)));
-  return _cache.get(k);
+  if (!_graphCache.has(k)) _graphCache.set(k, fs.existsSync(path.join(graphStoreDir(wsKey, project), file)));
+  return _graphCache.get(k);
 }
 
-/**
- * The Graph menu for one project row.
- *
- * `vals` is the row's own hx-vals builder, so every action posts the workspace and project the row
- * is for. `busy` is true while a build for this project is running: graphify has no cross-process
- * lock, and two runs against one output directory race on the manifest and the graph itself.
- */
-function graphMenuHtml(key, project, vals, busy) {
-  const { obsidianMenuItems } = require('./obsidian');
-  const built = hasGraph(key, project, GRAPH_FILES.json);
-  const items = [];
+// Node and edge counts, memoised on the graph file's identity so paging a long list re-reads
+// nothing. Keyed on mtime+size: a rebuild changes both.
+const _graphCounts = new Map();
+function graphCounts(file, stat) {
+  if (!stat) return { nodes: null, links: null };
+  const key = `${file}:${stat.mtimeMs}:${stat.size}`;
+  if (_graphCounts.has(key)) return _graphCounts.get(key);
+  let counts = { nodes: null, links: null };
+  try {
+    const d = JSON.parse(fs.readFileSync(file, 'utf8'));
+    counts = { nodes: (d.nodes || []).length, links: (d.links || d.edges || []).length };
+  } catch (_) { /* unreadable or half-written */ }
+  _graphCounts.set(key, counts);
+  return counts;
+}
 
-  items.push(`<li><a href hx-post="/actions/graphify" ${vals()} class="${busy ? 'uk-disabled' : ''}"><span uk-icon="icon: play; ratio: .7"></span> ${built ? 'Rebuild the graph' : 'Build the graph'}${busy ? ' (running…)' : ''}</a></li>`);
-
-  if (built) {
-    items.push('<li class="uk-nav-divider"></li>');
-    if (hasGraph(key, project, GRAPH_FILES.html)) {
-      // Opened in a tab rather than the dialog: the viewer is an interactive canvas you pan and
-      // zoom, and it wants the whole window. It also loads vis-network from a CDN, so it is the
-      // one thing here that needs the internet.
-      items.push(`<li><a href hx-get="/graph/${esc(key)}/${esc(project)}/frame" hx-target="#editor-modal-body" hx-swap="innerHTML" title="Loads vis-network from unpkg.com, so it needs internet"><span uk-icon="icon: image; ratio: .7"></span> Open the graph</a></li>`);
-    }
-    if (hasGraph(key, project, GRAPH_FILES.report)) {
-      items.push(`<li><a href hx-get="/graph/${esc(key)}/${esc(project)}/report" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: file-text; ratio: .7"></span> Read the report</a></li>`);
-    }
-    items.push(`<li><a href="/graph/${esc(key)}/${esc(project)}/download" title="The whole graph as a .tar.gz, to hand to another workspace"><span uk-icon="icon: download; ratio: .7"></span> Download to share</a></li>`);
-    items.push(`<li><a href hx-post="/actions/graph-mcp-command" ${vals()}><span uk-icon="icon: link; ratio: .7"></span> Connect over MCP…</a></li>`);
-    items.push(obsidianMenuItems(key, project, vals, busy));
-    items.push('<li class="uk-nav-divider"></li>');
-    items.push(`<li><a href class="uk-text-danger arm-step" data-armed="0" hx-post="/actions/graph-remove" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete the graph</a></li>`);
+// Every graph in the store, as <workspace>/<project> rows. Reads the two levels the build writes
+// and nothing else, so a stray file in graphs/ cannot become a row.
+function listGraphs() {
+  const base = path.join(ROOT, 'graphs');
+  const rows = [];
+  let workspaces = [];
+  try {
+    workspaces = fs.readdirSync(base, { withFileTypes: true }).filter((e) => e.isDirectory());
+  } catch (_) {
+    return rows;
   }
-
-  return `<div class="uk-inline act-menu">
-      <button class="uk-button uk-button-${built ? 'secondary' : 'default'} uk-button-small" type="button" title="A queryable map of this project's code"><span uk-icon="icon: git-fork; ratio: .7"></span> Graph <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-      <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">
-        <li class="uk-nav-header">${esc(project)}${built ? '' : ' — not mapped yet'}</li>
-        ${items.join('')}
-      </ul></div>
-    </div>`;
+  for (const ws of workspaces) {
+    let projects = [];
+    try {
+      projects = fs.readdirSync(path.join(base, ws.name), { withFileTypes: true }).filter((e) => e.isDirectory());
+    } catch (_) { continue; }
+    for (const pr of projects) {
+      const dir = path.join(base, ws.name, pr.name);
+      const stat = (f) => { try { return fs.statSync(path.join(dir, f)); } catch (_) { return null; } };
+      const json = stat('graph.json');
+      // The counts come from graph.json itself — .graphify_build.json carries only the excludes,
+      // so the numbers were rendering empty. Parsing is cheap enough (20ms for a 2,430-node graph)
+      // and the result is memoised on the file's mtime and size, so a re-render costs nothing.
+      const nodes_links = graphCounts(path.join(dir, 'graph.json'), json);
+      const nodes = nodes_links.nodes;
+      const links = nodes_links.links;
+      let size = 0;
+      const walk = (d) => {
+        let entries = [];
+        try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch (_) { return; }
+        for (const e of entries) {
+          const full = path.join(d, e.name);
+          if (e.isDirectory()) walk(full);
+          else { try { size += fs.statSync(full).size; } catch (_) { /* gone */ } }
+        }
+      };
+      walk(dir);
+      rows.push({
+        workspace: ws.name,
+        project: pr.name,
+        name: `${ws.name}/${pr.name}`,
+        mtime: json ? json.mtime : new Date(0),
+        size,
+        nodes,
+        links,
+        hasHtml: !!stat('graph.html'),
+        hasReport: !!stat('GRAPH_REPORT.md'),
+        projectExists: fs.existsSync(path.join(ROOT, ws.name, pr.name)),
+      });
+    }
+  }
+  return rows;
 }
 
-module.exports = { graphStoreDir, hasGraph, graphMenuHtml, GRAPH_FILES };
+module.exports = { graphStoreDir, hasGraph, graphCounts, listGraphs };

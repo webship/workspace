@@ -1,0 +1,17 @@
+/* ---------- The assistant, as a deep-chat component ---------- */
+/*
+ * deep-chat renders its own transcript and input inside a shadow root, so it is styled through the
+ * properties ui.js sets and through the few parts that live outside it: the intro template, the
+ * reply wrapper, and the command picker that ui.js moves into deep-chat's input toolbar.
+ */
+
+
+
+/* The host element carries the brand face and the theme's own tokens INTO the shadow root:
+ * custom properties inherit across a shadow boundary, so every var() ui.js hands the component
+ * resolves against the page's theme and follows the light/dark toggle without a second config.
+ * Set on the host and not only inside, because deep-chat's own parts inherit from here. */
+deep-chat {
+  font-family: var(--font-primary);
+  color: var(--text-default);
+}

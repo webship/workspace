@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+ARGPARSE_DESCRIPTION="Install every back-end admin theme listed in workspace.themes.settings.yml into the template project."
+
 echo "*-----------------------------------------------------------*";
 echo "| Install all Back-End admin themes                         |";
 echo "*-----------------------------------------------------------*";

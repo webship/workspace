@@ -1,0 +1,175 @@
+# Drupal — core/config/theme.drupal.yml
+#
+# A style in the shape of Drupal.org. The values were read off drupal.org itself — its --drupal-blue,
+# --drupal-navy, --drupal-dark-blue and the font-size ramp, resolved in the browser.
+#
+# Its signatures: the #009cde Drupal blue, the #12285f navy that Drupal uses for body text rather
+# than a grey or a black, #006aa9 for links, and a type ramp on a modular scale (2.027 / 1.802 /
+# 1.602 / 1.424 / 1.266rem) rather than round numbers. Noto Sans is not vendored; the stack falls
+# back.
+#
+# The dark half is not drupal.org's — the site has no dark mode to read — so it is built from the
+# same palette, with the navy taken to a surface and the blue lifted to carry on it.
+
+# The TYPE has a finding in it. Drupal.org sets its HEADINGS in ZTGatha and its BODY in Noto Sans —
+# two families, which is exactly the split this workspace already has as --font-secondary and
+# --font-primary. Measured: h1 40px/1.1 at 700 in ZTGatha, h2 30.4px at 300, h3 24px at 400, and
+# body 16px on 1.385 in NotoSans.
+#
+# The sizes below are drupal.org's own --font-size-h* ramp rather than those rendered numbers: the
+# ramp is the design system, and a hero h1 on one page is not. ZTGatha is not vendored here, so
+# headings fall back to Noto Sans.
+
+name: Drupal
+
+tokens:
+  brand-primary: "#009cde"
+  brand-secondary: "#12285f"
+  brand-accent: "#ccedf9"
+  brand-dark: "#12285f"
+  brand-light: "#f8f9fc"
+  subtle-light: "#f8f9fc"
+  subtle-brand: "#ccedf9"
+  subtle-accent: "#efeafc"
+  text-default: "#12285f"
+  text-subtle: "#55607a"
+  text-inverse: "#ffffff"
+  text-light: "#f8f9fc"
+  text-brand: "var(--brand-primary)"
+  text-accent: "var(--brand-accent)"
+  font-primary: "NotoSans, \"Noto Sans\", system-ui, -apple-system, \"Segoe UI\", Helvetica, Arial, sans-serif"
+  font-secondary: "ZTGatha, NotoSans, \"Noto Sans\", Georgia, serif"
+  font-code: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+  weight-regular: 400
+  weight-semibold: 600
+  leading-heading: 1.4
+  leading-display: 1.3
+  leading-body: 1.385
+  tracking-wide: 0.0625em
+  size-h1: 2.027rem
+  size-h2: 1.802rem
+  size-h3: 1.602rem
+  size-h4: 1.424rem
+  size-h5: 1.266rem
+  size-h6: 1.125rem
+  size-body: 1rem
+  size-small: 0.889rem
+  type-h1: "var(--weight-bold, 700) var(--size-h1)/1.1 var(--font-secondary)"
+  type-h2: "var(--weight-regular) var(--size-h2)/1.35 var(--font-secondary)"
+  type-h3: "var(--weight-regular) var(--size-h3)/1.2 var(--font-secondary)"
+  type-h4: "var(--weight-semibold) var(--size-h4)/1.3 var(--font-primary)"
+  type-h5: "var(--weight-semibold) var(--size-h5)/1.35 var(--font-primary)"
+  type-h6: "var(--weight-semibold) var(--size-h6)/1 var(--font-primary)"
+  type-body: "var(--weight-regular) var(--size-body)/var(--leading-body) var(--font-primary)"
+  type-body-sm: "var(--weight-regular) var(--size-small)/1.45 var(--font-primary)"
+  type-label: "var(--weight-semibold) var(--size-body)/1 var(--font-primary)"
+  type-caption: "var(--weight-regular) var(--size-small)/1.35 var(--font-primary)"
+  type-mono: "var(--weight-regular) var(--size-body)/1.5 var(--font-code)"
+  type-mono-sm: "var(--weight-regular) var(--size-small)/1.4 var(--font-code)"
+  tracking-h1: normal
+  tracking-h2: normal
+  tracking-h3: normal
+  tracking-h4: normal
+  tracking-h5: normal
+  tracking-h6: "var(--tracking-wide)"
+  surface: "#ffffff"
+  surface-card: "#ffffff"
+  surface-muted: "#f8f9fc"
+  surface-input: "#ffffff"
+  text-subtle-2: "#2b3c6f"
+  line: "#dbe0ea"
+  line-strong: "#a2acbe"
+  link: "#006aa9"
+  brand-pressed: "#006aa9"
+  brand-2-pressed: "#0b1c45"
+  focus-ring: "#ccbaf466"
+  ok: "#3fa02f"
+  ok-soft: "#e1f6d5"
+  pcard-tool-label: 0rem
+  ok-ink: "#2a6e1f"
+  danger: "#dc2323"
+  danger-soft: "#fbe6e6"
+  danger-ink: "#b01c1c"
+  danger-armed: "#c61f1f"
+  danger-text: "#dc2323"
+  warning: "#e5a300"
+  warning-soft: "#fdf3d8"
+  warning-ink: "#8a6300"
+  info: "#009cde"
+  info-soft: "#ccedf9"
+  info-ink: "#006aa9"
+  success: "#146c43"
+  success-soft: "#d0e2d9"
+  success-ink: "#0f5132"
+  busy-soft: "var(--subtle-brand)"
+  busy-ink: "var(--brand-secondary)"
+  accent-soft: "#efeafc"
+  accent-ink: "#5b3fa8"
+  chip-bg: "#009cde"
+  chip-ink: "#ffffff"
+  shadow-card: "0 4px 16px rgba(35, 41, 70, .06)"
+  shadow-card-hover: "0 12px 28px rgba(43, 68, 124, .16)"
+  shadow-float: "0 1.5rem 3rem rgba(43, 68, 124, .28)"
+  shadow-toast: "0 14px 34px rgba(35, 41, 70, .26)"
+  toast-ring: "rgba(255, 255, 255, .9)"
+  code-bg: "#12285f"
+  code-ink: "#ccedf9"
+  terminal-ink: "#c9f7d4"
+  media-bg: "#000000"
+  paper: "#ffffff"
+  checker-a: "#dcdcdc"
+  checker-b: "#d8d8d8"
+  checker-bg: "#f4f4f4"
+  overlay: "#12285fcc"
+  brand-1: "var(--brand-primary)"
+  brand-2: "var(--brand-secondary)"
+  brand-3: "var(--brand-accent)"
+  brand-grad: "linear-gradient(135deg, var(--brand-primary), var(--brand-secondary))"
+  ink: "var(--brand-secondary)"
+
+# The dark half.
+dark:
+  surface: "#0b1c45"
+  surface-card: "#12285f"
+  surface-muted: "#1c3573"
+  surface-input: "#0b1c45"
+  text-default: "#eaf6fd"
+  text-subtle-2: "#ccedf9"
+  text-subtle: "#a2acbe"
+  line: "#2b3c6f"
+  line-strong: "#44578f"
+  link: "#6fd0f7"
+  brand-pressed: "#57c4f2"
+  brand-2-pressed: "#1b2b4d"
+  focus-ring: "#ccbaf466"
+  ok-soft: "#12401a"
+  ok-ink: "#a8e6b8"
+  danger-soft: "#4a1414"
+  danger-ink: "#ffb3b3"
+  danger-armed: "#e0466b"
+  danger-text: "#ff8fa3"
+  warning-soft: "#3f3008"
+  warning-ink: "#f4d58a"
+  info-soft: "#123a63"
+  info-ink: "#9fe2fb"
+  success-soft: "#10291d"
+  success-ink: "#a3d9bd"
+  busy-soft: "#1a2440"
+  busy-ink: "#b9c9ff"
+  accent-soft: "#2a2360"
+  accent-ink: "#d6c9f7"
+  chip-bg: "#009cde"
+  chip-ink: "#0b1c45"
+  subtle-light: "#12285f"
+  subtle-brand: "#123a63"
+  subtle-accent: "#2a2360"
+  shadow-card: "0 4px 16px rgba(0, 0, 0, .35)"
+  shadow-card-hover: "0 12px 28px rgba(0, 0, 0, .50)"
+  shadow-float: "0 1.5rem 3rem rgba(0, 0, 0, .55)"
+  shadow-toast: "0 14px 34px rgba(0, 0, 0, .50)"
+  toast-ring: "rgba(0, 0, 0, .5)"
+  checker-a: "#2a3550"
+  checker-b: "#26314a"
+  checker-bg: "#131b2c"
+  overlay: "#0b1c45e5"
+  ink: "var(--text-default)"

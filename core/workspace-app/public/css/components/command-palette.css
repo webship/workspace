@@ -1,0 +1,61 @@
+/* The command palette and the shortcut sheet (public/palette.js). A quiet layer: one panel, a hairline,
+   the brand blue only on the selected row. */
+#palette {
+  position: fixed; inset: 0; z-index: 1100;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding-top: 12vh;
+  background: rgba(10, 18, 36, 0.45);
+  overscroll-behavior: contain;
+}
+#palette[hidden] { display: none; }
+#palette .palette-dialog {
+  width: min(40rem, 92vw);
+  max-height: 70vh;
+  display: flex; flex-direction: column;
+  background: var(--surface-card);
+  color: var(--text-default);
+  border: 1px solid var(--line);
+  border-radius: 0.875rem;
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+}
+#palette .palette-input {
+  border: 0; border-bottom: 1px solid var(--line); border-radius: 0;
+  padding: 1rem 1.125rem; font-size: 1.0625rem;
+  background: transparent; color: inherit; outline: none;
+}
+#palette .palette-input:focus-visible { box-shadow: inset 0 -2px 0 var(--brand-primary); }
+#palette .palette-list { list-style: none; margin: 0; padding: 0.375rem; overflow-y: auto; overscroll-behavior: contain; }
+#palette .palette-group {
+  padding: 0.625rem 0.75rem 0.25rem; font-size: 0.8125rem; font-weight: 600; color: var(--text-subtle);
+}
+#palette .palette-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+  padding: 0.5rem 0.75rem; border-radius: 0.5rem; cursor: pointer;
+}
+#palette .palette-row[aria-selected="true"] { background: var(--subtle-brand); box-shadow: inset 0.1875rem 0 0 var(--brand-primary); }
+html.dark #palette .palette-row[aria-selected="true"] { background: rgba(0, 116, 224, 0.22); }
+#palette .palette-label { font-weight: 500; }
+#palette .palette-hint { color: var(--text-subtle); font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#palette .palette-shortcut { cursor: default; display: grid; grid-template-columns: 13rem 1fr; align-items: baseline; gap: 0.75rem; }
+#palette .palette-shortcut kbd { justify-self: start; }
+#palette .palette-empty { padding: 1rem 0.75rem; color: var(--text-subtle); }
+#palette .palette-foot {
+  display: flex; gap: 1.25rem; padding: 0.5rem 1rem; border-top: 1px solid var(--line);
+  font-size: 0.8125rem; color: var(--text-subtle);
+}
+#palette kbd {
+  display: inline-block; margin-right: 0.25rem; padding: 0 0.375rem;
+  border: 1px solid var(--line); border-radius: 0.3125rem; border-bottom-width: 2px;
+  font: 0.75rem/1.4 var(--font-code, monospace); color: var(--text-default); background: var(--surface-card);
+}
+@media (prefers-reduced-motion: reduce) { #palette * { transition: none !important; animation: none !important; } }
+
+/* The way in, in the toolbar: a search icon and the key, quiet until hovered. */
+.palette-trigger { display: inline-flex; align-items: center; gap: 0.5rem; background: none; border: 0; cursor: pointer; color: var(--text-subtle); }
+.palette-trigger:hover { color: var(--text-default); }
+.palette-trigger:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; border-radius: 0.375rem; }
+.palette-trigger .palette-trigger-key {
+  padding: 0 0.375rem; border: 1px solid var(--line); border-radius: 0.3125rem;
+  font: 0.75rem/1.4 var(--font-code, monospace); color: inherit;
+}

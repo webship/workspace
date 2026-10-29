@@ -79,7 +79,7 @@ function graphify_scope_excludes() {
 #
 # graphify only ever writes `<path>/graphify-out`, and that is the wrong place for it here: it is
 # tens of MB, Leiden clustering is not bit-stable so every rebuild diffs in full, and half the
-# projects worth mapping are git repositories we ship — `products/educare` must not gain a
+# projects worth mapping are git repositories we ship — `products/website_starter` must not gain a
 # graphify-out/ because someone mapped it. So the build writes there and the result is MOVED into
 # the store; the project is left exactly as it was found, and every read passes --graph.
 function graphify_store_dir() {
@@ -112,21 +112,21 @@ function graphify_git_exclude() {
 #
 # graphify has no YAML parser in its dispatch table, so on a Drupal tree it sees NONE of what
 # actually defines behaviour: recipe.yml, config/*.yml, *.info.yml, *.services.yml, *.routing.yml,
-# *.permissions.yml, *.libraries.yml. On a recipe that is the whole project — `products/educare`
+# *.permissions.yml, *.libraries.yml. On a recipe that is the whole project — `products/website_starter`
 # is 0 PHP files and 699 YAML ones, so a code-only graph of it is empty and every question about
 # it answers "nothing found", which reads as "no such thing" rather than "not mapped".
 #
 # It DOES parse JSON (composer.json alone contributes ~286 nodes), so each YAML file is mirrored
 # as `<file>.json` under graphify-yaml/ and that tree is included in the extract. The name has no
 # leading dot on purpose: graphify skips hidden directories, so a `.graphify-yaml/` mirror was
-# written and then parsed by nothing — the educare recipe's graph came back as 80 nodes of
+# written and then parsed by nothing — the website_starter recipe's graph came back as 80 nodes of
 # composer.json while its 699 YAML files went unseen. The mirrors are
 # derived, never edited: the directory is rewritten on every run and kept out of git through
 # .git/info/exclude, which is local and leaves the project's own .gitignore alone.
 # $2 is the scope's exclude list. graphify anchors --exclude at the SCAN ROOT, so
 # `--exclude web/core` cannot match `graphify-yaml/web/core/...`: without pruning the same paths
 # here, a contrib-scope run printed "Core, vendor and libraries are excluded" while mirroring 3,256
-# core YAML files into the graph. Measured on dev/amd-educare-1-0-x-site-template-manager.
+# core YAML files into the graph. Measured on dev/amd-website_starter-1-0-x-site-template-manager.
 function graphify_yaml_sidecars() {
   # Three statements, not one: in a single `local a=$1 b=${a}/x`, bash evaluates the right-hand
   # sides before `a` is visible, so `out` became "/graphify-yaml" — an absolute path at the

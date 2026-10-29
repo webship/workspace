@@ -1,12 +1,107 @@
 /**
- * Structure, on top of UIKit (vendor/uikit.min.css).
+ * The base layer: the brand typefaces, the resets, and the rules that belong to no single
+ * component. No colour is named here — every value comes from the theme's tokens, which is what
+ * lets a theme change the whole dashboard without touching a component.
+ */
+/* Small overrides on top of UIKit (vendor/uikit.min.css) — layout and
+ * components come from UIKit; this file adds the brand palette, chat
+ * bubbles, working indicators, and the floating assistant. */
+
+/* The brand typefaces, from the brand tokens's typeface collection: Primary
+   Figtree (Regular, SemiBold, Italic), Secondary DM Serif Text (Regular, Italic),
+   and JetBrains Mono for code. All three were NAMED in the tokens below but never
+   loaded — no @font-face existed anywhere — so every page has been rendering in
+   Helvetica and Georgia while claiming to be on brand.
+   Vendored as woff2 (latin, 148KB for all seven faces), because everything here is
+   served locally: a Google Fonts link would not survive an offline DDEV box and is
+   blocked outright by the artifact CSP. OFL-1.1, licences beside the files.
+   font-display: swap — text must be readable before the font arrives. */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/vendor/fonts/figtree-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Figtree';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/vendor/fonts/figtree-latin-400-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/vendor/fonts/figtree-latin-600-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Figtree';
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/vendor/fonts/figtree-latin-600-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Serif Text';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/vendor/fonts/dm-serif-text-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Serif Text';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/vendor/fonts/dm-serif-text-latin-400-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/vendor/fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2');
+}
+/* The terminal's face: Ubuntu Mono, the one the Ubuntu terminal draws with. One variable file serves
+   regular and bold. Ubuntu Font Licence 1.0, beside the file. */
+@font-face {
+  font-family: 'Ubuntu Mono';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/vendor/fonts/ubuntu-mono-latin-wght-normal.woff2') format('woff2');
+}
+
+/* UIKit, fed the Webship tokens.
  *
- * No colour is named here: every one comes from the theme as a token, which is what makes a theme
- * able to change the look without touching a component. Layout and components come from UIKit;
- * this adds what the dashboard needs on top.
+ * UIKit's own stylesheet (vendor/uikit.min.css) is untouched — these rules
+ * re-point its colours at the theme's tokens, once, so that the dark half is a
+ * different set of VALUES rather than a second set of RULES. Every declaration
+ * below reads a token; none of them names a colour. That is the whole contract:
+ * a component that says var(--surface-card) is right in any theme and in either
+ * half, and one that says a colour outright is right in exactly one.
+ *
+ * The text ladder is Webship's, darkest to quietest: --text-default for headings,
+ * --text-subtle-2 for body and controls, --text-subtle for meta. UIKit's own greys
+ * were lighter than the design system asks for, and lighter than WCAG AA wants on a
+ * tinted surface.
  */
 
-body.uk-background-muted { background: var(--surface) !important; color: var(--ink); }
+/* The ROOT carries the page colour too, not just the body.
+ *
+ * <html> was left at the browser's white while <body> went dark, so every gap showed it: the strip
+ * under a page whose content is shorter than the window, and the overscroll bounce at the top and
+ * bottom of a long one. A white flash on a dark dashboard, from the one element nobody had painted.
+ *
+ * min-height on both, so a short page still fills the window rather than ending in a band of
+ * whatever is behind it — /products with two rows, /videos with none. */
+html { background: var(--surface); min-height: 100%; }
+html.dark { color-scheme: dark; }
+body { min-height: 100vh; }
+body.uk-background-muted { background: var(--surface) !important; color: var(--text-subtle-2); }
 
 /* Gradient headline + brand buttons */
 .hero h1 {
@@ -20,13 +115,146 @@ body.uk-background-muted { background: var(--surface) !important; color: var(--i
 .uk-button-primary {
   background: var(--brand-grad);
   border: none;
+  color: var(--text-inverse);
 }
 
 .uk-button-primary:hover { filter: brightness(1.08); background: var(--brand-grad); }
 
-.uk-label-success { background: var(--ok); }
-.uk-badge { background: var(--brand-1); color: var(--surface-raised); }
-.uk-button-danger { background: var(--danger); }
+.uk-button-default {
+  background: var(--surface-card);
+  color: var(--text-subtle-2);
+  border-color: var(--line-strong);
+}
 
-.uk-card-default { border: 1px solid var(--line); box-shadow: 0 4px 16px rgba(35, 41, 70, .06); }
-.uk-card-hover:hover { box-shadow: 0 12px 28px rgba(109, 91, 208, .18); border-color: var(--line-strong); }
+.uk-button-default:hover,
+.uk-button-default:focus { background: var(--surface-muted); color: var(--text-default); }
+
+.uk-button-secondary { background: var(--brand-secondary); color: var(--text-inverse); }
+
+.uk-button-danger { background: var(--danger); }
+.uk-badge, .uk-label { background: var(--chip-bg); color: var(--chip-ink); }
+
+/* Status, from the brand tokens's Alert Colors: the solid colour, its subtle tint, and the ink that reads on the
+   tint. UIKit's own green, orange and pink were none of those, and white on its green label was 2.6:1. */
+.uk-label-success { background: var(--ok); color: var(--text-inverse); }
+/* Dark text on the yellow in both halves: --warning-ink lightens after dark, for the dark tint, not for this. */
+.uk-label-warning { background: var(--warning); color: var(--brand-dark); }
+.uk-label-danger { background: var(--danger); color: var(--text-inverse); }
+.uk-text-success { color: var(--ok-ink) !important; }
+.uk-text-warning { color: var(--warning-ink) !important; }
+.uk-text-danger { color: var(--danger-text) !important; }
+.uk-text-primary { color: var(--link) !important; }
+/* UIKit colours emphasis pink; in running text emphasis is the sentence's own colour, in italics. */
+em { color: inherit; }
+.uk-alert-primary { background: var(--busy-soft); color: var(--busy-ink); }
+.uk-alert-success { background: var(--ok-soft); color: var(--ok-ink); }
+.uk-alert-warning { background: var(--warning-soft); color: var(--warning-ink); }
+.uk-alert-danger { background: var(--danger-soft); color: var(--danger-ink); }
+
+.uk-card-default {
+  background: var(--surface-card);
+  color: var(--text-subtle-2);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
+}
+
+.uk-card-hover:hover { box-shadow: var(--shadow-card-hover); border-color: var(--line-strong); }
+
+/* The classes too: UIKit colours .uk-h3 itself, and a class outranks a tag, so "Build a new project" (an h2 with
+   .uk-h3) stayed UIKit's dark grey on the dark page. */
+h1, h2, h3, h4, h5, h6, .uk-h1, .uk-h2, .uk-h3, .uk-h4, .uk-h5, .uk-h6, .uk-card-default .uk-card-title { color: var(--text-default); }
+.uk-text-meta, .uk-text-lead { color: var(--text-subtle) !important; }
+
+/* Form controls. The select needs UIKit's own selector — `.uk-select` alone is
+   (0,1,0) against UIKit's `.uk-select:not([multiple]):not([size])` at (0,3,0), so
+   the shorter one never won and every dropdown stayed unstyled. `background-color`,
+   not the `background` shorthand: the shorthand would drop the arrow, which UIKit
+   draws as a background-image in that same rule. */
+.uk-input, .uk-textarea {
+  background: var(--surface-input);
+  color: var(--text-subtle-2);
+  border-color: var(--line);
+}
+
+.uk-select:not([multiple]):not([size]) {
+  background-color: var(--surface-input);
+  color: var(--text-subtle-2);
+  border-color: var(--line);
+}
+
+.uk-input:focus, .uk-textarea:focus, .uk-select:focus {
+  border-color: var(--link);
+  box-shadow: 0 0 0 .1875rem var(--focus-ring);
+}
+
+.uk-input::placeholder, .uk-textarea::placeholder { color: var(--text-subtle); }
+
+a, .uk-link { color: var(--link); }
+
+/* Menus. UIKit paints a dropdown white with grey links and dark headers whatever the page is, so every row menu
+   (DDEV, GIT, COMPOSER…) stayed a white panel after dark, and its links were 2.8:1 in light. */
+.uk-dropdown { background: var(--surface-card); color: var(--text-subtle-2); border: 1px solid var(--line); box-shadow: var(--shadow-float); }
+.uk-dropdown-nav > li > a, .uk-nav-default > li > a,
+.uk-dropdown-nav .uk-nav-sub a, .uk-nav-default .uk-nav-sub a { color: var(--text-subtle-2); }
+.uk-dropdown-nav > li > a:hover, .uk-dropdown-nav > li.uk-active > a,
+.uk-nav-default > li > a:hover, .uk-nav-default > li.uk-active > a,
+.uk-dropdown-nav .uk-nav-sub a:hover, .uk-nav-default .uk-nav-sub a:hover { color: var(--link); }
+.uk-dropdown-nav .uk-nav-header, .uk-nav-default .uk-nav-header, .uk-nav-header { color: var(--text-default); }
+.uk-dropdown-nav .uk-nav-divider, .uk-nav-default .uk-nav-divider, .uk-nav-divider { border-top-color: var(--line); }
+
+/* Tab switchers (Commands → Buttons: Rows, Activity, Definition). UIKit's blue is not Webship blue, and its grey
+   tabs were 2.8:1. */
+.uk-subnav > * > :first-child { color: var(--text-subtle); }
+.uk-subnav > * > a:hover, .uk-subnav > .uk-active > a { color: var(--text-default); }
+.uk-subnav-pill > * > a:hover { background-color: var(--surface-muted); color: var(--text-default); }
+.uk-subnav-pill > .uk-active > a { background-color: var(--brand-primary); color: var(--text-inverse); }
+
+/* Code. Inline code reads as part of its sentence: a quiet tint and the accent ink, in both halves. UIKit's pink
+   on near-white was 3.2:1, and stayed a light box on the dark page. A block of code is the code surface in both
+   halves, as the terminal and the job output already are. */
+:not(pre) > code, :not(pre) > kbd, :not(pre) > samp { background: var(--surface-muted); color: var(--accent-ink); }
+pre { background: var(--code-bg); color: var(--code-ink); border-color: var(--line); }
+pre code { color: inherit; }
+
+footer.uk-section, footer.uk-section a { color: var(--text-subtle); }
+
+
+/* ---------- Keyboard focus, everywhere ----------
+ *
+ * There was no global focus style, so most of the interface fell back to the browser's own — a 2px
+ * DOTTED outline in near-black, which on a dark page over a dark panel is all but invisible, and on a
+ * light one is a 1996 dotted box. A keyboard user could not see where they were.
+ *
+ * :focus-visible, not :focus, so a mouse click does not draw a ring the pointer user did not ask for.
+ * The tokens do the theming, so both halves follow with no second copy of the rule. */
+:where(a, button, [role="button"], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* On a brand-coloured surface the brand ring disappears into it; light is what reads there. */
+.assistant-head :where(a, button):focus-visible,
+.uk-button-primary:focus-visible,
+.uk-button-secondary:focus-visible,
+.uk-button-danger:focus-visible {
+  outline-color: var(--text-inverse);
+  outline-offset: 1px;
+}
+
+/* A link inside a block of text has to be told apart from that text by something other than colour
+   (WCAG 1.4.1): brand blue against the meta grey is 1.08:1 to a colour-blind reader and on a printout.
+   Scoped to prose — paragraphs, list items and the meta lines — so the buttons, the project rows and
+   the rails, where a link is already a shape, are left alone. */
+p a:not(.uk-button):not(.uk-link-reset),
+li a:not(.uk-button):not(.uk-link-reset),
+.uk-text-meta a:not(.uk-button):not(.uk-link-reset) {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* UIKit paints a link inside .uk-text-meta the same grey as the meta text — 2.84:1 on white,
+   and indistinguishable from the words around it. The link token is the readable one; the extra
+   :not() is what outranks UIKit's own two-class rule without touching the vendored file. */
+.uk-text-meta a:not(.uk-button):not(.uk-link-reset) { color: var(--link); }

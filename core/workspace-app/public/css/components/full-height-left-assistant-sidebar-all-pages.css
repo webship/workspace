@@ -1,0 +1,39 @@
+/* ---------- Full-height left assistant sidebar (all pages) ---------- */
+
+.assistant-side {
+  position: fixed;
+  top:4.0625rem;
+  left: 0;
+  bottom: 0;
+  width:25rem;
+  /* border-box, so the declared width IS the footprint. UIKit sets border-box on
+     its own components but not on a bare aside, so this was 424px wide against
+     the 400px margin on .app-content — a 24px overlap that only stayed invisible
+     because it landed in the container's own padding. */
+  box-sizing: border-box;
+  padding:1rem 0.5rem 1rem 1rem;
+  display: flex;
+  z-index: 30;
+}
+
+.assistant-side .assistant-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+}
+
+.assistant-side .assistant-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.assistant-side .chat-log {
+  flex: 1;
+  max-height: none;
+  min-height: 0;
+}
+
+.app-content { margin-left:25rem; }

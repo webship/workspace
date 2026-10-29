@@ -15,6 +15,8 @@ What it is for, in one line each:
   searchable index, and an AI assistant on every page that can build, start and back things up.
 - **Release** the modules, themes and distributions the workspace holds.
 
+
+> **New here?** Start with the [user guide](core/workspace-app/docs/USER-GUIDE.md): day one, and the things you will actually do. It is also the dashboard's **Help** page. All the guides are in [`core/workspace-app/docs/`](core/workspace-app/docs/).
 ## Layout
 
 Each of the folders below holds a set of `cmd-*.sh` scripts. Running one builds a fresh Drupal project into a subdirectory named after the project, wired up with its own DDEV environment (own containers, own database — nothing shared on the host).

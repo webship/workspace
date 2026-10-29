@@ -1,0 +1,540 @@
+# How the settings editor labels and explains every setting.
+#
+# Data, not code. These used to be three constants inside core/workspace-app/server.js, which meant
+# renaming a field or explaining one better was a code change — and it left the 39 keys in the
+# workspace.<name>.settings.yml files with no label and no description at all, because nobody was
+# going to add forty entries to a JavaScript object.
+#
+# One entry per dotted key, matching the key's path in the settings file it belongs to. Everything is
+# optional:
+#
+#   label     what the row is called. Without it the raw key is shown, which is the old behaviour.
+#   info      the sentence under the label. Say what the setting DOES and what goes wrong without it,
+#             not what its name already says.
+#   options   turns the field into a dropdown: value -> what the reader sees.
+#   number    turns it into a number input: min, max, step, and a unit shown beside it.
+#
+# `options: from:speech-languages` is resolved from core/workspace-app/speech.js, which owns that
+# list because the resolver validates against it — one source, rather than a copy here that drifts.
+#
+# Keys absent from this file still work; they render as a plain text row named after the key.
+
+account.mail:
+  label: Admin email
+  info: That admin address. Drupal sends its site mail to it.
+account.name:
+  label: Admin username
+  info: Admin username a fresh install is created with — Drupal, Webship, Drupal CMS.
+account.pass:
+  label: Admin password
+  info: That admin password. Local development sites only, so it is shown rather than masked.
+admin_themes:
+  label: Admin themes
+  info: The admin themes this workspace rebuilds.
+ai_providers.anthropic.api_key:
+  label: Anthropic key
+  info: Used by the assistant when the Claude Code CLI is off, and by any site you build that needs it.
+ai_providers.claude_code_cli.active:
+  label: Use the Claude Code CLI
+  info: >-
+    Run the assistant through the Claude Code CLI on this machine, using its own login. Off falls
+    back to the API keys below.
+ai_providers.gemini.api_key:
+  label: Gemini key
+  info: Only needed if a site you build uses Gemini.
+ai_providers.openai.api_key:
+  label: OpenAI key
+  info: Only needed if a site you build uses OpenAI. The dashboard assistant does not.
+assistant.name:
+  label: What the assistant is called
+  info: >-
+    The name on the panel's heading, on the control in the navigation, on the launcher and on the
+    full page at /assistant. In settings.yml this is the default, for the home dashboard and every
+    page belonging to no workspace; in a workspace's own file it renames the assistant on that
+    workspace's page alone. `default` there means "whatever settings.yml says", so a rename in one
+    place still reaches every page.
+assistant.placeholder:
+  label: What the box says when it is empty
+  info: >-
+    Ships as nothing: an empty field with a cursor in it already says "type here", and a prompt that
+    suggests what to ask narrows what gets asked. `none` (or off / default / auto) means no
+    placeholder. Whatever you write here is also the name a screen reader reads for that box.
+assistant.command_clear:
+  label: 'Voice command: clear the box'
+  info: >-
+    Listen for the spoken word "clear" and clear the box instead of typing it. Every command costs
+    you that word in ordinary dictation, which is why they are all off. For a phrase of your own —
+    the only way to have one in another language — write it in the file instead of ticking this.
+assistant.command_pause:
+  label: 'Voice command: pause'
+  info: >-
+    Listen for the spoken word "pause" and pause instead of typing it. Every command costs you that
+    word in ordinary dictation, which is why they are all off. For a phrase of your own — the only
+    way to have one in another language — write it in the file instead of ticking this.
+assistant.command_resume:
+  label: 'Voice command: resume'
+  info: >-
+    Listen for the spoken word "resume" and resume instead of typing it. Every command costs you
+    that word in ordinary dictation, which is why they are all off. For a phrase of your own — the
+    only way to have one in another language — write it in the file instead of ticking this.
+assistant.command_stop:
+  label: 'Voice command: stop'
+  info: >-
+    Listen for the spoken word "stop" and stop instead of typing it. Every command costs you that
+    word in ordinary dictation, which is why they are all off. For a phrase of your own — the only
+    way to have one in another language — write it in the file instead of ticking this.
+assistant.command_submit:
+  label: 'Voice command: send'
+  info: >-
+    Listen for the spoken word "submit" and send instead of typing it. Every command costs you that
+    word in ordinary dictation, which is why they are all off. For a phrase of your own — the only
+    way to have one in another language — write it in the file instead of ticking this.
+assistant.interim_results:
+  label: Show words as they are guessed
+  info: >-
+    Show words as the recogniser guesses them, before it settles. Faster to follow; the text visibly
+    rewrites itself as it changes its mind.
+assistant.intro:
+  label: Show the opening suggestions
+  info: Whether the panel opens with suggested prompts naming real projects in this workspace.
+assistant.speech_language:
+  label: Dictation language
+  info: >-
+    Which language the recogniser expects. Worth setting if you dictate anything other than your
+    browser's language — left on the wrong one it does not fail, it returns confident nonsense.
+    Applies to the assistant AND to every field microphone.
+  options: from:speech-languages
+assistant.speech_pitch:
+  label: Reading pitch
+  info: How high the reading voice sits. 1 is the voice's own.
+  number:
+    min: 0
+    max: 2
+    step: 0.1
+    unit: 1 is the voice's own
+assistant.speech_rate:
+  label: Reading speed
+  info: How fast the answer is read. 1 is normal; 1.5 is brisk.
+  number:
+    min: 0.5
+    max: 2
+    step: 0.05
+    unit: 1 is normal
+assistant.speech_volume:
+  label: Reading volume
+  info: How loud the reading is, from 0 to 1.
+  number:
+    min: 0
+    max: 1
+    step: 0.05
+    unit: 0 to 1
+assistant.stop_after_submit:
+  label: Stop listening after sending
+  info: Stop listening once the message is sent, rather than staying open for the next sentence.
+assistant.submit_after_silence:
+  label: Send after silence
+  info: >-
+    Milliseconds of silence after which what you dictated is sent on its own. 0 never sends: you
+    press the button.
+  number:
+    min: 0
+    max: 20000
+    step: 100
+    unit: ms, 0 never sends
+assistant.voice_input:
+  label: Microphone
+  info: >-
+    The microphone beside the assistant and beside every text field. Off removes the buttons rather
+    than leaving ones that do nothing. Recognition is the browser's own — no key, no service, and
+    the audio never leaves this machine. The Microphone checkbox in the assistant's options hides
+    the assistant's own microphone for one browser; the ones beside text fields stay as set here.
+assistant.voice_name:
+  label: Reading voice
+  info: >-
+    A voice by name, exactly as your browser lists it (Chrome: "Google US English"). The names
+    differ per browser and per OS, so an unknown one falls back to the default rather than going
+    silent. `default` uses the browser's.
+assistant.voice_output:
+  label: Voice summary on by default
+  info: >-
+    Whether the browser reads a short spoken summary of each answer until someone switches it off
+    (the Voice summary checkbox in the assistant's options menu, kept per browser). Browser
+    synthesis, so no key either. Useful when you started a build and are looking somewhere else.
+contributor.email:
+  label: Your email
+  info: The address those contributions are authored as, unless a forge block below overrides it.
+contributor.name:
+  label: Your name
+  info: >-
+    Who contributions to webship/workspace and webship/ai-agents are credited to — the name
+    commits, issues, merge requests and pull requests are authored as. Never hardcode a person in a
+    script; the tooling and the Webship agents read it from here.
+dashboard.autostart:
+  label: Start at boot
+  info: >-
+    Which projects come back after a reboot. `workspace` is the dashboard alone — it boots in
+    seconds and everything else is one click from it. `running` restores whatever was up at the last
+    clean shutdown. `all` starts every registered project. Or name them: dev1,test2. The dashboard
+    is always started first and always included.
+doc.name:
+  label: Folder name
+  info: >-
+    The directory this workspace lives in, under ~/workspace. Every cmd-*.sh in the folder reads it,
+    so changing it here without moving the folder breaks them all.
+git.bitbucket.email:
+  label: Email
+  info: The address commits are authored with there.
+git.bitbucket.host:
+  label: Host
+  info: bitbucket.org, or your Bitbucket Server.
+git.bitbucket.token:
+  label: Token
+  info: A Bitbucket app password or access token.
+git.bitbucket.username:
+  label: Username
+  info: The account used on Bitbucket.
+git.drupal.email:
+  label: Email
+  info: The address commits to drupal.org issue forks are authored with.
+git.drupal.host:
+  label: Host
+  info: git.drupalcode.org unless you are on a different GitLab.
+git.drupal.token:
+  label: Token
+  info: >-
+    A GitLab personal access token for git.drupalcode.org, with api scope. The workspace uses the
+    API rather than local git for that host.
+git.drupal.username:
+  label: Username
+  info: Your drupal.org account — the one that owns your issue forks.
+git.github.email:
+  label: Email
+  info: The address commits are authored with on this host.
+git.github.host:
+  label: Host
+  info: Where these credentials apply. Left alone unless you use a GitHub Enterprise server.
+git.github.token:
+  label: Token
+  info: A personal access token, used when the gh CLI is off or unavailable. Needs repo scope.
+git.github.use_gh_cli:
+  label: Use the gh CLI
+  info: >-
+    Prefer the `gh` command, which carries its own login, over the token below. Off falls back to
+    the token.
+git.github.username:
+  label: Username
+  info: The account issues, pull requests and pushes are made as.
+hub_domain:
+  label: Base domain
+  info: Base domain for the dashboard and every project URL derived from it.
+milvus.attu_version:
+  label: Attu version
+  info: Image tag for Attu, the Milvus web UI.
+milvus.authorization:
+  label: Require a token
+  info: Whether Milvus demands the token below. Local only, so it ships off.
+milvus.grpc_port:
+  label: gRPC port
+  info: The port Milvus serves its gRPC API on.
+milvus.mcp.package:
+  label: MCP package
+  info: The npm package that bridges Milvus to the Claude Code CLI over MCP.
+milvus.project:
+  label: DDEV project
+  info: The DDEV project the Milvus vector database runs in.
+milvus.public_uri:
+  label: Address
+  info: Where Milvus answers. Used by the RAG indexer and by the MCP bridge.
+milvus.token:
+  label: Token
+  info: The token Milvus expects when authorization is on.
+milvus.version:
+  label: Milvus version
+  info: Image tag for the Milvus server.
+modules:
+  label: Modules
+  info: The modules this workspace rebuilds.
+penpot.account.email:
+  label: Account email
+  info: The Penpot account the workspace creates and logs in as.
+penpot.account.fullname:
+  label: Account name
+  info: The display name on that account.
+penpot.account.password:
+  label: Account password
+  info: That account password. Local instance only.
+penpot.flags:
+  label: Feature flags
+  info: >-
+    Penpot server flags, space separated. They switch registration, demo users and plugins on or
+    off.
+penpot.mail_port:
+  label: Mail port
+  info: Where Penpot sends its mail; the workspace catches it rather than delivering it.
+penpot.mcp.bridge_port:
+  label: Bridge port
+  info: The port the plugin bridge uses to reach the running Penpot.
+penpot.mcp.image:
+  label: MCP image
+  info: Container image for the Penpot MCP bridge.
+penpot.mcp.package:
+  label: MCP package
+  info: The npm package that bridges Penpot to the Claude Code CLI over MCP.
+penpot.mcp.plugin_port:
+  label: Plugin port
+  info: Where Penpot plugins are served from.
+penpot.mcp.port:
+  label: MCP port
+  info: Where the Penpot MCP bridge listens.
+penpot.project:
+  label: DDEV project
+  info: The DDEV project the self-hosted Penpot design tool runs in.
+penpot.public_uri:
+  label: Address
+  info: Where Penpot answers in the browser.
+penpot.secret_key:
+  label: Secret key
+  info: Signs Penpot sessions. Local instance only.
+penpot.version:
+  label: Penpot version
+  info: Image tag for the Penpot stack.
+presentation.also_files:
+  label: Also list loose files
+  info: Show files that sit beside the projects, not only the projects themselves.
+presentation.icon:
+  label: Card icon
+  info: A UIKit icon name shown on the card. The chooser on this page searches the whole library.
+presentation.kind:
+  label: What kind of folder
+  info: Whether the folder holds DDEV projects or plain files. It decides which actions the cards offer.
+presentation.label:
+  label: Card title
+  info: What the workspace card on the dashboard home page is called.
+presentation.noun:
+  label: What one item is called
+  info: >-
+    The singular word for what this folder holds — project, recipe, agent — used in buttons and
+    messages.
+presentation.subtitle:
+  label: Card subtitle
+  info: The line under the title on that card. One short sentence saying what belongs in this folder.
+profiles:
+  label: Installation profiles
+  info: The Drupal profiles this workspace rebuilds. Drag to reorder.
+rag.chunk_lines:
+  label: Lines per chunk
+  info: How much of a file goes into one indexed chunk. Smaller is more precise and slower to build.
+rag.chunk_overlap:
+  label: Overlapping lines
+  info: >-
+    How many lines each chunk repeats from the one before, so an answer spanning a boundary is still
+    found.
+rag.collection_prefix:
+  label: Collection prefix
+  info: >-
+    Every project indexed gets a Milvus collection named with this prefix, so one database holds
+    them all without colliding.
+rag.embedding:
+  label: Embedding
+  info: >-
+    How text is turned into vectors. BM25 runs inside the database — no key, and nothing leaves the
+    machine.
+rag.max_file_kb:
+  label: Largest file to index
+  info: Files above this size are skipped. Minified bundles and lock files are noise in a search index.
+rag.openai_model:
+  label: OpenAI model
+  info: Only used if the embedding above is switched to OpenAI, which sends your code to their API.
+site_templates:
+  label: Site templates
+  info: The Drupal CMS site templates this workspace can build.
+sources.ai_items.host:
+  label: Host
+  info: Where the shared agents, skills and prompts are pulled from.
+sources.ai_items.ref:
+  label: Branch
+  info: Branch to read those from.
+sources.ai_items.repo:
+  label: Repository
+  info: Where the shared AI Agents, Skills and Prompts are pulled from.
+sources.tooling.host:
+  label: Host
+  info: Where the workspace tooling is pulled from when you sync it.
+sources.tooling.ref:
+  label: Branch
+  info: Branch to read the tooling from.
+sources.tooling.repo:
+  label: Repository
+  info: Where this workspace's own commands and dashboard are pulled from and proposed to.
+storage.second:
+  label: Second storage
+  info: >-
+    A folder on another disk for whole workspace folders, each kept as a symlink from the tree. Empty
+    means none. Move one with core/scripts/storage.sh --move, then run --mounts so the dashboard sees it.
+
+style.editor_theme:
+  label: Code editor theme
+  info: Theme for the code editor, separately from the page.
+  options:
+    auto: Follow the page
+    light: Light
+    dark: Dark
+style.favicon_png:
+  label: Favicon (PNG fallback)
+  info: File name in core/workspace-app/public/. Used where SVG icons are not supported.
+style.favicon_svg:
+  label: Favicon (SVG)
+  info: >-
+    File name in core/workspace-app/public/. The browser-tab icon; an SVG can carry both colour
+    schemes in one file.
+style.logo_on_dark:
+  label: Logo on a dark background
+  info: >-
+    File name in core/workspace-app/public/. Shown once dark mode is on, where the light logo would
+    disappear.
+style.logo_on_light:
+  label: Logo on a light background
+  info: File name in core/workspace-app/public/. Shown on light pages.
+style.mode:
+  label: Light or dark
+  info: Default theme for a first visit. Anyone who has used the toggle keeps their own choice.
+  options:
+    light: Light
+    dark: Dark
+    system: Follow the OS
+style.page_size:
+  label: Items per page
+  info: Rows a list shows before it pages. A size picked from a pager wins.
+  options:
+    '20': '20'
+    '50': '50'
+    '100': '100'
+    '200': '200'
+    all: All
+style.page_sort:
+  label: Default sort order
+  info: Default order for file lists.
+  options:
+    newest: Newest first
+    oldest: Oldest first
+    name: Name (A–Z)
+    nameDesc: Name (Z–A)
+style.assistant_view:
+  label: How the assistant is shown
+  info: >-
+    A default, like the rest here — a view chosen from the panel's own menu is remembered in that
+    browser and wins.
+  options:
+    sidebar: Sidebar — docked left
+    wide: Wide — the same, twice as wide
+    float: Floating — over the page, with a launcher
+    full: Full page — every assistant link goes to /assistant
+style.assistant_open:
+  label: The assistant starts open
+  options:
+    "yes": "Yes"
+    "no": "No"
+style.page_width:
+  label: How wide a page may run
+  info: >-
+    Comfortable is a 900px reading width and the right default; the others are for the pages that
+    want the room — a command catalog, a settings file, a terminal.
+  options:
+    comfortable: Comfortable — a reading width
+    wide: Wide
+    full: Full
+style.theme:
+  label: Theme
+  info: >-
+    Which palette the dashboard wears. The list is the themes on disk; each one's own tokens are in
+    core/config/theme.<name>.yml, editable here like anything else.
+  options: from:themes
+style.workspace_name:
+  label: Workspace name
+  info: The word beside the Webship wordmark in the toolbar.
+themes:
+  label: Themes
+  info: The themes this workspace rebuilds. Drag to reorder.
+vdo_drupal.template_drupal_theme_name:
+  label: Theme to clone
+  info: The starter-kit theme new Drupal themes in this workspace are cloned from.
+workspaces:
+  label: Workspace folders
+  info: Which workspace folders exist, and the order their cards appear in. Drag to reorder.
+
+plugins.workspace-notes.enabled:
+  label: Workspace notes plugin
+  info: Adds a Notes button to workspace pages, editing a NOTES.md kept in the folder itself — what the next person should know about it.
+  options:
+    "true": On
+    "false": Off
+plugins.workspace-notes.workspaces:
+  label: Notes on which workspaces
+  info: Comma-separated folder names (dev,test). Empty means every workspace gets the button.
+
+type:
+  label: Workspace type
+  info: What this folder's projects are, which decides the actions their rows offer — DDEV/Upsun controls on sites, the same minus Composer and Drush on services (Penpot, Milvus), quality checks on code packages, none on file lists. Scripts the folder does not ship stay hidden either way.
+  options:
+    sites: Sites — DDEV projects
+    services: Services — DDEV projects running other software
+    code: Code — packages and repositories
+    files: Files — documents and drafts
+    media: Media — recordings
+    ai-items: AI items — agents, skills, prompts
+
+# ---- Jira (via the Teamwork Graph CLI) ----
+jira.site:
+  label: Jira site
+  info: The Atlassian site the dashboard links workitems to (https://<org>.atlassian.net).
+jira.account:
+  label: My Jira account
+  info: Whose workitems the "My workitems" scope shows — your Jira email or account id. Empty hides that scope.
+jira.default_project:
+  label: Default Jira project
+  info: Preselected in the workitems modal. A project's own .jira-project file overrides it per project ("Remember" in the modal).
+jira.allow_writes:
+  label: Allow writing to Jira
+  info: Off = agents work locally and post NOTHING to Jira. On = "Do the work" also posts a PM-readable comment and a worklog. Comments and worklogs stay refused while off.
+  options:
+    "false": "Off — never post to Jira (default)"
+    "true": "On — agents may comment and log work"
+jira.max_agents:
+  label: Task agents at once
+  info: How many Claude Code agents may work Jira workitems at the same time. Each is a full session inside a site; too many can exhaust the machine.
+  number: { min: 1, max: 8, step: 1 }
+
+# ---- Upsun (the DDEV ⇄ Upsun bridge) ----
+upsun.cli_token:
+  label: Upsun API token
+  info: 'What "Get database & files" uses to reach Upsun from the dashboard: an API token from the Upsun console (My profile → API tokens). The host''s own upsun login cannot reach containers. Injected only into Upsun jobs, never the app environment. Without it the modal explains, and the shown host commands still work. Syncing: UPSUN menu on a project row → "Get database & files…" → pick the ACTIVE environment (branch) → the local database is backed up to backups/ first, then replaced; files are added and overwritten, never deleted.'
+
+# ---- ElevenLabs (the final voiceover of a narrated video) ----
+elevenlabs.api_key:
+  label: ElevenLabs key
+  info: >-
+    Lets the final voiceover stage of a narrated video use ElevenLabs. Without a real key the stage is
+    not offered. Nothing is sent until a person agrees to a run, and the key is never printed. Paste it
+    here, not into a chat. ELEVENLABS_API_KEY in the environment wins over this.
+elevenlabs.voice_id:
+  label: Voice
+  info: A voice id from your account (list them with `cmd-tools-elevenlabs.sh -a voices`). `ask` means choose one each time.
+elevenlabs.model_id:
+  label: Model
+  info: The text-to-speech model, `eleven_v4` unless you have a reason to change it. The forms list the others (v3, multilingual v2, flash and turbo) and take any model id.
+elevenlabs.region:
+  label: Region
+  info: >-
+    global, us, eu, in or sg. An isolated data residency environment is a separate account, so use the
+    key made in that environment.
+  options:
+    global: "Global"
+    us: "United States"
+    eu: "Europe (isolated)"
+    in: "India (isolated)"
+    sg: "Singapore (isolated)"
+elevenlabs.pronunciation:
+  label: Pronunciation
+  info: >-
+    Extra brand names to respell for the voice only, as "Word=Respelling; Word=Respelling". Built in:
+    Webship=Var-dot and Webship=Var-base. Scripts, captions and transcripts keep the real spelling.

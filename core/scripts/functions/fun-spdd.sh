@@ -46,7 +46,7 @@ function spdd_slug() {
 }
 
 # The next spec number for a target, zero-padded. Per target rather than global: the numbers are
-# for reading, and "the third change to educare" is more useful than "the 47th spec".
+# for reading, and "the third change to website_starter" is more useful than "the 47th spec".
 function spdd_next_number() {
   local dir="$1" last;
   last="$(ls -1 "${dir}" 2>/dev/null | sed -n 's/^\([0-9]\{3\}\)-.*$/\1/p' | sort -n | tail -1)";
@@ -452,17 +452,222 @@ function spdd_require_spec() {
   return 0 ;
 }
 
+
+# ---------------------------------------------------------------------------
+# Writing, reading, reviewing — the three things the published method leaves to
+# somebody's discipline, and the three that decide whether any of it is kept up.
+# ---------------------------------------------------------------------------
+
+# Where the shared templates live. A template that is a FILE can be reviewed, improved and shared;
+# one that is a heredoc in this script can only be edited by whoever is willing to edit this script.
+function spdd_default_template() {
+  local name="$1" file;
+  file="${WORKSPACE_ROOT}/specs/_defaults/${name}";
+  [ -f "${file}" ] && echo "${file}" ;
+}
+
+# The general spec of a product: what it is, who for, what it must never become.
+#
+# SPDD as published has no such layer — it goes straight to a story — and the tool comparison
+# (martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) names the gap: every tool separates
+# a "memory bank" of durable project context from the task-specific spec, and the ones that do not
+# make people restate the context in every spec. Spec Kit calls it a constitution; so does this.
+#
+# It is a file per product, written by a person, revised rarely. This verb creates it from the
+# template and otherwise gets out of the way — the one artifact nobody should generate is what the
+# product IS.
+function spdd_constitution() {
+  local target="${SPEC_NAME}" dir file template;
+  case "${target}" in
+    */*) : ;;
+    *) echo "Which product? bash cmd-spdd.sh products/webship -a constitution" ; return 1 ;;
+  esac
+  dir="$(spdd_target_dir "${target}")";
+  file="${dir}/00-constitution.md";
+
+  if [ -f "${file}" ] ; then
+    echo "${file}";
+    echo "";
+    sed -n '1,40p' "${file}";
+    echo "";
+    echo "  (read it in full before writing any spec against ${target})";
+    return 0 ;
+  fi
+
+  template="$(spdd_default_template 00-constitution.md)";
+  if [ -z "${template}" ] ; then
+    echo "No template at specs/_defaults/00-constitution.md — pull the shared specs first:";
+    echo "  cd ${WORKSPACE_ROOT}/specs && bash cmd-tools-specs.sh --pull";
+    return 1 ;
+  fi
+  mkdir -p "${dir}" ;
+  sed "s|<Product>|${target##*/}|g" "${template}" > "${file}" ;
+  echo "";
+  echo "*---------------------------------------------------------------------*";
+  echo "  Constitution started for ${target}.";
+  echo "";
+  echo "    ${file}";
+  echo "";
+  echo "  Write it yourself. A constitution is the one document that outlives every";
+  echo "  change to the product, and a generated one governs nothing.";
+  echo "*---------------------------------------------------------------------*";
+}
+
+# Everything a session needs to implement this spec, as ONE document, in reading order.
+#
+# This is the "using" half, and it is the half that decides whether the artifacts were worth
+# writing. A spec spread over four files is read by nobody at the moment it matters; `-a read`
+# prints the constitution, the story, the analysis and the canvas in order, so the thing handed to
+# a session — or to a person on their first day — is complete and in one piece.
+function spdd_read() {
+  local spec="$1" target constitution f;
+  target="$(spdd_field "${spec}" target)";
+  echo "# ${target} — $(spdd_field "${spec}" topic)";
+  echo "";
+  echo "_Stage: $(spdd_stage_of "${spec}"). Read in this order: what the product is, then the ask,";
+  echo "then what the tree says, then the contract._";
+  echo "";
+
+  constitution="$(spdd_target_dir "${target}")/00-constitution.md";
+  if [ -f "${constitution}" ] ; then
+    echo "---";
+    echo "";
+    cat "${constitution}" ;
+    echo "";
+  else
+    echo "> **No constitution for ${target}.** Nothing states what this product is, who it is for or";
+    echo "> what it must never become, so nothing can say whether this change belongs in it.";
+    echo "> Start one: bash cmd-spdd.sh ${target} -a constitution";
+    echo "";
+  fi
+
+  for f in 01-story.md 02-analysis.md 03-canvas.md ; do
+    if [ -f "${spec}/${f}" ] ; then
+      echo "---";
+      echo "";
+      cat "${spec}/${f}" ;
+      echo "";
+    fi
+  done
+}
+
+# The mechanical half of specs/_defaults/REVIEW.md.
+#
+# It never says "approved". A checklist can see that a section is missing, not that it is right —
+# and the tool comparison's sharpest complaint is the review burden ("I'd rather review code than
+# all these markdown files"), which is made worse, not better, by a tool that pretends to have done
+# the reading. What this does is the part a person should not be spending attention on: is the
+# scope boundary there, does every definition-of-done item have an operation, are all seven canvas
+# sections present. What it cannot judge, it lists as what is left for the reviewer.
+function spdd_review() {
+  local spec="$1" target stage story canvas problems=0 notes=0 line;
+  target="$(spdd_field "${spec}" target)";
+  stage="$(spdd_stage_of "${spec}")";
+  story="${spec}/01-story.md";
+  canvas="${spec}/03-canvas.md";
+
+  echo "";
+  echo "Review — $(spdd_field "${spec}" topic)";
+  echo "  ${spec}";
+  echo "  target ${target}, stage ${stage}";
+  echo "";
+
+  # Gate 0 — the constitution.
+  if [ -f "$(spdd_target_dir "${target}")/00-constitution.md" ] ; then
+    echo "  ok    ${target} has a constitution to check this against";
+  else
+    echo "  NOTE  ${target} has no 00-constitution.md — nothing says whether this change belongs";
+    notes=$((notes + 1));
+  fi
+
+  # Gate 1 — the story.
+  if [ -f "${story}" ] ; then
+    grep -q '^\*\*Out:\*\*' "${story}" && echo "  ok    the story has an Out list" || {
+      echo "  MISS  the story has no **Out:** list — an In list alone constrains nothing";
+      problems=$((problems + 1)); }
+    if grep -qE '^- \[[ x]\]' "${story}" ; then
+      echo "  ok    the story has a definition of done";
+    else
+      echo "  MISS  the story has no definition of done"; problems=$((problems + 1));
+    fi
+    grep -q 'Given | When | Then' "${story}" && echo "  ok    the story has acceptance criteria" || {
+      echo "  MISS  the story has no Given/When/Then acceptance criteria"; problems=$((problems + 1)); }
+  else
+    echo "  MISS  no 01-story.md"; problems=$((problems + 1));
+  fi
+
+  # Gate 3 — the canvas: all seven sections, and every D-item served.
+  if [ -f "${canvas}" ] ; then
+    local missing='';
+    for sec in 'R — Requirements' 'E — Entities' 'A — Approach' 'S — Structure' \
+               'O — Operations' 'N — Norms' 'S — Safeguards' ; do
+      grep -q "^## ${sec}" "${canvas}" || missing="${missing} ${sec%% *}";
+    done
+    if [ -z "${missing}" ] ; then
+      echo "  ok    the canvas has all seven REASONS sections";
+    else
+      echo "  MISS  the canvas is missing section(s):${missing}"; problems=$((problems + 1));
+    fi
+
+    # Every D-item named in the canvas should be served by at least one operation row.
+    local d unserved='';
+    for d in $(grep -oE '^\| D[0-9]+' "${canvas}" | tr -d '| ' | sort -u) ; do
+      grep -q "${d}" <(sed -n '/^## O — Operations/,/^## N —/p' "${canvas}") || unserved="${unserved} ${d}";
+    done
+    if [ -n "${unserved}" ] ; then
+      echo "  MISS  no operation serves:${unserved} — out of scope, or forgotten? Decide in writing";
+      problems=$((problems + 1));
+    elif grep -q '^## O — Operations' "${canvas}" ; then
+      echo "  ok    every definition-of-done item is served by an operation";
+    fi
+  elif [ "${stage}" == 'canvas' ] ; then
+    echo "  MISS  stage says canvas, but there is no 03-canvas.md"; problems=$((problems + 1));
+  fi
+
+  # Has the tree moved under it? The drift check is part of the review, not a separate errand.
+  local synced head;
+  synced="$(spdd_field "${spec}" synced_commit)";
+  if [ -n "${synced}" ] ; then
+    head="$(spdd_head_of "${target}")";
+    if [ -n "${head}" ] && [ "${head}" != "${synced}" ] ; then
+      echo "  NOTE  the target has moved since the canvas was stamped (${synced} → ${head}) — -a drift";
+      notes=$((notes + 1));
+    fi
+  fi
+
+  echo "";
+  echo "  What this cannot judge, and a reviewer must:";
+  echo "    · is the problem stated as a problem, or already as its solution?";
+  echo "    · does the analysis CONTRADICT the story anywhere? one that agrees with everything";
+  echo "      was not an analysis";
+  echo "    · does the approach name the alternatives it rejected, and why?";
+  echo "    · is the ask inside the constitution's In-scope column?";
+  echo "";
+  if [ "${problems}" -gt 0 ] ; then
+    echo "  ${problems} thing(s) to fix before this is ready to be read by somebody else.";
+  else
+    echo "  Nothing mechanical is missing. The reading above is still yours to do.";
+  fi
+  echo "  The full checklist: ${WORKSPACE_ROOT}/specs/_defaults/REVIEW.md";
+  echo "";
+  return 0 ;
+}
+
 function spdd_command() {
   case "${SPDD_ACTION}" in
     list)  spdd_list ;;
     story) TARGET="${SPEC_NAME}" ; spdd_story ;;
-    analysis|canvas|drift|sync|show)
+    # Takes a TARGET rather than a spec: a constitution is about the product, not about a change.
+    constitution) spdd_constitution ;;
+    analysis|canvas|drift|sync|show|read|review)
       spdd_require_spec || return 1 ;
       case "${SPDD_ACTION}" in
         analysis) spdd_analysis "${SPDD_SPEC}" ;;
         canvas)   spdd_canvas "${SPDD_SPEC}" ;;
         drift)    spdd_drift "${SPDD_SPEC}" ;;
         sync)     spdd_sync "${SPDD_SPEC}" ;;
+        read)     spdd_read "${SPDD_SPEC}" ;;
+        review)   spdd_review "${SPDD_SPEC}" ;;
         show)     echo "${SPDD_SPEC}" ; ls -1 "${SPDD_SPEC}" ;;
       esac
       ;;

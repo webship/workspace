@@ -18,6 +18,7 @@ parser.add_argument('DISTRIBUTION_NAME',
 EOF
 
 shift $#;
+trim_project_name ;   # "v11x00b1/" -> "v11x00b1" — see functions/fun-project-name.sh
 
 distribution_name=${DISTRIBUTION_NAME};
 

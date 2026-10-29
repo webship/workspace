@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# workspace-name: Drupal 11 (recommended project)
+# workspace-name: Drupal 11 (latest)
 
 # Bootstrap.
 # Find the workspace tooling from this script, so a fresh clone needs no setup.
@@ -11,7 +11,8 @@ source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.dev.settings.yml);
 
 # Set site version.
-site_version="~11";
+site_version="^11";
+site_version_dev="11.x-dev";
 
 # Distribution.
 distribution_name="drupal";

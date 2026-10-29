@@ -150,3 +150,10 @@ modules:
 #   ai-items  — agents, skills and prompts, installable into ~/.claude
 #   media     — recordings and images
 type: code
+
+# What the COMPOSER menu may do here: full | manifest.
+composer: manifest
+
+assistant:
+  name: default
+  placeholder: default

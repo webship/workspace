@@ -5,7 +5,7 @@ This is `~/workspace` — the Drupal development workspace for Webship/VDO-style
 ## Layout
 
 - `core/` — shared tooling: `core/scripts` (bootstrap + build functions + `core/scripts/tests/cmd-smoke-test.sh`), `core/config` (`settings.yml` + `workspace.*.settings.yml` + `distributions/*.yml`), `core/workspace-app` (the web dashboard).
-- Workspace folders (driven by `settings.yml`'s `workspaces:` list, in display order): `agents/`, `skills/`, `prompts/`, `docs/`, `products/`, `dev/`, `test/`, `demos/`, `sandboxes/`, `profiles/`, `modules/`, `themes/`, `libraries/`, `recipes/`, `designs/`, `graphs/`, `rag/` — each holds `cmd-*.sh` scripts plus built content. `agents/`/`skills/`/`prompts/`/`docs/` are file-item workspaces (markdown items, editable from the dashboard, installable into `~/.claude/{agents,skills,commands}`).
+- Workspace folders (driven by `settings.yml`'s `workspaces:` list, in display order): `ai-agents/`, `ai-skills/`, `ai-commands/`, `ai-prompts/`, `docs/`, `products/`, `dev/`, `test/`, `demos/`, `sandboxes/`, `profiles/`, `modules/`, `themes/`, `libraries/`, `recipes/`, `designs/`, `graphs/`, `rag/` — each holds `cmd-*.sh` scripts plus built content. `ai-agents/`/`ai-skills/`/`ai-commands/`/`ai-prompts/` are AI-item workspaces (agents, skills, commands and prompts, with a lock file, check/update/add from any GitHub repo, installable into `~/.claude/{agents,skills,commands}`); `docs/` holds markdown items edited in place.
 
 ## Web dashboard — https://workspace.ddev.site
 
@@ -13,7 +13,7 @@ This is `~/workspace` — the Drupal development workspace for Webship/VDO-style
 
 Critical dashboard rules:
 - Spawned commands MUST close stdin (`stdio: ['ignore','pipe','pipe']`) — ddev's `docker exec -i` hangs forever on an open stdin pipe.
-- Don't restart the node app while jobs run (in-memory job registry; running builds get orphaned). Restart with: `docker exec ddev-workspace-web sh -c 'pkill -f "node server.js"'` (supervisord respawns it).
+- Don't restart the node app while jobs run (in-memory job registry; running builds get orphaned). Restart with: `docker exec ddev-workspace-web supervisorctl restart webextradaemons:workspace-app` — never `pkill -f "node server.js"`: the container shares the host pid space (`pid: host`, for screen sessions), so that would hit every node process on the machine.
 - Per-machine: docker group GID in `.ddev/web-build/Dockerfile.workspace-app`; host `claude` login for chat.
 
 ## Workspace location (self-locating, no setup)

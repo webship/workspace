@@ -1,0 +1,828 @@
+/* ---------- Settings editor (core/config/*.yml) ---------- */
+
+.settings-tabs { display: flex; flex-wrap: wrap; gap:0.375rem; margin-bottom:0.25rem; }
+.settings-tab { border-radius:31.25rem; }
+
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(14rem, 38%) 1fr;
+  align-items: start;
+  gap:0.75rem;
+  padding:0.4375rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.settings-row:last-of-type { border-bottom: 0; }
+
+/* A row with no hint still reads as one line: only the taller ones need the offset. */
+.settings-row > .uk-input,
+.settings-row > .image-field,
+.settings-row > .settings-toggle { margin-top: 0.0625rem; }
+
+.settings-key {
+  font-family: var(--font-code);
+  font-size: .8rem;
+  color: var(--text-subtle);
+  word-break: break-all;
+}
+
+/* A secret is marked, because the field being empty is meaningful here: it means
+   "unchanged", not "no value". */
+.settings-key .uk-label {
+  background: var(--subtle-accent);
+  /* Not --brand-secondary: that navy does not flip, and on the dark accent tint it was 1.7:1. */
+  color: var(--accent-ink);
+  margin-left:0.25rem;
+}
+
+.settings-readonly { font-size: .8rem; }
+
+@media (max-width: 39.9375em) {
+  .settings-row { grid-template-columns: 1fr; gap:0.25rem; }
+}
+
+/* The workspaces list in the settings editor: what exists, and the card order. */
+.settings-row-block { align-items: start; }
+
+.ws-list {
+  list-style: none;
+  margin:0 0 0.625rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius:0.5rem;
+  overflow: hidden;
+}
+
+.ws-item {
+  display: flex;
+  align-items: center;
+  gap:0.5rem;
+  padding:0.3125rem 0.5rem;
+  background: var(--surface-card);
+  border-bottom: 1px solid var(--line);
+  font-size: .84rem;
+}
+
+.ws-item:last-child { border-bottom: 0; }
+html.dark .ws-item { background: transparent; }
+
+.ws-order {
+  min-width:1.375rem;
+  font-family: var(--font-code);
+  font-size: .72rem;
+  color: var(--text-subtle);
+  text-align: right;
+}
+
+.ws-name { font-weight: 600; }
+.ws-move { margin-left: auto; display: flex; gap:0.25rem; }
+.ws-move .uk-button { border-radius:0.375rem; padding:0 0.4375rem; line-height:1.5rem; }
+.ws-item { flex-wrap: wrap; }
+.ws-in-use { font-size: .72rem; padding: 0 0.25rem; cursor: help; align-self: center; }
+.ws-move .ws-delete:not(:hover, :focus-visible) { color: var(--text-subtle); }
+.ws-move .ws-delete:is(:hover, :focus-visible) { color: var(--danger); border-color: var(--danger); }
+.ws-delete-step {
+  flex-basis: 100%;
+  margin: 0.25rem 0 0.25rem 1.875rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--danger);
+  border-radius: 0.5rem;
+  background: var(--danger-soft);
+}
+.ws-delete-step p { margin: 0 0 0.375rem; }
+.ws-delete-step .ws-delete-error { color: var(--danger-text); font-weight: 600; }
+.ws-delete-fields { display: flex; gap: 0.5rem; align-items: center; }
+.ws-delete-fields .uk-input { max-width: 12.5rem; background: var(--surface-card); }
+.ws-add { display: flex; gap:0.5rem; align-items: center; }
+.ws-add .uk-input { max-width:16.25rem; }
+
+/* Drag handle for the workspaces list. */
+.ws-handle {
+  cursor: grab;
+  /* The same story as .row-handle: quiet by colour, not by fading the token that is already quiet. */
+  color: var(--line-strong);
+  padding:0 0.125rem;
+}
+
+.ws-item:hover .ws-handle { opacity: 1; color: var(--brand-primary); }
+.ws-list > .uk-sortable-drag { background: var(--subtle-brand); }
+.ws-list > .uk-sortable-placeholder { opacity: .35; }
+
+/* A set, not a sequence: modules, themes, profiles, site_templates. No handles or
+   arrows, and a scroller once the list is long — themes: is 436 entries. */
+.set-list {
+  list-style: none;
+  margin:0 0 0.625rem;
+  padding:0.375rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius:0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap:0.25rem 0.375rem;
+}
+
+.set-list-scroll { max-height:16.25rem; overflow-y: auto; }
+
+.set-item {
+  font-family: var(--font-code);
+  font-size: .74rem;
+  background: var(--subtle-light);
+  border: 1px solid var(--line);
+  border-radius:0.25rem;
+  padding:0.0625rem 0.375rem;
+  color: var(--text-subtle);
+}
+
+html.dark .set-item { background: transparent; }
+
+/* Icon + description for a workspace, with a live preview of the card line. */
+.pres-preview {
+  display: flex;
+  align-items: center;
+  gap:0.625rem;
+  padding:0.5rem 0.625rem;
+  margin-bottom:0.5rem;
+  border: 1px solid var(--line);
+  border-radius:0.5rem;
+  background: var(--subtle-light);
+}
+
+html.dark .pres-preview { background: transparent; }
+
+.pres-icon {
+  width:2.375rem;
+  height:2.375rem;
+  min-width:2.375rem;
+  border-radius:0.625rem;
+  background: var(--subtle-brand);
+  color: var(--brand-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pres-fields { display: flex; flex-wrap: wrap; gap:0.5rem; align-items: center; }
+.pres-fields .uk-select { max-width:9.375rem; }
+.pres-fields .uk-input { max-width:20rem; }
+
+/* Icon chooser: the icons themselves, not their names. Radios so it works by
+   keyboard and needs no JavaScript — :checked + label does the highlighting. */
+.icon-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap:0.375rem;
+  margin-bottom:0.625rem;
+}
+
+.icon-radio {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.icon-choice {
+  width:2.125rem;
+  height:2.125rem;
+  border: 1px solid var(--line);
+  border-radius:0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-subtle);
+  background: var(--surface-card);
+  transition: border-color .15s, color .15s, background .15s;
+}
+
+.icon-choice:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+
+.icon-radio:checked + .icon-choice {
+  border-color: var(--brand-primary);
+  background: var(--subtle-brand);
+  color: var(--brand-primary);
+  box-shadow: 0 0 0 2px var(--subtle-brand);
+}
+
+/* Keyboard focus has to be visible, since the input itself is off-screen. */
+.icon-radio:focus-visible + .icon-choice {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+/* 162 icons: cap the grid and let it scroll, with the filter above it. */
+.icon-filter { max-width:16.25rem; margin-bottom:0.5rem; height:2rem; font-size: .82rem; }
+.icon-grid { max-height:10.5rem; overflow-y: auto; padding:0.125rem; }
+
+/* Tabler icons come from the vendored sprite; UIKit's come from uk-icon. Both must
+   sit on the same baseline and take the current colour. */
+.tabler-icon { display: inline-block; vertical-align: middle; }
+
+.icon-sets { display: flex; flex-direction: column; gap:0.25rem; }
+
+.icon-set-label {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+/* The Tabler grid is 2000 tiles, so it gets its own scroller and the filter does
+   the real work of finding one. */
+.icon-grid-tabler { max-height:13.125rem; }
+
+/* Pager under the icon grid. */
+.icon-pager {
+  display: flex;
+  align-items: center;
+  gap:0.375rem;
+  flex-wrap: wrap;
+  margin-top:0.375rem;
+}
+
+.icon-pager .icon-page {
+  border-radius:0.375rem;
+  padding:0 0.5625rem;
+  line-height:1.625rem;
+  min-width:1.875rem;
+}
+
+.icon-pager .uk-text-meta { font-size: .74rem; }
+
+/* The pager on every list (items, projects, backups, commands). It renders both above
+   and below the rows: on a 200-row page the bottom one is where you arrive after
+   reading, and the top one is where the size chooser is looked for. */
+.list-pager {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0;
+  padding: 0.375rem 0;
+}
+
+.list-pager .uk-text-meta { font-size: .78rem; }
+
+/* A disabled step renders as a <span>, not a <button>: a button that cannot act still
+   takes a tab stop and still looks pressable. It keeps the same footprint so the row
+   does not shift as you move between the first and last page. */
+.list-pager [disabled] { opacity: .45; cursor: default; }
+
+.list-pager-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-right: 0.25rem;
+}
+
+/* UIKit's uk-form-small select is sized for a form row; in a pager it only holds
+   "20"…"All", so let it shrink to its content instead of stretching the bar. */
+.list-pager-size .uk-select {
+  width: auto;
+  min-width: 4.5rem;
+}
+
+/* Tabler icons come through <use> from an EXTERNAL sprite, and presentation
+   attributes on that file's root <svg> do NOT cross into this document — the symbol
+   inherits from the host <svg>, which had none, so every icon drew at the default
+   1px stroke and looked thin and wrong. Stating them here fixes every use at once
+   and keeps the sprite free of 4736 repetitions. */
+.tabler-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* And they are brand-coloured where the old uk-icon carried uk-text-primary: the
+   card tile, the page heading and the chooser's preview. Dropping that class when I
+   moved to <svg> is why they turned grey. */
+.workspace-card .icon .tabler-icon,
+.page-heading-icon .tabler-icon,
+.pres-icon .tabler-icon { color: var(--brand-primary); }
+
+/* A slightly lighter stroke at large sizes: 1.75 reads heavy at 28px+. */
+.workspace-card .icon .tabler-icon,
+.page-heading-icon .tabler-icon { stroke-width: 1.6; }
+
+/* Ace, where a file is code. The textarea stays in the DOM (hidden) because it is
+   what the form submits — Ace only mirrors into it. */
+.ace-host {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius:0.5rem;
+  font-size:0.8125rem;
+  line-height: 1.5;
+  overflow: hidden;                 /* keep the rounded corners */
+}
+/* A one-line editor (a command line) sizes itself to its line; a read-only one is code to read, with no cursor. */
+.ace-host-single { padding: 0.25rem 0; }
+.ace-host-readonly .ace_cursor-layer { display: none; }
+
+/* The gutter, the active line and the rest of the editor's chrome belong to Ace's
+   theme — it ships a matched set per theme and overriding one piece from here breaks
+   the match. These were keyed on html.dark, so a dark editor forced onto a light page
+   (style.editor_theme: dark) got a LIGHT gutter of line numbers beside dark code. Ace
+   styles .ace_gutter itself; let it. */
+
+/* Ace positions its own scrollbars; the card must not clip the search box. */
+.editor-card { overflow: visible; }
+
+/* The editor modal. Wide, because a script needs the width, and tall enough that the
+   editor is the page rather than a slot in it. */
+#editor-modal .uk-modal-dialog { width:min(68.75rem, 94vw); }
+#editor-modal .uk-modal-body { padding:1.375rem 1.625rem; }
+#editor-modal .editor-card { box-shadow: none; border: 0; padding: 0; }
+#editor-modal .ace-host:not(.ace-host-single) { height:min(62vh, 38.75rem) !important; }
+
+/* The save result sits above the editor, where the eye already is, and is sticky so
+   it stays visible while the editor scrolls under it. */
+#editor-result:not(:empty) {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin-bottom:0.625rem;
+}
+
+#editor-result .msg { margin-top: 0; }
+
+/* Toolbar: the Webship wordmark from the brand tokens (Figma nodes 7989-1383
+   light / 7989-1385 dark — identical geometry, the wordmark ink is the only
+   difference, so the file is swapped rather than the artwork recoloured), then the
+   product name on its own. "Webship Workspace" beside a Webship wordmark said Webship
+   twice. */
+.toolbar-logo { display: flex; align-items: center; gap:0.625rem; }
+
+/* UIKit's .uk-logo sets font-size on the anchor, so the product name needs the extra
+   specificity — declared 1rem, it was rendering at UIKit's 20px. */
+.toolbar .toolbar-product {
+  font-size:1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  /* A hairline divider, so the product name reads as ours rather than as part of
+     the wordmark. */
+  padding-left:0.6875rem;
+  border-left: 1px solid var(--line);
+  line-height: 1.1;
+}
+
+
+
+/* The item editor's text area: code, so the code face and a tighter rhythm than body text.
+ * Moved here from the default theme's file, where only one of the three themes had it. */
+.editor-card .editor-area {
+  font-family: var(--font-code);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  resize: vertical;
+  background: var(--surface-input);
+  color: var(--text-subtle-2);
+  border-color: var(--line);
+}
+
+/* Asking the assistant to change a command, and reviewing what it answered.
+ *
+ * The proposal is shown as a diff inside the editor rather than applied: a cmd-*.sh is executed by
+ * the dashboard and by a terminal, so nothing changes one without a person having read the change. */
+.cmd-ai-row { gap: 0.5rem; }
+.cmd-ai-row .uk-input { flex: 1; }
+
+.cmd-proposal { background: var(--busy-soft); border-left: 3px solid var(--link); }
+
+.cmd-diff {
+  max-height: 18rem;
+  overflow: auto;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.625rem;
+  background: var(--code-bg);
+  color: var(--code-ink);
+  font-family: var(--font-code);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  border-radius: 0.375rem;
+}
+
+/* A number is a number.
+ *
+ * Sized to its content rather than stretched across the row: a millisecond value is four characters
+ * and a full-width box for it reads as though something longer belongs there. The unit sits beside
+ * it as quiet text — "1 is normal" answers the question a bare spinner leaves open, and answering it
+ * in the label would make every label a sentence. */
+.settings-row > .settings-number {
+  width: 9rem;
+  flex: 0 0 auto;
+}
+
+.settings-unit {
+  align-self: center;
+  margin-inline-start: .6rem;
+  color: var(--text-subtle);
+  font-size: .82rem;
+}
+
+/* The list of voices this browser actually has, under the field that asks for one.
+ * Full row width beneath the input rather than beside it: the names are long
+ * ("Microsoft Zira - English (United States)") and there can be dozens. */
+.settings-voices {
+  flex: 1 0 100%;
+  margin-top: .4rem;
+  font-size: .82rem;
+  line-height: 1.7;
+}
+
+.settings-voices .voice-pick {
+  font-size: .82rem;
+  text-decoration: none;
+}
+
+/* A command's own description, from its ARGPARSE_DESCRIPTION.
+ *
+ * On its own line under the file name rather than beside it: the names are long
+ * (cmd-webship11-0-x-project.sh) and the descriptions are sentences, so side by side
+ * they wrap into each other and neither is scannable. */
+.cmd-id { display: block; }
+
+/* The human name leads, because that is what tells two commands apart:
+ * cmd-webship11-0-x-project.sh and cmd-webship11-0-0-project.sh differ by
+ * one character in the middle. */
+.cmd-title {
+  display: block;
+  font-weight: 600;
+}
+
+/* The file name still matters — it is what you type — so it stays, in the
+ * monospace it will be typed in, one step quieter than the name above it. */
+/* No chip: a filled background here reads as a badge with a meaning, and this is
+ * only the file's name. Monospace and one step quieter is enough to mark it as
+ * the thing you type. */
+/* A file name, anywhere it appears: settings.yml, a cmd-*.sh, a path.
+ *
+ * Set as code, because that is what it is — a string you are about to type, and
+ * cmd-tools-autostart.sh has more word boundaries than the body font gives it.
+ *
+ * A NEUTRAL surface, not the brand fill `code` inherits: `--chip-bg` is the
+ * primary blue, and a blue pill here reads as a badge with a meaning — a status,
+ * a count — rather than as "this is a file name". Grey with a hairline says the
+ * same thing quietly, and follows both themes because both are tokens. */
+.fname {
+  padding: .05em .35em;
+  border: 1px solid var(--line);
+  border-radius: .25rem;
+  background: var(--surface-muted);
+  color: var(--text-subtle-2);
+  font-size: .85em;
+  white-space: nowrap;
+}
+
+.cmd-file {
+  display: inline-block;
+  margin-top: .2rem;
+  font-size: .78rem;
+}
+
+/* Inside a tab button the file name inherits the button's own colour, or it
+ * disappears against the primary fill when that tab is the active one. */
+/* Inside a button or a heading the pill fights the control it sits in: a tab is
+ * already a bordered box, and an h3 does not want a box around half of itself. */
+.settings-tab .fname,
+h3 .fname,
+button .fname {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+}
+
+/* The instruction box, wide and two lines high: what goes in it is a sentence
+ * aimed at an agent, and a single line hides the start of it while you type the
+ * end. The mic sits inside the box, so the row stays two controls wide. */
+.cmd-ai-row {
+  display: flex;
+  align-items: flex-start;
+  gap: .5rem;
+}
+
+.cmd-ai-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cmd-ai-input .uk-textarea {
+  width: 100%;
+  min-height: 3.5rem;
+  resize: vertical;
+}
+
+.cmd-desc {
+  display: block;
+  margin-top: .15rem;
+  color: var(--text-subtle);
+  font-size: .84rem;
+  line-height: 1.5;
+}
+
+/* A command row reads top to bottom: what it is called, what file it is, what it
+ * does — then what you can do to it.
+ *
+ * Side by side, the six action buttons and a full sentence fought for the same
+ * line and both lost: the description wrapped into a narrow column while the
+ * buttons stacked two-wide. Nothing here needs to be on one line. */
+.cmd-row-stack {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.cmd-row-stack .project-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+}
+
+/* Settings → Row actions: the buttons, what is inside each menu, and your own actions.
+   Its own class names, not .ws-list: ui.js posts a .ws-list drag straight to list-order. */
+.row-actions-section { margin-bottom: 1.5rem; }
+.row-list {
+  list-style: none;
+  margin: 0 0 0.625rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.row-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3125rem 0.5rem;
+  background: var(--surface-card);
+  border-bottom: 1px solid var(--line);
+  font-size: .84rem;
+}
+.row-item:last-child { border-bottom: 0; }
+html.dark .row-item { background: transparent; }
+/* Quiet by colour, not by fading a token that was already the quiet one: at 55% the handle was under
+   the 3:1 a control needs to be seen at all, on the row you have to find before you can drag it. */
+.row-handle { cursor: grab; color: var(--line-strong); padding: 0 0.125rem; }
+.row-item:hover .row-handle { opacity: 1; color: var(--brand-primary); }
+.row-list > .uk-sortable-drag { background: var(--subtle-brand); }
+.row-list > .uk-sortable-placeholder { opacity: .35; }
+.row-item .row-line { width: auto; margin-left: auto; }
+.row-item .ws-move { margin-left: 0.25rem; }
+.row-group { align-items: flex-start; }
+.row-group-body { flex: 1; min-width: 0; }
+.row-entries { display: flex; flex-wrap: wrap; gap: 0.125rem 0.875rem; margin: 0.25rem 0 0 1.5rem; }
+.row-entry { font-size: .8rem; color: var(--text-subtle); }
+.row-menu { border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.375rem 0.75rem; margin-bottom: 0.5rem; }
+.row-menu > summary { cursor: pointer; }
+.row-menu[open] > summary { margin-bottom: 0.5rem; }
+.row-custom-add { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.5rem; align-items: end; }
+.row-custom-add .row-custom-command { grid-column: 1 / -1; }
+.row-custom-table code { white-space: pre-wrap; word-break: break-all; }
+
+/* Rows management: rows of buttons, each button opening onto its groups and commands. */
+.row-actions-tabs { margin-bottom: 1rem; }
+.row-block { border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.5rem 0.625rem; margin-bottom: 0.75rem; }
+.row-block-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.375rem; }
+.row-block-tools { margin-left: auto; display: flex; gap: 0.25rem; }
+.row-block-tools .uk-button { border-radius: 0.375rem; padding: 0 0.4375rem; line-height: 1.5rem; }
+.row-block-hidden { border-style: dashed; }
+.row-buttons { min-height: 2.25rem; }
+.row-button { flex-wrap: wrap; align-items: flex-start; }
+.row-button > .row-handle { margin-top: 0.25rem; }
+.row-button-body { flex: 1 1 18rem; min-width: 0; }
+.row-button-body > summary { cursor: pointer; padding: 0.125rem 0; }
+.row-button-body[open] > summary { margin-bottom: 0.375rem; }
+.row-button > .row-move { width: auto; }
+.row-entry-list { list-style: none; margin: 0.25rem 0 0 1.25rem; padding: 0; }
+.row-entry-item { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 0.25rem 0.5rem; padding: 0.0625rem 0; }
+.row-entry-item > .row-handle { flex: none; }
+.row-entry-item > .row-entry { flex: 1 1 auto; min-width: 0; }
+/* An action of yours carries its edit form below it, so its line may wrap. */
+.row-entry-item:has(> .row-edit) { flex-wrap: wrap; }
+.row-entry-list > .uk-sortable-placeholder { opacity: .35; }
+.row-entry-builtin { font-size: .72rem; flex: none; white-space: nowrap; }
+.row-entry-yours { font-size: .68rem; flex: none; white-space: nowrap; }
+.row-edit { flex-basis: 100%; margin-left: 1.5rem; }
+.row-edit > summary { cursor: pointer; }
+.row-add-action, .row-edit-action { border-top: 1px dashed var(--line); margin-top: 0.5rem; padding-top: 0.5rem; }
+.row-add-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.375rem 0.5rem; align-items: end; margin: 0.25rem 0 0.5rem; }
+.row-add-grid .row-add-steps { grid-column: 1 / -1; }
+.row-add-grid .row-add-check { font-size: .8rem; }
+.row-definition-text { font-family: var(--font-code); font-size: .8rem; }
+.row-definition-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
+.row-definition-buttons .uk-select { width: auto; }
+.row-definition-help pre, .row-activity-log { max-height: 16rem; overflow: auto; font-size: .75rem; }
+.row-options .row-option { display: block; margin-bottom: 0.625rem; }
+.row-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
+.row-columns-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.row-columns-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.row-columns-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.row-columns > .row-groups { min-height: 2.25rem; }
+.row-columns-pick { display: inline-flex; align-items: center; gap: 0.375rem; margin-bottom: 0.375rem; font-size: .8rem; }
+.row-columns-pick .uk-select { width: auto; min-width: 4rem; }
+@media (max-width: 40em) { .row-columns[class] { grid-template-columns: 1fr; } }
+.row-group-name .uk-text-meta { white-space: nowrap; }
+/* Side by side there is less room: the command list steps in less. */
+.row-columns-2 .row-entry-list, .row-columns-3 .row-entry-list, .row-columns-4 .row-entry-list { margin-left: 0.5rem; }
+/* The Rows form's save bar stays in view, and says when there is something to save. */
+.row-save-bar { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; padding: 0.5rem 0; background: var(--surface-card); border-top: 1px solid var(--line); }
+.row-unsaved-note { display: none; font-size: .8rem; font-weight: 600; color: var(--link); }
+#row-arrange-form[data-dirty="1"] .row-unsaved-note { display: inline; }
+/* A command's own move arrows: small, beside its handle, so it can be reordered without dragging. */
+.row-entry-item > .ws-move { flex: none; margin-left: 0; order: -1; }
+.row-entry-item > .ws-move .uk-button { padding: 0 0.25rem; line-height: 1.125rem; min-height: 0; }
+/* Rows tab at phone width: a command's line wraps so its name keeps a readable width (it was left about 20px,
+   one word per line), and a group's line wraps so its move arrows stay inside the list instead of being cut off. */
+@media (max-width: 40em) {
+  .row-entry-list { margin-left: 0; }
+  .row-entry-item { flex-wrap: wrap; }
+  .row-entry-item > .row-entry { flex: 1 1 9rem; }
+  .row-group { flex-wrap: wrap; }
+  .row-group > .ws-move { margin-left: auto; }
+}
+
+/* The navigation topbar: entries someone moved up out of the sidebar, in the bar's three regions.
+   Quiet by default — the bar is a place, not a toolbar of its own — and the label is hidden under
+   640px, where a wordmark plus a divider plus the theme toggle already fill the width. */
+.toolbar-nav { display: flex; align-items: center; gap: 0.25rem; }
+.toolbar-nav-start { margin-left: 0.5rem; padding-left: 0.5rem; border-left: 1px solid var(--line); }
+.toolbar-nav .action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 32px;
+  padding: 0 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-subtle);
+  font-size: 0.8125rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+.toolbar-nav .action-btn:hover,
+.toolbar-nav .action-btn:focus-visible {
+  background: var(--subtle-brand);
+  border-color: var(--line);
+  color: var(--link);
+  text-decoration: none;
+}
+@media (max-width: 40em) {
+  .toolbar-nav .action-label { display: none; }
+  .toolbar-nav .action-btn { padding: 0 0.45rem; }
+  .toolbar-nav-start { margin-left: 0.35rem; padding-left: 0.35rem; }
+}
+
+/* The tiles have their own name: `settings-card` is already the class of the settings FORM wrapper,
+   and a grid rule on that squeezed its description into a 71px ribbon down the right. */
+/* Settings, grouped and as a grid. There are 26 of these files on a full tree, and as pills they
+   wrapped onto three lines of identical buttons — the hub's own settings, an editor that is not a file
+   at all, and twenty-four workspaces, all weighted the same. */
+.settings-group { margin-bottom: 1.5rem; }
+.settings-group-head {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  color: var(--text-subtle);
+  margin: 0 0 0.5rem;
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.6rem;
+}
+.settings-tile {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "icon name" "icon meta";
+  align-items: center;
+  gap: 0 0.6rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-card);
+  color: var(--text-default);
+  text-decoration: none;
+  min-width: 0;
+}
+.settings-tile:hover,
+.settings-tile:focus-visible {
+  border-color: var(--brand-primary);
+  background: var(--subtle-brand);
+  color: var(--text-default);
+  text-decoration: none;
+}
+.settings-tile.is-current { border-color: var(--brand-primary); background: var(--subtle-brand); }
+.settings-tile-icon { grid-area: icon; color: var(--brand-primary); display: flex; }
+.settings-tile-name { grid-area: name; font-weight: 600; font-size: 0.875rem; }
+.settings-tile-meta {
+  grid-area: meta;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  color: var(--text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-back { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 1rem; }
+.settings-back strong { font-size: 1rem; }
+
+/* The screens status: quiet while nothing runs, brand while something does — the same state change a
+   project row's SCREENS button makes when that project has sessions. The count arrives on a poll, so the
+   button follows the badge rather than the server having to re-render it. */
+.actions-screens { gap: 0.35rem; }
+.actions-screens .screens-count:empty { display: none; }
+.actions-screens .uk-badge {
+  min-width: 1.05rem;
+  height: 1.05rem;
+  line-height: 1.05rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  background: var(--brand-primary);
+  color: var(--text-inverse);
+  vertical-align: middle;
+}
+.toolbar-nav .actions-screens:has(.uk-badge) {
+  background: var(--subtle-brand);
+  border-color: var(--brand-primary);
+  color: var(--link);
+}
+.toolbar-nav .actions-screens:has(.uk-badge):hover { background: var(--subtle-brand); }
+/* In the rail it is a tile like its neighbours, so the state reads as a border and a tint rather than
+   as a different shape. */
+.actions-rail-inner .actions-screens:has(.uk-badge) {
+  border-color: var(--brand-primary);
+  background: var(--subtle-brand);
+}
+
+/* "There is a newer one." It sits beside the version rather than replacing it: what you run and what
+   exists are two facts, and the second is only worth room when the answer is yes. */
+.version-hint:empty { display: none; }
+.version-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: 0.3rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--ok-soft);
+  color: var(--ok-ink);
+  border: 1px solid var(--ok);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.version-new:hover, .version-new:focus-visible { text-decoration: none; filter: brightness(1.05); }
+
+/* Fields or raw YAML: the two ways to edit one settings file. */
+.settings-modes { margin: 0 0 0.75rem; }
+.settings-raw-text { min-height: 30rem; font-family: var(--font-code); font-size: 0.8125rem; }
+
+/* ---------- the Styles page ---------- */
+
+/* Almost nothing lives here on purpose. The cards are uk-card, the grid is uk-grid with
+   uk-child-width and uk-grid-match, the badge is uk-label, the form is uk-form-stacked — so what is
+   left is the two things UIkit has no component for: a colour swatch, and a gap between wrapped
+   buttons, which UIkit 3 offers no flex-gap utility for. */
+
+.style-swatches { gap: .3rem; }
+.style-swatch {
+  width: 1.6rem; height: 1.6rem; border-radius: .3rem;
+  /* Neutral rather than a token: this sits on the colour it is showing, in whichever style. */
+  border: 1px solid rgba(128, 128, 128, .35);
+}
+.style-card-actions { gap: .4rem; }
+
+/* The style in use. An outline rather than a border, so the card does not change size when it
+   becomes the active one and the grid does not shift under it. */
+.style-card.is-active { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+
+/* The description of a key is the comment written above it in the file. */
+.settings-desc { display: block; margin-top: 0.125rem; font-size: 0.75rem; font-weight: 400; line-height: 1.4; color: var(--text-subtle); }
+/* Find a setting in the file. */
+.settings-find.uk-input { max-width: 26rem; margin: 0.25rem 0 1rem; border-radius: 0.5rem; }
+.settings-row[hidden], .settings-group[hidden] { display: none; }
+/* On or off is a switch, and it says which. */
+.settings-switch {
+  appearance: none; flex: none; position: relative; width: 2.25rem; height: 1.25rem; margin: 0; cursor: pointer;
+  border-radius: 999px; background: var(--line-strong); transition: background-color 0.15s ease;
+}
+.settings-switch::after {
+  content: ""; position: absolute; top: 0.125rem; left: 0.125rem; width: 1rem; height: 1rem; border-radius: 50%;
+  background: var(--surface-card); box-shadow: 0 1px 2px rgb(0 0 0 / 20%); transition: transform 0.15s ease;
+}
+.settings-switch:checked { background: var(--brand-primary); }
+.settings-switch:checked::after { transform: translateX(1rem); }
+.settings-switch:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+.settings-toggle { display: inline-flex; align-items: center; gap: 0.5rem; }
+@media (prefers-reduced-motion: reduce) { .settings-switch, .settings-switch::after { transition: none; } }
+/* Saving is still one button; it says when there is something to save. */
+.settings-save { display: flex; align-items: center; gap: 0.75rem; }
+.settings-dirty { color: var(--warning-ink); font-weight: 600; }

@@ -1,0 +1,112 @@
+/* The "@" / "/" suggestion popup.
+ *
+ * Painted with the theme tokens only — the palette has no attention colour, and the rule
+ * in CLAUDE.md is to paint with the tokens rather than introduce a hex. So the active row
+ * is the brand fill it already has, and everything else is surface, line and text.
+ *
+ * On <body> and positioned by script, because the composer's field lives inside
+ * deep-chat's shadow root: a popup rendered there inherits that component's overflow and
+ * stacking, and gets clipped by the panel. z-index sits above the modal backdrop so the
+ * list still works in the New screen dialog. */
+
+.ws-suggest {
+  position: fixed;
+  z-index: 1030;                       /* above UIKit's modal (1010) and its dialog */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface-card);
+  color: var(--text-default);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-float);
+  padding: 4px;
+  font-size: .8125rem;
+  line-height: 1.35;
+}
+
+.ws-suggest[hidden] { display: none !important; }
+
+.ws-suggest-row {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, auto) auto 1fr;
+  grid-template-areas:
+    'icon name kind where'
+    '.    desc desc desc';
+  gap: 1px .5rem;
+  align-items: baseline;
+  padding: .375rem .5rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ws-suggest-row + .ws-suggest-row { margin-top: 1px; }
+
+/* The sprite's own stroke and colour come from .tabler-icon in base.css; this only has
+ * to sit the glyph on the text baseline it shares with the name. */
+.ws-suggest-icon {
+  grid-area: icon;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.1em;
+}
+
+.ws-suggest-icon .tabler-icon { color: var(--brand-primary); }
+.ws-suggest-row.is-active .ws-suggest-icon .tabler-icon { color: var(--text-inverse); }
+
+/* The name is what is being chosen, so it is never truncated: a 47-character name cut
+ * to "upsun-webship-sandbox-1-play…" is indistinguishable from its siblings. It wraps
+ * instead, which costs a second line only on the few names that long. */
+.ws-suggest-name {
+  grid-area: name;
+  font-family: var(--font-code, ui-monospace, monospace);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ws-suggest-kind {
+  grid-area: kind;
+  font-size: .6875rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-subtle);
+}
+
+.ws-suggest-where {
+  grid-area: where;
+  justify-self: end;
+  font-size: .6875rem;
+  color: var(--text-subtle);
+  white-space: nowrap;
+}
+
+/* Two lines at most: a Claude Code description is a paragraph written for a model to
+ * choose on, and the whole list has to stay scannable. The full text is the title. */
+.ws-suggest-desc {
+  grid-area: desc;
+  color: var(--text-subtle);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ws-suggest-row.is-active {
+  background: var(--brand-primary);
+  color: var(--text-inverse);
+}
+
+.ws-suggest-row.is-active .ws-suggest-kind,
+.ws-suggest-row.is-active .ws-suggest-where,
+.ws-suggest-row.is-active .ws-suggest-desc { color: var(--text-inverse); }
+
+@media (max-width: 47.9375em) {
+  /* A phone has no room for the provenance column, and the description is what tells
+   * two similarly named skills apart — so the label goes, not the sentence. */
+  .ws-suggest-where { display: none; }
+  .ws-suggest-row { grid-template-columns: 1.25rem minmax(0, auto) auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-suggest { scroll-behavior: auto; }
+}

@@ -18,4 +18,8 @@ parser.add_argument('-f', '--with-pending-fixes',
                     action='store_true',
                     default=False,
                     help='Pin the web* issue-fork branches that are not merged yet (webblog MR !4, webreleases MR !5).')
+parser.add_argument('-p', '--php-version',
+                    default="",
+                    choices=['8.5', '8.4', '8.3', '8.2', '8.1', '8.0', '7.4'],
+                    help='PHP version for the project container. The seven most recent PHP releases DDEV supports; empty means the builder default. Example: --php-version 8.3')
 EOF

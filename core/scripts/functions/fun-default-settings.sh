@@ -13,6 +13,7 @@ function set_default_settings() {
   mkdir -p ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/config/sync ;
 
   if [ -f "${settings_file}" ]; then
+    # Fixed, not a setting: it has to match the config/sync created above.
     if ! grep -q "config_sync_directory" "${settings_file}" ; then
       # Defaulted here rather than asked for in the settings: ../config/sync is the Drupal
       # convention and the folder created just above. Setting config_sync_directory in

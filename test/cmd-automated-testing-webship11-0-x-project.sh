@@ -56,6 +56,10 @@ parser.add_argument('-s', '--headless',
                     action='store_true',
                     default=False,
                     help='Configure the test as a headless automate test.')
+parser.add_argument('-p', '--php-version',
+                    default="8.4",
+                    choices=['8.5', '8.4', '8.3', '8.2', '8.1', '8.0', '7.4'],
+                    help='PHP version for the project container [default %(default)s].')
 EOF
 
 shift $#;
@@ -102,7 +106,7 @@ mkdir ${PROJECT_NAME} ;
 cd ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} ;
 
 # Configure DDEV for Drupal 11 with web docroot and PHP 8.4.
-ddev config --project-type=drupal11 --docroot=web --php-version=8.4 --project-name=${PROJECT_NAME} --auto ;
+ddev config --project-type=drupal11 --docroot=web --php-version=${PHP_VERSION} --project-name=${PROJECT_NAME} --auto ;
 ddev start ;
 
 # Create the Webship 11 project via composer inside DDEV.

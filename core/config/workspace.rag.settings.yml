@@ -1,19 +1,20 @@
 doc:
   name: rag
 
-# RAG both builds and holds: a vector database is a DDEV project, and the per-project index
-# manifests sit beside it as files.
+# RAG both builds and holds: a Milvus vector database is a DDEV project (so the page needs the
+# project table, the Build form and the DDEV actions), and the per-project index manifests written
+# by cmd-tools-ragify.sh sit beside it as files.
 #
-# What this workspace is FOR, next to graphs/: a graph parses code deterministically and answers
-# "what depends on what". It reads no Markdown, no Twig and none of the Drupal wiring YAML. A RAG
-# index reads exactly those — the prose, the templates, the config — and answers "where is this
-# explained or configured". They are complements, not alternatives.
+# What this workspace is FOR, next to graphs/: graphify parses code deterministically and answers
+# "what depends on what". It reads no Markdown, no Twig, no *.module hooks and none of the Drupal
+# wiring YAML. A RAG index reads exactly those — the prose, the templates, the config — and answers
+# "where is this explained / configured / worded". They are complements, not alternatives.
 presentation:
   icon: tabler:database-search
-  # The folder is `rag`; the card says RAG, because that is what it is called — label is the
-  # presentational name and never the directory.
+  # The folder is `rag`; the dashboard card says RAG, because that is what it is called —
+  # `label` is the presentational name and never the directory.
   label: RAG
-  subtitle: Vector Databases & Project RAG Indexes
+  subtitle: Milvus Vector Databases & Project RAG Indexes
   noun: instance
   kind: projects
   also_files: true
@@ -77,10 +78,13 @@ rag:
   # Files larger than this are skipped — a 4 MB minified library is not prose worth retrieving.
   max_file_kb: 512
 
-# What this folder's items ARE, which decides what the dashboard offers on each row:
-#   sites     — real projects with a DDEV environment: build, start, back up, graph, index
-#   code      — repositories checked out to work on, without a site of their own
-#   files     — markdown documents, edited in place
-#   ai-items  — agents, skills and prompts, installable into ~/.claude
-#   media     — recordings and images
+# What this folder's projects are, and which actions their rows offer:
+# sites | code | files | media | ai-items — see core/workspace-app/WORKSPACES.md.
 type: sites
+
+# What the assistant is called on THIS workspace's page, and what its composer says when empty.
+# `default` in either means "whatever settings.yml says" — the global value, so a rename there
+# still reaches this page. Set a value here to override it for this workspace alone.
+assistant:
+  name: default
+  placeholder: default

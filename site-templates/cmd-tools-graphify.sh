@@ -12,7 +12,7 @@ source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1 ;
 # Load workspace settings and extra lists.
 eval $(parse_yaml ${WORKSPACE_CONFIG}/workspace.site-templates.settings.yml);
 
-ARGPARSE_DESCRIPTION="Build or query the knowledge graph of a project in the sandboxes workspace"
+ARGPARSE_DESCRIPTION="Build or query the knowledge graph of a project in the site-templates workspace"
 source ${WORKSPACE_SCRIPTS}/args/arg-graphify.sh || exit 1 ;
 
 shift $#;

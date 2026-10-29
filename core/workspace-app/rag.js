@@ -1,13 +1,9 @@
 /**
- * A project's RAG index, the Milvus instance holding it, and the menu that reads both.
+ * The RAG indexes: which Milvus server holds a project's, and how the dashboard reaches it.
  *
- * This is the complement of `graphs.js`, not an alternative to it. A graph parses code
- * deterministically and answers "what depends on what"; it reads no Markdown, no Twig and none of
- * the Drupal wiring YAML. An index reads exactly those — the prose, the templates, the config —
- * and answers "where is this explained or configured".
- *
- * Milvus runs as its own DDEV project in `rag/<instance>/`, so the dashboard talks to it over the
- * container network rather than through the host.
+ * Not the published host port — this process runs inside ddev-workspace-web, where 127.0.0.1 is
+ * that container. DDEV puts every project on the shared `ddev_default` network, so the answer here
+ * is the Milvus container's own name.
  */
 
 const fs = require('fs');
@@ -15,27 +11,39 @@ const http = require('http');
 const path = require('path');
 
 const { ROOT, CONFIG_DIR } = require('./workspaces');
-const { esc } = require('./html');
 
-// The default instance, read from the workspace settings rather than assumed. Parsed by hand
-// rather than with the YAML loader because this is one value out of one block and the loader is
-// not otherwise needed here.
+/* ---------------- RAG indexes (Milvus) ---------------- */
+//
+// The counterpart of the graph helpers above, and deliberately the layer graphify does not cover:
+// an index holds the TEXT of a project (Markdown, Twig, *.yml, hooks) as rows in Milvus, one
+// collection per project — `ws_<workspace>_<project>`, the same name cmd-tools-ragify.sh writes.
+//
+// The database is not a file, so unlike a graph there is nothing on disk to stat: whether a project
+// has an index is a question for Milvus, asked over its REST API and memoised, because
+// projectRowsHtml re-renders on every job poll.
+
+// Which Milvus instance, from the rag workspace's own settings. Read line by line rather than with
+// a YAML parser, for the same reason the settings editor does: this file is written by hand and
+// keeps its comments.
 function milvusProjectName() {
   try {
-    const lines = fs.readFileSync(path.join(CONFIG_DIR, 'workspace.rag.settings.yml'), 'utf8').split('\n');
-    let inBlock = false;
-    for (const line of lines) {
-      if (/^milvus:\s*$/.test(line)) { inBlock = true; continue; }
-      if (inBlock && /^\S/.test(line)) break;          // the block ended
-      const m = inBlock && line.match(/^\s{2}project:\s*"?([a-zA-Z0-9_-]+)"?\s*$/);
+    const text = fs.readFileSync(path.join(CONFIG_DIR, 'workspace.rag.settings.yml'), 'utf8');
+    const inMilvus = text.split('\n');
+    let block = false;
+    for (const line of inMilvus) {
+      if (/^milvus:\s*$/.test(line)) { block = true; continue; }
+      if (block && /^\S/.test(line)) break;
+      const m = block && line.match(/^\s{2}project:\s*"?([a-zA-Z0-9_-]+)"?\s*$/);
       if (m) return m[1];
     }
-  } catch (_) { /* not configured — the default below is the same one the scripts use */ }
+  } catch (_) { /* not configured */ }
   return 'milvus';
 }
 
-// Reached over the DDEV network by container name, not through the router: the dashboard runs in a
-// container beside it, and Milvus speaks its REST API on the same port as gRPC.
+// Where the dashboard reaches Milvus. NOT the published host port: this process runs inside
+// ddev-workspace-web, where 127.0.0.1 is this container and the host's firewall drops
+// container-to-host traffic anyway. DDEV puts every project on the shared `ddev_default` network,
+// so the Milvus container answers on its own name — same port, gRPC and REST multiplexed.
 function milvusRestBase(instance) {
   return `http://ddev-${instance || milvusProjectName()}-milvus-standalone:19530`;
 }
@@ -43,18 +51,19 @@ function milvusRestBase(instance) {
 // Every RAG server built in the rag workspace: a directory carrying the compose file this tooling
 // writes. One shared instance is the normal case; a project can be bound to its own.
 function ragInstances() {
-  try {
-    return fs.readdirSync(path.join(ROOT, 'rag'), { withFileTypes: true })
-      .filter((e) => e.isDirectory() && fs.existsSync(path.join(ROOT, 'rag', e.name, '.ddev', 'docker-compose.milvus.yaml')))
-      .map((e) => e.name)
-      .sort();
-  } catch (_) {
-    return [];
-  }
+  const base = path.join(ROOT, 'rag');
+  let entries = [];
+  try { entries = fs.readdirSync(base, { withFileTypes: true }); } catch (_) { return []; }
+  return entries
+    .filter((e) => e.isDirectory() && fs.existsSync(path.join(base, e.name, '.ddev', 'docker-compose.milvus.yaml')))
+    .map((e) => e.name)
+    .sort();
 }
 
-// Which instance holds which project's index. Machine-local state, like the graph store: it
-// describes what is built HERE, so it lives beside the instances rather than in core/config.
+// Which server a project's index lives in. rag/bindings.yml holds one line per BOUND project —
+// `<workspace>/<project>: <instance>` — and nothing for the rest, which use the default. The file
+// is machine-local state and lives in the rag workspace rather than in the project, for the same
+// reason a graph does: a repository we ship must not gain a file because somebody indexed it.
 let _bindings = null;
 let _bindingsAt = 0;
 function ragBindings() {
@@ -67,7 +76,7 @@ function ragBindings() {
       const m = line.match(/^([a-z0-9_-]+\/[A-Za-z0-9_.-]+):\s*([A-Za-z0-9_-]+)\s*$/);
       if (m) map.set(m[1], m[2]);
     }
-  } catch (_) { /* nothing bound: everything uses the default instance */ }
+  } catch (_) { /* nothing bound */ }
   _bindings = map;
   _bindingsAt = now;
   return map;
@@ -77,12 +86,33 @@ function ragInstanceFor(wsKey, project) {
   return ragBindings().get(`${wsKey}/${project}`) || milvusProjectName();
 }
 
-// Milvus allows letters, digits and underscore in a collection name, so everything else folds.
+function ragWriteBinding(wsKey, project, instance) {
+  const file = path.join(ROOT, 'rag', 'bindings.yml');
+  let lines = [];
+  try {
+    lines = fs.readFileSync(file, 'utf8').split('\n');
+  } catch (_) {
+    lines = ['# Which Milvus instance holds each project\'s RAG index.',
+      '#',
+      '# Written by cmd-tools-ragify.sh --milvus <instance> and by the dashboard\'s RAG menu. A project',
+      '# that is not listed here uses milvus.project from core/config/workspace.rag.settings.yml.',
+      '#',
+      '# Machine-local state, like the graphs store: it describes what is built on THIS machine.', ''];
+  }
+  const key = `${wsKey}/${project}`;
+  const kept = lines.filter((l) => !l.startsWith(`${key}:`));
+  if (instance) kept.push(`${key}: ${instance}`);
+  fs.writeFileSync(file, `${kept.filter((l, i, a) => !(l === '' && a[i + 1] === '')).join('\n').replace(/\n+$/, '')}\n`, 'utf8');
+  _bindingsAt = 0;
+}
+
+// Milvus identifiers allow letters, digits and underscore only — the same folding
+// rag_collection_name() does in bash and collection_ok() does in the Python worker.
 function ragCollectionName(wsKey, project) {
   return `ws_${wsKey}_${project}`.replace(/[^A-Za-z0-9_]/g, '_');
 }
 
-function milvusPost(pathname, body, timeoutMs, instance) {
+function milvusPost(pathname, body, timeoutMs = 4000, instance = null) {
   return new Promise((resolve) => {
     const payload = JSON.stringify(body || {});
     const url = new URL(milvusRestBase(instance) + pathname);
@@ -91,101 +121,49 @@ function milvusPost(pathname, body, timeoutMs, instance) {
       port: url.port,
       path: url.pathname,
       method: 'POST',
-      timeout: timeoutMs || 4000,
+      timeout: timeoutMs,
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
     }, (response) => {
       let data = '';
-      response.on('data', (c) => { data += c; });
-      // A database that is down and a database that answered nonsense are the same to the caller:
-      // there is nothing to show either way, and a row must still render.
-      response.on('end', () => { try { resolve(JSON.parse(data)); } catch (_) { resolve(null); } });
+      response.on('data', (chunk) => { data += chunk; });
+      response.on('end', () => {
+        try { resolve(JSON.parse(data)); } catch (_) { resolve(null); }
+      });
     });
+    // A stopped instance must not stall a page render: every caller treats null as "no Milvus".
     request.on('error', () => resolve(null));
     request.on('timeout', () => { request.destroy(); resolve(null); });
     request.end(payload);
   });
 }
 
-/**
- * What an instance currently holds, and whether it is up at all.
- *
- * Cached for five seconds AND de-duplicated while in flight: a project list re-renders on every
- * job poll, and without the second guard twenty rows would open twenty sockets to the same
- * database within a second of each other.
- */
-const _cache = new Map();
-const _inFlight = new Map();
-function ragCollections(instance) {
+// Every collection in one server, memoised for 5s and keyed by server. One request per server per
+// render rather than one per project row, and a stopped Milvus costs one connection refusal, not
+// one per row. Keyed, because a workspace can mix projects bound to different servers.
+const _ragCache = new Map();      // instance -> { list, up, at }
+const _ragInFlight = new Map();
+async function ragCollections(instance) {
   const key = instance || milvusProjectName();
-  const hit = _cache.get(key);
-  if (hit && Date.now() - hit.at < 5000) return Promise.resolve(hit);
-  if (!_inFlight.has(key)) {
-    _inFlight.set(key, milvusPost('/v2/vectordb/collections/list', {}, 4000, key).then((body) => {
+  const hit = _ragCache.get(key);
+  if (hit && Date.now() - hit.at < 5000) return hit;
+  if (!_ragInFlight.has(key)) {
+    _ragInFlight.set(key, milvusPost('/v2/vectordb/collections/list', {}, 4000, key).then((body) => {
       const up = !!body && body.code === 0;
       const entry = { list: up && Array.isArray(body.data) ? body.data : [], up, at: Date.now() };
-      _cache.set(key, entry);
-      _inFlight.delete(key);
+      _ragCache.set(key, entry);
+      _ragInFlight.delete(key);
       return entry;
     }));
   }
-  return _inFlight.get(key);
+  return _ragInFlight.get(key);
 }
 
-/**
- * The RAG menu for one project row.
- *
- * `state` is what ragCollections() returned for this project's instance, resolved by the caller so
- * a page of rows shares one lookup per instance.
- */
-function ragMenuHtml(key, project, vals, busy, state, hubDomainFn) {
-  const instance = ragInstanceFor(key, project);
-  const collection = ragCollectionName(key, project);
-  const up = !!state && state.up;
-  const built = up && state.list.includes(collection);
-  const items = [];
-
-  if (!up) {
-    // Nothing else in this menu can work without the database, and saying so once at the top is
-    // better than six items that all fail the same way.
-    items.push(`<li><a href="https://rag.${hubDomainFn()}"><span uk-icon="icon: play; ratio: .7"></span> Start <strong>${esc(instance)}</strong> in the RAG workspace</a></li>`);
-    items.push('<li class="uk-nav-divider"></li>');
-  }
-
-  items.push(`<li><a href hx-post="/actions/ragify" ${vals()} class="${busy || !up ? 'uk-disabled' : ''}"><span uk-icon="icon: play; ratio: .7"></span> ${built ? 'Re-index the project' : 'Build the index'}${busy ? ' (running…)' : ''}</a></li>`);
-
-  if (built) {
-    items.push('<li class="uk-nav-divider"></li>');
-    items.push(`<li><a href hx-get="/fragments/${esc(key)}/rag-search/${encodeURIComponent(project)}" hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: search; ratio: .7"></span> Search this index</a></li>`);
-    items.push(`<li><a href hx-post="/actions/rag-info" ${vals()}><span uk-icon="icon: info; ratio: .7"></span> What is in it</a></li>`);
-    items.push(`<li><a href="https://${esc(instance)}.rag.${hubDomainFn()}" target="_blank" title="Attu, the Milvus web UI"><span uk-icon="icon: link-external; ratio: .7"></span> Open ${esc(collection)} in Attu</a></li>`);
-  }
-
-  items.push('<li class="uk-nav-divider"></li>');
-  items.push(`<li><a href hx-post="/actions/rag-mcp-command" ${vals()}><span uk-icon="icon: link; ratio: .7"></span> Connect over MCP…</a></li>`);
-
-  if (built) {
-    items.push('<li class="uk-nav-divider"></li>');
-    items.push(`<li><a href class="uk-text-danger arm-step" data-armed="0" hx-post="/actions/rag-remove" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete the index</a></li>`);
-  }
-
-  const status = !up ? 'offline' : built ? 'indexed' : 'none';
-  return `<span class="act-with-status"><div class="uk-inline act-menu">
-      <button class="uk-button uk-button-${built ? 'secondary' : 'default'} uk-button-small" type="button" title="A searchable index of this project's prose, templates and config"><span uk-icon="icon: database; ratio: .7"></span> RAG <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-      <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">
-        <li class="uk-nav-header">${esc(instance)} · ${esc(status)}</li>
-        ${items.join('')}
-      </ul></div>
-    </div></span>`;
+function ragInvalidate() {
+  _ragCache.clear();
+  _bindingsAt = 0;
 }
 
 module.exports = {
-  milvusProjectName,
-  milvusRestBase,
-  milvusPost,
-  ragInstances,
-  ragBindings,
-  ragInstanceFor,
-  ragCollectionName,
-  ragCollections,
-  ragMenuHtml,
+  milvusProjectName, milvusRestBase, ragInstances, ragBindings, ragInstanceFor, ragWriteBinding,
+  ragCollectionName, milvusPost, ragCollections, ragInvalidate,
 };

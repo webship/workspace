@@ -1,0 +1,74 @@
+# Google Drive: the Sync to Drive button on the videos, audio, docs and specs pages pushes that
+# folder to a Drive folder, and the Google Drive MCP server (cmd-tools-google-drive-sync.sh -a register)
+# gives Claude Code the same reach. New and changed files go up, in chunks, so large videos are fine;
+# nothing on Drive is ever deleted.
+#
+# One-time setup, in Google Cloud Console: enable the Drive API, make an OAuth client ID of type "Web
+# application", add the redirect URI below, and put its id and secret here. Then press Connect on any
+# of those pages. The refresh token is written back here by the dashboard; this file is never synced or
+# committed with real values, and the settings page shows secrets as empty fields.
+client_id: CHANGE_ME
+client_secret: CHANGE_ME
+refresh_token: ""
+# Whose Drive this is: pre-selected in Google's account chooser when you connect, and the panel warns if
+# Drive ends up connected as somebody else. Your Google address.
+account: ""
+# Full Drive access, because pushing into a folder you already have needs it: the narrower
+# drive.file scope only sees files this app created itself.
+scope: https://www.googleapis.com/auth/drive
+# Empty means https://<hub_domain>/fragments/p/google-drive-sync/callback
+redirect_uri: ""
+# Where the folder picker looks. Places: my_drive, shared_with_me, shared_drives (a Google Workspace
+# shared drive). Views from Drive's sidebar: starred, recent. My Drive alone is the default. A folder
+# picked from a view is still judged by where it lives, so a starred folder in a shared drive needs
+# shared_drives as well.
+locations:
+  - my_drive
+# The folder every workspace stores into, as <root_folder>/<workspace>: one choice, made from the
+# Sync panel, and each teammate points it at their own Drive (or, if `locations` above allows it, a shared drive).
+root_folder: ""
+# A folder of its own for one workspace overrides it: an id or a link, chosen from the Sync panel.
+destinations:
+  videos: ""
+  audio: ""
+  docs: ""
+  specs: ""
+  test: ""
+# What a workspace pushes: its whole folder (the default), or `test-reports`: the report, failure
+# screenshots and recordings of each project's test runs, not the projects themselves.
+sources:
+  test: test-reports
+# ONLY files that match a target are pushed, and a workspace with no targets pushes nothing. A name with no
+# slash matches at any depth (*.mp4); a path with a slash matches from the workspace root (docs/*.pdf); a
+# folder (guide/) means everything inside it. Edit them in the Sync panel. The test workspace pushes its test
+# reports and needs none. Hidden files and folders are never pushed.
+targets:
+  videos:
+    - "*.mp4"
+    - "*.webm"
+    - "*.mov"
+    - "*-poster.jpg"
+    - "*.vtt"
+  audio:
+    - "*.mp3"
+    - "*.wav"
+    - "*.ogg"
+    - "*.m4a"
+  docs:
+    - "*.pdf"
+    - "*.docx"
+    - "*.pptx"
+    - "*.xlsx"
+  specs:
+    - "*.md"
+# Also never pushed, on top of a built-in list that this cannot switch off: cmd-*.sh, the workspace's own
+# AGENTS.md, CLAUDE.md, README.md and *.code-workspace (top level only), and files that hold passwords or
+# keys (.env, *.pem, *.key, id_rsa*, *secret*, *password*, *credential*, and so on). Names or paths; * within
+# a segment, ** across segments; a leading / means only at the top.
+# Small text files are also read, and any that give away a private key, a known token or a password value is
+# skipped and named in the output. Turn that reading off with scan_for_secrets: false (the name rules stay).
+exclude:
+  - node_modules
+  - .git
+  - .DS_Store
+  - dev-ai-agents

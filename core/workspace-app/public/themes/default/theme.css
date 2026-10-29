@@ -1,170 +1,267 @@
 /**
- * The default theme: the dashboard's own palette, in both halves.
+ * @name Webship
  *
- * A theme is a palette file. It sets the tokens for light and for dark, and may add rules of
- * its own — nothing else in the stylesheet needs to know which theme is loaded.
+ * The default theme: the Webship design system, expressed as CSS custom properties and nothing else.
+ *
+ * A theme is a PALETTE, not a stylesheet. This file declares values; it never selects an element.
+ * Every rule that paints lives in base.css or in a component, and every one of them reads a token
+ * from here — so a component says var(--surface-card) rather than #fff, and both halves of the
+ * theme fall out of the same rule instead of needing a second `html.dark` copy of it.
+ *
+ * Three layers, in the order the design system defines them:
+ *
+ *   1. BRAND PRIMITIVES — the raw values from core/config/brand-tokens.json, kept in
+ *      core/config/brand-tokens.json and edited by hand.
+ *      These are the design system's own names. They do not change between light and dark:
+ *      Webship blue is Webship blue on any background.
+ *   2. TYPE — the scale and the three brand typefaces, also from the stylesheet.
+ *   3. SEMANTIC TOKENS — what the interface actually asks for: a card surface, a subtle line, a
+ *      danger tint. These are the ones that flip in the dark half, because "the surface a card sits
+ *      on" is a different colour at night while the brand is not.
+ *
+ * Dark is not a separate theme. It is the second half of this one: the same token names, restated
+ * under html.dark. The dark ramp is built on the hue of Webship Secondary (#2b447c) rather than a
+ * neutral grey, so an unlit dashboard still reads as Webship rather than as a generic dark app.
  */
 
-/**
- * The palette every component asks for by name.
- *
- * A theme supplies these and nothing else has to change: a component that says
- * `var(--surface-raised)` looks right in any theme, and one that says `#fff` looks right in
- * exactly one. The dark half lives here too, because dark is not a separate theme — it is the
- * other half of the one you chose, and the toggle switches between them.
- */
 :root {
-  --brand-1: #1e87f0;
-  --brand-2: #6d5bd0;
-  --brand-3: #9b5cf6;
-  --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2) 65%, var(--brand-3));
-  --brand-primary: var(--brand-2);
-  --ink: #232946;
-  --ink-soft: #4a5178;
-  --text-subtle: #6f77a3;
-  --surface: #f6f7fc;
-  --surface-raised: #fff;
-  --surface-sunken: #eef0fa;
-  --line: #e6e8f4;
-  --line-strong: #cfd3ee;
-  --ok: #2fb344;
-  --ok-soft: #f2fbf5;
+
+  /* ---------------------------------------------------------------------
+   * 1. Brand primitives — brand tokens (figma.com/design/Hwbkgkvxths84swEtWcmTv)
+   * ------------------------------------------------------------------ */
+
+  --brand-primary: #0074e0;
+  --brand-secondary: #2b447c;
+  --brand-accent: #e4dcff;
+  --brand-dark: #000000;
+  --brand-light: #ebe8e5;
+
+  /* Subtle (tinted surfaces) */
+  --subtle-light: #f5f3f2;
+  --subtle-brand: #deedff;
+  --subtle-accent: #f6f3ff;
+
+  /* Text */
+  --text-default: #000000;
+  --text-subtle: #4d4d4d;
+  --text-inverse: #ffffff;
+  --text-light: #ebe8e5;
+  --text-brand: var(--brand-primary);
+  --text-accent: var(--brand-accent);
+
+  /* ---------------------------------------------------------------------
+   * 2. Type — Figtree primary, DM Serif Text secondary, JetBrains Mono for code.
+   *    The faces are vendored as woff2 and declared in base.css; nothing is fetched.
+   * ------------------------------------------------------------------ */
+
+  --font-primary: Figtree, "Helvetica Neue", Arial, sans-serif;
+  --font-secondary: "DM Serif Text", Georgia, serif;
+  --font-code: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Typography scale, from the brand tokens (Figma 2070-473). Headings 1 and 2 are
+     Secondary; 3 to 6 are Primary SemiBold. The 62px/50px display sizes are the
+     landing-page scale — this is a dashboard, so the page heading uses the H3 step
+     and keeps the Secondary family, rather than setting a 62px h1 over a table. */
+  --weight-regular: 400;
+  --weight-semibold: 600;
+  --leading-heading: 1.4;
+  --leading-display: 1.3;
+  --leading-body: 1.6;
+  --tracking-wide: 0.0625em;      /* spacing/letter-wide */
+  --size-h1: 2rem;
+  --size-h2: 1.625rem;
+  --size-h3: 1.5rem;
+  --size-h4: 1.25rem;
+  --size-h5: 1.125rem;
+  --size-h6: 1rem;
+  --size-body: 0.9375rem;
+  --size-small: 0.875rem;        /* Components/Forms/Note/Default */
+  /* Type ROLES: one token per role, holding the weight, the size, the line-height and the
+     family together. A component writes `font: var(--type-h3)` and cannot then get the weight
+     right and the line-height wrong — which is how h3 drifted onto the serif once already.
+     The scale below stays the single source of the sizes; the role decides the rest. */
+  --type-h1: var(--weight-regular) var(--size-h1)/1.15 var(--font-secondary);
+  --type-h2: var(--weight-regular) var(--size-h2)/1.2 var(--font-secondary);
+  --type-h3: var(--weight-semibold) var(--size-h3)/1.25 var(--font-primary);
+  --type-h4: var(--weight-semibold) var(--size-h4)/1.3 var(--font-primary);
+  --type-h5: var(--weight-semibold) var(--size-h5)/1.35 var(--font-primary);
+  --type-h6: var(--weight-semibold) var(--size-h6)/1 var(--font-primary);
+  --type-body: var(--weight-regular) var(--size-body)/var(--leading-body) var(--font-primary);
+  --type-body-sm: var(--weight-regular) var(--size-small)/1.45 var(--font-primary);
+  --type-label: var(--weight-semibold) var(--size-body)/1 var(--font-primary);
+  --type-caption: var(--weight-regular) var(--size-small)/1.35 var(--font-primary);
+  --type-mono: var(--weight-regular) var(--size-body)/1.5 var(--font-code);
+  --type-mono-sm: var(--weight-regular) var(--size-small)/1.4 var(--font-code);
+
+  /* Optical tracking, per role. This theme sets none — its scale is the one it shipped with —
+     but the tokens exist so a heading never has to bring its own, and so a theme that wants
+     tightened display type only has to set these. */
+  --tracking-h1: normal;
+  --tracking-h2: normal;
+  --tracking-h3: normal;
+  --tracking-h4: normal;
+  --tracking-h5: normal;
+  --tracking-h6: var(--tracking-wide);
+
+  /* ---------------------------------------------------------------------
+   * 3. Semantic tokens — what the interface asks for by role.
+   *    Restated under html.dark below; nothing else is.
+   * ------------------------------------------------------------------ */
+
+  /* Surfaces, from the page backwards: the page, a card on it, a tinted well
+     inside the card, and the field you type into. */
+  --surface: var(--subtle-light);
+  --surface-card: #ffffff;
+  --surface-muted: #f1eef9;
+  --surface-input: #ffffff;
+
+  /* Text, three steps: body, a quieter step for secondary copy, then meta
+     (--text-subtle, a brand primitive, is the quietest). */
+  --text-subtle-2: #333333;
+
+  /* Rules and edges. -strong is the hover state, where an edge has to be seen. */
+  --line: #e2ddd8;
+  --line-strong: #c9c2ba;
+
+  /* Interactive. --link is the one brand value that moves in BOTH halves, because link text is the
+     one place a brand colour has to pass 4.5:1 rather than look right: Webship blue is 4.59:1 on white
+     but 4.15:1 on --subtle-light and 3.86:1 on --subtle-brand, so prose links and the rail's current
+     row failed wherever they sat on a tint. This is a shade down — 5.35:1 and 4.98:1 on those two —
+     and brand/primary itself is untouched, since white ON blue was never the problem. */
+  --link: #0063c0;
+  --brand-pressed: #0063c0;        /* a primary button, held down */
+  --brand-2-pressed: #22355f;      /* a secondary button, held down */
+  --focus-ring: rgba(0, 116, 224, .35);
+
+  /* States. Each is a trio: the line/dot colour, the tint it sits on, and the
+     text colour that is readable on that tint. */
+  /* The solid colours and their subtle tints are the brand tokens's Alert Colors (status/*). */
+  --ok: #146c43;
+  --ok-soft: #d0e2d9;
+  --pcard-tool-label: 0rem;
   --ok-ink: #14532d;
-  --danger: #f0506e;
-  --danger-soft: #fef4f6;
+  --danger: #e71139;
+  --danger-soft: #facfd7;
   --danger-ink: #7d1a2e;
-  --link: #1e87f0;
-  --subtle-brand: #f0f6fd;
-  --danger-armed: #a4133c;
-  --busy-soft: #f1eefb;
-  --busy-ink: var(--brand-2);
-  --subtle-light: #f7f9ff;
+  --danger-armed: #a4133c;       /* a destructive button, already armed */
+  /* Danger as TEXT on a card: status/danger is 4.47:1 on white, just under the 4.5:1 text needs. */
+  --danger-text: #c20f31;
+  --warning: #fdd26e;
+  --warning-soft: #fef1d3;
+  --warning-ink: #5c4300;
+  --info: #0dcaf0;
+  --info-soft: #cff4fc;
+  --info-ink: #055160;
+  --success: #146c43;       /* Figma brand tokens, status/success */
+  --success-soft: #d0e2d9;
+  --success-ink: #0f5132;
+  --busy-soft: var(--subtle-brand);
+  --busy-ink: var(--brand-secondary);
+  --accent-soft: var(--subtle-accent);
+  --accent-ink: #4b3fa8;
+
+  /* Chips: badges, labels, counts. */
+  --chip-bg: var(--brand-primary);
+  --chip-ink: var(--text-inverse);
+
+  /* Elevation. A card is lifted with the brand's own navy rather than black,
+     which is what keeps a light page warm rather than grey. */
+  --shadow-card: 0 4px 16px rgba(35, 41, 70, .06);
+  --shadow-card-hover: 0 12px 28px rgba(43, 68, 124, .16);
+  --shadow-float: 0 1.5rem 3rem rgba(43, 68, 124, .28);
+  --shadow-toast: 0 14px 34px rgba(35, 41, 70, .26);
+  --toast-ring: rgba(255, 255, 255, .9);   /* the hairline that lifts a toast off a pale page */
+
+  /* Surfaces that do NOT follow the theme, and should not.
+   *
+   * Code is read as code: a terminal and a fenced block stay dark in both halves,
+   * the way every editor and every CI log the team looks at does. A video letterboxes
+   * on black because that is what the black bars are, and a rendered document is white
+   * paper whichever way the dashboard is lit — theming those would be theming the
+   * CONTENT rather than the interface around it. They are tokens all the same, so a
+   * theme that disagrees can say so in one line. */
+  --code-bg: #1f2437;
+  --code-ink: #e6e9f5;
+  --terminal-ink: #c9f7d4;
+  --media-bg: #000000;
+  --paper: #ffffff;
+
+  /* The chequerboard behind a transparent image, and the backdrop behind a modal. */
+  --checker-a: #dcdcdc;
+  --checker-b: #d8d8d8;
+  --checker-bg: #f4f4f4;
+  --overlay: rgba(0, 0, 0, .6);
+
+  /* Compatibility aliases. Older rules name the brand by number; keeping them
+     pointed at the primitives means one palette, not two. */
+  --brand-1: var(--brand-primary);
+  --brand-2: var(--brand-secondary);
+  --brand-3: var(--brand-accent);
+  --brand-grad: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+  --ink: var(--brand-secondary);
 }
+
+/* ---------------------------------------------------------------------------
+ * The dark half. Same names, night values, on the hue of Webship Secondary.
+ *
+ * Only semantic tokens are restated. The brand primitives are not: #0074e0 does
+ * not become a different blue after dark — the interface reaches for --link
+ * instead, wherever contrast demands it.
+ * ------------------------------------------------------------------------ */
 
 html.dark {
-  --ink: #e8eaf6;
-  --ink-soft: #c3c8e8;
-  --text-subtle: #9aa4c2;
-  --surface: #131624;
-  --surface-raised: #1c2136;
-  --surface-sunken: #161a2e;
-  --line: #2b3049;
-  --line-strong: #3d437c;
-  --ok-soft: #12291c;
-  --ok-ink: #b7e8c8;
-  --danger-soft: #2c1420;
-  --danger-ink: #f6b8c6;
-  --link: #4aa8ff;
-  --subtle-brand: #232941;
-  --danger-armed: #ff5c7a;
-  --busy-soft: #10131f;
-  --busy-ink: #c9f7d4;
-  --subtle-light: #1a1f33;
-}
+  --surface: #0f1626;
+  --surface-card: #172033;
+  --surface-muted: #1f2a42;
+  --surface-input: #0f1729;
 
-/* ---------- what the palette alone cannot express ---------- */
-/* ---------- Dark mode (html.dark; light is the default) ---------- */
+  --text-default: #e8edf6;
+  --text-subtle-2: #c2cbdd;
+  --text-subtle: #93a0b8;
 
-.theme-toggle {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--ink);
-  padding: 0 6px;
-}
+  --line: #27334d;
+  --line-strong: #3b4a6d;
 
-.theme-toggle:hover { color: var(--brand-1); }
-.theme-icon-sun { display: none; }
-html.dark .theme-icon-sun { display: inline; }
-html.dark .theme-icon-moon { display: none; }
+  --link: #57a8ff;
+  --brand-pressed: #2f8fe8;
+  --brand-2-pressed: #1b2b4d;
+  --focus-ring: rgba(87, 168, 255, .40);
 
-html.dark {
-  --ink: #e8eaf6;
-  --surface: #131624;
-  --line: #2b3049;
-}
+  --ok-soft: #10261a;
+  --ok-ink: #a8e6b8;
+  --danger-soft: #2a1620;
+  --danger-ink: #ffd0da;
+  --danger-armed: #e0466b;
+  --danger-text: #ff8fa3;
+  --warning-soft: #2e2610;
+  --warning-ink: #fde4a3;
+  --info-soft: #0c2a33;
+  --info-ink: #9eeaf9;
+  --success-soft: #10291d;
+  --success-ink: #a3d9bd;
+  --busy-soft: #1a2440;
+  --busy-ink: #b9c9ff;
+  --accent-soft: #2c2550;
+  --accent-ink: #d9d2ff;
 
-html.dark body.uk-background-muted { background: #131624 !important; color: #e8eaf6; }
+  --chip-bg: #33406e;
+  --chip-ink: #e8edf6;
 
-html.dark .toolbar { background: #1a1e30; border-bottom-color: #2b3049; }
-html.dark .toolbar-logo { color: #e8eaf6 !important; }
-html.dark .toolbar .uk-breadcrumb a { color: #9aa4f0; }
-html.dark .toolbar .uk-breadcrumb > :last-child span { color: #c3c8e8; }
-html.dark .theme-toggle { color: #c3c8e8; }
+  --subtle-light: #131b2c;
+  --subtle-brand: #10243d;
+  --subtle-accent: #221f3a;
 
-html.dark .uk-card-default {
-  background: #1c2136;
-  color: #dfe3f5;
-  border-color: #2b3049;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, .35);
-}
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, .35);
+  --shadow-card-hover: 0 12px 28px rgba(0, 0, 0, .50);
+  --shadow-float: 0 1.5rem 3rem rgba(0, 0, 0, .55);
+  --shadow-toast: 0 14px 34px rgba(0, 0, 0, .50);
+  /* The white ring belongs to a light page; on a dark one it draws a halo. */
+  --toast-ring: rgba(0, 0, 0, .5);
 
-html.dark .uk-card-default .uk-card-title,
-html.dark h1, html.dark h2, html.dark h3, html.dark h4 { color: #eef0fb; }
-html.dark .uk-text-meta, html.dark .uk-text-lead { color: #9aa1c2 !important; }
+  --checker-a: #2a3550;
+  --checker-b: #26314a;
+  --checker-bg: #131b2c;
+  --overlay: rgba(0, 0, 0, .72);
 
-html.dark .workspace-card { background: #1c2136; }
-html.dark .workspace-card:hover { border-color: #46508a; }
-html.dark .workspace-card .icon,
-html.dark .page-heading-icon { background: #252c48; }
-
-html.dark .ws-backups { background: #252c48; color: #b9aef8; }
-html.dark .ws-backups:hover { background: var(--brand-2); color: #fff; }
-
-html.dark .uk-badge { background: #3d437c; }
-html.dark .uk-label { background: #3d437c; }
-html.dark .uk-label-success { background: #2fb344; }
-
-html.dark .uk-input, html.dark .uk-select {
-  background: #12162a;
-  color: #e8eaf6;
-  border-color: #2b3049;
-}
-
-html.dark .uk-input::placeholder { color: #6f77a3; }
-
-html.dark .uk-button-default {
-  background: #252c48;
-  color: #cdd3f0;
-  border-color: #343b5e;
-}
-
-html.dark .uk-button-default:hover { background: #2f3760; color: #fff; }
-html.dark .uk-button-secondary { background: #0f1322; }
-
-html.dark .chat-log { background: #161a2c; border-color: #2b3049; }
-html.dark .chat-log .msg.assistant,
-html.dark .chat-log .msg.error { background: #1f2540; border-color: #2f3556; color: #dfe3f5; }
-html.dark .chat-log .msg.error { color: #ff8aa1; border-color: #a2374f; }
-html.dark .chat-log .msg.user::after { background: #343b5e; }
-html.dark .chat-typing { background: #1f2540; border-color: #2f3556; }
-
-html.dark #webship-workspace-output .msg.assistant { background: #1f2540; border-color: #2f3556; color: #dfe3f5; }
-html.dark #webship-workspace-output .msg.error { background: #2a1a22; }
-
-html.dark .project-row { background: #1c2136; border-color: #2b3049; }
-html.dark .project-row:hover { border-color: #46508a; }
-
-html.dark .global-working-pill { background: #1c2136; border-color: #2b3049; color: #b9aef8; }
-
-html.dark footer.uk-section, html.dark footer.uk-section a { color: #6f77a3; }
-
-/* Item editor */
-.editor-card .editor-area {
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  resize: vertical;
-}
-
-html.dark .editor-card .editor-area { background: #12162a; color: #e8eaf6; border-color: #2b3049; }
-
-/* When the floating assistant is open on a wide screen, shift the page
- * content left so the widget never covers buttons; collapsing the widget
- * (launcher) restores normal centering. */
-@media (min-width: 1200px) {
-  body:has(.assistant-float.open) .page-body.webship-workspace-page {
-    margin-right: auto;
-    margin-left: 540px;
-  }
+  --ink: var(--text-default);
 }

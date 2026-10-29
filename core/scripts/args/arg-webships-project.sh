@@ -15,4 +15,8 @@ parser.add_argument('-a', '--add-users',
                     action='store_true',
                     default=False,
                     help='Add the default set of users to the installed site.')
+parser.add_argument('-p', '--php-version',
+                    default="",
+                    choices=['8.5', '8.4', '8.3', '8.2', '8.1', '8.0', '7.4'],
+                    help='PHP version for the project container. The seven most recent PHP releases DDEV supports; empty means the builder default. Example: --php-version 8.3')
 EOF

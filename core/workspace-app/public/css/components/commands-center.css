@@ -1,0 +1,139 @@
+/* The Commands page (core/workspace-app/commands-page.js): the catalog, a command's own page, and its run form. */
+
+.cc-tabs { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+
+.cc-command-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+
+.cc-dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.25rem 1rem; margin: 0 0 1rem; }
+.cc-dl dt { color: var(--text-subtle); font-weight: 600; }
+.cc-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
+.cc-target,
+.cc-options,
+.cc-kind {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.5rem 0.75rem;
+  min-width: 0;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+.cc-target legend,
+.cc-options legend,
+.cc-kind legend { padding: 0 0.25rem; }
+
+.cc-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.5rem 0.75rem; margin-bottom: 0.5rem; }
+.cc-form-grid label,
+.cc-target label,
+.cc-options label,
+.cc-kind label { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.cc-form-grid .cc-inline,
+.cc-kind .cc-inline { flex-direction: row; align-items: center; gap: 0.5rem; }
+.cc-wide { grid-column: 1 / -1; }
+.cc-code { font-family: var(--font-code); }
+
+.cc-yaml { max-height: 28rem; overflow: auto; }
+.cc-manage { margin: 0.75rem 0; }
+.cc-new-other { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+
+@media (max-width: 40em) {
+  .cc-dl { grid-template-columns: minmax(0, 1fr); }
+  .cc-dl dd { margin-bottom: 0.375rem; }
+}
+
+/* A link inside a block of text has to be distinguishable from that text by something other than
+   colour: the command titles sit beside their description and file name, and brand blue against the
+   body ink is 1.52:1 — far under the 3:1 axe (and WCAG 1.4.1) asks for. Underlined, quietly, which is
+   the convention for a link in prose and the one cue that survives being colour-blind or printing it. */
+.cmd-title a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--line-strong);
+}
+.cmd-title a:hover { text-decoration-color: currentColor; }
+
+/* ---------- Commands → Rail: the actions rail, arranged ----------
+ * The same shape as the Buttons pane, because it is the same question about a different strip of the
+ * screen: a list per group, drag by a handle, and a Hidden list at the end. */
+.nav-scopes { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.nav-groups { list-style: none; margin: 0; padding: 0; }
+
+.nav-group {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem 0.75rem;
+  margin-bottom: 0.5rem;
+  background: var(--surface-card);
+}
+.nav-group-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; }
+.nav-group-hidden { border-style: dashed; }
+
+.nav-entries { list-style: none; margin: 0; padding: 0; min-height: 2rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.nav-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 62.4375rem;
+  background: var(--surface);
+  font-size: 0.8125rem;
+}
+/* An empty group still takes a drop: a list with no height is a target nothing can be dragged into. */
+.nav-entries:empty::after {
+  content: "drag an entry here";
+  color: var(--text-subtle);
+  font-size: 0.75rem;
+  padding: 0.35rem 0.25rem;
+}
+
+.nav-handle { cursor: grab; color: var(--line-strong); }
+.nav-handle:active { cursor: grabbing; }
+.nav-yours { font-size: 0.625rem; }
+.nav-remove { padding: 0; color: var(--danger); }
+.nav-save { position: sticky; bottom: 0; padding: 0.5rem 0; background: var(--surface); }
+.nav-add { margin-top: 1rem; }
+
+/* The navigation editor's two places: the top bar's three regions, then the sidebar's groups. */
+.nav-place-head { display: flex; align-items: baseline; gap: 0.4rem; margin: 1rem 0 0.4rem; }
+.nav-place-topbar { margin-bottom: 0.5rem; }
+.nav-regions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+@media (max-width: 47.9375em) { .nav-regions { grid-template-columns: 1fr; } }
+.nav-region {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 0.5rem;
+  background: var(--surface-muted);
+}
+html.dark .nav-region { background: transparent; }
+.nav-region-label {
+  display: block;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-subtle);
+  margin-bottom: 0.35rem;
+}
+
+/* UIKit hardcodes .uk-form-label to a dark grey, and uikit.min.css is linked AFTER this stylesheet — so
+   a rule of ours at the same specificity loses the tie silently. On a dark card that label measured
+   1.28:1, which is a WCAG AA failure nobody put there. Two classes out-specify it, in both halves of
+   the theme. */
+html .uk-form-label { color: var(--text-subtle); }
+html.dark .uk-form-label { color: var(--text-light); }
+
+/* How much of an entry is shown, on the chip itself: icon + text, icon only, or text only. */
+.nav-entry-show {
+  font-size: 0.625rem;
+  line-height: 1;
+  padding: 0.15rem 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-subtle);
+  max-width: 6.5rem;
+}
+.nav-entry-show:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }

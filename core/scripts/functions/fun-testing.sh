@@ -22,6 +22,85 @@
 # reads.
 
 # Which stack a project has, or would get.
+# Where Playwright keeps its browsers.
+#
+# NOT the default `~/.cache/ms-playwright` inside the web container: that lives in the container's
+# writable layer, so a `ddev restart` — which `ddev init-full-automated-testing` and the add-on both
+# do as part of setting up — throws away the 113 MB that had just been downloaded, and the next run
+# fails with "Executable doesn't exist at …/chrome-headless-shell". `/mnt/ddev-global-cache` is a
+# docker volume DDEV mounts into every web container, so the download survives a restart AND is
+# shared by every project instead of being fetched once per site. The directory names carry the
+# Playwright build number, so two projects on two versions do not collide.
+readonly TESTING_BROWSERS_PATH='/mnt/ddev-global-cache/ms-playwright';
+
+# Install the browsers if they are not already in the shared cache. Idempotent and quick when they
+# are, so it is safe to call before every run — which is what makes a wiped container self-heal
+# rather than failing 275 scenarios in 1.6 seconds.
+# PLAYWRIGHT_SKIP_BROWSER_GC=1 is not optional here.
+#
+# `playwright install` sweeps the browsers directory and DELETES every build its own version does
+# not know about. In a per-container cache that is housekeeping; in a SHARED one it is one project
+# destroying another's browser — and it did: installing for the dashboard (Playwright 1.62,
+# chromium 1234) removed the 1223 build a project's suite was running against, which failed the
+# remaining 213 of its 275 scenarios with "Executable doesn't exist" twenty minutes in. Skipping the
+# collection leaves both builds in place; they are a few hundred MB and the disk is not the problem
+# a shared cache was solving.
+# The shared libraries chromium itself needs (libnspr4, libnss3, the X and font
+# stack). They belong in the IMAGE, not in a running container: `ddev restart`
+# recreates the container, so `playwright install-deps` run once at setup time is
+# gone by the next suite and every scenario dies at browser launch with
+#   error while loading shared libraries: libnspr4.so
+# A build file in .ddev/web-build/ is rebuilt into the image on every start, so
+# the libraries survive restarts, rebuilds and a `ddev delete` + rebuild.
+readonly TESTING_BROWSER_LIBS_BUILD='.ddev/web-build/Dockerfile.playwright';
+
+function testing_write_browser_libs_build() {
+  local project_path="$1";
+  mkdir -p "${project_path}/.ddev/web-build" || return 1 ;
+  cat > "${project_path}/${TESTING_BROWSER_LIBS_BUILD}" <<'DOCKERFILE'
+# The shared libraries Playwright's chromium needs, baked into the web image so
+# they survive `ddev restart` — installed by the workspace testing tooling.
+# Playwright resolves the package names for this Debian release itself; the apt
+# list is the fallback for a build with no network access to npm.
+RUN npx --yes playwright@1.56 install-deps chromium || \
+    (apt-get update && apt-get install -y --no-install-recommends \
+      libnspr4 libnss3 libdbus-1-3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 \
+      libdrm2 libatspi2.0-0t64 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+      libgbm1 libxkbcommon0 libasound2t64 libpango-1.0-0 libcairo2 fonts-liberation \
+      && rm -rf /var/lib/apt/lists/*)
+DOCKERFILE
+}
+
+# Is chromium actually able to start in this project's web container?
+function testing_browser_libs_ok() {
+  ddev exec 'ldconfig -p | grep -q libnspr4' > /dev/null 2>&1 ;
+}
+
+# Make sure it is, rebuilding the image once if it is not. Called before every
+# run, so a project that predates this — or one whose image was rebuilt from an
+# older config — heals itself instead of failing the whole suite at step one.
+function testing_ensure_browser_libs() {
+  local project_path="$1";
+  if testing_browser_libs_ok ; then
+    return 0 ;
+  fi
+  echo "";
+  echo "The chromium libraries are missing from this project's web container — adding them to the image.";
+  testing_write_browser_libs_build "${project_path}" || return 1 ;
+  ddev restart || return 1 ;
+  if testing_browser_libs_ok ; then
+    echo "The browser libraries are in place.";
+    return 0 ;
+  fi
+  echo "The browser libraries are still missing after the rebuild — check ${TESTING_BROWSER_LIBS_BUILD}.";
+  return 1 ;
+}
+
+function testing_install_browsers() {
+  echo "Making sure the Playwright browsers are in the shared DDEV cache.";
+  ddev exec "PLAYWRIGHT_BROWSERS_PATH=${TESTING_BROWSERS_PATH} PLAYWRIGHT_SKIP_BROWSER_GC=1 npx playwright install chromium" || return 1 ;
+}
+
 function testing_stack() {
   local project_path="$1";
   if [ -f "${project_path}/.ddev/commands/web/init-full-automated-testing" ] ; then
@@ -100,8 +179,9 @@ function testing_configure() {
     echo "";
     echo "Installing the JS dependencies and the chromium browser.";
     ddev ${runner} install || true ;
-    ddev npx playwright install-deps chromium || true ;
-    ddev npx playwright install chromium || true ;
+    testing_write_browser_libs_build "${project_path}" ;
+    testing_ensure_browser_libs "${project_path}" || true ;
+    testing_install_browsers || true ;
   fi
 
   # A site under test should fail loudly and serve unaggregated assets: a CSS aggregate makes a
@@ -142,7 +222,21 @@ function testing_run() {
     return 1 ;
   fi
 
-  ddev start -y || return 1 ;
+  # Start it only if it is not already up. `ddev start` on a running project RECREATES its
+  # containers whenever the project rewrites its own config on boot (the site-template projects do,
+  # for Storybook) — which throws away the container, occasionally trips the health wait, and used
+  # to take the freshly downloaded browsers with it. A running project is left alone.
+  if ddev describe -j 2>/dev/null | grep -q '"status":"running"' ; then
+    echo "${doc_name}/${PROJECT_NAME} is already running.";
+  else
+    ddev start -y || return 1 ;
+  fi
+
+  # A restart between setting up and running empties the container's own cache, so check before
+  # opening a browser rather than after 275 scenarios have failed for the same missing file. The
+  # libraries chromium links against are checked the same way and for the same reason.
+  testing_ensure_browser_libs "${project_path}" || return 1 ;
+  testing_install_browsers || return 1 ;
   runner="$(testing_package_runner "${project_path}")";
   started="$(date +%s)";
 
@@ -157,7 +251,7 @@ function testing_run() {
   # reproduces exactly that command with the filter appended. The browser and headed-ness travel
   # as the environment variables the config reads (BROWSER, HEADLESS), not as flags cucumber has
   # no idea about.
-  local env_prefix="BROWSER=${BROWSER}";
+  local env_prefix="PLAYWRIGHT_BROWSERS_PATH=${TESTING_BROWSERS_PATH} BROWSER=${BROWSER}";
   [ "${HEADED}" == 'yes' ] && env_prefix="${env_prefix} HEADLESS=false";
   local cucumber="node ./node_modules/@cucumber/cucumber/bin/cucumber.js --config cucumber.js";
   local filter="";

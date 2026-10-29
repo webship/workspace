@@ -1,0 +1,30 @@
+/* Cloning a project as a git worktree.
+ *
+ * The option is one checkbox with two fields behind it, and a form that shows
+ * every field of every branch it might take reads as three decisions instead of
+ * one — so the branch field and its note appear only once the option is chosen.
+ * Done in CSS keyed on a class the checkbox toggles, so the disclosure survives
+ * the fragment being re-swapped by HTMX.
+ */
+.clone-worktree {
+  border-left: 2px solid var(--subtle-brand);
+  padding-left: .75rem;
+}
+.clone-worktree.is-on { border-left-color: var(--brand-primary); }
+
+.clone-worktree .worktree-branch,
+.clone-worktree .worktree-branch-note { display: none; }
+.clone-worktree.is-on .worktree-branch,
+.clone-worktree.is-on .worktree-branch-note { display: block; }
+
+/* The row's git relationship. A worktree and its main checkout are two folders
+   of one repository, and a listing gives no hint of that — which matters because
+   removing the main one destroys the other's history. Quiet by default; the main
+   checkout carries the brand accent because it is the one with dependents. */
+.proj-worktree,
+.proj-worktree-main { border: 1px solid var(--subtle-brand); border-radius: 999px; padding: 0 .5rem; }
+.proj-worktree-main { border-color: var(--brand-primary); color: var(--brand-primary); }
+
+/* The clone form's extra-address option, framed like the worktree one so the two
+   optional blocks read as siblings rather than as stray checkboxes in a form. */
+.clone-address { border-left: 2px solid var(--subtle-brand); padding-left: .75rem; }

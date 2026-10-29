@@ -1,0 +1,262 @@
+{
+  "global": {
+    "go": {
+      "label": "Go",
+      "items": {
+        "all-workspaces": "All workspaces",
+        "action-buttons": "Action buttons",
+        "commands": "Commands",
+        "screens": "Screens",
+        "settings": "Settings",
+        "help": "Help"
+      }
+    },
+    "topbar-start": {
+      "label": "Topbar start",
+      "items": {
+        "ai-assistant": {
+          "label": "AI Assistant",
+          "show": "icon"
+        },
+        "version": "Current local version"
+      }
+    },
+    "topbar-center": {
+      "label": "Topbar center",
+      "items": {}
+    },
+    "topbar-end": {
+      "label": "Topbar end",
+      "items": {
+        "terminals": "Terminals",
+        "open-screens": "Screens"
+      }
+    }
+  },
+  "site-templates": {
+    "create": {
+      "label": "Create",
+      "items": {
+        "new-folder": "New folder"
+      }
+    },
+    "run": {
+      "label": "Run",
+      "items": {
+        "run-a-tool": "Run a tool (8)"
+      }
+    },
+    "notes": {
+      "label": "Notes",
+      "items": {
+        "notes": "Notes (new)"
+      }
+    },
+    "go": {
+      "label": "Go",
+      "items": {
+        "all-workspaces": "All workspaces",
+        "action-buttons": "Action buttons",
+        "commands": "Commands",
+        "screens": "Screens",
+        "settings": "Settings",
+        "help": "Help"
+      }
+    },
+    "topbar-start": {
+      "label": "Topbar start",
+      "items": {
+        "ai-assistant": {
+          "label": "AI Assistant",
+          "show": "icon"
+        },
+        "version": "Current local version"
+      }
+    },
+    "topbar-center": {
+      "label": "Topbar center",
+      "items": {}
+    },
+    "topbar-end": {
+      "label": "Topbar end",
+      "items": {
+        "terminals": "Terminals",
+        "open-screens": "Screens"
+      }
+    }
+  },
+  "dev": {
+    "create": {
+      "label": "Create",
+      "items": {
+        "new-folder": "New folder"
+      }
+    },
+    "run": {
+      "label": "Run",
+      "items": {
+        "run-a-tool": "Run a tool (16)"
+      }
+    },
+    "notes": {
+      "label": "Notes",
+      "items": {
+        "notes": "Notes (new)"
+      }
+    },
+    "go": {
+      "label": "Go",
+      "items": {
+        "all-workspaces": "All workspaces",
+        "action-buttons": "Action buttons",
+        "commands": "Commands",
+        "screens": "Screens",
+        "settings": "Settings",
+        "help": "Help"
+      }
+    },
+    "topbar-start": {
+      "label": "Topbar start",
+      "items": {
+        "ai-assistant": {
+          "label": "AI Assistant",
+          "show": "icon"
+        },
+        "version": "Current local version"
+      }
+    },
+    "topbar-center": {
+      "label": "Topbar center",
+      "items": {}
+    },
+    "topbar-end": {
+      "label": "Topbar end",
+      "items": {
+        "terminals": "Terminals",
+        "open-screens": "Screens"
+      }
+    }
+  },
+  "test": {
+    "create": {
+      "label": "Create",
+      "items": {
+        "new-folder": "New folder"
+      }
+    },
+    "run": {
+      "label": "Run",
+      "items": {
+        "run-a-tool": "Run a tool (17)"
+      }
+    },
+    "google-drive": {
+      "label": "Google Drive",
+      "items": {
+        "sync-test-reports": "Sync test reports"
+      }
+    },
+    "notes": {
+      "label": "Notes",
+      "items": {
+        "notes": "Notes (new)"
+      }
+    },
+    "go": {
+      "label": "Go",
+      "items": {
+        "all-workspaces": "All workspaces",
+        "action-buttons": "Action buttons",
+        "commands": "Commands",
+        "screens": "Screens",
+        "settings": "Settings",
+        "help": "Help"
+      }
+    },
+    "topbar-start": {
+      "label": "Topbar start",
+      "items": {
+        "ai-assistant": {
+          "label": "AI Assistant",
+          "show": "icon"
+        },
+        "version": "Current local version"
+      }
+    },
+    "topbar-center": {
+      "label": "Topbar center",
+      "items": {}
+    },
+    "topbar-end": {
+      "label": "Topbar end",
+      "items": {
+        "terminals": "Terminals",
+        "open-screens": "Screens"
+      }
+    }
+  },
+  "ai-agents": {
+    "create": {
+      "label": "Create",
+      "items": {
+        "new-agent": "New agent",
+        "generate-with-ai": "Generate with AI"
+      }
+    },
+    "sync": {
+      "label": "Sync",
+      "items": {
+        "from-ai-agents": "From ai-agents",
+        "from-claude": "From ~/.claude",
+        "install-all": "Install all",
+        "add-from-github": "Add from GitHub",
+        "check-installed": "Check installed",
+        "update-installed": "Update installed"
+      }
+    },
+    "run": {
+      "label": "Run",
+      "items": {
+        "run-a-tool": "Run a tool (2)"
+      }
+    },
+    "notes": {
+      "label": "Notes",
+      "items": {
+        "notes": "Notes (new)"
+      }
+    },
+    "go": {
+      "label": "Go",
+      "items": {
+        "all-workspaces": "All workspaces",
+        "action-buttons": "Action buttons",
+        "commands": "Commands",
+        "screens": "Screens",
+        "settings": "Settings",
+        "help": "Help"
+      }
+    },
+    "topbar-start": {
+      "label": "Topbar start",
+      "items": {
+        "ai-assistant": {
+          "label": "AI Assistant",
+          "show": "icon"
+        },
+        "version": "Current local version"
+      }
+    },
+    "topbar-center": {
+      "label": "Topbar center",
+      "items": {}
+    },
+    "topbar-end": {
+      "label": "Topbar end",
+      "items": {
+        "terminals": "Terminals",
+        "open-screens": "Screens"
+      }
+    }
+  }
+}

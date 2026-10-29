@@ -1,0 +1,70 @@
+/* The images gallery uses the shared file list (.file-list, .fx-row) the docs and videos lists draw;
+   these are only what a picture needs on top of it. */
+html[data-files-view^="grid"] .img-row .fx-thumb { cursor: zoom-in; }
+html[data-files-view^="grid"] .img-row .fx-thumb.is-vector img { object-fit: contain; padding: 1.25rem; box-sizing: border-box; }
+.fx-source { display: block; font-size: 0.72rem; font-weight: 400; color: var(--link); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The viewer, in the editor modal. */
+.img-viewer-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; }
+.img-viewer-head h3 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.img-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-height: 65vh;
+  overflow: auto;
+  border-radius: 0.6rem;
+  background: var(--surface-muted);
+}
+.img-stage.is-fit { overflow: hidden; }
+.img-stage.is-fit img { max-width: 100%; max-height: 65vh; width: auto; height: auto; object-fit: contain; }
+.img-stage:not(.is-fit) { justify-content: flex-start; align-items: flex-start; }
+.img-stage:not(.is-fit) img { max-width: none; max-height: none; }
+.img-nav { display: flex; justify-content: center; gap: 0.5rem; margin: 0.6rem 0; }
+.img-info { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; margin: 0.5rem 0; }
+.img-info dt { color: var(--text-subtle); font-weight: 400; }
+.img-info dd { margin: 0; overflow-wrap: anywhere; }
+.img-made { border-top: 1px solid var(--line); padding-top: 0.5rem; }
+.img-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0; }
+.img-rename-row { gap: 0.5rem; }
+.img-rename-row .uk-input { max-width: 24rem; }
+
+/* Upload: a drop zone that is also the file picker. */
+.img-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 2rem 1rem;
+  border: 2px dashed var(--line-strong);
+  border-radius: 0.6rem;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-default);
+}
+.img-drop.is-over, .img-drop:hover { border-color: var(--brand-primary); background: var(--subtle-brand); }
+.img-drop-text { font-weight: 600; }
+.img-upload-log { margin-top: 0.75rem; max-height: 14rem; overflow: auto; }
+.img-upload-log .msg { margin: 0; }
+.img-edit { margin-top: 0.5rem; border-top: 1px solid var(--line); padding-top: 0.5rem; }
+.img-edit > summary { cursor: pointer; font-weight: 600; }
+
+/* What a generation made, before it is opened. */
+.img-made-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.75rem; margin-top: 0.75rem; }
+.img-made-thumb {
+  display: block; width: 100%; aspect-ratio: 4 / 3; padding: 0; overflow: hidden; cursor: zoom-in;
+  border: 1px solid var(--line); border-radius: 0.6rem; background: var(--surface-muted);
+}
+.img-made-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* An AI prompt is a few lines: its editor leaves room for the provider's fields below it. */
+#editor-modal .img-ai .ace-host:not(.ace-host-single),
+#editor-modal .img-ai-edit .ace-host:not(.ace-host-single) { height: clamp(7rem, 20vh, 12rem) !important; }
+
+/* Generate SVG: the palette as colour swatches, and its chips in the plan. */
+.svg-palette { border: 0; padding: 0; margin: 0.5rem 0 0; display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.svg-palette legend { width: 100%; }
+.svg-swatch { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; }
+.svg-swatch input[type="color"] { width: 2rem; height: 1.6rem; padding: 0; border: 1px solid var(--line); border-radius: 0.3rem; background: none; cursor: pointer; }
+.svg-chip { display: inline-block; width: 1rem; height: 1rem; border-radius: 0.2rem; border: 1px solid var(--line); vertical-align: middle; margin-right: 0.15rem; }
+.img-stage picture { display: contents; }

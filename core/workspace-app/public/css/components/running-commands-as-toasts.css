@@ -1,0 +1,327 @@
+/* ---------- Running commands, as toasts ---------- */
+
+/* Bottom-right: the assistant owns the left rail and the actions rail owns the right edge, and
+   a job must not push page content around while it runs. */
+.job-toasts {
+  position: fixed;
+  /* Starts where the AI Assistant ends (its rail is 25rem) and runs to the right edge, so the
+     stack sits under the content it belongs to instead of covering the last rows of the list. */
+  left: calc(25rem + 1rem);
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1010;                    /* over the rails, under the one modal (UIKit uses 1010+) */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;            /* a resized toast grows leftwards, away from the edge */
+  gap: 0.5rem;
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
+  pointer-events: none;             /* the gaps must not swallow clicks on the page beneath */
+}
+
+/* The actions rail owns the right edge when a page has one. */
+.app-content.has-actions ~ .job-toasts,
+body:has(.app-content.has-actions) .job-toasts { right: 16.5rem; }
+
+.job-toasts > * { pointer-events: auto; }
+
+.job-toast {
+  margin: 0 !important;
+  background: var(--surface-card);  /* opaque: it floats over the page, not into it */
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-toast);
+  border-left: 3px solid var(--brand-primary);
+  /* Resizable while it runs, both ways from the one handle: the stack is bottom-anchored and
+     right-aligned, so width grows leftwards and height grows upwards — into the space rather than
+     off the screen. */
+  display: flex;
+  flex-direction: column;
+  resize: none;                     /* the eight grips replace the single native handle */
+  overflow: hidden;
+  width: min(40rem, 100%);
+  min-width: 16rem;
+  max-width: 100%;
+  min-height: 5rem;
+}
+
+.job-toast.is-done { border-left-color: var(--ok); }
+.job-toast.is-failed { border-left-color: var(--danger); }
+
+.job-toast-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+  /* Clear of the top corner grips on both sides: a grip a button sits on top of is a grip that
+     cannot be grabbed, and Dismiss was exactly where the top-right one goes. The head itself
+     takes no stacking context — that put it OVER the three top grips and killed all three. */
+  padding: 0 0.625rem;
+}
+
+.job-toast-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+
+.job-toast-status { font-size: 0.74rem; white-space: nowrap; opacity: .85; }
+
+.job-toast-btn {
+  background: none;
+  border: 0;
+  padding: 0.125rem 0.25rem;
+  cursor: pointer;
+  color: inherit;
+  opacity: .7;
+  line-height: 1;
+}
+
+.job-toast-btn:hover { opacity: 1; }
+
+/* Collapsed keeps the title and status — the point is to stop watching the output, not to lose
+   track of the job. */
+.job-toast.is-collapsed .terminal-pre { display: none; }
+.job-toast.is-collapsed .job-toast-collapse span[uk-icon] { transform: rotate(180deg); }
+
+.job-toast .terminal-pre {
+  flex: 1 1 auto;
+  min-height: 0;                    /* a flex child must be allowed to shrink below its content */
+  max-height: 60vh;
+  overflow: auto;
+  margin: 0;
+  font-size: 0.72rem;
+  border-radius: 0.375rem;
+  resize: none;                     /* the card's own handle covers both dimensions */
+}
+
+/* The eight grips ui.js adds — four corners over four edges. CSS `resize` gives only the
+   bottom-right one, which is why the native handle is off and these are drawn instead. */
+.job-toast { position: relative; }
+/* Above the head's text, below its buttons. */
+.toast-grip {
+  position: absolute;
+  z-index: 2;
+  touch-action: none;                /* a pointerdown here must not scroll the stack */
+}
+/* Edges first, corners after: the corners must win where they overlap. */
+.toast-grip-t, .toast-grip-b { left: 0.875rem; right: 0.875rem; height: 0.4375rem; cursor: ns-resize; }
+.toast-grip-l, .toast-grip-r { top: 0.875rem; bottom: 0.875rem; width: 0.4375rem; cursor: ew-resize; }
+.toast-grip-t { top: 0; }
+.toast-grip-b { bottom: 0; }
+.toast-grip-l { left: 0; }
+.toast-grip-r { right: 0; }
+.toast-grip-tl, .toast-grip-tr, .toast-grip-bl, .toast-grip-br { width: 0.875rem; height: 0.875rem; }
+.toast-grip-tl { top: 0; left: 0; cursor: nwse-resize; }
+.toast-grip-tr { top: 0; right: 0; cursor: nesw-resize; }
+.toast-grip-bl { bottom: 0; left: 0; cursor: nesw-resize; }
+.toast-grip-br { bottom: 0; right: 0; cursor: nwse-resize; }
+
+/* Corner marks only, and only while hovered: eight permanent marks per toast would be noise. */
+.job-toast:hover .toast-grip-tl::before,
+.job-toast:hover .toast-grip-tr::before,
+.job-toast:hover .toast-grip-bl::before,
+.job-toast:hover .toast-grip-br::before {
+  content: "";
+  position: absolute;
+  inset: 0.1875rem;
+  border-color: var(--brand-primary);
+  opacity: 0.55;
+}
+.job-toast:hover .toast-grip-tl::before { border-top: 2px solid; border-left: 2px solid; }
+.job-toast:hover .toast-grip-tr::before { border-top: 2px solid; border-right: 2px solid; }
+.job-toast:hover .toast-grip-bl::before { border-bottom: 2px solid; border-left: 2px solid; }
+.job-toast:hover .toast-grip-br::before { border-bottom: 2px solid; border-right: 2px solid; }
+
+/* While dragging, nothing else should take the pointer or select text. */
+body.toast-resizing { user-select: none; }
+body.toast-resizing .job-toast { pointer-events: none; }
+body.toast-resizing .toast-grip { pointer-events: auto; }
+
+/* A finished job shrinks to its output instead of holding a tall empty box open. */
+.job-toast.is-done,
+.job-toast.is-failed { height: auto; }
+.job-toast.is-running:not([style*="height"]) { height: 18rem; }
+
+.job-toast-status { font-family: var(--font-code); }
+.job-toast.is-done .job-toast-status { color: var(--ok); }
+.job-toast.is-failed .job-toast-status { color: var(--danger); }
+
+/* Below the assistant's stacking break there is no rail to clear. */
+@media (max-width: 61.9375em) {
+  .job-toasts { left: 1rem; right: 1rem; }
+  body:has(.app-content.has-actions) .job-toasts { right: 1rem; }
+}
+
+@media (max-width: 47.9375em) {
+  .job-toasts { right: 0.5rem; left: 0.5rem; bottom: 0.5rem; }
+  /* No room to drag on a phone, and grips over a small box are just clutter. */
+  .job-toast { width: 100%; }
+  .toast-grip { display: none; }
+  .job-toast.is-running { height: 12rem; }
+}
+
+/* An agent, skill or prompt row: name and labels on the first line, what it is for underneath.
+   Clamped to three lines with the full text on hover — these descriptions run to a paragraph
+   (one agent's is 700 characters) and a list of 69 has to stay scannable. */
+.item-row-body { display: flex; flex-direction: column; gap: 0.25rem; }
+
+.item-row-body > .uk-text-bold { display: block; }
+
+.item-description {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-subtle);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.item-declared {
+  font-family: var(--font-code);
+  font-size: 0.7rem;
+  padding: 0.0625rem 0.3125rem;
+  border-radius: 0.25rem;
+  background: var(--subtle-accent);
+  color: var(--brand-secondary);
+}
+
+/* The actions sat on the same flex line as the name; with a description below, they belong on
+   their own row like the project rows. */
+.item-row-body .project-actions {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+  margin-top: 0.125rem;
+}
+
+/* Sized to sit inline with the small buttons beside it, not as wide as the search box above. */
+.install-target { display: inline-flex; gap: 0.35rem; }
+.install-target select, .install-target input { width: auto; max-width: 11rem; }
+
+/* A markdown file in agents/, skills/ or prompts/ with no frontmatter name: Claude Code cannot
+   dispatch it, so it is a reference document, not an item. Said, not hidden — it is still the
+   user's file to read and edit. */
+.item-doc { background: transparent; border: 1px dashed var(--line); color: var(--text-subtle); }
+
+/* The search row: the field takes the slack, its buttons sit beside it, and the auto toggle
+   reads as a preference rather than another filter. */
+.list-controls .uk-button-small { flex: 0 0 auto; }
+
+.list-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+}
+
+.list-reset { opacity: .85; }
+.list-reset:hover { opacity: 1; }
+
+/* A job running inline — inside the modal it was launched from — sits in normal
+   flow at full width; the corner-stack sizing does not apply to it. */
+.job-toast.job-inline {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 1rem;
+  /* The modal is the chrome; the job inside it is content, not a second window. */
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
+}
+.job-toast.job-inline .job-toast-head {
+  background: transparent;
+  border: 0;
+  padding: 0 0 .4rem 0;
+}
+.job-toast.job-inline .terminal-pre {
+  min-height: 20rem;
+  max-height: 55vh;
+  border-radius: .5rem;
+}
+.job-progress { display: flex; align-items: center; gap: .75rem; margin: .5rem 0; }
+.job-progress .uk-progress { margin: 0; flex: 1; }
+.job-progress .uk-text-meta { white-space: nowrap; }
+.job-done-note { margin: .5rem 0 0; font-weight: 600; }
+
+/* The Resume control in the New screen form: a checkbox that turns the list of sessions on, because
+   starting fresh is the default and resuming is the exception. */
+.claude-resume { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.claude-resume-on { display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
+.claude-resume select { flex: 1; min-width: 16rem; }
+.claude-resume select[disabled] { opacity: .55; }
+
+/* The New screen form, as steps rather than as one row of controls. Each fieldset is a question:
+   where it runs, what it starts, its arguments, and the prompt — in the order they are answered. */
+.new-screen-card .screen-step {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem 0.9rem;
+  margin: 0 0 0.75rem;
+}
+.new-screen-card .screen-step > legend {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  color: var(--text-subtle);
+  padding: 0 0.4rem;
+}
+.new-screen-card .uk-form-label { font-size: 0.75rem; display: block; margin-bottom: 0.2rem; }
+.screen-where-path { margin-top: 0.25rem; }
+
+/* What it starts: three named choices with a line each, rather than three words in a dropdown. */
+.screen-kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+@media (max-width: 40em) { .screen-kinds { grid-template-columns: 1fr; } }
+.screen-kind {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "radio name" "radio help";
+  gap: 0 0.5rem;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+  cursor: pointer;
+}
+.screen-kind input { grid-area: radio; }
+.screen-kind strong { grid-area: name; font-size: 0.8125rem; }
+.screen-kind .uk-text-meta { grid-area: help; font-size: 0.6875rem; line-height: 1.3; }
+.screen-kind.is-on { border-color: var(--brand-primary); background: var(--subtle-brand); }
+
+.screen-name-row { display: grid; grid-template-columns: 1fr; gap: 0.15rem; }
+
+/* The Claude Code arguments, read from the CLI's own --help. The four reached for every time are laid
+   out first; the rest are behind the disclosure, so the form opens as a few controls, not as forty. */
+.claude-args-common,
+.claude-args-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem 0.75rem; }
+@media (max-width: 47.9375em) { .claude-args-common, .claude-args-grid { grid-template-columns: 1fr; } }
+.claude-args-common { margin-top: 0.5rem; }
+.claude-arg { display: grid; grid-template-columns: 1fr; gap: 0.15rem; min-width: 0; }
+.claude-arg-name code, .claude-arg-flag code { font-size: 0.75rem; color: var(--link); }
+.claude-arg-help {
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--text-subtle);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.claude-arg-flag {
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "box name" "box help";
+  gap: 0 0.4rem;
+  align-items: center;
+  cursor: pointer;
+}
+.claude-arg-flag input { grid-area: box; }
+.claude-arg-flag code { grid-area: name; }
+.claude-arg-flag .claude-arg-help { grid-area: help; }
+.claude-args-all { margin-top: 0.75rem; }
+.claude-args-all > summary { cursor: pointer; font-size: 0.8125rem; font-weight: 600; }

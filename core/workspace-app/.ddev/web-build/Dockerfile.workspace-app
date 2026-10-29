@@ -1,18 +1,128 @@
-# Docker-outside-of-Docker: install a docker CLI (talks to the host's
+# Docker-outside-of-Docker: install the docker CLI (talks to the host's
 # docker.sock, bind-mounted in via docker-compose.dood.yaml) and the ddev
 # binary itself, so cmd-*.sh scripts run from inside this container can
 # manage sibling ddev projects exactly like they do on the host.
+# On Debian trixie the `docker.io` package ships only the daemon; the client
+# lives in `docker-cli`, which is all Docker-outside-of-Docker needs.
+# wkhtmltopdf was dropped from Debian trixie (the ddev-webserver base image
+# since DDEV 1.25), and upstream abandoned it. WeasyPrint renders the doc PDFs
+# and headless Chromium takes the site screenshots instead.
 RUN apt-get update -o Acquire::AllowInsecureRepositories=true || true \
-    && apt-get install -y --no-install-recommends --allow-unauthenticated docker.io curl ca-certificates \
-       pandoc wkhtmltopdf \
+    && apt-get install -y --no-install-recommends --allow-unauthenticated curl ca-certificates \
+       pandoc weasyprint chromium screen \
+       vim links lynx git diffutils htop wget p7zip-full unzip zip sed \
+       gcc g++ make python3 python-is-python3 \
+    # The docker client: `docker-cli` on trixie (DDEV >= 1.25), `docker.io` on bookworm (DDEV 1.24).
+    && (apt-get install -y --no-install-recommends --allow-unauthenticated docker-cli \
+        || apt-get install -y --no-install-recommends --allow-unauthenticated docker.io) \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://github.com/ddev/ddev/releases/download/v1.24.7/ddev_linux-amd64.v1.24.7.tar.gz \
+# code-server — VS Code in the browser, the Web IDE the project rows link to.
+#
+# The standalone tarball, not their install script: the script wants apt/yum and root and
+# picks its own version, and this image is rebuilt often enough that "whatever is latest"
+# is not a thing to depend on. PINNED, because an editor that changes under people between
+# rebuilds is a support question nobody can answer.
+#
+# It is served on its own hostname (ide.workspace.ddev.site) rather than a subpath — see
+# .ddev/nginx_full/nginx-site.conf for why — and bound to LOOPBACK, so the only way in is
+# through that vhost.
+ARG CODE_SERVER_VERSION=4.135.0
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in amd64) cs_arch=amd64 ;; arm64) cs_arch=arm64 ;; *) echo "no code-server build for $arch" >&2; exit 1 ;; esac; \
+    wget -qO /tmp/code-server.tar.gz \
+      "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-${cs_arch}.tar.gz"; \
+    mkdir -p /usr/local/lib/code-server; \
+    tar -xzf /tmp/code-server.tar.gz -C /usr/local/lib/code-server --strip-components=1; \
+    ln -sf /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server; \
+    rm -f /tmp/code-server.tar.gz; \
+    code-server --version
+
+# The ddev router-lock shim, EARLY on PATH so every `ddev` in this container goes
+# through it — the assistant's Bash calls, the cmd-*.sh scripts, a person in
+# `ddev ssh`, and the Web IDE's terminals. /usr/local/sbin precedes /usr/local/bin
+# in this image's PATH, so the real binary at /usr/local/bin/ddev stays exactly
+# where it is and is found by the shim by absolute path.
+#
+# COPIED, not symlinked into the bind-mounted tree: a symlink would dangle if the
+# workspace were ever not mounted, and a dangling `ddev` breaks every call in here
+# including the dashboard's own status reads. core/scripts/install.sh installs the
+# same file on the host.
+COPY ddev-shim-ddev /usr/local/sbin/ddev
+RUN chmod 0755 /usr/local/sbin/ddev \
+    && /usr/local/sbin/ddev --version > /dev/null \
+    && echo "ddev shim active: $(command -v ddev)"
+
+# `ll` — every shell in here is someone reading a directory, and typing
+# `ls -alh` each time is the kind of friction that makes people leave the
+# browser terminal for a real one.
+RUN printf '%s\n' \
+      "alias ll='ls -alhF --color=auto'" \
+      "alias la='ls -A'" \
+      "alias l='ls -CF'" \
+      > /etc/profile.d/workspace-aliases.sh \
+    && chmod 0644 /etc/profile.d/workspace-aliases.sh \
+    # An alias only exists in an interactive shell, and half the shells here are
+    # not one — a screen session running a command, a script, `ddev exec`. So
+    # `ll` is also a real command, and behaves the same in both.
+    && printf '%s\n' '#!/bin/sh' 'exec ls -alhF --color=auto "$@"' > /usr/local/bin/ll \
+    && chmod 0755 /usr/local/bin/ll
+
+
+# The ddev in here has to be the SAME VERSION as the one on the host, because ddev picks its
+# webserver image from its own version. v1.24.7 pulls ddev/ddev-webserver:v1.24.7, which is Debian
+# bookworm, and the packages.sury.org signing key for bookworm has expired — so `apt-get update`
+# refuses that repo and any project whose `webimage_extra_packages` names a php extension
+# (`php${DDEV_PHP_VERSION}-yaml`, which both site-template projects do) cannot build its web image.
+# The symptom is confusing rather than obvious: setting up a testing environment FROM THE DASHBOARD
+# failed with "Unable to locate package php8.4-yaml" while the identical command succeeded on the
+# host, because only one of the two was on the version whose base image is trixie.
+ARG DDEV_VERSION=1.25.2
+# DDEV 1.25.1 and later build images through `docker compose build`, which needs the buildx CLI
+# plugin — the `docker-cli` package does not carry it, and without it every build from in here
+# stops at "compose build requires buildx 0.17.0 or later". Installed as a plugin binary, which is
+# all the client needs; the actual building happens on the host's daemon over the mounted socket.
+ARG BUILDX_VERSION=0.34.1
+RUN mkdir -p /usr/libexec/docker/cli-plugins \
+    && curl -fsSL "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-amd64" \
+      -o /usr/libexec/docker/cli-plugins/docker-buildx \
+    && chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+
+RUN curl -fsSL "https://github.com/ddev/ddev/releases/download/v${DDEV_VERSION}/ddev_linux-amd64.v${DDEV_VERSION}.tar.gz" \
     -o /tmp/ddev.tar.gz \
     && tar -xzf /tmp/ddev.tar.gz -C /tmp \
     && mv /tmp/ddev /usr/local/bin/ddev \
     && chmod +x /usr/local/bin/ddev \
     && rm -rf /tmp/ddev.tar.gz
+
+# The GitHub CLI: the agents/skills pages read webship/ai-agents (private)
+# and fetch items from it. Auth comes from the host's ~/.config/gh, which the
+# dood compose file bind-mounts alongside ~/.claude.
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+      > /etc/apt/sources.list.d/github-cli.list \
+    && apt-get update -o Acquire::AllowInsecureRepositories=true || true \
+    && apt-get install -y --no-install-recommends --allow-unauthenticated gh \
+    && rm -rf /var/lib/apt/lists/*
+
+# graphify: the knowledge-graph tool behind the Graph button and
+# cmd-tools-graphify.sh. The container has no uv/pipx and no ensurepip, so
+# install uv first and pin the version — graphify's CLI silently ignores
+# unknown flags, so an unpinned upgrade would degrade without erroring.
+#
+# UV_TOOL_DIR matters as much as UV_TOOL_BIN_DIR. Without it, `uv tool install`
+# puts the launcher in /usr/local/bin but the payload under the BUILD user's
+# home — /root/.local/share/uv/tools — and /root is drwx------. The app runs as
+# the web user, so `graphify` resolved to an unreadable path: "Permission
+# denied" for it, `command -v graphify` false, ensure_graphify then reinstalling
+# into a ~/.local/bin that is not on PATH, and the Graph button failing every
+# time while `graphify --version` worked fine as root.
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh \
+    && UV_TOOL_DIR=/usr/local/share/uv/tools UV_TOOL_BIN_DIR=/usr/local/bin \
+       uv tool install --force "graphifyy[sql]==0.9.28" \
+    && chmod -R a+rX /usr/local/share/uv
 
 # Claude Code CLI for the AI assistant chat (/actions/chat shells out to
 # `claude -p`). Auth comes from the host's ~/.claude + ~/.claude.json,
@@ -29,7 +139,7 @@ RUN npm install -g @anthropic-ai/claude-code
 # 2.x moved, and the failure surfaces only as "Connection closed" from whatever tries to use it.
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh \
     && UV_TOOL_BIN_DIR=/usr/local/bin UV_TOOL_DIR=/opt/uv-tools \
-       uv tool install 'graphifyy[sql]==0.9.28' --with 'mcp<2' \
+       uv tool install --force 'graphifyy[sql]==0.9.28' --with 'mcp<2' \
     && graphify --version
 
 # The browser webship-js drives, plus the system libraries it needs. Chromium only: the suite
@@ -58,4 +168,26 @@ RUN npm install -g playwright-core@1.56.0 \
 # supplementary groups from /etc/group never apply to the daemon process —
 # only the primary GID from passwd does. ($username is provided by DDEV's
 # base image build args and matches your host username.)
-RUN groupmod -g 984 docker && usermod -g 984 $username
+# (`docker-cli` does not create the group the way the old `docker.io` package
+# did, so create it when it is missing.)
+RUN if getent group docker > /dev/null; then groupmod -g 973 docker; else groupadd -g 973 docker; fi \
+    && usermod -g 973 $username
+
+# `twg` resolves to the host's current binary on every call.
+#
+# The host's ~/.local/bin is bind-mounted at /host-local-bin (see
+# .ddev/docker-compose.twg.yaml); this wrapper is what keeps the NAME on PATH
+# while the file behind it is free to change. Mounting the binary itself bound
+# an inode, so a `twg update` on the host never reached this container and the
+# dashboard kept running a version the server had stopped accepting.
+#
+# `exec` so signals and the exit code pass straight through, and a plain
+# message rather than a 127 when nothing is installed on the host.
+RUN printf '%s\n' '#!/bin/sh' \
+    '# Generated by Dockerfile.workspace-app — see .ddev/docker-compose.twg.yaml' \
+    'if [ ! -x /host-local-bin/twg ]; then' \
+    '  echo "twg is not installed on the host (~/.local/bin/twg)." >&2' \
+    '  exit 127' \
+    'fi' \
+    'exec /host-local-bin/twg "$@"' > /usr/local/bin/twg \
+    && chmod 0755 /usr/local/bin/twg

@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+
+################################################################################
+## `ddev`, serialised on the router. A shim, not a replacement.
+################################################################################
+## Every router-mutating verb — start, stop, restart, poweroff, delete — tears the
+## ONE shared ddev-router down and brings it back with the routes of whatever is
+## running. Two at a time race on a single container: one removes it while the
+## other has just created it, and the loser can leave it removed for good. What
+## that looks like is the whole workspace going dark — every *.ddev.site address,
+## the dashboard's hub included — with healthy web containers behind it, and DDEV
+## then refusing to start anything at all:
+##
+##     Failed to start workspace: Error response from daemon:
+##     No such container: ddev-router
+##
+## Recovering needs `ddev poweroff`. Five clicks in thirty-eight seconds did it.
+##
+## The dashboard's own buttons and its AI assistant already take this lock. This
+## shim is for every OTHER caller — a cmd-*.sh script, an agent, a person in a
+## terminal or in `ddev ssh` — because a rule that each caller must remember is a
+## rule that gets forgotten, including by callers nobody has written yet.
+##
+## Install: PATH must reach this file before the real ddev.
+##   container: /usr/local/sbin/ddev  (PATH has /usr/local/sbin before /usr/local/bin)
+##   host:      core/scripts/install.sh offers it, same path, needs sudo
+##
+## FOUR RULES THIS FILE LIVES BY, because a wrong shim breaks every ddev call on
+## the machine — including the dashboard's own status reads every twenty seconds:
+##
+##   1. The real ddev is resolved by ABSOLUTE PATH and checked not to be this
+##      file. Resolving through PATH would find the shim again and fork forever.
+##   2. Anything that is not a router verb is exec'd immediately, with no lock,
+##      no subshell and no added latency. `ddev list --json-output` must cost
+##      exactly what it cost before.
+##   3. Nothing here is fatal. If flock is missing, or the lock file cannot be
+##      created, it says so once on stderr and runs the command anyway. Refusing
+##      to run ddev because a lock could not be taken would be a worse failure
+##      than the one being prevented.
+##   4. It never re-locks a lock already held. The dashboard wraps its own calls
+##      in flock, and taking the same lock again from inside would deadlock for
+##      the full timeout — so DDEV_ROUTER_LOCK_HELD is the interlock, set by
+##      whoever holds it and exported here for anything ddev itself shells out to.
+################################################################################
+
+set -u
+
+# --- 1. the real ddev, by absolute path, and never this file -------------------
+SELF="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+REAL_DDEV=''
+for candidate in /usr/local/bin/ddev /usr/bin/ddev /opt/homebrew/bin/ddev /snap/bin/ddev ; do
+  [ -x "${candidate}" ] || continue
+  [ "$(readlink -f "${candidate}" 2>/dev/null || echo "${candidate}")" == "${SELF}" ] && continue
+  REAL_DDEV="${candidate}"
+  break
+done
+if [ -z "${REAL_DDEV}" ] ; then
+  echo "ddev: this is the workspace's router-lock shim, and the real ddev binary was not found" >&2
+  echo "      (looked in /usr/local/bin, /usr/bin, /opt/homebrew/bin, /snap/bin)" >&2
+  exit 127
+fi
+
+# --- 2. which verb is this? ----------------------------------------------------
+# `ddev [global flags] <verb> [args]`, so the verb is the first argument that is
+# not a flag and not a flag's value. Only the verb matters here, and an unknown
+# shape falls through to the pass-through path, which is the safe direction.
+VERB=''
+for arg in "$@" ; do
+  case "${arg}" in
+    -*) continue ;;
+    *)  VERB="${arg}"; break ;;
+  esac
+done
+
+case "${VERB}" in
+  start|stop|restart|poweroff|delete) ;;
+  # Everything else — list, describe, drush, composer, exec, ssh, snapshot,
+  # export-db, add-on, config, and every verb added in future — is none of this
+  # shim's business. Straight through, same process, no measurable overhead.
+  *) exec "${REAL_DDEV}" "$@" ;;
+esac
+
+# --- 3. the lock ---------------------------------------------------------------
+# Already held by a caller above us: run, do not re-lock (see rule 4).
+if [ -n "${DDEV_ROUTER_LOCK_HELD:-}" ] ; then
+  exec "${REAL_DDEV}" "$@"
+fi
+
+WS_ROOT="${WORKSPACE_ROOT:-${HOME}/workspace}"
+LOCK="${WS_ROOT}/.ddev-router.lock"
+
+if ! command -v flock > /dev/null 2>&1 ; then
+  echo "ddev: flock is not installed, so '${VERB}' runs unserialised — concurrent" >&2
+  echo "      start/stop can destroy the shared ddev-router. Install util-linux." >&2
+  exec "${REAL_DDEV}" "$@"
+fi
+
+# The lock file has to be creatable. It normally exists already; when it does not
+# (a fresh checkout, a different WORKSPACE_ROOT) create it, and if that fails say
+# so and carry on rather than blocking the command.
+if [ ! -e "${LOCK}" ] ; then
+  if ! ( umask 022 && : > "${LOCK}" ) 2>/dev/null ; then
+    echo "ddev: cannot create ${LOCK}, so '${VERB}' runs unserialised." >&2
+    exec "${REAL_DDEV}" "$@"
+  fi
+fi
+
+# Say something only when there is really something to wait for: a free lock has
+# to cost nothing and print nothing, or every start grows a line of noise.
+if ! flock -n "${LOCK}" true 2>/dev/null ; then
+  echo "ddev: waiting — another ddev start/stop/restart holds the router lock." >&2
+  echo "      They cannot run at once: each one recreates the shared ddev-router." >&2
+fi
+
+# Exported so anything the real ddev shells out to (including ddev calling itself)
+# does not queue behind a lock this process already owns.
+export DDEV_ROUTER_LOCK_HELD=1
+
+# -w: bounded, so a wedged start cannot hold the queue for ever. The command's own
+# exit status is what leaves this script, because callers check it.
+flock -w 1800 "${LOCK}" "${REAL_DDEV}" "$@"
+exit $?

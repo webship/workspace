@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+ARGPARSE_DESCRIPTION="Build every front-end theme listed in workspace.themes.settings.yml."
+
 echo "*-----------------------------------------------------------*";
 echo "| Build all Front-End themes                                |";
 echo "*-----------------------------------------------------------*";

@@ -15,7 +15,7 @@ parser.add_argument('PROJECT_NAME',
 EOF
 
 shift $#;
+trim_project_name ;   # "v11x00b1/" -> "v11x00b1" — see functions/fun-project-name.sh
 
-backup_time=$( date '+%Y-%m-%d_%H-%M-%S' );
-tar -cvzf ${backups}/${doc_name}/${doc_name}---${PROJECT_NAME}--${backup_time}.tar.gz ${PROJECT_NAME} ;
-(cd ${PROJECT_NAME} && ddev export-db --file=${backups}/${doc_name}/${doc_name}---${PROJECT_NAME}--${backup_time}-db.sql.gz) ;
+backup_workspace_item "${PROJECT_NAME}" || exit 1 ;
+(cd ${PROJECT_NAME} && ddev export-db --file=${backups}/${doc_name}/${doc_name}---${PROJECT_NAME}--${BACKUP_TIME}-db.sql.gz) ;

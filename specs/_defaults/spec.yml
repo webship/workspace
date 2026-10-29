@@ -1,0 +1,10 @@
+# What this spec is about, and how far it has got. Written by cmd-spdd.sh; edit by hand freely.
+target: <workspace>/<project>
+topic: <topic>
+stage: story
+created: <YYYY-MM-DD>
+# The commit of the target the canvas was last true for; -a drift compares against it.
+synced_commit:
+# Fill these in when they exist, so a merged change can be traced back to the prompt it came from.
+issue:
+pull_request:

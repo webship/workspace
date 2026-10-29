@@ -1,0 +1,113 @@
+/* The editor modal fits the screen.
+ *
+ * It used to grow with its content and scroll as a whole, so on a 1080px screen New screen was 1205px
+ * tall (1565 with Claude Code) and its Start button sat 130 to 490px below the fold, with the title and
+ * tabs scrolled away above it. Now the dialog is capped to the viewport and is a column of three:
+ *
+ *   .modal-head     the title and tabs, pinned at the top
+ *   (the form)      scrolls between them
+ *   .modal-actions  the buttons that do something, pinned at the bottom
+ *
+ * A form opts in with those two classes; one that does not still gets the capped height and its own scroll.
+ * The editors take the height that is left (see the Ace rules), so a script or a prompt is as tall as the
+ * screen allows rather than a fixed 62vh. Desktop first; nothing here relies on a height the content sets.
+ */
+
+#editor-modal .uk-modal-dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 7rem);
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+#editor-modal .uk-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: 4.5rem;
+  padding: 1.375rem 1.625rem;
+}
+
+/* The actions are the last thing in the form, so the body has no padding under them to scroll past. */
+#editor-modal .uk-modal-body:has(.modal-actions) { padding-bottom: 0; }
+
+/* With a pinned header the body has no padding above it, or the form scrolls through that strip. */
+#editor-modal .uk-modal-body:has(.modal-head) { padding-top: 0; }
+
+#editor-modal .modal-head {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  margin: 0 calc(-1 * 1.625rem) 1rem;
+  padding: 1.375rem calc(1.625rem + 2rem) 0.75rem 1.625rem;
+  background: var(--surface-card);
+  border-bottom: 1px solid var(--line);
+}
+#editor-modal .modal-head > :last-child { margin-bottom: 0; }
+
+/* The card inside the dialog brought its own 20px top margin and two empty result boxes brought 20px each below
+   it, so the pinned parts sat 20px in from the edges of the body and slipped when the form scrolled. */
+#editor-modal .editor-card.uk-margin-top { margin-top: 0; }
+#editor-modal .editor-card > .uk-margin-top:empty { margin: 0; }
+
+#editor-modal .modal-actions,
+#editor-modal form > :last-child:has(> button[type="submit"]) {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  margin: 1rem calc(-1 * 1.625rem) 0;
+  padding: 0.75rem 1.625rem;
+  background: var(--surface-card);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -0.5rem 0.75rem -0.5rem rgba(0, 0, 0, 0.12);
+}
+#editor-modal .modal-actions > :last-child { margin-bottom: 0; }
+
+/* The editors take what is left of the screen. The chrome above and below them is about 19rem (title,
+   tabs, the fields around, the action row), and the form they sit in adds its own. */
+#editor-modal .ace-host:not(.ace-host-single) {
+  height: clamp(12rem, calc(100dvh - 19rem), 46rem) !important;
+}
+/* New screen puts three fieldsets above its prompt, so the prompt gets less, but never less than a few lines. */
+#editor-modal .new-screen-card .ace-host:not(.ace-host-single) {
+  height: clamp(11rem, calc(100dvh - 44rem), 26rem) !important;
+}
+
+/* New screen asks for the prompt before the Claude options: the prompt is what a person writes, and the options
+   (a model, a permission mode, 34 flags) have good defaults. Same fields, only the order they are met in. */
+#editor-modal .new-screen-card form { display: flex; flex-direction: column; }
+#editor-modal .new-screen-card form > fieldset[data-claude-only] { order: 3; }
+#editor-modal .new-screen-card form > .modal-actions { order: 4; }
+#editor-modal .new-screen-card form > fieldset:not([data-claude-only]):last-of-type { order: 2; }
+
+/* The list of sections to remove had its own 12rem scroll box, which hid the last of seven inside a modal that
+   already scrolls: the pinned header and actions make a second scroll area pointless. */
+#editor-modal .video-edit-sections { max-height: none; overflow: visible; }
+
+/* Focus on the pinned action buttons was a 1.19:1 ring (the subtle brand tint on white). */
+#editor-modal .modal-actions .uk-button:focus-visible,
+#editor-modal .modal-head a:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+/* A pale grey checkbox border on white is 1.6:1; a control's edge needs 3:1 (WCAG 1.4.11). */
+#editor-modal .uk-checkbox,
+#editor-modal .uk-radio { border-color: var(--text-subtle); }
+/* ...and a 16px box is under the 24px minimum target (WCAG 2.2, 2.5.8). */
+#editor-modal .uk-checkbox,
+#editor-modal .uk-radio { width: 1.5rem; height: 1.5rem; }
+
+/* The accordion and the folded prompt open with a short height change. Someone who has asked their system for
+   less motion gets the content at once. */
+@media (prefers-reduced-motion: reduce) {
+  #editor-modal [uk-accordion] .uk-accordion-content,
+  #editor-modal [uk-accordion] > li > * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+/* The folded prompt reads as a disclosure, not as a field: the summary is a plain line a person can click. */
+#editor-modal .video-edit-ask > summary { cursor: pointer; list-style-position: inside; padding: 0.25rem 0; }
+#editor-modal .video-edit-ask[open] > summary { margin-bottom: 0.25rem; }
+#editor-modal .video-edit-accordion > li + li { margin-top: 0.5rem; }
+#editor-modal .video-edit-accordion .uk-accordion-title { font-size: 1rem; }

@@ -1,0 +1,174 @@
+# UPSUN — core/config/theme.upsun.yml
+#
+# A style in the shape of the Upsun console. The values were read out of the console's own design
+# system — 584 custom properties on auth.upsun.com, which is the same system the console wears — so
+# the indigo, the ebony and the ice below are the ones it actually uses, not colours picked off a
+# screenshot.
+#
+# Its signatures: the #6046ff indigo primary, a very dark ebony-to-night ink, an #f2f3f4 page under
+# white cards, and Open Sans throughout. Open Sans is not vendored here, so a machine without it
+# falls back through the stack.
+
+# What was measured and what was not, because the two are different here.
+#
+# The COLOURS are the console's own, read from the 584 custom properties its design system declares.
+# The FAMILY is its own too: Open Sans, throughout, for headings as well as body.
+#
+# The heading SCALE is not. The page those values came from leaves bare headings at the browser's
+# defaults — 32 / 24 / 18.72px and so on — which is the user agent stylesheet, not a design system,
+# and the console itself is behind a login. So the heading ramp here is this workspace's, not
+# Upsun's, and that is stated rather than implied by a number that looks measured.
+
+name: UPSUN
+
+tokens:
+  brand-primary: "#6046ff"
+  brand-secondary: "#302f45"
+  brand-accent: "#efe7ff"
+  brand-dark: "#01001a"
+  brand-light: "#f5f7fa"
+  subtle-light: "#f5f7fa"
+  subtle-brand: "#efedff"
+  subtle-accent: "#efe7ff"
+  text-default: "#1a192b"
+  text-subtle: "#5f5e70"
+  text-inverse: "#ffffff"
+  text-light: "#f5f7fa"
+  text-brand: "var(--brand-primary)"
+  text-accent: "var(--brand-accent)"
+  font-primary: "\"Open Sans\", Helvetica, Arial, sans-serif"
+  font-secondary: "\"Open Sans\", Helvetica, Arial, sans-serif"
+  font-code: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+  weight-regular: 400
+  weight-semibold: 600
+  leading-heading: 1.4
+  leading-display: 1.3
+  leading-body: 1.5
+  tracking-wide: 0.0625em
+  size-h1: 2rem
+  size-h2: 1.625rem
+  size-h3: 1.5rem
+  size-h4: 1.25rem
+  size-h5: 1.125rem
+  size-h6: 1rem
+  size-body: 0.9375rem
+  size-small: 0.875rem
+  type-h1: "var(--weight-semibold) var(--size-h1)/1.2 var(--font-primary)"
+  type-h2: "var(--weight-semibold) var(--size-h2)/1.25 var(--font-primary)"
+  type-h3: "var(--weight-semibold) var(--size-h3)/1.25 var(--font-primary)"
+  type-h4: "var(--weight-semibold) var(--size-h4)/1.3 var(--font-primary)"
+  type-h5: "var(--weight-semibold) var(--size-h5)/1.35 var(--font-primary)"
+  type-h6: "var(--weight-semibold) var(--size-h6)/1 var(--font-primary)"
+  type-body: "var(--weight-regular) var(--size-body)/var(--leading-body) var(--font-primary)"
+  type-body-sm: "var(--weight-regular) var(--size-small)/1.45 var(--font-primary)"
+  type-label: "var(--weight-semibold) var(--size-body)/1 var(--font-primary)"
+  type-caption: "var(--weight-regular) var(--size-small)/1.35 var(--font-primary)"
+  type-mono: "var(--weight-regular) var(--size-body)/1.5 var(--font-code)"
+  type-mono-sm: "var(--weight-regular) var(--size-small)/1.4 var(--font-code)"
+  tracking-h1: normal
+  tracking-h2: normal
+  tracking-h3: normal
+  tracking-h4: normal
+  tracking-h5: normal
+  tracking-h6: "var(--tracking-wide)"
+  surface: "#f2f3f4"
+  surface-card: "#ffffff"
+  surface-muted: "#f9f9f9"
+  surface-input: "#ffffff"
+  text-subtle-2: "#302f45"
+  line: "#e7e7e7"
+  line-strong: "#c9d0e4"
+  link: "#6046ff"
+  brand-pressed: "#3a2a99"
+  brand-2-pressed: "#1a192b"
+  focus-ring: "#86b5ff4c"
+  ok: "#23b7b7"
+  ok-soft: "#d6f6ef"
+  pcard-tool-label: 0rem
+  ok-ink: "#188181"
+  danger: "#fb3728"
+  danger-soft: "#fce1e1"
+  danger-ink: "#6d144f"
+  danger-armed: "#ff5d25"
+  danger-text: "#fb3728"
+  warning: "#eda900"
+  warning-soft: "#fcf4db"
+  warning-ink: "#9a6f1e"
+  info: "#86b5ff"
+  info-soft: "#efedff"
+  info-ink: "#302f45"
+  success: "#146c43"
+  success-soft: "#d0e2d9"
+  success-ink: "#0f5132"
+  busy-soft: "var(--subtle-brand)"
+  busy-ink: "var(--brand-secondary)"
+  accent-soft: "#efe7ff"
+  accent-ink: "#9d67ff"
+  chip-bg: "#6046ff"
+  chip-ink: "#ffffff"
+  shadow-card: "0 4px 16px rgba(35, 41, 70, .06)"
+  shadow-card-hover: "0 12px 28px rgba(43, 68, 124, .16)"
+  shadow-float: "0 1.5rem 3rem rgba(43, 68, 124, .28)"
+  shadow-toast: "0 14px 34px rgba(35, 41, 70, .26)"
+  toast-ring: "rgba(255, 255, 255, .9)"
+  code-bg: "#1a192b"
+  code-ink: "#f5f7fa"
+  terminal-ink: "#c9f7d4"
+  media-bg: "#000000"
+  paper: "#ffffff"
+  checker-a: "#dcdcdc"
+  checker-b: "#d8d8d8"
+  checker-bg: "#f4f4f4"
+  overlay: "#1a1a2be5"
+  brand-1: "var(--brand-primary)"
+  brand-2: "var(--brand-secondary)"
+  brand-3: "var(--brand-accent)"
+  brand-grad: "linear-gradient(135deg, var(--brand-primary), var(--brand-secondary))"
+  ink: "var(--brand-secondary)"
+
+# The dark half.
+dark:
+  surface: "#1a192b"
+  surface-card: "#232235"
+  surface-muted: "#302f45"
+  surface-input: "#1a1a2b"
+  text-default: "#f5f7fa"
+  text-subtle-2: "#c9d0e4"
+  text-subtle: "#98a0ab"
+  line: "#4a495e"
+  line-strong: "#5f5e70"
+  link: "#86b5ff"
+  brand-pressed: "#9d67ff"
+  brand-2-pressed: "#302f45"
+  focus-ring: "#86b5ff4c"
+  ok-soft: "#188181"
+  ok-ink: "#d6f6ef"
+  danger-soft: "#6d144f"
+  danger-ink: "#fce1e1"
+  danger-armed: "#e0466b"
+  danger-text: "#ff8fa3"
+  warning-soft: "#9a6f1e"
+  warning-ink: "#fcf4db"
+  info-soft: "#302f45"
+  info-ink: "#86b5ff"
+  success-soft: "#10291d"
+  success-ink: "#a3d9bd"
+  busy-soft: "#1a2440"
+  busy-ink: "#b9c9ff"
+  accent-soft: "#4a495e"
+  accent-ink: "#c9d0e4"
+  chip-bg: "#6046ff"
+  chip-ink: "#ffffff"
+  subtle-light: "#232235"
+  subtle-brand: "#302f45"
+  subtle-accent: "#4a495e"
+  shadow-card: "0 4px 16px rgba(0, 0, 0, .35)"
+  shadow-card-hover: "0 12px 28px rgba(0, 0, 0, .50)"
+  shadow-float: "0 1.5rem 3rem rgba(0, 0, 0, .55)"
+  shadow-toast: "0 14px 34px rgba(0, 0, 0, .50)"
+  toast-ring: "rgba(0, 0, 0, .5)"
+  checker-a: "#2a3550"
+  checker-b: "#26314a"
+  checker-bg: "#131b2c"
+  overlay: "#01001ae5"
+  ink: "var(--text-default)"

@@ -49,6 +49,10 @@ parser.add_argument('-l', '--run-headless',
                     action='store_true',
                     default=False,
                     help='Run the webship-js suite after the install, headless.')
+parser.add_argument('-p', '--php-version',
+                    default="8.4",
+                    choices=['8.5', '8.4', '8.3', '8.2', '8.1', '8.0', '7.4'],
+                    help='PHP version for the project container [default %(default)s].')
 EOF
 
 shift $#;

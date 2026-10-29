@@ -21,7 +21,15 @@ site_templates:
   - convene
   - mercury_demo
   - lupus_decoupled_starter
+  - dashi
+  - goodwell
+  - hourglass_inc
 
 # What this folder's projects are, and which actions their rows offer:
 # sites | code | files | media | ai-items — see core/workspace-app/WORKSPACES.md.
 type: sites
+
+# What the assistant is called on THIS workspace's page.
+assistant:
+  name: default
+  placeholder: default

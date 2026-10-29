@@ -1,0 +1,159 @@
+# The built-in commands of the Webship Workspace dashboard (read by core/workspace-app/commands.js).
+#
+# Shipped with the dashboard, so an update brings new ones. Your own commands, and your versions of these,
+# are kept in core/config/commands.yml by the Commands page: a command there with one of these ids replaces
+# it, and deleting yours brings this one back.
+#
+#   on:      workspace | project | folder | file   what it runs on
+#   when:    every clause must match — any, ddev, composer, node, git, workspace:<name>, each with an optional !
+#   run:     a shell line, or script: <workspace>/cmd-….sh with args
+#   values:  {{workspace}} {{project}} {{folder}} {{file}} {{path}} {{opt.name}} — each single-quoted for you
+#
+# DDEV only: composer and drush always go through ddev.
+commands:
+  # ---- a workspace folder
+  - id: workspace-ddev-list
+    label: DDEV projects
+    group: Workspace
+    description: Every DDEV project on this machine, with its status and URL
+    on: workspace
+    run: ddev list
+  - id: workspace-disk-use
+    label: Disk use of each folder
+    group: Workspace
+    description: How much space each folder in the workspace takes
+    on: workspace
+    run: du -sh -- */
+  - id: elevenlabs-status
+    label: ElevenLabs status
+    group: Voiceover
+    description: Whether a key is set, and the voice, model and server. Nothing is sent
+    on: workspace
+    when: [workspace:videos]
+    script: videos/cmd-tools-elevenlabs.sh
+    args: '-a status'
+  - id: elevenlabs-check
+    label: ElevenLabs key and credits
+    group: Voiceover
+    description: Checks the key with ElevenLabs and shows the plan and the characters left. Spends nothing
+    on: workspace
+    when: [workspace:videos]
+    script: videos/cmd-tools-elevenlabs.sh
+    args: '-a check'
+
+  # ---- a project
+  - id: ddev-describe
+    label: Describe (URLs, services)
+    group: DDEV
+    on: project
+    when: [ddev]
+    run: ddev describe
+  - id: ddev-restart
+    label: Restart
+    group: DDEV
+    on: project
+    when: [ddev]
+    run: ddev restart
+  - id: drush-status
+    label: Drush status
+    group: Drupal
+    on: project
+    when: [ddev, composer]
+    run: ddev drush status
+  - id: drush-cache-rebuild
+    label: Rebuild caches
+    group: Drupal
+    on: project
+    when: [ddev, composer]
+    run: ddev drush cr
+  - id: drush-update-database
+    label: Run database updates
+    group: Drupal
+    description: drush updatedb, then a cache rebuild
+    on: project
+    when: [ddev, composer]
+    confirm: true
+    run: ddev drush updatedb -y && ddev drush cr
+  - id: composer-validate
+    label: Validate composer.json
+    group: Composer
+    on: project
+    when: [ddev, composer]
+    run: ddev composer validate --no-check-publish
+  - id: composer-outdated-direct
+    label: Outdated direct packages
+    group: Composer
+    on: project
+    when: [ddev, composer]
+    run: ddev composer outdated --direct
+  - id: git-status
+    label: Git status
+    group: Git
+    on: project
+    when: [git]
+    run: git status --short --branch
+  - id: git-log
+    label: Last 20 commits
+    group: Git
+    on: project
+    when: [git]
+    run: git log --oneline --decorate -20
+  - id: git-switch-branch
+    label: Switch branch
+    group: Git
+    description: Fetch, then switch to a branch that exists on the remote or here
+    on: project
+    when: [git]
+    confirm: true
+    options:
+      - name: branch
+        label: Branch
+        value: main
+        regex: '^[A-Za-z0-9._/-]+$'
+        required: true
+    run: git fetch --prune && git switch {{opt.branch}}
+  - id: backup-dev-project
+    label: Back up the project
+    group: Backups
+    description: A tar of the files and a database export, into backups/dev
+    on: project
+    when: [workspace:dev]
+    script: dev/cmd-tools-backup-dev.sh
+    args: '{{project}}'
+
+  # ---- a folder
+  - id: folder-list
+    label: List the folder
+    group: Folders
+    on: folder
+    run: ls -la
+  - id: folder-largest
+    label: Largest files and folders
+    group: Folders
+    on: folder
+    run: du -ah . 2>/dev/null | sort -rh | head -n 30
+  - id: folder-git-status
+    label: Git changes in the folder
+    group: Folders
+    on: folder
+    when: [git]
+    run: git status --short -- .
+
+  # ---- a file
+  - id: file-head
+    label: Show the first 200 lines
+    group: Files
+    on: file
+    run: head -n 200 -- {{file}}
+  - id: file-git-log
+    label: History of the file
+    group: Files
+    on: file
+    when: [git]
+    run: git log --oneline --follow -20 -- {{file}}
+  - id: file-php-lint
+    label: Check PHP syntax
+    group: Files
+    on: file
+    when: [ddev]
+    run: ddev exec --dir /var/www/html php -l {{file}}

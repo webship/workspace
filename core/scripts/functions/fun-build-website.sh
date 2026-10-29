@@ -26,7 +26,7 @@ function website_create_project() {
   mkdir -p ${PROJECT_NAME} ;
   cd ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} ;
 
-  ddev config --project-type=drupal --docroot=${distribution_webroot} --php-version=${website_php_version} --project-name=${PROJECT_NAME} --auto ;
+  ddev config --project-type=drupal --docroot=${distribution_webroot} --php-version=${PHP_VERSION:-${website_php_version}} --project-name=${PROJECT_NAME} --auto ;
   ddev start -y ;
 
   if ! ddev composer create-project "$1" . --no-interaction ; then

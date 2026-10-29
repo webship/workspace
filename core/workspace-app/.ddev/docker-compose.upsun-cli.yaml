@@ -1,0 +1,8 @@
+# The upsun CLI session, shared FROM THE HOST like the twg one: one login, token
+# refreshes land on the host, rebuilds keep it. This is what turns the Upsun
+# branch-and-data commands from shown-to-copy into runnable dashboard actions.
+# A machine without a session mounts an empty dir and the actions say so.
+services:
+  web:
+    volumes:
+      - "${HOME}/.upsun-cli:/home/${USER}/.upsun-cli:rw"

@@ -1,0 +1,417 @@
+/* ---------- Mic on any field that wants typing ---------- */
+
+/* Injected by ui.js around every text input and textarea, so a field added later
+   gets one without being touched. */
+.field-mic-wrap { position: relative; display: block; }
+
+.field-mic {
+  position: absolute;
+  top:0.375rem;
+  right:0.375rem;
+  width:1.625rem;
+  height:1.625rem;
+  border: 1px solid var(--line);
+  border-radius:31.25rem;
+  background: var(--surface);
+  color: var(--text-subtle);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background .15s, border-color .15s, color .15s;
+}
+
+.field-mic:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.field-mic.listening { border-color: var(--brand-primary); color: var(--brand-primary); animation: mic-pulse 1.2s infinite; }
+
+/* Keep the text clear of the button. */
+.field-mic-wrap > .uk-input,
+.field-mic-wrap > .uk-textarea { padding-right:2.375rem; }
+
+/* A textarea's mic sits at the top-right; an input's is vertically centred. */
+.field-mic-wrap > .uk-input ~ .field-mic { top: 50%; transform: translateY(-50%); }
+
+/* Toolbar spans full width; its content aligns with the shell */
+.toolbar-inner { padding:0 1.5rem; }
+
+/* Stack on tablets/phones: sidebar becomes a normal block above content */
+@media (max-width: 59.9375em) {
+  .assistant-side {
+    position: static;
+    width: auto;
+    padding:0.875rem 0.875rem 0;
+  }
+  .assistant-side .chat-log { max-height:20rem; }
+  .app-content { margin-left: 0; }
+}
+
+/* Markdown tables etc. inside chat replies */
+.chat-log .msg table { border-collapse: collapse; margin:0.375rem 0; font-size:0.8125rem; }
+.chat-log .msg th, .chat-log .msg td { border: 1px solid var(--line); padding:0.25rem 0.5rem; }
+.chat-log .msg code { background: var(--surface-muted); padding:0.0625rem 0.25rem; border-radius:0.25rem; font-size:0.75rem; }
+
+/* Builder Arguments group */
+.builder-args { margin-bottom: 0; }
+.builder-args .uk-accordion-title { font-size:0.9375rem; }
+.builder-args .arg-row {
+  display: flex;
+  align-items: center;
+  gap:0.625rem;
+  padding:0.375rem 0;
+  cursor: pointer;
+}
+.builder-args .arg-row code { min-width:11.875rem; }
+.builder-args .arg-value { max-width:21.25rem; }
+
+/* Hierarchical project-domain alias on running rows */
+/* Launch sits with the hostname it opens, not in the actions row: the row is what you DO to a
+   project, and opening its site is where you GO. Reading "Launch webship-sandbox-1.ddev.site" as
+   one phrase also removes the guess about which of several URLs the button lands on. */
+.proj-launch-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.proj-alias { display: block; font-size:0.6875rem; margin-top:0.125rem; color: var(--link) !important; }
+.proj-launch-line .proj-alias { margin-top: 0; }
+.proj-alias:hover { text-decoration: underline; }
+
+/* Build form: the cmd-*.sh picker reads as one composer-style control —
+   same bordered card, same focus ring, same brand accent as the prompt box. */
+.build-form {
+  padding:0.625rem 0.75rem;
+  background: var(--surface-card);
+  border: 1px solid var(--line);
+  border-radius:0.875rem;
+  box-shadow: 0 1px 2px rgba(43, 68, 124, .06);
+}
+.build-form:focus-within {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--subtle-brand);
+}
+.build-form .uk-select,
+.build-form .uk-input {
+  border: 1px solid var(--line);
+  border-radius:0.625rem;
+  background-color: var(--surface-input);
+  height:2.625rem;
+}
+.build-form .uk-select:focus,
+.build-form .uk-input:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--subtle-brand);
+}
+.build-form .uk-select {
+  font-weight: 500;
+  color: var(--ink);
+}
+.build-form .uk-button-primary { border-radius:31.25rem; padding:0 1.25rem; height:2.625rem; line-height:2.625rem; }
+
+/* Logos and icons in both themes.
+   The emblem is Webship Primary blue and reads on light and dark alike, so it
+   never changes. The full lockup has two exports because its wordmark is ink
+   on light and white on dark — swap the file, never recolour the artwork. */
+.brand-emblem { display: block; }
+.brand-logo-on-dark { display: none; }
+html.dark .brand-logo-on-light { display: none; }
+html.dark .brand-logo-on-dark { display: block; }
+
+/* UIKit icons inherit currentColor, so they follow the theme already — but the
+   toolbar mark and the assistant sparkle sit on tinted surfaces, so pin their
+   colour rather than letting a parent override it. */
+.toolbar .uk-icon, .assistant-panel .uk-icon { color: currentColor; }
+html.dark .ai-mark { color: var(--text-inverse); }
+
+/* Buttons: the Webship default. Primary is brand blue with a soft brand shadow;
+   secondary is the deep brand navy; default is a quiet outline that turns
+   brand on hover. Pill radius throughout, matching the composer controls. */
+.uk-button {
+  border-radius:31.25rem;
+  font-weight: 500;
+  text-transform: none;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease, color .15s ease;
+}
+.uk-button-primary {
+  background-color: var(--brand-primary);
+  border: 1px solid var(--brand-primary);
+  color: var(--text-inverse);
+  box-shadow: 0 1px 2px rgba(0, 116, 224, .25);
+}
+.uk-button-primary:hover,
+.uk-button-primary:focus {
+  background-color: var(--brand-pressed);
+  border-color: var(--brand-pressed);
+  color: var(--text-inverse);
+  box-shadow: 0 2px 8px rgba(0, 116, 224, .3);
+}
+.uk-button-secondary {
+  background-color: var(--brand-secondary);
+  border: 1px solid var(--brand-secondary);
+  color: var(--text-inverse);
+}
+.uk-button-secondary:hover,
+.uk-button-secondary:focus {
+  background-color: var(--brand-2-pressed);
+  border-color: var(--brand-2-pressed);
+  color: var(--text-inverse);
+}
+.uk-button-default {
+  background-color: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.uk-button-default:hover,
+.uk-button-default:focus {
+  background-color: var(--subtle-brand);
+  border-color: var(--link);
+  color: var(--link);
+}
+.uk-button-danger { border-radius:31.25rem; }
+.uk-button:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--subtle-brand);
+}
+/* The prompt toolbar: command picker on the left, actions on the right. */
+.chat-tools-spacer { flex: 1; }
+.chat-input .command-picker {
+  height:2.125rem;
+  max-width:14.375rem;
+  padding:0 1.625rem 0 0.625rem;
+  border: 1px solid var(--line);
+  border-radius:31.25rem;
+  background-color: var(--subtle-light);
+  color: var(--text-subtle-2);
+  font-size:0.8125rem;
+  font-weight: 500;
+}
+.chat-input .command-picker:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--subtle-brand);
+  background-color: var(--surface-input);
+}
+
+/* Mic: a round icon button that reads as an action, with a soft brand hover
+   and a recording state, rather than a bare pill. */
+.chat-input .mic-btn {
+  width:2.125rem;
+  height:2.125rem;
+  min-width:2.125rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--subtle-light);
+  color: var(--text-subtle-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-input .mic-btn:hover,
+.chat-input .mic-btn:focus {
+  background: var(--subtle-brand);
+  border-color: var(--link);
+  color: var(--link);
+}
+.chat-input .mic-btn.listening {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: var(--text-inverse);
+  animation: mic-pulse 1.4s ease-in-out infinite;
+}
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 116, 224, .45); }
+  50%      { box-shadow: 0 0 0 6px rgba(0, 116, 224, 0); }
+}
+.chat-input .send-btn { height:2.125rem; }
+
+/* Auto-mode plan card: the agent's proposal before it acts. UIKit buttons,
+   Webship tokens — nothing new imported. */
+.plan-card {
+  margin-top:0.625rem;
+  padding:0.625rem 0.75rem;
+  background: var(--subtle-brand);
+  border: 1px solid var(--brand-primary);
+  border-radius:0.75rem;
+}
+.plan-summary {
+  margin:0 0 0.5rem;
+  color: var(--ink);
+  font-weight: 500;
+  font-size:0.875rem;
+}
+.plan-actions { display: flex; flex-wrap: wrap; gap:0.375rem; }
+.plan-card-done { opacity: .55; pointer-events: none; }
+
+/* Typeface, per the brand tokens. UIKit keeps its own sizing and rhythm;
+   only the families change. */
+/* Typography, per the brand tokens (Figma 2070-473).
+   Headings 1 and 2 are Secondary at the display line-height; 3 to 6 are Primary
+   SemiBold at 1.4. h3 and the card titles were on the serif before, which the design
+   does not do — only H1 and H2 are Secondary. */
+/* One declaration per role. `font:` sets the family, the weight, the size and the line-height
+   in one go, from the role token, so none of the four can be set without the other three.
+   Tracking is not part of the shorthand, so it is stated beside it. */
+body, .uk-button, .uk-input, .uk-select, .uk-textarea { font: var(--type-body); }
+
+/* The .uk-h* classes are listed beside the tags for the same reason the colour rule lists
+   them: a class outranks a tag, and UIKit's own .uk-h3 sets a family. An h2 marked .uk-h3 —
+   which is how every "Build a new project" heading is written — was rendering in the system
+   font rather than in Figtree. Naming the class here is what lets a heading be sized as one
+   level while staying on the brand. */
+h1, .uk-h1 { font: var(--type-h1); letter-spacing: var(--tracking-h1); }
+h2, .uk-h2 { font: var(--type-h2); letter-spacing: var(--tracking-h2); }
+h3, .uk-h3, .uk-card-title { font: var(--type-h3); letter-spacing: var(--tracking-h3); }
+h4, .uk-h4 { font: var(--type-h4); letter-spacing: var(--tracking-h4); }
+h5, .uk-h5 { font: var(--type-h5); letter-spacing: var(--tracking-h5); }
+.toolbar-product { font: var(--type-h5); letter-spacing: var(--tracking-h5); }
+
+/* H6 is a small-caps label, not a sixth heading: set small and opened up, so it labels the
+   thing under it instead of competing with the body text beside it. */
+h6, .uk-h6 {
+  font: var(--type-h6);
+  letter-spacing: var(--tracking-h6);
+  text-transform: uppercase;
+}
+
+.uk-text-meta, .uk-text-small { font: var(--type-caption); }
+
+code, pre, .job-output, .chat-log pre { font-family: var(--font-code); }
+
+/* The project card's own title: a folder is a place, so it reads like a heading
+   rather than a bold line in a list, and the URLs sit under it as one inline row. */
+.project-title {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  margin: .15rem 0 .35rem; font-size: 1.15rem; font-weight: 700; line-height: 1.25;
+}
+/* The folder icon sits in the card's top-left corner, in the padding itself, with
+   the name beside it — the card looks like the folder it stands for. */
+/* The folder icon and its name start at the card's own left edge, so a column of
+   cards reads as a column of folders rather than an indented list. */
+.project-row { position: relative; }
+.project-head { padding-left: 0; margin-left: -0.5rem; }
+.project-title { margin-top: 0; display: flex; align-items: center; gap: .5rem; }
+.project-title::before { content: "📁"; font-size: 1.9rem; line-height: 1; }
+@media (max-width: 640px) {
+  .project-head { margin-left: -0.35rem; }
+  .project-title::before { font-size: 1.6rem; }
+}
+/* The links get their own line under the title, not the title's line. */
+.proj-launch-line { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: .15rem 0 .35rem; }
+.proj-launch-line .proj-alias { display: inline-flex; align-items: center; gap: .25rem; }
+.proj-upsun-link { white-space: nowrap; }
+/* Storybook is a different destination from the site, so it reads as one: the brand colour and a
+   book, against the muted grey the other aliases use. It is the component library, and the whole
+   reason for showing it is that people go looking for it and cannot find the address. */
+/* `!important` is not a shortcut here: `.proj-alias` already carries
+   `color: var(--link) !important` from an earlier component, and no amount of specificity beats an
+   !important declaration. These two say something different from "this is a link", so they have to
+   match it. */
+.proj-launch-line .proj-storybook { color: var(--brand-primary) !important; white-space: nowrap; }
+.proj-launch-line .proj-storybook .tabler-icon { color: currentColor; }
+/* An address two projects both claim. Not a link: it resolves to whichever started last, so
+   following it from this row would be a guess. Warning ink, and the title names the others. */
+.proj-launch-line .proj-domain-clash { color: var(--warning-ink) !important; white-space: nowrap; cursor: help; }
+
+
+/* The state badges sit in a row of pill buttons, so they are shaped like them:
+   same height, same radius, same rhythm — a label that reads as part of the
+   group rather than a sticker dropped beside it. */
+.project-state { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.project-state > .uk-label,
+.project-state .uk-label {
+  height: 26px; display: inline-flex; align-items: center;
+  border-radius: 500px; padding: 0 12px; font-size: 13px; line-height: 1;
+  text-transform: none; letter-spacing: 0;
+}
+.project-state .act-with-status { display: inline-flex; align-items: center; }
+
+
+/* Folder on the left, state on the right, one line: the two things you identify
+   a card by, at its two ends. */
+.project-title-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.project-title-row .project-title { margin-bottom: 0; }
+.project-title-state { flex: none; }
+/* Every badge on the name line is the same pill, and the selector says so by naming the WRAPPER rather
+   than one badge inside it. Scoped to `.project-title-state` alone, the agent badge that joined it
+   later fell back to bare UIkit — a 2px corner, 21px tall, UPPERCASE — beside a 26px pill, which reads
+   as one of the two being broken. */
+.project-title-status .uk-label,
+.project-title-state .uk-label {
+  height: 26px; display: inline-flex; align-items: center;
+  border-radius: 500px; padding: 0 12px; font-size: 13px; line-height: 1;
+  text-transform: none; letter-spacing: 0;
+}
+
+
+/* One rhythm for both rows of controls: the same gap between every button, and
+   the caption under a menu ("webship", "offline") no longer widens its column. */
+.project-state-actions { display: inline-flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.project-actions { display: flex; align-items: flex-start; gap: .4rem; flex-wrap: wrap; }
+.project-state .act-with-status,
+.project-actions .act-with-status { display: inline-flex; flex-direction: column; align-items: center; gap: 0; }
+.act-with-status .act-status { margin: 0; line-height: 1.1; }
+.project-actions .act-menu, .project-state .act-menu { margin: 0; }
+
+
+/* Every line in the card starts where the folder icon does: one left edge for the
+   title, the links, the runtime menus and the action menus. */
+.project-row .project-head,
+.project-row .project-state,
+.project-row .project-actions { margin-left: -0.5rem; }
+.project-row .project-head { margin-left: -0.5rem; }
+@media (max-width: 640px) {
+  .project-row .project-head,
+  .project-row .project-state,
+  .project-row .project-actions { margin-left: -0.35rem; }
+}
+
+
+/* A stopped project's local links are still its addresses — shown, but quieter,
+   so a running row still reads as the one you can open right now.
+   Quieter with a TOKEN, not with opacity: fading brand blue to 60% over white gives a pale sky blue at
+   2.42:1 — the row went from "quieter" to unreadable, and a colour that was checked stopped being the
+   colour rendered. --text-subtle is 8.45:1 and is the quiet one by design. */
+.proj-launch-line.is-stopped .uk-button,
+.proj-launch-line.is-stopped .proj-alias:not(.proj-upsun-link) { color: var(--text-subtle); }
+
+/* The DDEV menu is a palette, not a list: at nearly thirty entries a single
+   column runs off the screen, so it flows into two and each group stays whole. */
+.ddev-dropdown-wide { width: 34rem; max-width: 92vw; }
+.ddev-nav-columns { column-count: 2; column-gap: 1.25rem; }
+.ddev-nav-columns > li { break-inside: avoid; }
+.ddev-nav-columns > li.uk-nav-header { break-before: column-avoid; margin-top: .4rem; }
+.ddev-nav-columns > li.uk-nav-divider { display: none; }   /* the headers already separate the groups */
+@media (max-width: 640px) {
+  .ddev-dropdown-wide { width: auto; }
+  .ddev-nav-columns { column-count: 1; }
+}
+
+/* The terminal takes the height it is given: most of the viewport inside the
+   modal, the whole tab on its own page, the whole screen in fullscreen. A
+   fixed height wasted a tall window and clipped a short one. */
+.browser-term { height: min(72vh, 900px); }
+.browser-term .xterm { height: 100%; }
+#editor-modal .uk-modal-dialog:has(.browser-term) { width: 92vw; max-width: 1400px; }
+/* Fullscreen wins over every page rule: the element that goes fullscreen is the
+   terminal's wrapper, so the pane inside it takes the whole screen minus the
+   status line. The !important is deliberate — the standalone page's own height
+   rule is more specific, and in fullscreen it is simply wrong. */
+.browser-term:fullscreen,
+.browser-term:-webkit-full-screen { height: 100vh !important; width: 100vw; border-radius: 0; padding: 6px; }
+:fullscreen .browser-term,
+.terminal-page :fullscreen .browser-term { height: calc(100vh - 2.75rem) !important; }
+:fullscreen { background: var(--code-bg); }
+.browser-term { background: var(--code-bg); padding: 8px; border-radius: 6px; }
+
+/* A session that stopped to ask something: the one badge on this page that is a
+   call to act, so it is allowed to move. */
+.needs-input { animation: needs-input-pulse 2s ease-in-out infinite; }
+/* The pulse is a RING, not a fade: pulsing opacity took the label's own text to 3.9:1 for half of
+   every cycle, so the one badge that is asking for attention was the one that became hard to read. */
+@keyframes needs-input-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--warning); }
+  50% { box-shadow: 0 0 0 0.3rem transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .needs-input { animation: none; } }

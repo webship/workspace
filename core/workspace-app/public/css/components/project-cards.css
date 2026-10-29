@@ -1,0 +1,258 @@
+/* The project card (.pcard): one anatomy, laid out by the card's own width, so it reads the same with
+   the actions rail open or collapsed, the assistant closed, beside or wide, and in a grid of two or three.
+   Every tool stays on the card and reachable: when a card is narrow the strip of icons wraps. */
+
+/* ---------- Project card (.pcard): one anatomy, chosen by the card's own width ---------- */
+
+#webship-workspace-projects {
+  --pcard-min: 17rem;
+  --pcard-gap: 0.75rem;
+  --pcard-pad: 1rem;
+  --pcard-radius: 0.75rem;
+  --pcard-tool: 2rem;
+  --pcard-chip: 1.5rem;
+  --pcard-title-lines: 3;
+  --pcard-cols: 1;
+}
+html[data-rows-view="grid-2"] #webship-workspace-projects { --pcard-cols: 2; }
+html[data-rows-view="grid-3"] #webship-workspace-projects { --pcard-cols: 3; }
+html[data-density="compact"] #webship-workspace-projects { --pcard-pad: 0.75rem; --pcard-tool: 1.75rem; }
+
+html[data-rows-view^="grid"] #webship-workspace-projects {
+  display: grid;
+  gap: var(--pcard-gap);
+  align-items: stretch;
+  grid-template-columns: repeat(auto-fill, minmax(
+    max(min(100%, var(--pcard-min)), calc((100% - (var(--pcard-cols) - 1) * var(--pcard-gap)) / var(--pcard-cols))), 1fr));
+}
+html[data-rows-view="grid-1"] #webship-workspace-projects .project-row { max-width: 46rem; margin-inline: auto; width: 100%; }
+
+/* the card */
+.project-row.pcard {
+  --pcard-stripe: var(--line);
+  container: pcard / inline-size;
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  background: var(--surface-card);
+  border: 1px solid var(--line);
+  border-radius: var(--pcard-radius);
+  box-shadow: inset 0.25rem 0 0 var(--pcard-stripe);
+}
+.project-row.pcard:has(.state-chip:not(.state-chip-off)) { --pcard-stripe: var(--ok); }
+.project-row.pcard:has(.state-chip-paused) { --pcard-stripe: var(--warning); }
+.project-row.pcard:has(.agent-live) { --pcard-stripe: var(--brand-primary); }
+.project-row.pcard:has(.agent-live.uk-label-warning) { --pcard-stripe: var(--warning); }
+/* a container is a stacking context: keep an open menu above the next card */
+.project-row.pcard:hover,
+.project-row.pcard:focus-within,
+.project-row.pcard:has(.uk-open) { z-index: 3; }
+
+.pcard-body {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100%;
+  min-width: 0;
+  padding: var(--pcard-pad) var(--pcard-pad) var(--pcard-pad) calc(var(--pcard-pad) + 0.25rem);
+}
+
+/* 1. name and state */
+.pcard-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; align-items: start; }
+.pcard-title {
+  margin: 0;
+  min-width: 0;
+  font: 600 1rem / 1.3 var(--font-primary);
+  color: var(--text-default);
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  hyphens: manual;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--pcard-title-lines);
+  overflow: hidden;
+}
+.pcard-title[title] { cursor: help; }
+.pcard-title .pcard-code { color: var(--text-subtle); font-weight: 500; }
+.pcard-status { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; margin: 0; }
+.pcard-status .project-title-agent:empty { display: none; }
+.pcard-status .uk-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: var(--pcard-chip);
+  padding: 0 0.625rem;
+  border-radius: 62.4375rem;
+  font-size: 0.75rem;
+  line-height: 1;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.pcard-status .state-chip.uk-label-success { background: var(--ok-soft); color: var(--ok-ink); }
+.pcard-status .state-chip .state-dot { background: var(--ok); }
+.pcard-status .state-chip-off .state-dot { background: transparent; box-shadow: inset 0 0 0 0.125rem var(--text-subtle); }
+.pcard-status .state-chip-paused { background: var(--warning-soft); color: var(--warning-ink); border-color: transparent; }
+.pcard-status .state-chip-paused .state-dot { background: var(--warning); box-shadow: none; border-radius: 0.125rem; }
+/* The chip is the switch: hovering shows what a click does. */
+.pcard-status .state-toggle { display: inline-grid; grid-template-columns: auto auto; border: 1px solid transparent; cursor: pointer; font: inherit; font-size: 0.75rem; }
+/* Word and action share one cell, so the chip keeps its width under the pointer. */
+.pcard-status .state-toggle :is(.state-word, .state-act) { grid-area: 1 / 2; }
+.pcard-status .state-toggle.state-chip-stopped { border-color: var(--line); }
+.pcard-status .state-toggle .state-act { visibility: hidden; }
+.pcard-status .state-toggle:is(:hover, :focus-visible) .state-word { visibility: hidden; }
+.pcard-status .state-toggle:is(:hover, :focus-visible) .state-act { visibility: visible; }
+.pcard-status .state-toggle:is(:hover, :focus-visible) { border-color: currentColor; }
+.pcard-status .state-toggle:focus-visible { outline: 2px solid var(--subtle-brand); outline-offset: 1px; }
+.pcard-status .agent-live { background: var(--subtle-brand); color: var(--link); }
+.pcard-status .agent-live.uk-label-warning { background: var(--warning); color: var(--brand-dark); }
+
+/* 2. facts */
+.pcard-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; min-width: 0; min-height: var(--pcard-chip); }
+.pcard-meta .pcard-chip,
+.pcard-meta .proj-alias,
+.pcard-meta .jira-key,
+.pcard-meta > .uk-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  height: var(--pcard-chip);
+  margin: 0;
+  padding: 0 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: none;
+}
+.pcard-meta .uk-icon { flex: none; }
+.pcard-meta .pcard-key { background: var(--subtle-brand); color: var(--link); font-family: var(--font-code); font-weight: 600; text-decoration: none; }
+.pcard-meta .proj-alias { color: var(--text-subtle) !important; }   /* an earlier component paints every alias link-blue with !important */
+.pcard-meta .proj-upsun-link { max-width: 11rem; }
+.pcard-meta > .uk-label-success { background: var(--ok-soft); color: var(--ok-ink); }
+.pcard-chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pcard-meta .pcard-slug { font: 0.7rem / 1 var(--font-code); color: var(--text-subtle); background: var(--surface); }
+.pcard-meta .project-note-corner { margin-inline-start: auto; gap: 0.25rem; }
+.pcard-meta .project-note { inline-size: 1.5rem; block-size: 1.5rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+
+/* 3. addresses */
+.pcard-addr { display: flex; align-items: center; gap: 0.375rem; min-width: 0; font: 0.75rem / 1.2 var(--font-code); }
+.pcard-host { flex: 1 1 auto; display: flex; min-width: 0; overflow: hidden; color: var(--link) !important; }
+.pcard-host-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pcard-host-tld { flex: none; }
+.pcard-addr.is-stopped .pcard-host { color: var(--text-subtle) !important; }
+.pcard-count {
+  flex: none;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--pcard-chip);
+  min-width: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 62.4375rem;
+  background: transparent;
+  color: var(--link);
+  font: 600 0.75rem / 1 var(--font-primary);
+  white-space: nowrap;
+}
+.pcard-count:hover { background: var(--subtle-brand); }
+.pcard-addr.is-stopped .pcard-count { color: var(--text-subtle); }
+.pcard-count[data-clash]::after { content: ""; width: 0.5rem; height: 0.5rem; margin-inline-start: 0.25rem; border-radius: 50%; background: var(--warning); }
+.pcard-domains { min-width: 16rem; max-width: min(24rem, 92vw); padding: 0.25rem; }
+.pcard-domains ul { max-height: 15rem; overflow: auto; margin: 0; padding: 0; list-style: none; }
+.pcard-domain {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font: 0.75rem / 1.2 var(--font-code);
+  white-space: nowrap;
+}
+.pcard-domain > .host { overflow: hidden; text-overflow: ellipsis; }
+.pcard-domain.is-clash { color: var(--warning-ink); cursor: help; }
+.pcard-domain.is-off { color: var(--text-subtle); }
+
+/* 4. the bar */
+.pcard-bar { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--line); min-width: 0; }
+.pcard-bar .pcard-launch { flex: none; margin: 0; }
+.pcard-tools { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 0.125rem 0.25rem; margin-inline-start: 0; min-width: 0; }
+.pcard-tools .act-with-status { display: inline-flex; flex-direction: row; position: relative; }
+.pcard-tools .act-menu { margin: 0; }
+.pcard-tools .uk-button {
+  box-sizing: border-box;
+  inline-size: auto;
+  min-inline-size: var(--pcard-tool);
+  block-size: var(--pcard-tool);
+  min-height: 0;
+  padding: 0 calc(var(--pcard-tool-label, 0rem) * 0.67);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--pcard-tool-label, 0rem) * 0.42);
+  font-size: var(--pcard-tool-label, 0rem);   /* 0 draws the icon alone, and the word is still the button's name */
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1;
+  white-space: nowrap;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--text-default);
+}
+
+.pcard-tools .uk-button:hover { background: var(--subtle-brand); color: var(--link); }
+.pcard-tools .uk-button [uk-icon*="chevron-down"] { display: none; }
+.pcard-tools .uk-button .uk-icon, .pcard-tools .uk-button .tabler-icon { flex: none; }
+.pcard-tools .uk-badge { position: absolute; inset-block-start: 0; inset-inline-end: 0; min-width: 1rem; height: 1rem; font-size: 0.625rem; line-height: 1rem; }
+.pcard-tools .screens-hand { font-size: 0.75rem; }
+/* captions are tooltips only (ui.js syncRowCaptions copies each into its button's title) */
+.pcard .act-with-status > .act-status {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+
+/* A wide card is the same card, wider: the words need the room a one-row layout would take. */
+
+/* focus: the same ring the rest of the dashboard uses */
+.pcard :is(a, button):focus-visible { outline: 0; box-shadow: 0 0 0 0.1875rem var(--focus-ring); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .pcard-tools .uk-button, .pcard-count { transition: background-color 0.12s ease, color 0.12s ease; }
+}
+
+/* The list of addresses is a menu, so it keeps the interface type: the address column's code type is for
+   the addresses themselves. */
+.pcard-domains .uk-nav-header { font-family: var(--font-primary); font-size: 0.75rem; text-transform: none; letter-spacing: 0; }
+
+/* Words or icons on the tool buttons: a style sets the default (--pcard-tool-label in the theme), and the
+   switch beside the layout controls is that browser's own answer, kept like the density. */
+html[data-tool-labels="words"] #webship-workspace-projects { --pcard-tool-label: 0.75rem; }
+html[data-tool-labels="icons"] #webship-workspace-projects { --pcard-tool-label: 0rem; }
+
+/* SCREENS sits beside the running state: what is running on the site and in its sessions, read together. */
+.pcard-state-line { display: inline-flex; align-items: center; gap: 0.375rem; }
+.pcard-screens .act-with-status { display: inline-flex; }
+.pcard-screens .act-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pcard-screens .uk-button {
+  height: var(--pcard-chip); min-height: 0; padding: 0 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;
+  font-size: 0.75rem; line-height: 1; border-radius: 62.4375rem; text-transform: none; letter-spacing: 0;
+}
+.pcard-screens .uk-button [uk-icon*="chevron"] { display: none; }
+.pcard-screens .uk-badge { min-width: 1rem; height: 1rem; font-size: 0.625rem; line-height: 1rem; }
+/* In the head it is the icon and its count, so the name keeps its room; the word is still its name. */
+.pcard-screens .uk-button { font-size: 0; gap: 0.2rem; padding: 0 0.4rem; }
+.pcard-screens .uk-button .uk-badge, .pcard-screens .uk-button .screens-hand { font-size: 0.625rem; }
+.pcard-screens .uk-button .screens-hand { font-size: 0.75rem; }

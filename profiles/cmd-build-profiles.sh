@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+ARGPARSE_DESCRIPTION="Build every profile listed in workspace.profiles.settings.yml, each as its own DDEV project."
+
 current_path=$(pwd);
 
 # Bootstrap.

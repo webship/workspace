@@ -1,15 +1,79 @@
 /* ---------- Workspace cards ---------- */
 
-.workspace-card { border-radius: 8px; }
+.workspace-card { border-radius:0.5rem; }
 
 .workspace-card .icon {
-  width: 52px;
-  height: 52px;
-  margin: 0 auto 8px;
-  border-radius: 12px;
+  width:3.25rem;
+  height:3.25rem;
+  margin:0 auto 0.5rem;
+  border-radius:0.75rem;
   background: var(--subtle-brand);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  font-size:1.625rem;
 }
+
+/* Hover and focus on a card, in BOTH themes.
+ *
+ * UIKit paints `.uk-card-default.uk-card-hover:hover` white — two classes, so it beat our own
+ * single-class hover rule, and `uikit.min.css` is linked after the assembled stylesheet anyway. In
+ * dark mode that meant every workspace card flashed a white panel under the cursor, which is the
+ * brightest thing on the page and the one nobody asked for. Out-specified rather than forced: the
+ * surface stays the card's own, and hover is said with the shadow and the border, as everywhere else.
+ *
+ * Focus gets the same treatment plus a real ring: these cards are links, and a keyboard user tabbing
+ * the home page had only the browser's default outline over a dark panel to go on. */
+.uk-card-default.uk-card-hover:hover,
+.uk-card-default.uk-card-hover:focus-visible,
+.uk-card-default.uk-card-hover:focus-within {
+  background-color: var(--surface-card);
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--line-strong);
+}
+
+.workspace-card:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 3px;
+  border-radius: 0.5rem;
+}
+
+/* The card's corner: its backups count, Edit and Settings. Beside the card's link, never inside it. */
+.ws-card-corner {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.ws-card-corner .ws-backups { position: static; }
+.ws-card-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--text-subtle);
+  cursor: pointer;
+  transition: color .12s ease, background-color .12s ease;
+}
+.ws-card-tool:is(:hover, :focus-visible) { color: var(--brand-primary); background: var(--subtle-brand); text-decoration: none; }
+.ws-card-tool:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
+
+/* Five or six across leaves no room beside the icon, so the tools wait for the pointer there. */
+html:is([data-home-view="grid-5"], [data-home-view="grid-6"]) .ws-card-tool { opacity: 0; }
+html:is([data-home-view="grid-5"], [data-home-view="grid-6"]) .ws-card-wrap:is(:hover, :focus-within) .ws-card-tool { opacity: 1; }
+
+/* List: the corner is the end of the row. */
+html[data-home-view="list"] .ws-card-corner { top: 50%; transform: translateY(-50%); right: 0.75rem; }
+html[data-home-view="list"] .workspace-card { padding-right: 7.5rem; }
+
+/* The Edit modal is the editor alone: the settings page's label column has nothing to say here. */
+.ws-card-edit #ws-presentation { display: block; padding: 0; border: 0; }
+.ws-card-edit #ws-presentation > .settings-key { display: none; }

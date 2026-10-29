@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Clone every module named in workspace.modules.settings.yml from git.drupal.org.
+#
+# Fills an empty modules/ folder in one go: each name in the `modules:` list is cloned over SSH,
+# so it needs a drupal.org account with a key on it. An existing folder is left as it is.
+
 echo "*-----------------------------------------------------------*";
 echo "| GIT clone all modules in                                  |";
 echo "*-----------------------------------------------------------*";

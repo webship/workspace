@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Smoke-test every cmd-*.sh in every workspace folder.
+# Smoke-test every cmd-*.sh in every workspace folder, plus the machine-level scripts
+# in core/scripts that used to be cmd-*.sh in one.
 #
 # For each script:
 #  1. bash -n            — syntax check (always)
@@ -18,10 +19,30 @@ source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1
 
 pass=0; fail=0; failures=()
 
-for ws in "${workspaces[@]}"; do
+# The registered workspaces, plus commands/ — which is a Settings section rather than
+# a workspace, but still ships a cmd-*.sh that must pass the same checks. Without it
+# here, deregistering that folder silently dropped its script from the run.
+# The machine-level scripts: autostart.sh and sync-tooling.sh were
+# cmd-*.sh in products/ until they moved here, and moving a script out of a workspace
+# folder must not quietly drop it from the run — that happened once already, to
+# commands/. Named explicitly rather than globbed, because core/scripts is also full
+# of libraries and bootstrap files that are sourced, never run. So every NEW machine
+# script has to be added here by hand — host-mounts.sh and upsun-ai.sh had been
+# sitting in core/scripts untested because that step was missed.
+MACHINE_SCRIPTS=(autostart.sh sync-tooling.sh install.sh trust-https.sh docker-gid.sh host-mounts.sh upsun-ai.sh storage.sh)
+
+for ws in "${workspaces[@]}" commands core/scripts; do
   dir="${WORKSPACE_ROOT}/${ws}"
   [ -d "$dir" ] || continue
-  for f in "$dir"/cmd-*.sh; do
+  if [ "$ws" == 'core/scripts' ] ; then
+    scripts=()
+    for name in "${MACHINE_SCRIPTS[@]}"; do
+      [ -f "${dir}/${name}" ] && scripts+=("${dir}/${name}")
+    done
+  else
+    scripts=("$dir"/cmd-*.sh)
+  fi
+  for f in "${scripts[@]}"; do
     [ -f "$f" ] || continue
     rel="${ws}/$(basename "$f")"
     err=""
@@ -32,7 +53,7 @@ for ws in "${workspaces[@]}"; do
     fi
 
     # 2. argparse scripts: run --help (safe, exercises the full bootstrap chain)
-    if [ -z "$err" ] && grep -q 'argparse "\$@"\|arg-${distribution_name}\|arg-\${distribution_name}' "$f"; then
+    if [ -z "$err" ] && grep -q 'argparse "\$@"\|arg-${distribution_name}\|arg-\${distribution_name}\|--help)' "$f"; then
       if ! (cd "$dir" && timeout 30 bash "$f" --help >/tmp/cmd-smoke-out 2>&1); then
         # argparse exits non-zero on --help in some versions; accept if usage was printed
         if ! grep -qi "usage" /tmp/cmd-smoke-out; then
@@ -47,6 +68,8 @@ for ws in "${workspaces[@]}"; do
     #    the first time it is run for real. That is how sixteen site-template builders shipped.
     if [ -z "$err" ]; then
       for fn in $(grep -oE '^[a-z_][a-z0-9_]* ;$' "$f" | tr -d ' ;' | sort -u); do
+        # A machine script may define the function it ends by calling, in itself.
+        grep -qE "^(function )?${fn}\(\)" "$f" && continue
         if ! (cd "$dir" && bash -c 'source "$1" >/dev/null 2>&1; declare -F "$2" >/dev/null' \
                 _ "${WORKSPACE_SCRIPTS}/bootstrap.sh" "$fn") ; then
           err="calls ${fn}() but nothing defines it — is its file sourced in bootstrap-functions.sh?"

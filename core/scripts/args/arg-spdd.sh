@@ -11,6 +11,6 @@ parser.add_argument('TOPIC',
                     help='What the change is, in a sentence. Given together with a target, this starts a new spec.')
 parser.add_argument('-a', '--spdd-action',
                     default="_auto_",
-                    choices=['_auto_', 'list', 'story', 'analysis', 'canvas', 'drift', 'sync', 'show'],
-                    help='list the specs, start one (story), draft the analysis, draft the REASONS Canvas, check whether the canvas still matches the tree (drift), record that it does again (sync), or show a spec\'s files. Default: list, or story when a target and a topic are given.')
+                    choices=['_auto_', 'list', 'constitution', 'story', 'analysis', 'canvas', 'review', 'read', 'drift', 'sync', 'show'],
+                    help='list the specs, write a product constitution, start one (story), draft the analysis, draft the REASONS Canvas, review a spec against the checklist, read one as a single document, check whether the canvas still matches the tree (drift), record that it does again (sync), or show a spec\'s files. Default: list, or story when a target and a topic are given.')
 ARGEOF

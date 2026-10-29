@@ -1,0 +1,37 @@
+# The screen configuration the dashboard starts its sessions with (`screen -c`).
+#
+# There was none: every session ran on screen's defaults, which are from an era of serial
+# terminals and are wrong for a window that is shared between a browser and a real terminal.
+#
+# Each line is here for a symptom, not for taste.
+
+# A full-screen program gets its own screen and gives the scrollback back when it leaves.
+# Without this a TUI's every repaint lands in the scrollback — so scrolling back through a
+# session that ran an agent is thousands of half-drawn frames rather than what was said, and
+# what the program left on the way out stays on screen after it has gone.
+altscreen on
+
+# screen does not take the mouse for itself. It is off by default; it is stated because the
+# symptom it causes is unrecognisable — the wheel writes coordinates into the shell instead of
+# scrolling, and nothing on screen says which layer took the mouse.
+mousetrack off
+
+# Ten thousand lines, because the browser terminal's scrollback IS this buffer: screen's copy
+# mode is what the window's scroll-back button drives, and the default 100 lines is one screen
+# of a build log.
+defscrollback 10000
+
+# No splash on attach: the first thing a terminal shows should be the session.
+startup_message off
+
+# Ctrl-S and Ctrl-Q are keystrokes, not flow control. Under the default an agent that is told
+# to stop with Ctrl-S freezes the display instead, and it looks exactly like a hung session.
+defflow off
+
+# UTF-8 everywhere, which is what the browser terminal speaks and what every box drawing
+# character in a TUI needs.
+defutf8 on
+
+# The window keeps its name, so `screen -ls` and the dashboard's lists agree about what a
+# session is called after a shell inside it changes the title.
+defhstatus "^Et"

@@ -1,0 +1,29 @@
+{
+  "tokens": {
+    "brand-primary": "#0074e0",
+    "brand-secondary": "#2b447c",
+    "brand-accent": "#e4dcff",
+    "brand-dark": "#000000",
+    "brand-light": "#ebe8e5",
+    "subtle-light": "#f5f3f2",
+    "subtle-brand": "#deedff",
+    "subtle-accent": "#f6f3ff",
+    "text-default": "#000000",
+    "text-subtle": "#4d4d4d",
+    "text-light": "#ebe8e5",
+    "text-inverse": "#ffffff",
+    "text-brand": "#0074e0",
+    "text-accent": "#e4dcff"
+  },
+  "logos": {
+    "mark": "logo.png",
+    "favicon_png": "favicon.png",
+    "touch_icon": "touch-icon.png"
+  },
+  "note": "The dashboard palette and type, read by the SVG image generator, the PDF reports and the default theme. Edit by hand; a theme file (core/config/theme.<name>.yml) overrides it on the page.",
+  "fonts": {
+    "primary": "Figtree",
+    "secondary": "DM Serif Text",
+    "code": "JetBrains Mono"
+  }
+}
