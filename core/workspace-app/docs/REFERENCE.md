@@ -269,8 +269,8 @@ web: http://127.0.0.1/core
 protocol: http
 account:
   name: webmaster
-  pass: d
-  mail: webmaster@vardot.com
+  pass: CHANGE_ME
+  mail: info@webship.co
 contributor:
   name: CHANGE_ME       # who commits/files issues from this machine (#32)
   email: CHANGE_ME

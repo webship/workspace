@@ -7,8 +7,8 @@
 # point of the field.
 account:
   name: webmaster
-  pass: d
-  mail: webmaster@vardot.com
+  pass: CHANGE_ME
+  mail: info@webship.co
 # Who contributions are credited to — on webship/workspace, Vardot/dev-ai-agents and every
 # drupal.org issue, merge request and pull request this tooling opens. Per machine: this live
 # copy holds your real values, the committed one ships CHANGE_ME.
@@ -16,8 +16,8 @@ account:
 # cmd-*.sh. The Vardot agents read them too — see Vardot/dev-ai-agents
 # .claude/agents/RULES.md, "Contributor identity".
 contributor:
-  name: Rajab Natshah
-  email: rajabn@gmail.com
+  name: CHANGE_ME
+  email: CHANGE_ME
 # AI provider keys for the sites this workspace builds. When a built site has
 # the AI stack (Drupal CMS AI, Varbase AI), set_ai_provider_keys wires these
 # in after install. Placeholders are skipped; real keys live ONLY in your own
@@ -38,7 +38,7 @@ git:
   # never echoed into a job log, never written to actions.log. Set them at /settings, which
   # also shows the `git --author` line each forge will produce. The commit NAME comes from
   # contributor.name above; only the address varies per forge.
-  #   e.g. username: Natshah, email: r.natshah@vardot.com
+  #   e.g. username: Natshah, email: CHANGE_ME
   github:
     host: github.com
     # Authenticate with the `gh` CLI's own login when it works, and only fall back to the
@@ -46,18 +46,18 @@ git:
     # is not — gh reads the same ~/.config/gh but the token lives in the host keyring, which
     # the container cannot read. That is what the token below is for.
     use_gh_cli: true
-    username: Natshah
-    email: rajabn@gmail.com
+    username: CHANGE_ME
+    email: CHANGE_ME
     token: CHANGE_ME
   drupal:
     host: git.drupalcode.org
-    username: Rajab Natshah
-    email: rajabn@gmail.com
+    username: CHANGE_ME
+    email: CHANGE_ME
     token: CHANGE_ME
   bitbucket:
     host: bitbucket.org
-    username: Rajab Natshah
-    email: r.natshah@vardot.com
+    username: CHANGE_ME
+    email: CHANGE_ME
     token: CHANGE_ME
 sources:
   # Where a sync pulls from, and where "Propose PR" files. Change these to work from a fork or
