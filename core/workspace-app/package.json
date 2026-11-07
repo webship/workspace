@@ -14,7 +14,7 @@
   "description": "Visual dashboard + AI assistant for the Webship Workspace tooling",
   "dependencies": {
     "@webship/workspace-google-drive": "file:plugins/google-drive-sync",
-    "@webship/workspace-upsun": "file:plugins/workspace-upsun",
+    "@webship/workspace-upsun": "github:webship/workspace-upsun#1.0.x",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-unicode11": "^0.9.0",
     "@xterm/addon-web-links": "^0.11.0",

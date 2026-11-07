@@ -73,6 +73,11 @@ case "${verb}" in
   --require)
     [ -n "${name}" ] || { echo "Which package? e.g. --require github:webship/workspace-upsun" ; exit 1 ; } ;
     echo "→ npm install ${name} (core/workspace-app)" ;
+    # The plugin repositories are private: let git borrow the gh CLI's login for github.com, the way
+    # the commands tooling does, so a github: spec resolves without a token in the environment.
+    if command -v gh > /dev/null 2>&1 && gh api user --jq .login > /dev/null 2>&1 ; then
+      export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="credential.https://github.com.helper" GIT_CONFIG_VALUE_0="!gh auth git-credential" ;
+    fi
     ( cd "${APP}" && npm install --no-audit --no-fund "${name}" ) || exit 1 ;
     echo "Required. Next: --activate <name> (the name is the manifest's: --list shows it)." ;;
 
