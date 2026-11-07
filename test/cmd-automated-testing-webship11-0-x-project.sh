@@ -106,7 +106,7 @@ mkdir ${PROJECT_NAME} ;
 cd ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} ;
 
 # Configure DDEV for Drupal 11 with web docroot and PHP 8.4.
-ddev config --project-type=drupal11 --docroot=web --php-version=${PHP_VERSION} --project-name=${PROJECT_NAME} --auto ;
+ddev config --project-type=drupal11 --docroot=web --php-version=${PHP_VERSION} --nodejs-version=$(ddev_nodejs_version) --project-name=${PROJECT_NAME} --auto ;
 ddev start ;
 
 # Create the Webship 11 project via composer inside DDEV.
@@ -116,10 +116,9 @@ ddev composer create-project ${distribution_project_template}:${site_version} --
 # webimage packages after our initial ddev config. Re-align exactly as
 # build_distribution does: keep the database we already provisioned and drop the
 # optional apt extras, whose third-party repo keys break apt in the container.
-# Pin node 22 while doing it: webship_project's package.json requires node
-# >= 20, and DDEV's default is still 18, so yarn install would fail with
-# "The engine node is incompatible with this module".
-ddev config --database=mariadb:10.11 --webimage-extra-packages="" --nodejs-version=22 ;
+# Keep our Node.js while doing it (ddev_nodejs_version: 24, like Drupal core): the
+# template's own .ddev config may pin an older one.
+ddev config --database=mariadb:10.11 --webimage-extra-packages="" --nodejs-version=$(ddev_nodejs_version) ;
 ddev restart ;
 
 # Install the site, then scaffold the testing stack. The in-repo ddev command

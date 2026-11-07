@@ -46,8 +46,8 @@ function build_distribution() {
   # ignoring what was asked for.
   php_version="${PHP_VERSION:-${site_php_version:-}}" ;
   ddev config --project-type=drupal --docroot=${distribution_webroot} --project-name=${PROJECT_NAME} \
+    ${php_version:+--php-version=${php_version}} --nodejs-version=$(ddev_nodejs_version) --auto ;
   ddev_telemetry_off ;
-    ${php_version:+--php-version=${php_version}} --auto ;
   ddev_up start ;
 
   # Capture the db type actually running before composer create-project can change it,
@@ -129,9 +129,9 @@ function build_distribution() {
   # Some project templates ship their own .ddev config that
   # changes the docroot/database/webimage packages after our initial ddev
   # config. Re-align: keep the database type we already provisioned, drop
-  # optional apt extras (avoids third-party repo key failures), and restart
+  # optional apt extras (avoids third-party repo key failures), keep our Node.js, and restart
   # so the webserver serves the template's real docroot.
-  ddev config --database=mariadb:${provisioned_db_type} --webimage-extra-packages="" ;
+  ddev config --database=mariadb:${provisioned_db_type} --webimage-extra-packages="" --nodejs-version=$(ddev_nodejs_version) ;
   ddev_telemetry_off ;
   ddev_up restart ;
 

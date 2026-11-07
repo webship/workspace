@@ -624,7 +624,7 @@ JSONEOF
   echo "*---------------------------------------------------------------------*";
 }
 
-# The Penpot MCP server: a node:22 container on the host network, plus the one-line Claude Code
+# The Penpot MCP server: a node:24 container on the host network, plus the one-line Claude Code
 # registration. Two processes are needed for the MCP to reach a design and only one of them is
 # here: the other is a browser tab holding the plugin open, which no script can do for you.
 function penpot_mcp() {
@@ -632,7 +632,7 @@ function penpot_mcp() {
   project="$(penpot_resolve_project "${PROJECT_NAME}")";
   url="$(penpot_resolve_url "${project}")";
   package="$(penpot_setting "${penpot_mcp_package}")"; package="${package:-@penpot/mcp@stable}";
-  image="$(penpot_setting "${penpot_mcp_image}")";     image="${image:-node:22}";
+  image="$(penpot_setting "${penpot_mcp_image}")";     image="${image:-node:24}";
   port="$(penpot_setting "${penpot_mcp_port}")";               port="${port:-4401}";
   plugin_port="$(penpot_setting "${penpot_mcp_plugin_port}")"; plugin_port="${plugin_port:-4400}";
   bridge_port="$(penpot_setting "${penpot_mcp_bridge_port}")"; bridge_port="${bridge_port:-4402}";

@@ -40,7 +40,7 @@ function build_site_template() {
   mkdir -p ${PROJECT_NAME} ;
   cd ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} ;
 
-  ddev config --project-type=drupal11 --docroot=${distribution_webroot} --php-version=${PHP_VERSION} --project-name=${PROJECT_NAME} --auto ;
+  ddev config --project-type=drupal11 --docroot=${distribution_webroot} --php-version=${PHP_VERSION} --nodejs-version=$(ddev_nodejs_version) --project-name=${PROJECT_NAME} --auto ;
   ddev start ;
 
   # Capture the database version DDEV actually provisioned, before composer create-project can
@@ -55,7 +55,7 @@ function build_site_template() {
 
   # Keep the database we provisioned and drop optional apt extras, in case the
   # project template shipped its own .ddev config.
-  ddev config --database=mariadb:${provisioned_db_type} --webimage-extra-packages="" --php-version=${PHP_VERSION} ;
+  ddev config --database=mariadb:${provisioned_db_type} --webimage-extra-packages="" --php-version=${PHP_VERSION} --nodejs-version=$(ddev_nodejs_version) ;
   ddev restart ;
 
   # Add the site template itself.

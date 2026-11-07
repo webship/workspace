@@ -9,6 +9,7 @@ source ${WORKSPACE_SCRIPTS}/functions/fun-default-settings.sh || exit 1 ;
 # Include Database functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-database.sh || exit 1 ;
 source ${WORKSPACE_SCRIPTS}/functions/fun-ddev-telemetry.sh || exit 1 ;
+source ${WORKSPACE_SCRIPTS}/functions/fun-ddev-nodejs.sh || exit 1 ;
 
 # Include Files functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-files.sh || exit 1 ;

@@ -23,7 +23,7 @@ fi
 mkdir -p "${WORKSPACE_ROOT}/${doc_name}/drupal_standard" ;
 cd "${WORKSPACE_ROOT}/${doc_name}/drupal_standard" ;
 
-ddev config --project-type=drupal --docroot=web --project-name=drupal_standard --auto ;
+ddev config --project-type=drupal --docroot=web --project-name=drupal_standard --nodejs-version=$(ddev_nodejs_version) --auto ;
 ddev start ;
 
 ddev composer create-project drupal/recommended-project . --no-interaction;

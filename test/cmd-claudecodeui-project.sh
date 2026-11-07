@@ -3,7 +3,7 @@
 # workspace-name: Claude Code UI
 
 # Build github.com/siteboon/claudecodeui as a DDEV generic project: clone (or reuse) the repo,
-# configure DDEV as a generic Node 22 project, install deps, and start the Vite + Express dev
+# configure DDEV as a generic Node 24 project, install deps, and start the Vite + Express dev
 # stack. Not a Drupal distribution: no composer, no drush, no docroot.
 
 # Bootstrap.
@@ -37,7 +37,7 @@ fi
 cd "${project_path}" ;
 
 if [ ! -f ".ddev/config.yaml" ]; then
-  ddev config --project-type=generic --project-name="${project_name}" --docroot="" --nodejs-version=22 ;
+  ddev config --project-type=generic --project-name="${project_name}" --docroot="" --nodejs-version=24 ;
 fi
 
 # Expose the Vite dev server through ddev-router. The backend (SERVER_PORT) stays

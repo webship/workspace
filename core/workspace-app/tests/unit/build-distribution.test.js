@@ -14,6 +14,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const FUNCTION = path.join(__dirname, '..', '..', '..', 'scripts', 'functions', 'fun-build-distribution.sh');
+const NODEJS = path.join(__dirname, '..', '..', '..', 'scripts', 'functions', 'fun-ddev-nodejs.sh');
 
 // Runs build_distribution with a fake ddev that records its arguments, one call per line.
 function build({ declare = '', installFails = false, composerFailsOnce = false, broken = false } = {}) {
@@ -26,7 +27,7 @@ distribution_name=stub; distribution_webroot=docroot; distribution_project_templ
 ${declare}
 ddev() { printf '%s\\n' "$*" >> ${log}; if [ "${composerFailsOnce ? 'yes' : 'no'}" = yes ] && [ "$1 $2" = 'composer install' ] && [ ! -e ${dir}/failed-once ]; then touch ${dir}/failed-once; return 1; fi; if [ "$1 $2" = 'drush status' ]; then echo ${broken ? 'Failed' : 'Successful'}; fi; if [ "$1" = config ]; then mkdir -p .ddev; printf 'docroot: docroot\\ndatabase:\\n  version: "11.8"\\n' > .ddev/config.yaml; fi; return 0; }
 ddev_up() { :; }; set_default_settings() { :; }; add_drush() { :; }; drush_set_debug_on() { :; }; drush_cr() { :; }; add_users() { :; }
-source ${FUNCTION}
+source ${FUNCTION}; source ${NODEJS}
 source() { if [ "$1" = "\${WORKSPACE_SCRIPTS}/functions/fun-distribution-stub.sh" ]; then
   install_stub_with_drush() { ${installFails ? 'return 1' : 'ddev drush site:install stub'}; }; enable_stub_extra_components() { :; }
   else builtin source "$@"; fi; }
@@ -45,6 +46,23 @@ test('a builder that declares nothing creates the project in one step, as before
   const create = calls.find((c) => c.startsWith('composer create-project'));
   assert.ok(create && !create.includes('--no-install'), create);
   assert.ok(index(calls, 'composer require') < 0 && index(calls, 'composer install') < 0 && index(calls, 'patches-ignore') < 0);
+});
+
+test('every ddev config of a build pins Node.js 24, and the first one still gets its PHP version and --auto', () => {
+  const { calls, code } = build({ declare: 'site_php_version=8.5' });
+  assert.strictEqual(code, 0);
+  const configs = calls.filter((c) => c.startsWith('config '));
+  assert.strictEqual(configs.length, 2, configs.join('\n'));
+  for (const c of configs) assert.ok(c.includes('--nodejs-version=24'), c);
+  // #767 put ddev_telemetry_off inside this call's line continuation, so --php-version and --auto ran as a command.
+  assert.ok(configs[0].includes('--php-version=8.5') && configs[0].endsWith('--auto'), configs[0]);
+  assert.ok(!configs[0].includes('ddev_telemetry_off'), configs[0]);
+});
+
+test('a builder that declares site_nodejs_version gets that version instead', () => {
+  const { calls } = build({ declare: 'site_nodejs_version=22' });
+  const configs = calls.filter((c) => c.startsWith('config '));
+  for (const c of configs) assert.ok(c.includes('--nodejs-version=22') && !c.includes('--nodejs-version=24'), c);
 });
 
 test('declared requirements and patches to ignore are applied between create-project and the first install', () => {

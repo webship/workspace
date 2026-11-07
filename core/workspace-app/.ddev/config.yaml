@@ -85,7 +85,7 @@ web_environment: []
 # checks verb cannot work here without it.
 corepack_enable: true
 omit_containers: [db]
-nodejs_version: "22"
+nodejs_version: "24"
 webimage_extra_packages: [screen]
 web_extra_daemons:
 - name: "workspace-app"

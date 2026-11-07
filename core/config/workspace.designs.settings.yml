@@ -49,12 +49,12 @@ penpot:
     email:
     password:
   # The Penpot MCP server (cmd-penpot-mcp.sh), which is what lets a design agent read and write
-  # a live file. It runs in a node:22 container on the host network: the host's own Node may be
+  # a live file. It runs in a node:24 container on the host network: the host's own Node may be
   # too old, and @penpot/mcp needs node:sqlite. `package` is pinned by tag, not by version,
   # because the published versions skip 2.16.x entirely.
   mcp:
     package: "@penpot/mcp@stable"
-    image: "node:22"
+    image: "node:24"
     port: 4401
     plugin_port: 4400
     bridge_port: 4402

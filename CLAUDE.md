@@ -26,6 +26,7 @@ All project builds go through DDEV — never raw `composer`/`drush`/`mysql` agai
 - `ddev config --project-type=drupal --docroot=<docroot> --project-name=<name> --auto` + `ddev start` before anything else in a build.
 - `ddev composer ...` / `ddev drush ...` for all package and Drupal-console operations.
 - `ddev delete -y -O` instead of dropping a host database; `ddev export-db --file=...` instead of `mysqldump`.
+- **Every build runs Node.js 24**, in line with Drupal core (`"node": ">= 24.0"`): `ddev_nodejs_version` (`core/scripts/functions/fun-ddev-nodejs.sh`) answers `site_nodejs_version` when the builder declares one, else `24`, and goes on every `ddev config` that creates a project and on the one after `create-project` (a template release may pin an older Node in its own `.ddev/config.yaml`).
 - `ddev start` accepts `-y`; **`ddev stop` does not**.
 - **Never write a `$databases` block into settings.php** — DDEV's `settings.ddev.php` owns the DB connection (`set_default_settings` only ensures `config_sync_directory`).
 - Site URLs are `https://<PROJECT_NAME>.ddev.site`.

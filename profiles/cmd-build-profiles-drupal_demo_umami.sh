@@ -23,7 +23,7 @@ fi
 mkdir -p "${WORKSPACE_ROOT}/${doc_name}/drupal_demo_umami" ;
 cd "${WORKSPACE_ROOT}/${doc_name}/drupal_demo_umami" ;
 
-ddev config --project-type=drupal --docroot=web --project-name=drupal_demo_umami --auto ;
+ddev config --project-type=drupal --docroot=web --project-name=drupal_demo_umami --nodejs-version=$(ddev_nodejs_version) --auto ;
 ddev start ;
 
 ddev composer create-project drupal/recommended-project . --no-interaction;
