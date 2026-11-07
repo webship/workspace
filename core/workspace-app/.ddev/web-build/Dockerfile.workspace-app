@@ -15,10 +15,17 @@ RUN apt-get update -o Acquire::AllowInsecureRepositories=true || true \
     # The docker client: `docker-cli` on trixie (DDEV >= 1.25), `docker.io` on bookworm (DDEV 1.24).
     && (apt-get install -y --no-install-recommends --allow-unauthenticated docker-cli \
         || apt-get install -y --no-install-recommends --allow-unauthenticated docker.io) \
-    # The compose plugin, for the DOCKER menu's verbs (docker compose up/down/ps/logs) from the dashboard.
-    && (apt-get install -y --no-install-recommends --allow-unauthenticated docker-compose-plugin \
-        || apt-get install -y --no-install-recommends --allow-unauthenticated docker-compose-v2 || true) \
     && rm -rf /var/lib/apt/lists/*
+
+# The Docker Compose plugin, for the DOCKER menu's state and verbs (docker compose ps/up/down/logs)
+# from the dashboard. Neither Debian repository the image may be on ships it, so it comes PINNED from
+# its release, into the directory the docker client already looks in (docker-buildx is there).
+ARG COMPOSE_VERSION=v2.29.7
+RUN mkdir -p /usr/libexec/docker/cli-plugins \
+    && curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-$(uname -m)" \
+         -o /usr/libexec/docker/cli-plugins/docker-compose \
+    && chmod +x /usr/libexec/docker/cli-plugins/docker-compose \
+    && docker compose version
 
 # code-server — VS Code in the browser, the Web IDE the project rows link to.
 #
