@@ -16,9 +16,9 @@ process.env.WORKSPACE_CONFIG = CONFIG;
 process.env.WORKSPACE_AUTH_DIR = path.join(CONFIG, '.auth');
 const HUB = 'hub.example.test';
 
-const setSettings = (extra = '') => fs.writeFileSync(path.join(CONFIG, 'settings.yml'), [
-  `hub_domain: ${HUB}`, 'google_drive:', '  client_id: cid.apps.googleusercontent.com', '  client_secret: csecret1234', extra,
-].join('\n'));
+// The OAuth client lives with the Google Drive plugin, in its own settings file.
+fs.writeFileSync(path.join(CONFIG, 'plugin.google-drive-sync.settings.yml'), 'client_id: cid.apps.googleusercontent.com\nclient_secret: csecret1234\n');
+const setSettings = (extra = '') => fs.writeFileSync(path.join(CONFIG, 'settings.yml'), [`hub_domain: ${HUB}`, extra].join('\n'));
 const signinOn = (more = '') => setSettings(`auth:\n  google:\n    enabled: true\n    allowed_domains:\n      - example.com\n${more}`);
 
 const auth = require('../../auth-google');
