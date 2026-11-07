@@ -504,10 +504,6 @@ jira.max_agents:
   info: How many Claude Code agents may work Jira workitems at the same time. Each is a full session inside a site; too many can exhaust the machine.
   number: { min: 1, max: 8, step: 1 }
 
-# ---- Upsun (the DDEV ⇄ Upsun bridge) ----
-upsun.cli_token:
-  label: Upsun API token
-  info: 'What "Get database & files" uses to reach Upsun from the dashboard: an API token from the Upsun console (My profile → API tokens). The host''s own upsun login cannot reach containers. Injected only into Upsun jobs, never the app environment. Without it the modal explains, and the shown host commands still work. Syncing: UPSUN menu on a project row → "Get database & files…" → pick the ACTIVE environment (branch) → the local database is backed up to backups/ first, then replaced; files are added and overwritten, never deleted.'
 
 # ---- ElevenLabs (the final voiceover of a narrated video) ----
 elevenlabs.api_key:

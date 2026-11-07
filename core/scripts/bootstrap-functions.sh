@@ -48,9 +48,6 @@ source ${WORKSPACE_SCRIPTS}/functions/fun-obsidian.sh || exit 1 ;
 # Include graphify (knowledge graph) functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-graphify.sh || exit 1 ;
 
-# Include Upsun (cloud) functions.
-source ${WORKSPACE_SCRIPTS}/functions/fun-upsun.sh || exit 1 ;
-
 # Include AI provider key functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-ai-providers.sh || exit 1 ;
 
@@ -117,3 +114,10 @@ source ${WORKSPACE_SCRIPTS}/functions/fun-release.sh || exit 1 ;
 
 # Workspace folders kept on a second disk (core/scripts/storage.sh).
 source ${WORKSPACE_SCRIPTS}/functions/fun-storage.sh || exit 1 ;
+
+# The functions installed plugins ship (core/scripts/plugins.sh --install <name> puts them in
+# core/scripts/plugins/<name>/functions/). Sourced last, so a plugin can build on everything above.
+for plugin_functions_file in "${WORKSPACE_SCRIPTS}"/plugins/*/functions/*.sh ; do
+  [ -f "${plugin_functions_file}" ] || continue ;
+  source "${plugin_functions_file}" || exit 1 ;
+done

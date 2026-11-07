@@ -1,9 +1,55 @@
 # Dashboard plugins
 
-Optional features a workspace can turn on from settings, without touching `server.js`. A plugin is
-a folder under `core/workspace-app/plugins/<name>/` with an `index.js` exporting `register(api)` —
-or any npm module (add it to this app's `package.json`, name it with a `module:` key), so plugins
-travel the same way any node dependency does.
+Optional features, each a package of its own, turned on in four steps. The lean core is the
+workspaces, the builders, the settings and the assistant shell; everything else — Upsun, Jira, the
+Web IDE, git, tests, graphs, RAG, media, avatars, designs — is a plugin in its own repository
+(`github.com/webship/workspace-<name>`), required with npm when a machine needs it.
+
+```bash
+bash core/scripts/plugins.sh --require github:webship/workspace-upsun   # 1. require: npm install into the dashboard
+bash core/scripts/plugins.sh --activate upsun                            # 2. activate: plugins.upsun in settings.yml
+bash core/scripts/plugins.sh --install upsun                             # 3. install: place what the manifest names
+bash core/scripts/plugins.sh --configure upsun                           # 4. configure: its own settings file
+bash core/scripts/plugins.sh --list                                      # where each plugin is
+```
+
+The same four steps are buttons on **Settings → Plugins**. `--install` is idempotent, records what
+it placed in `core/config/plugins.installed.yml`, keeps a managed block in `.gitignore` so a dev
+clone never commits what an install placed, and says when the dashboard container needs
+`ddev restart` (a compose file or host mount the plugin brought). `--uninstall` removes exactly
+what `--install` placed.
+
+A plugin is a node package with a `workspacePlugin` manifest in its `package.json` and an
+`index.js` exporting `register(api)` — or a folder under `core/workspace-app/plugins/<name>/` with
+the same shape, which is how one is developed before it gets a repository.
+
+## The manifest
+
+```json
+"workspacePlugin": {
+  "name": "upsun",                                   // its settings key and route namespace
+  "label": "Upsun",
+  "settingsFile": "plugin.upsun.settings.yml",       // core/config/<file>, created from…
+  "settingsTemplate": "config/plugin.upsun.settings.yml",
+  "legacySettingsKey": "upsun",                      // the settings.yml block it replaces: its values carry over
+  "labels": "config/settings.labels.yml",            // labels for its settings keys, merged into the Settings page
+  "typeActions": { "upsun": ["sites"] },             // actions workspace types may allow
+  "commands": { "types": ["sites"], "workspaces": ["dev", "test"], "files": ["commands/cmd-tools-upsun.sh"] },
+  "scripts": { "functions": ["scripts/functions/fun-upsun.sh"], "args": ["scripts/args/arg-upsun.sh"],
+               "machine": ["scripts/upsun-ai.sh"], "hostInstall": "scripts/host-install.sh" },
+  "ddev": { "compose": ["ddev/docker-compose.upsun-cli.yaml"], "hostMounts": ["~/.upsun-cli"] },
+  "themes": ["config/theme.upsun.yml"],
+  "css": ["public/upsun.css"]
+}
+```
+
+Where each piece lands: functions, args and machine scripts in `core/scripts/plugins/<name>/`
+(bootstrap sources every `functions/*.sh` there, so a `cmd-*.sh` can call them; an args file is
+sourced as `${WORKSPACE_SCRIPTS}/plugins/<name>/args/<file>`); commands in every workspace the
+manifest names (or every one of its types), with `__WORKSPACE__` replaced by the folder's name;
+compose files as `core/workspace-app/.ddev/docker-compose.plugin-<name>-<file>`; host mounts in a
+`host-mounts.txt` that `host-mounts.sh` reads; themes in `core/config/`. `hostInstall` runs with
+`--check` after an install and in full from `install.sh`.
 
 Everything stays HTMX + UIKit: a plugin serves server-rendered fragments and wires them with
 `hx-get`/`hx-post`; no client frameworks.
@@ -96,6 +142,13 @@ module.exports.register = (api) => {
 | `api.addFragment(handler)` | GET handler for `/fragments/p/<plugin>/<rest>`. Context: `{ req, res, send, rest, searchParams }`. |
 | `api.addPageActions(fn)` | `fn({ view, key, meta })` returns a rail group `{ label, items: [html] }` or null. Runs on every page render. |
 | `api.addProjectActions(fn)` | `fn({ key, project, dir, meta })` returns HTML appended to that project row's actions (or null). Runs per row on `projects`-kind pages. |
+| `api.addRowMenu(slot, { label, row }, fn)` | A named menu on every project row, in a slot the Buttons settings arrange like a built-in one. `fn({ key, project, dir, meta, allowed, vals })` returns the menu's HTML, or null for a row it has nothing for. |
+| `api.addPage(re, handler)` | A whole page: GET requests whose path matches `re`. `handler({ req, res, match, send })` writes the response itself. |
+| `api.addProjectChip(fn)` | A chip in the project card's meta line. `fn({ key, project, dir, meta })` returns HTML or null. |
+| `api.addFolderSetup({ html, steps, prompt, problem })` | A section of the New-folder form (`html(ws, { allowed })`), the shell steps it adds (`steps(ws, name, form, ctx)` → array), the lines it adds to the Claude Code prompt (`prompt(…)` → array) and its validation (`problem(ws, form, ctx)` → '' or why). |
+| `api.addTypeAction(action, types)` | What the manifest's `typeActions` does, from code. |
+| `api.addCss(file)` | A stylesheet appended after the components (what the manifest's `css` does). |
+| `api.addLabels(map)` | Labels for its settings keys (what the manifest's `labels` does). |
 | `api.settings` | This plugin's own settings file: `file`, `read()`, `set(dotted, value)` and `setList(dotted, items)`, which change one key or list in place, comments kept, creating the file when it is missing. |
 | `api.lib` | Shared helpers: `esc`, `humanSize`, `humanTime`, `ROOT`, `loadWorkspaces`, `workspaceDir`, `isValidWorkspace`, `startJob`, `jobFragment`, `listProjects`, `NAME_RE`, `wsUrl` — `screenAction` (start a command as a Screen session, the way every long action does), `auth` (`sessionOf(req)`, `googleButton`, `BUTTON_CSS` from the dashboard's Google sign-in), plus the type layer: `TYPES`, `workspaceType(key)`, `typeAllows(key, action)`. |
 

@@ -48,7 +48,7 @@ const texts = (html) => rl.splitTopLevelLi(html).map((li) => rl.plainText(li));
 test('with no file there are two rows, and they are the row as it was', () => {
   const layout = rl.loadRowLayoutFresh();
   assert.deepStrictEqual(rl.DEFAULT_ROWS, [
-    ['ddev', 'upsun', 'jira', 'ide', 'git', 'tests'],
+    ['ddev', 'jira', 'ide', 'git', 'tests'],
     ['screens', 'composer', 'node', 'backup', 'clone', 'graph', 'rag', 'more'],
   ]);
   assert.deepStrictEqual(layout.rows, rl.DEFAULT_ROWS);
@@ -68,7 +68,7 @@ test('rows: every button placed exactly once, extra rows kept, a new button in i
   const all = [...l.rows.flat(), ...l.hidden];
   assert.strictEqual(all.length, new Set(all).size, 'no button twice');
   for (const b of rl.BUILTIN_BUTTONS) assert.ok(all.includes(b.id), `${b.id} is missing`);
-  assert.ok(l.rows[0].includes('upsun'), 'a button the file never mentions keeps its default row');
+  assert.ok(l.rows[0].includes('jira'), 'a button the file never mentions keeps its default row');
   assert.ok(l.rows[1].includes('tools'), 'a button made by an action goes to the second row');
   assert.ok(!all.includes('nope') && !all.includes('x-unknown'));
 
@@ -379,7 +379,7 @@ test('the Rows tab keeps your place: a save bar in view, open cards and scroll c
 
 test('a save writes only what differs from what a menu shows by default', () => {
   rl.arrangeNavInner('ddev', DDEV_INNER, { layout: rl.normalizeLayout({}) });
-  rl.arrangeNavInner('upsun', '<li class="uk-nav-header">link</li><li><a>Status</a></li><li><a>Logs</a></li>', { layout: rl.normalizeLayout({}) });
+  rl.arrangeNavInner('jira', '<li class="uk-nav-header">link</li><li><a>Status</a></li><li><a>Logs</a></li>', { layout: rl.normalizeLayout({}) });
   const untouched = (id) => {
     const cat = rl.seenMenu(id).groups;
     return {
@@ -389,7 +389,7 @@ test('a save writes only what differs from what a menu shows by default', () => 
     };
   };
   // Every card posts its whole, unchanged order; the one change is a hidden command in DDEV.
-  const form = { ...untouched('ddev'), ...untouched('upsun'), hide_entry_ddev: 'restart' };
+  const form = { ...untouched('ddev'), ...untouched('jira'), hide_entry_ddev: 'restart' };
   const doc = rl.toDoc(rl.normalizeLayout(rl.arrangementFromForm(rl.normalizeLayout({}), form)));
   assert.deepStrictEqual(Object.keys(doc.menus), ['ddev'], 'a menu nobody changed is not written');
   assert.deepStrictEqual(doc.menus.ddev, { groups: [], hidden_groups: [], hidden_entries: ['restart'] }, 'nor the order of a menu that was only hidden from');
@@ -429,7 +429,7 @@ test('the Rows form describes rows, the order inside groups, and hidden commands
   assert.strictEqual(next.rows[0][0], 'more');
   assert.ok(next.rows[1].includes('ddev'));
   assert.deepStrictEqual(next.hidden, ['git']);
-  assert.ok(next.rows[0].includes('upsun'), 'a button the form did not carry keeps the place it had');
+  assert.ok(next.rows[0].includes('jira'), 'a button the form did not carry keeps the place it had');
   assert.deepStrictEqual(next.menus.ddev.groups.slice(0, 2), ['build', 'project']);
   assert.deepStrictEqual(next.menus.ddev.order.project, ['describe', 'start-stop'], 'an entry the menu never had is dropped');
   assert.deepStrictEqual(next.menus.ddev.hiddenEntries, ['restart']);
@@ -568,4 +568,12 @@ test('the wrapper is what the stylesheet hides through, and the label stays in t
   const out = rl.rowLinesHtml({ ddev: '<button class="uk-button"><span uk-icon="icon: x"></span> DDEV</button>' }, {});
   assert.match(out.first, /class="row-show-icon"/);
   assert.match(out.first, /DDEV/, 'a screen reader still reads the name: this is presentation only');
+});
+
+test('a plugin button registers like a built-in one, in its default row, once', () => {
+  rl.registerButton({ id: 'x-cloud', label: 'CLOUD', row: 0 });
+  rl.registerButton({ id: 'x-cloud', label: 'CLOUD', row: 0 });
+  assert.strictEqual(rl.DEFAULT_ROWS[0].filter((b) => b === 'x-cloud').length, 1);
+  const l = rl.normalizeLayout({ rows: [['ddev'], []] });
+  assert.ok(l.rows[0].includes('x-cloud'), 'a layout written before the plugin existed still places its button');
 });

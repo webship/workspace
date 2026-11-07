@@ -230,6 +230,10 @@ function assembleCss(wanted) {
   for (const name of listComponents()) {
     parts.push(`/* component: ${name} */\n${readOrEmpty(path.join(CSS_DIR, 'components', `${name}.css`))}`);
   }
+  // What activated plugins add, after the components: a plugin stylesheet may only add rules.
+  for (const f of require('./plugin-loader').pluginCssFiles()) {
+    parts.push(`/* plugin: ${path.basename(f)} */\n${readOrEmpty(f)}`);
+  }
   // A style that exists only as YAML has no stylesheet to read — its tokens are the whole palette,
   // and they are appended below like any other override.
   if (theme && !isYamlOnlyTheme(theme)) {
@@ -359,7 +363,8 @@ function themePreview(name) {
 // editing a component with no version change would show yesterday's stylesheet.
 function cssVersion(wanted) {
   const files = [path.join(CSS_DIR, 'base.css'),
-    ...listComponents().map((n) => path.join(CSS_DIR, 'components', `${n}.css`))];
+    ...listComponents().map((n) => path.join(CSS_DIR, 'components', `${n}.css`)),
+    ...require('./plugin-loader').pluginCssFiles()];
   const theme = resolveTheme(wanted);
   if (theme) files.push(path.join(THEMES_DIR, theme, 'theme.css'), themeOverridesFile(theme));
   let stamp = 0;

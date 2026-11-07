@@ -17,6 +17,12 @@ const yaml = require('js-yaml');
 const { CONFIG_DIR, loadSettings } = require('./workspaces');
 
 const LEGACY_KEYS = { 'google-drive-sync': 'google_drive' };
+// A plugin package says in its manifest which settings.yml block its file replaces.
+try {
+  for (const p of require('./plugin-manifest').installedPlugins()) {
+    if (p.manifest && p.manifest.legacySettingsKey) LEGACY_KEYS[p.name] = p.manifest.legacySettingsKey;
+  }
+} catch (_) { /* no manifests: the static map is the whole story */ }
 const fileFor = (name) => `plugin.${name}.settings.yml`;
 
 function readPluginSettings(name) {

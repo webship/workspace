@@ -76,3 +76,21 @@ core/workspace-app/.cache/
 # The dashboard's mounts for the second storage, written by core/scripts/storage.sh --mounts from
 # this machine's storage.second. Machine paths, never committed.
 core/workspace-app/.ddev/docker-compose.second-storage.yaml
+
+# plugins — managed by core/scripts/plugins.sh; do not edit between the markers
+/core/config/plugin.upsun.settings.yml
+/core/config/plugins.installed.yml
+/core/config/theme.upsun.yml
+/core/scripts/plugins/
+/core/scripts/plugins/upsun/args/arg-upsun.sh
+/core/scripts/plugins/upsun/functions/fun-upsun.sh
+/core/scripts/plugins/upsun/host-install.sh
+/core/scripts/plugins/upsun/host-mounts.txt
+/core/scripts/plugins/upsun/upsun-ai.sh
+/core/workspace-app/.ddev/docker-compose.plugin-upsun-upsun-cli.yaml
+/demos/cmd-tools-upsun.sh
+/dev/cmd-tools-upsun.sh
+/projects/cmd-tools-upsun.sh
+/sandboxes/cmd-tools-upsun.sh
+/test/cmd-tools-upsun.sh
+# end plugins

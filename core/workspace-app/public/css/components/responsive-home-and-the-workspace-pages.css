@@ -291,9 +291,6 @@ html.dark #editor-modal .editor-card {
    from anything else on the row. UIKit uppercases .uk-label, but an Upsun project id is
    lowercase and case-sensitive — shown uppercase it cannot be read off the screen and
    used, so these two opt out. */
-.upsun-label, .upsun-mismatch { text-transform: none; font-family: var(--font-code); font-size: 0.72rem; }
-.upsun-label { background: var(--accent-soft); color: var(--accent-ink); }
-
 /* A project row is two lines: what it IS on the first, what you can DO on the second. With
    eight controls (Start/Stop, Launch, DDEV, Backup, Graph, Tests, Remove) a single line
    wrapped raggedly and pushed Remove under the name of the row above. */
@@ -320,15 +317,10 @@ html.dark #editor-modal .editor-card {
   border-top: 1px solid var(--line);
 }
 
-.upsun-menu-id { text-transform: none; font-family: var(--font-code); }
-.upsun-menu-note { text-transform: none; font-weight: 400; opacity: .75; white-space: normal; }
-
 /* The link command carries a project name, so it is long. Left on one line it sets the width of
    the whole dropdown, which then opens across the page instead of under its button — so it wraps,
    and the menu keeps a sane width of its own. */
 .act-menu .uk-dropdown { max-width: min(26rem, 90vw); }
-.upsun-menu-note code { white-space: normal; overflow-wrap: anywhere; }
-
 /* A nested settings block reads as one thing. The heading carries the path, so each field
    only needs its leaf name. */
 .settings-group {
@@ -463,5 +455,3 @@ html.dark #editor-modal .editor-card {
 /* An Upsun control on a project that is not linked yet. Present, because the workspace ships the
  * command — but quieter than a linked one, so a row of thirty unlinked projects does not read as
  * thirty cloud deployments. */
-.upsun-unlinked { opacity: .75; }
-.upsun-unlinked:hover { opacity: 1; }

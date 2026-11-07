@@ -86,7 +86,10 @@ const {
   installTargetWorkspaces,
 } = require('./ai-items');
 // Optional features workspaces turn on from settings.yml `plugins:` — see PLUGINS.md.
-const { pluginActions, pluginFragment, pluginPageActionGroups, pluginProjectActionsHtml } = require('./plugin-loader');
+const {
+  pluginActions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
+  pluginRowMenus, pluginProjectChipsHtml, pluginLabels,
+} = require('./plugin-loader');
 // How a project row is arranged — the order of its buttons and of what is inside their menus (Commands → Buttons).
 const rowLayout = require('./row-layout');
 const commandCatalog = require('./commands');
@@ -103,7 +106,6 @@ const buildOrderPage = require('./build-order-page');
 const { uikitIcons, tablerIcons, iconHtml, isKnownIcon } = require('./icons');
 const { PAGE_SIZES, defaultPageSize, PROJECT_FILTERS, SORTS, defaultSort, readPageState, setPageCookie, paginate, listControlsHtml, listPagerHtml } = require('./lists');
 const { commandBlock } = require('./command-block');
-const { upsunLinkOf } = require('./upsun');
 const { HOME_URL, wsUrl, ideBaseUrl, IDE_HOST, IDE_BIND } = require('./urls');
 const { VIDEO_RE, AUDIO_RE, DOC_ARTIFACT_RE, humanTime, humanSize, tildePath } = require('./format');
 const audioVoice = require('./audio-voice');
@@ -1594,7 +1596,8 @@ function fieldMeta() {
   const file = path.join(CONFIG_DIR, 'settings.labels.yml');
   try {
     const stamp = fs.statSync(file).mtimeMs;
-    if (stamp !== _labels.at) _labels = { at: stamp, data: yamlLoad(fs.readFileSync(file, 'utf8')) || {} };
+    // The plugins' labels under the file's: a plugin's own settings file is labelled by the plugin.
+    if (stamp !== _labels.at) _labels = { at: stamp, data: { ...pluginLabels(), ...(yamlLoad(fs.readFileSync(file, 'utf8')) || {}) } };
   } catch (_) {
     // Absent or unreadable: every row falls back to its raw key, which is what shipped before this
     // file existed. A broken label file must not take the settings page down with it.
@@ -2824,8 +2827,10 @@ async function settingsPage(section, state, options = {}) {
   const isBuildOrder = section === 'command-order';
   // Styles are configuration with a look, so they get a page that shows it rather than a file list.
   const isStyles = section === 'styles';
-  const current = isScreens || isNavigation || isButtons || isBuildOrder || isStyles ? '' : (files.includes(section) ? section : '');
-  const isIndex = !isScreens && !isNavigation && !isButtons && !isBuildOrder && !isStyles && !current;
+  // Plugins are configuration of a kind: which optional features this machine has, and the four steps each is at.
+  const isPlugins = section === 'plugins';
+  const current = isScreens || isNavigation || isButtons || isBuildOrder || isStyles || isPlugins ? '' : (files.includes(section) ? section : '');
+  const isIndex = !isScreens && !isNavigation && !isButtons && !isBuildOrder && !isStyles && !isPlugins && !current;
 
   const workspaceKey = (f) => (f.match(/^workspace\.(.+)\.settings\.yml$/) || [])[1] || '';
   const meta = loadWorkspaces();
@@ -2843,6 +2848,8 @@ async function settingsPage(section, state, options = {}) {
       'what every project row offers, and the actions on it', isButtons),
     card('/settings/command-order', 'tabler:sort-ascending-letters', 'Command order',
       'what each workspace offers first: its builders, then its tools', isBuildOrder),
+    card('/settings/plugins', 'tabler:puzzle', 'Plugins',
+      'optional features: require, activate, install, configure', isPlugins),
     ...files.filter((f) => !workspaceKey(f)).map((f) =>
       // The plain name: fname() is markup, and a card title is escaped text.
       card(`/settings/${encodeURIComponent(f)}`, 'tabler:settings', f,
@@ -2876,7 +2883,7 @@ async function settingsPage(section, state, options = {}) {
     </section>`;
 
   // A chosen one gets the width to itself: the way back is a line, not the whole list again.
-  const chosenName = isStyles ? 'Styles'
+  const chosenName = isPlugins ? 'Plugins' : isStyles ? 'Styles'
     : isNavigation ? 'Navigation'
     : isBuildOrder ? 'Command order'
       : isButtons ? 'Buttons'
@@ -2894,7 +2901,7 @@ async function settingsPage(section, state, options = {}) {
     </div>`
     : isIndex
       ? index
-      : `${options.fragment ? '' : back}${isStyles ? stylesPageHtml()
+      : `${options.fragment ? '' : back}${isPlugins ? require('./plugins-page').pluginsPageHtml() : isStyles ? stylesPageHtml()
         : isNavigation ? navPage.navEditorHtml(options.scope || 'global')
         : isBuildOrder ? buildOrderPage.editorHtml(options.scope || 'global')
           : isButtons ? rowLayout.rowActionsEditorHtml()
@@ -2912,6 +2919,8 @@ async function settingsPage(section, state, options = {}) {
         ? 'What each workspace offers first — the builders in Build a new project, and the tools in Run a tool'
         : isButtons
           ? 'The buttons of every project row, what is inside them, and the actions on them'
+          : isPlugins
+            ? 'optional features: require, activate, install, configure'
           : isStyles
             ? 'Every style on this machine, shown in its own colours and its own type'
             : fname(CONFIG_DIR);
@@ -3300,11 +3309,6 @@ function artifactIsEmpty(full, name, size, mtimeMs) {
   return verdict;
 }
 
-// Upsun linkage for a project: the id in .upsun/local/project.yaml (what the CLI treats as
-// the link) and the url of the `upsun` git remote (what a push would actually target). Both,
-// because they can disagree — and when they do, a deploy goes somewhere other than where the
-// tooling says it will, which is the duplicate-id mixup fun-upsun.sh guards against.
-// The git config is PARSED, not shelled out to, so listing a page never runs git per row.
 
 // A project's DDEV registration and state. Matched on this DIRECTORY first, falling back
 // to the name only when the registry has no entry for the path, and never trusting an entry
@@ -3345,7 +3349,6 @@ async function projectRowsHtml(key, dir, state) {
   const canGraphify = allowed.has('graphify') && !!findGraphifyScript(dir);
   const canRagify = allowed.has('ragify') && !!findRagifyScript(dir);
   const canTest = allowed.has('tests') && fs.existsSync(path.join(dir, 'cmd-tools-testing.sh'));
-  const canUpsun = allowed.has('upsun') && fs.existsSync(path.join(dir, 'cmd-tools-upsun.sh'));
   const canChecks = allowed.has('checks') && fs.existsSync(path.join(dir, 'cmd-tools-checks.sh'));
   const canUsers = allowed.has('users') && fs.existsSync(path.join(dir, 'cmd-tools-add-users.sh'));
   const canDdev = allowed.has('ddev');
@@ -3592,46 +3595,6 @@ async function projectRowsHtml(key, dir, state) {
         <div uk-dropdown="mode: click; pos: bottom-right" class="ddev-dropdown-wide"><ul class="uk-nav uk-dropdown-nav ddev-nav-columns">${ddevItems}
         </ul></div>
       </div><span class="act-status uk-text-meta">${ddevCount} command${ddevCount === 1 ? '' : 's'}</span></span>` : ''}`;
-    const upsunButton = canUpsun ? (() => {
-        const u = upsunLinkOf(dir, p);
-        const upsunCaption = !u ? 'not linked' : 'linked';
-        // An unlinked project used to render nothing at all, which is why the control looked
-        // like it existed only in demos: those are the projects that happen to carry
-        // `.upsun/local/project.yaml`. The workspace ships the command either way, so say so —
-        // and say how to link, since linking is a CLI step by design.
-        if (!u) {
-          return `<span class="act-with-status"><div class="uk-inline act-menu act-menu-upsun">
-          <button class="uk-button uk-button-default uk-button-small upsun-unlinked" type="button" title="Not linked to Upsun"><span uk-icon="icon: cloud-upload; ratio: .7"></span> UPSUN <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-          <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">
-            <li class="uk-nav-header">Not linked to Upsun</li>
-            <li><a href hx-post="/actions/upsun-status" ${vals()}><span uk-icon="icon: info; ratio: .7"></span> Link and environments</a></li>
-            <li class="uk-nav-divider"></li>
-            <li class="uk-nav-header upsun-menu-note" data-group="how to link">Link it from ${esc(key)}:<br>
-              <code>bash cmd-tools-upsun.sh ${esc(p)} --link &lt;upsun-project-id&gt;</code></li>
-          </ul></div>
-        </div><span class="act-status uk-text-meta">${esc(upsunCaption)}</span></span>`;
-        }
-        return `<span class="act-with-status"><div class="uk-inline act-menu act-menu-upsun">
-          <button class="uk-button uk-button-default uk-button-small" type="button" title="UPSUN"><span uk-icon="icon: cloud-upload; ratio: .7"></span> UPSUN <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-          <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">
-            <li class="uk-nav-header upsun-menu-id" data-group="link">${esc(u.id || '(no id)')}${u.branch ? ` · <span title="the branch the local code is on">${esc(u.branch)}</span>` : ''}</li>
-            <li><a href hx-post="/actions/upsun-envs" hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"}' hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: world; ratio: .7"></span> Environments &amp; site links…</a></li>
-            <li class="uk-nav-divider"></li>
-            <li class="uk-nav-header">live sites</li>
-            <li data-entry="live sites list"><ul class="uk-nav-sub" hx-get="/fragments/projects/upsun-envs/${encodeURIComponent(key)}/${encodeURIComponent(p)}" hx-trigger="load" hx-target="this" hx-swap="innerHTML"><li class="uk-text-meta">loading…</li></ul></li>
-            <li><a href hx-post="/actions/upsun-status" ${vals()}><span uk-icon="icon: info; ratio: .7"></span> Link and environments</a></li>
-            <li><a href hx-post="/actions/upsun-activities" ${vals()}><span uk-icon="icon: list; ratio: .7"></span> Last 10 activities</a></li>
-            <li><a href hx-post="/actions/upsun-logs" ${vals()}><span uk-icon="icon: file-text; ratio: .7"></span> Most recent deploy log</a></li>
-            <li class="uk-nav-divider"></li>
-            <li><a href hx-post="/actions/upsun-pull-form" hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"}' hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: cloud-download; ratio: .7"></span> Get database &amp; files…</a></li>
-            <li><a href hx-post="/actions/upsun-environments" ${vals()}><span uk-icon="icon: git-branch; ratio: .7"></span> Branch and data…${u.env ? ` <span class="uk-text-meta">${esc(u.env)}</span>` : ''}</a></li>
-            ${u.id ? `<li class="uk-nav-divider"></li>
-            <li><a href="https://console.upsun.com/projects/${encodeURIComponent(u.id)}" target="_blank"><span uk-icon="icon: link-external; ratio: .7"></span> Open in the Upsun console</a></li>` : ''}
-            <li class="uk-nav-divider"></li>
-            <li class="uk-nav-header upsun-menu-note">Deploying, linking and init stay on the command line</li>
-          </ul></div>
-        </div><span class="act-status uk-text-meta">${esc(upsunCaption)}</span></span>`;
-      })() : '';
     // Order: what it is doing, the runtime menus that change that, then the
     // Tests menu and the result it produced.
     const jiraMenu = `${jiraBlocked ? `<span class="act-with-status"><button class="uk-button uk-button-default uk-button-small" disabled
@@ -3838,7 +3801,9 @@ async function projectRowsHtml(key, dir, state) {
     // SCREENS is drawn beside the running state in the card's head, so the tool strip leaves it out.
     const screensOnTools = '';
     const rowLines = rowLayout.rowLinesHtml({
-      ddev: ddevButton, upsun: upsunButton, jira: jiraMenu, ide: openWithMenu, git: gitMenu, tests: testsMenu,
+      ddev: ddevButton, jira: jiraMenu, ide: openWithMenu, git: gitMenu, tests: testsMenu,
+      // The menus activated plugins bring, in the slots they registered (UPSUN, …).
+      ...pluginRowMenus({ key, project: p, dir, meta, allowed, vals }),
       screens: screensOnTools, composer: composerMenu, node: nodeMenu, backup: backupButton, clone: cloneButton,
       graph: graphMenu, rag: ragMenu, more: moreMenu,
     }, rowCtx, { preArranged: new Set(['ddev', 'more']) });
@@ -3875,7 +3840,6 @@ async function projectRowsHtml(key, dir, state) {
     const split = splitTitle(rawLabel);
     const sayFolder = note.title && !note.title.toLowerCase().includes(p.toLowerCase());
     const localSite = canDdev && isDdev;
-    const cloud = upsunLinkOf(dir, p);
     const hubUrl = `https://${esc(p)}.${esc(key)}.${hubDomain()}`;
     const ddevUrl = `https://${esc(ddevName)}.ddev.site`;
     const jiraSite = String((loadSettings().jira || {}).site || 'https://CHANGE_ME.atlassian.net').replace(/\/$/, '');
@@ -3930,8 +3894,7 @@ async function projectRowsHtml(key, dir, state) {
         </div>
         <div class="pcard-meta">
           ${split.key ? `<a class="pcard-chip pcard-key" href="${esc(jiraSite)}/browse/${encodeURIComponent(split.key)}" target="_blank" rel="noopener" title="Open ${esc(split.key)} in Jira">${esc(split.key)}</a>` : ''}
-          ${cloud ? `<a class="proj-alias proj-upsun-link" href="/upsun-site/${encodeURIComponent(key)}/${encodeURIComponent(p)}" target="_blank" rel="noopener"
-             title="The live Upsun site for the environment this code is on">${iconHtml('tabler:cloud-upload', 0.7)}<span class="pcard-chip-text">${esc(cloud.branch || cloud.env || 'upsun')}</span></a>` : ''}
+          ${pluginProjectChipsHtml({ key, project: p, dir, meta })}
           ${worktree}
           ${sayFolder ? `<code class="pcard-chip pcard-slug" title="The folder on disk, which is what every command here takes">${esc(p)}</code>` : ''}
           ${testBadge}${runningBadge}
@@ -4801,7 +4764,7 @@ const ACTIONS = {
   ...require('./actions/rag'),
   ...require('./actions/testing'),
   ...require('./actions/checks'),
-  ...require('./actions/upsun'),
+  ...require('./actions/plugins'),
   ...require('./actions/ai-items'),
   ...require('./actions/jira'),
   ...require('./actions/screens'),
@@ -5739,26 +5702,6 @@ async function handleAction(pathname, form, res, req = null) {
       cmdLine: `bash ${act.script} ${projectName} ${distribution}`, label: act.label });
   }
 
-  const UPSUN_ACTIONS = {
-    '/actions/upsun-status':     { verb: 'upsun',            label: 'link and environments', args: [] },
-    '/actions/upsun-activities': { verb: 'upsun-activities', label: 'activities',            args: ['--activities'] },
-    '/actions/upsun-logs':       { verb: 'upsun-logs',       label: 'deploy log',            args: ['--logs'] },
-  };
-  if (UPSUN_ACTIONS[pathname]) {
-    const act = UPSUN_ACTIONS[pathname];
-    const dir = workspaceDir(workspace);
-    if (!fs.existsSync(path.join(dir, 'cmd-tools-upsun.sh'))) {
-      return send('<div class="msg error">This workspace has no Upsun tool.</div>', 400);
-    }
-    const projectName = String(form.projectName || '');
-    if (!NAME_RE.test(projectName) || !listProjects(dir).includes(projectName)) {
-      return send('<div class="msg error">Unknown project.</div>', 400);
-    }
-    return screenAction(send, { workspace, project: projectName, projectDir: dir,
-      ownerDir: path.join(dir, projectName), verb: act.verb,
-      cmdLine: `bash cmd-tools-upsun.sh ${projectName}${act.args.length ? ` ${act.args.join(' ')}` : ''}`,
-      label: `upsun ${act.label}` });
-  }
 
   // The rest of the DDEV verbs, from the row's DDEV dropdown. All of them are per-project
   // and go through `ddev` in the project directory, like Start and Stop, so the same rules
@@ -6149,17 +6092,8 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(frag.html);
       }
-      { const um = pathname.match(/^\/upsun-site\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);
-        if (um && isValidWorkspace(um[1])) {
-          const { upsunEnvironments } = require('./actions/upsun');
-          const uDir = workspaceDir(um[1]);
-          const info = await upsunEnvironments(uDir, um[2]);
-          const want = info && (info.branch || info.env || 'main');
-          const row = info && (info.rows.find((r) => r.envId === want && r.url) || info.rows.find((r) => r.url));
-          if (row) { res.writeHead(302, { Location: row.url }); return res.end(); }
-          res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-          return res.end(`<p>No live Upsun URL for ${esc(um[2])}${info && info.why ? ` (${esc(info.why)})` : ''}.</p>`);
-        } }
+      // A page a plugin registered (api.addPage): the plugin writes the response itself.
+      if (await pluginPage(pathname, req, res)) return;
       { const tm = pathname.match(/^\/terminal\/([a-z0-9][a-zA-Z0-9._-]*)$/);
         if (tm) {
           const alive = (await listScreens()).some((s) => s.session === tm[1]);
@@ -6269,6 +6203,10 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(commandsShell(commandTitle(r.dir, file), esc(`${ws}/${file}`), 'list', commandsPage.scriptPageBody({
           ws, file, desc: commandDescription(r.dir, file), flags: commandFlags(r.dir, file), source, badge: badge({ workspace: ws, file }) })));
+      }
+      if (pathname === '/settings/plugins') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(await settingsPage('plugins', readPageState(req), { fragment: isFragment(req) }));
       }
       if (pathname === '/settings/buttons') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -7326,20 +7264,6 @@ const server = http.createServer(async (req, res) => {
                 <span class="uk-text-meta">Nothing starts yet — run Start from the DDEV menu afterwards.</span>
               </form>
             </div>`);
-        } }
-      { const em = pathname.match(/^\/fragments\/projects\/upsun-envs\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);
-        if (em && isValidWorkspace(em[1])) {
-          const { upsunEnvironments } = require('./actions/upsun');
-          const info = await upsunEnvironments(workspaceDir(em[1]), em[2]);
-          const rows = (info && info.rows) || [];
-          const items = rows.map((r) => {
-            const here = r.envId === (info.branch || info.env);
-            return r.url
-              ? `<li><a href="${esc(r.url)}" target="_blank" title="${esc(r.url)}"><span uk-icon="icon: link-external; ratio: .7"></span> ${esc(r.title)}${here ? ' <span class="uk-text-meta">· the local code</span>' : ''}</a></li>`
-              : `<li><span class="uk-text-meta"><span uk-icon="icon: ban; ratio: .7"></span> ${esc(r.title)} — ${esc((r.status || '').toLowerCase())}</span></li>`;
-          }).join('');
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          return res.end(items || `<li class="uk-nav-header">${info && info.why === 'no token' ? 'No Upsun API token in settings.yml' : 'No environments'}</li>`);
         } }
       // Putting a database back: the dumps this workspace holds, and what importing one costs.
       { const im = pathname.match(/^\/fragments\/projects\/import-db\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);

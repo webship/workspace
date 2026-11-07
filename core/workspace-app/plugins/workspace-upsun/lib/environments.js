@@ -1,40 +1,19 @@
 /**
- * The Upsun bridge: which environment the local tooling works against.
+ * The Upsun bridge: environments, live URLs, and getting a database and files into the local site.
  *
- * One module per area of the dashboard, each exporting the handlers it owns keyed by the path that
- * reaches them. server.js merges the maps and dispatches; nothing here knows about routing, and
- * adding an action is adding an entry rather than another branch in a 1,250-line function.
- *
- * Every handler takes the same context: the parsed form, the response, a `send` that writes an HTML
- * fragment, and the workspace the request named.
+ * A factory over the dashboard's `api`: everything it needs comes through `api.lib` and
+ * `api.settings`, so this file requires nothing outside the package.
  */
 
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('../html');
-const { cliError } = require('../format');
-const { humanSize, humanTime } = require('../format');
-const { ROOT, loadWorkspaces, workspaceDir } = require('../workspaces');
-const {
-  run, jobFragment, runningJobKey, startJob, ddevProjectName, listProjects,
-  startInScreen, screenStartedHtml,
-} = require('../jobs');
-const { graphStoreDir } = require('../graphs');
-const {
-  milvusProjectName, ragInstances, ragBindings, ragInstanceFor, ragWriteBinding,
-  ragCollectionName, milvusPost, ragCollections, ragInvalidate,
-} = require('../rag');
-const {
-  findTestReports, testReportFor, invalidateTestReports, testMediaHtml, testingStackOf,
-} = require('../test-reports');
-const { NAME_RE, SCRIPT_RE } = require('../validate');
-const { commandBlock } = require('../command-block');
-const { upsunLinkOf } = require('../upsun');
-const { loadSettings } = require('../workspaces');
-const { wsUrl } = require('../urls');
-const { findGraphifyScript, findRagifyScript } = require('../workspaces');
-const { DDEV_ACTIONS } = require('../ddev');
+const { upsunLinkOf } = require('./link');
+
+module.exports = function environments(api) {
+  const { esc, cliError, ROOT, workspaceDir, run, listProjects, startInScreen, screenStartedHtml, NAME_RE, commandBlock } = api.lib;
+  const settings = () => api.settings.read() || {};
+  const post = (name) => `/actions/p/${api.name}/${name}`;
 
   // The Upsun branch-and-data commands, shown rather than run.
   //
@@ -71,7 +50,7 @@ async function upsun_environments({ form, res, send, workspace, pathname }) {
 // (upsun.cli_token). Injected per job, never into the app environment.
 function upsunJobEnv() {
   try {
-    const t = String((loadSettings().upsun || {}).cli_token || '').trim();
+    const t = String(settings().cli_token || '').trim();
     if (t && t !== 'CHANGE_ME') return { ...process.env, UPSUN_CLI_TOKEN: t };
   } catch (_) { /* fall through */ }
   return null;
@@ -87,7 +66,7 @@ function upsunError(out) {
   // the real output is "provided AP\n  I token." — so "API token" never appears as a
   // contiguous string. Match on what survives the wrap.
   if (/could not be authorized|authenticate the provided/i.test(msg)) {
-    return msg + '\n\nThat token is upsun.cli_token in core/config/settings.yml. It must be an '
+    return msg + '\n\nThat token is cli_token in core/config/plugin.upsun.settings.yml. It must be an '
       + 'UPSUN API token (Upsun console \u2192 My profile \u2192 API tokens) \u2014 an Atlassian '
       + 'token, which starts ATATT, is refused with this exact message.';
   }
@@ -139,7 +118,7 @@ async function upsun_envs({ form, send, workspace }) {
   const u = upsunLinkOf(dir, projectName);
   if (!u || !u.id) return send('<div class="msg error">This project is not linked to an Upsun project.</div>', 409);
   const env = upsunJobEnv();
-  if (!env) return send('<div class="msg error">No Upsun API token configured (upsun.cli_token in settings.yml).</div>', 409);
+  if (!env) return send('<div class="msg error">No Upsun API token configured (cli_token in core/config/plugin.upsun.settings.yml).</div>', 409);
   const out = await run('upsun', ['environment:list', '-p', u.id, '--format', 'csv', '--columns', 'title,id,status', '--no-header'],
     process.env.HOME, { timeoutMs: 60 * 1000, env });
   if (!out.ok) return send(`<div class="msg error">Could not list the environments: <pre>${esc(upsunError(out))}</pre></div>`, 502);
@@ -182,7 +161,7 @@ async function upsun_site_url({ form, send, workspace }) {
   if (!u || !u.id) return send('<div class="msg error">This project is not linked to an Upsun project.</div>', 409);
   const environment = u.branch || u.env || 'main';
   const env = upsunJobEnv();
-  if (!env) return send('<div class="msg error">No Upsun API token configured (upsun.cli_token in settings.yml).</div>', 409);
+  if (!env) return send('<div class="msg error">No Upsun API token configured (cli_token in core/config/plugin.upsun.settings.yml).</div>', 409);
   const out = await run('upsun', ['url', '--primary', '--pipe', '-p', u.id, '-e', environment], process.env.HOME,
     { timeoutMs: 60 * 1000, env });
   const url = String(out.stdout || '').trim().split('\n')[0];
@@ -205,7 +184,7 @@ async function upsun_pull_form({ form, send, workspace }) {
   if (!u || !u.id) return send('<div class="msg error">This project is not linked to an Upsun project.</div>', 409);
   const env = upsunJobEnv();
   if (!env) {
-    return send('<div class="msg error">No Upsun API token configured — set <code>upsun.cli_token</code> in settings.yml (Settings page; create a token in the Upsun console under My profile → API tokens). The host commands in "Branch and data…" work meanwhile.</div>', 409);
+    return send('<div class="msg error">No Upsun API token configured — set <code>cli_token</code> in plugin.upsun.settings.yml (Settings page; create a token in the Upsun console under My profile → API tokens). The host commands in "Branch and data…" work meanwhile.</div>', 409);
   }
   const out = await run('upsun', ['environment:list', '--project', u.id, '--format', 'csv', '--columns', 'id,status', '--no-header'], process.env.HOME,
     { timeoutMs: 60 * 1000, env });
@@ -225,7 +204,7 @@ async function upsun_pull_form({ form, send, workspace }) {
       <p class="uk-text-meta">From Upsun project <code>${esc(u.id)}</code> into the local DDEV site.
         The local database is REPLACED (the current one is exported to <code>backups/</code> first);
         files are added and overwritten, never deleted. Client data lands on this machine.</p>
-      <form hx-post="/actions/upsun-pull" hx-target="#editor-modal-body" hx-swap="innerHTML">
+      <form hx-post="${post('pull')}" hx-target="#editor-modal-body" hx-swap="innerHTML">
         <!-- Two ticks, the shape the Remove flow already uses: the destructive choice is
              made in the form, visibly, rather than in a browser dialog that adds no field
              and leaves no record of what was agreed to. -->
@@ -285,7 +264,7 @@ async function upsun_pull({ form, send, workspace }) {
   const confirmed = [].concat(form.confirm || '').includes('yes');
   if (!confirmed) return send('<div class="msg error">Syncing replaces local data — it requires confirmation.</div>', 400);
   const env = upsunJobEnv();
-  if (!env) return send('<div class="msg error">No Upsun API token configured (upsun.cli_token in settings.yml).</div>', 409);
+  if (!env) return send('<div class="msg error">No Upsun API token configured (cli_token in core/config/plugin.upsun.settings.yml).</div>', 409);
   const wantSwitch = form.switch !== undefined && fs.existsSync(path.join(dir, projectName, '.git'));
   const parts = [
     `echo "Starting DDEV for ${projectName}…" && (cd ${projectName} && ddev start -y > /dev/null && ddev describe > /dev/null) && echo "DDEV is up and healthy."`,
@@ -340,10 +319,5 @@ async function upsun_pull({ form, send, workspace }) {
   return send(screenStartedHtml(started, `upsun pull from ${environment}`, projectName), started.ok ? 200 : (started.already ? 409 : 500));
 }
 
-module.exports = {
-  upsunEnvironments,
-  '/actions/upsun-envs': upsun_envs,
-  '/actions/upsun-pull-form': upsun_pull_form,
-  '/actions/upsun-pull': upsun_pull,
-  '/actions/upsun-environments': upsun_environments,
+  return { upsunEnvironments, upsunJobEnv, actions: { envs: upsun_envs, 'pull-form': upsun_pull_form, pull: upsun_pull, environments: upsun_environments, 'site-url': upsun_site_url } };
 };

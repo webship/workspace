@@ -10,10 +10,13 @@ const { isValidWorkspace, loadWorkspaces, loadSettings, workspaceDir } = require
 const folders = require('../folders');
 const notes = require('../notes');
 const { startInScreen, screenStartedHtml } = require('../jobs');
+const { pluginFolderSetups } = require('../plugin-loader');
+
+/** What the plugins get to decide with: the actions this workspace's type allows. */
+const setupCtx = (ws) => { const m = loadWorkspaces()[ws]; return { allowed: (m && m.typeActions) || new Set() }; };
 
 const shq = (v) => `'${String(v).replace(/'/g, `'\\''`)}'`;
 const JIRA_PROJECT_RE = /^[A-Z][A-Z0-9]+$/;
-const UPSUN_ID_RE = /^[a-z0-9]{8,20}$/;
 
 /** Whether this workspace offers New folder: project workspaces whose type allows it. */
 function canMakeFolder(ws) {
@@ -36,9 +39,6 @@ const allows = (ws, action) => { const m = loadWorkspaces()[ws]; return !!(m && 
 /** Whether the workspace ships the testing command the webship-js setup runs. */
 function canTest(ws) { return ships(ws, 'cmd-tools-testing.sh'); }
 
-/** Whether the workspace links projects to Upsun. */
-function canUpsun(ws) { return allows(ws, 'upsun') && ships(ws, 'cmd-tools-upsun.sh'); }
-
 /** The Jira project new workitems go to, or '' when this workspace has no Jira. */
 function jiraProject(ws) {
   if (!allows(ws, 'jira')) return '';
@@ -50,7 +50,7 @@ function projectTypes() {
   return require('../ddev-options').PROJECT_TYPES;
 }
 
-/** The setup shell line: DDEV, then the testing stack, then the Upsun link. Each step needs the one before. */
+/** The setup shell line: DDEV, then the testing stack, then what the plugins add. Each step needs the one before. */
 function setupLine(ws, name, form) {
   const steps = [];
   const wantE2e = form.e2e === '1' && canTest(ws);
@@ -62,10 +62,7 @@ function setupLine(ws, name, form) {
     steps.push(`( cd ${shq(name)} && ddev ${opts.shellArgs(args)} )`);
   }
   if (wantE2e) steps.push(`bash cmd-tools-testing.sh ${shq(name)}`);
-  if (form.upsun === 'link' && canUpsun(ws)) {
-    steps.push(`( cd ${shq(name)} && { git rev-parse --git-dir >/dev/null 2>&1 || git init -q; } )`);
-    steps.push(`bash cmd-tools-upsun.sh ${shq(name)} --link ${shq(form.upsun_id)}`);
-  }
+  for (const s of pluginFolderSetups()) if (s.steps) steps.push(...(s.steps(ws, name, form, setupCtx(ws)) || []));
   return steps.join(' && ');
 }
 
@@ -78,11 +75,7 @@ function claudePrompt(ws, name, form) {
     parts.push(`Use the jira-workitem-manager agent to create one workitem in the Jira project ${key} for the work in this folder (${ws}/${name}): "${what}". `
       + `Follow its house shape, with no AI-mention lines. Then write ${key} into the file .jira-project here, and tell me the new key and its link.`);
   }
-  if (form.upsun === 'create') {
-    parts.push(`Create a new Upsun project for this folder and deploy it. Before creating anything billed, ask me which organization, region and plan to use, and wait for my answer. `
-      + 'If a setup session is configuring DDEV here, wait until .ddev/config.yaml exists. Then: git init if needed, upsun project:create, link it with upsun project:set-remote, '
-      + 'write .upsun/config.yaml to match .ddev/config.yaml (PHP version, database, docroot), commit, and push to main. Never put a secret or key in git. Report the project id and the site URL.');
-  }
+  for (const s of pluginFolderSetups()) if (s.prompt) parts.push(...(s.prompt(ws, name, form, setupCtx(ws)) || []));
   const own = String(form.prompt || '').trim();
   if (own) parts.push(own);
   return parts.join('\n\n');
@@ -95,10 +88,7 @@ function formProblem(ws, form) {
     if (!JIRA_PROJECT_RE.test(String(form.jira_project || '').trim().toUpperCase())) return 'The Jira project key is letters and digits, starting with a letter.';
     if (!String(form.note || '').trim()) return 'Say what the folder is for: the Jira workitem is written from it.';
   }
-  if (form.upsun === 'link' || form.upsun === 'create') {
-    if (!canUpsun(ws)) return 'This workspace does not link projects to Upsun.';
-    if (form.upsun === 'link' && !UPSUN_ID_RE.test(String(form.upsun_id || ''))) return 'An Upsun project id is 8 to 20 lowercase letters and digits.';
-  }
+  for (const s of pluginFolderSetups()) if (s.problem) { const why = s.problem(ws, form, setupCtx(ws)); if (why) return why; }
   return '';
 }
 
@@ -182,10 +172,11 @@ function folderFormFor(ws, req, { readPageState } = {}) {
       suggestion: folders.suggestName(where.ok ? where.abs : meta.dir, 'new-folder-') });
   }
   return folders.folderFormHtml(ws, { label: meta.label, suggestion: folders.suggestName(meta.dir),
-    projectTypes: projectTypes(), canTest: canTest(ws), jiraProject: jiraProject(ws), canUpsun: canUpsun(ws) });
+    projectTypes: projectTypes(), canTest: canTest(ws), jiraProject: jiraProject(ws),
+    pluginSetups: pluginFolderSetups().map((s) => (s.html ? s.html(ws, setupCtx(ws)) : '')).filter(Boolean).join('') });
 }
 
 module.exports = {
   '/actions/folder-new': folder_new,
-  canMakeFolder, isFilesWorkspace, folderFormFor, canTest, canUpsun, jiraProject, projectTypes, setupLine, claudePrompt, formProblem,
+  canMakeFolder, isFilesWorkspace, folderFormFor, canTest, jiraProject, projectTypes, setupLine, claudePrompt, formProblem,
 };

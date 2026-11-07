@@ -69,7 +69,7 @@ function filesFolderFormHtml(ws, { label = ws, sub = '', suggestion = '' } = {})
     </div>`;
 }
 
-function folderFormHtml(ws, { label = ws, suggestion = '', projectTypes = [], canTest = false, jiraProject = '', canUpsun = false } = {}) {
+function folderFormHtml(ws, { label = ws, suggestion = '', projectTypes = [], canTest = false, jiraProject = '', pluginSetups = '' } = {}) {
   const radios = Object.entries(THEN).map(([value, text], i) => `
           <label class="uk-margin-small-right"><input class="uk-radio" type="radio" name="then" value="${value}"${i === 0 ? ' checked' : ''}> ${esc(text)}</label>`).join('');
   return `
@@ -93,23 +93,13 @@ function folderFormHtml(ws, { label = ws, suggestion = '', projectTypes = [], ca
           <div class="folder-ddev-type uk-margin-small-top">${require('./ddev-options').fieldsHtml({ prefix: 'folder' })}
           </div>
         </div>
-        ${jiraProject || canUpsun ? `<div class="uk-form-label">Connect it <span class="uk-text-meta">(optional)</span></div>
+        ${jiraProject || pluginSetups ? `<div class="uk-form-label">Connect it <span class="uk-text-meta">(optional)</span></div>
         <div class="uk-margin-small-bottom folder-services">
           ${jiraProject ? `<label class="uk-display-block"><input class="uk-checkbox" type="checkbox" name="jira" value="1">
             Create a Jira workitem for it with AI, from "What is it for?", in project
             <input class="uk-input uk-form-small uk-form-width-small" name="jira_project" value="${esc(jiraProject)}"
                    pattern="[A-Z][A-Z0-9]+" maxlength="20" aria-label="Jira project key"></label>` : ''}
-          ${canUpsun ? `<div class="uk-margin-small-top folder-upsun">
-            <span class="uk-text-meta">Upsun:</span>
-            <label class="uk-margin-small-right"><input class="uk-radio" type="radio" name="upsun" value="none" checked> Not now</label>
-            <label class="uk-margin-small-right"><input class="uk-radio" type="radio" name="upsun" value="link"> Link to an existing project</label>
-            <label><input class="uk-radio" type="radio" name="upsun" value="create"> Create a new project and deploy it, with AI (it asks before creating anything billed)</label>
-            <div class="folder-upsun-id uk-margin-small-top">
-              <label class="uk-form-label" for="folder-upsun-id">Upsun project id</label>
-              <input class="uk-input uk-form-small uk-form-width-medium" id="folder-upsun-id" name="upsun_id"
-                     pattern="[a-z0-9]{8,20}" maxlength="20" placeholder="eeihb6tksv2ly">
-            </div>
-          </div>` : ''}
+          ${pluginSetups}
         </div>` : ''}
         <div class="uk-form-label">Then</div>
         <div class="uk-margin-small-bottom folder-then">${radios}

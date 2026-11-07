@@ -1,50 +1,50 @@
 /**
- * Dashboard plugins: optional features a workspace can turn on from settings.yml.
+ * Dashboard plugins: optional features turned on from settings.yml.
  *
- * A plugin is a folder under core/workspace-app/plugins/<name>/ with an index.js
- * exporting `register(api)` — or any require()-able node module named by a
- * `module:` key, so a plugin can also be installed with npm and listed in
- * package.json. Which plugins load, and which workspaces they apply to, is
- * configuration, not code:
+ * A plugin is a node package with a `workspacePlugin` manifest in its package.json (see
+ * plugin-manifest.js) and an `index.js` exporting `register(api)` — or a folder under plugins/
+ * with the same shape. It is REQUIRED with npm, ACTIVATED by a `plugins.<name>` entry in
+ * settings.yml, INSTALLED by core/scripts/plugins.sh (which places what the manifest names in the
+ * workspace), and CONFIGURED in its own core/config/plugin.<name>.settings.yml.
  *
- *   plugins:
- *     workspace-notes:
- *       enabled: true
- *       workspaces: "dev,test"     # empty or absent = every workspace
- *
- * Everything a plugin adds is namespaced under its own name — actions at
- * /actions/p/<plugin>/<action>, fragments at /fragments/p/<plugin>/<rest> — so
- * a plugin can never shadow a built-in route, and removing one removes all of
- * its surface at once. See PLUGINS.md for the contract.
+ * Everything a plugin adds is namespaced under its own name — actions at /actions/p/<plugin>/…,
+ * fragments at /fragments/p/<plugin>/… — so it can never shadow a built-in, and turning it off
+ * removes its whole surface at once. A row-menu slot or a page it registers is the one exception,
+ * and both are declared, so the layout settings and the router know them by name.
  */
 
 const fs = require('fs');
 const path = require('path');
+const yaml = require('js-yaml');
 
 const { esc } = require('./html');
-const { humanSize, humanTime } = require('./format');
-const { ROOT, loadWorkspaces, workspaceDir, isValidWorkspace, loadSettings } = require('./workspaces');
-const { startJob, jobFragment, listProjects, screenAction } = require('./jobs');
+const { humanSize, humanTime, cliError } = require('./format');
+const { ROOT, CONFIG_DIR, loadSettings, loadWorkspaces, workspaceDir, isValidWorkspace } = require('./workspaces');
+const {
+  run, startJob, jobFragment, runningJobKey, listProjects, screenAction, startInScreen, screenStartedHtml,
+} = require('./jobs');
 const { NAME_RE } = require('./validate');
 const { wsUrl } = require('./urls');
-const { TYPES } = require('./workspace-types');
+const { TYPES, addTypeAction } = require('./workspace-types');
+const rowLayout = require('./row-layout');
 const { upsertSettingsValue, upsertSettingsList } = require('./settings-file');
 const { fileFor, readPluginSettings, ensurePluginSettingsFile } = require('./plugin-settings');
 const googleAuth = require('./auth-google');
+const { iconHtml } = require('./icons');
+const { commandBlock } = require('./command-block');
+const { installedPlugins } = require('./plugin-manifest');
 
-const PLUGINS_DIR = path.join(__dirname, 'plugins');
-
-// What register(api) hands every plugin. Shared helpers rather than reaching into
-// server.js: the same set the extracted actions/ modules already build on.
+// What register(api) hands every plugin. Shared helpers rather than reaching into server.js: the
+// same set the extracted actions/ modules already build on.
 const lib = {
-  esc, humanSize, humanTime,
-  ROOT, loadWorkspaces, workspaceDir, isValidWorkspace,
-  startJob, jobFragment, listProjects, screenAction,
-  NAME_RE, wsUrl,
-  // The type registry, and what a workspace resolved to — so a plugin can offer
-  // itself only where it makes sense ("sites only", "not on media").
+  esc, humanSize, humanTime, cliError,
+  ROOT, CONFIG_DIR, loadSettings, loadWorkspaces, workspaceDir, isValidWorkspace,
+  run, startJob, jobFragment, runningJobKey, listProjects, screenAction, startInScreen, screenStartedHtml,
+  NAME_RE, wsUrl, iconHtml, commandBlock,
+  // The type registry, and what a workspace resolved to — so a plugin can offer itself only
+  // where it makes sense ("sites only", "not on media").
   TYPES,
-  // The dashboard's Google sign-in, for a plugin that wants to know who is signed in or draw the Google button.
+  // The dashboard's Google sign-in, for a plugin that wants to know who is signed in or draw the button.
   auth: { sessionOf: googleAuth.sessionOf, googleButton: googleAuth.googleButton, BUTTON_CSS: googleAuth.BUTTON_CSS },
   workspaceType: (key) => (loadWorkspaces()[key] || {}).type || null,
   typeAllows: (key, action) => {
@@ -57,11 +57,18 @@ const actions = {};          // '/actions/p/<plugin>/<action>' -> handler(ctx)
 const fragments = {};        // '<plugin>' -> handler({ req, res, send, rest, searchParams })
 const pageActionFns = [];    // ({ view, key, meta }) -> { label, items: [html] } | null
 const projectActionFns = []; // ({ key, project, dir, meta }) -> html | null
+const rowMenus = {};         // '<slot>' -> ({ key, project, dir, meta, allowed, vals }) -> html | null
+const pages = [];            // { re, handler({ req, res, match, send }) }
+const chipFns = [];          // ({ key, project, dir, meta }) -> html | null
+const folderSetups = [];     // { html(ws, ctx), steps(ws, name, form, ctx), prompt(ws, name, form, ctx), problem(ws, form, ctx) }
+const cssFiles = [];         // absolute paths, appended to the stylesheet after the components
+let labels = {};             // settings labels, merged into settings.labels.yml's
 const loaded = [];           // { name, source } for the settings page and diagnostics
 
-// Plugins that are on without a line in settings.yml. A machine's settings.yml is never overwritten by an
-// update, so a plugin that needed its entry added by hand would simply not appear for anybody who had
-// installed before it existed. A line in the file still wins, so `enabled: false` turns one off.
+// Plugins that are on without a line in settings.yml. A machine's settings.yml is never
+// overwritten by an update, so a plugin that needed its entry added by hand would simply not
+// appear for anybody who had installed before it existed. A line in the file still wins, so
+// `enabled: false` turns one off.
 const SHIPPED_PLUGINS = {
   'google-drive-sync': { enabled: true, module: '@webship/workspace-google-drive', workspaces: 'videos,audio,docs,specs,test' },
 };
@@ -85,8 +92,9 @@ function makeApi(name, config) {
     name,
     config,
     lib,
-    // This plugin's own settings file (core/config/plugin.<name>.settings.yml): read it, or change one key or
-    // one list in place with comments kept. Secret-named keys stay out of the browser like any setting.
+    // This plugin's own settings file (core/config/plugin.<name>.settings.yml): read it, or change one
+    // key or one list in place with comments kept. Secret-named keys stay out of the browser like
+    // any setting.
     settings: {
       file: fileFor(name),
       read: () => readPluginSettings(name),
@@ -107,10 +115,57 @@ function makeApi(name, config) {
     addProjectActions(fn) {
       projectActionFns.push((ctx) => fn(ctx));
     },
+    // A named menu on every project row, in the slot the layout settings arrange: `spec` is
+    // `{ label, row }` like a built-in button's. The function draws it, or returns null for a row
+    // the plugin has nothing to say about.
+    addRowMenu(slot, spec, fn) {
+      if (!/^[a-z0-9-]+$/.test(slot)) throw new Error(`${name}: invalid row menu slot '${slot}'`);
+      rowLayout.registerButton({ id: slot, label: spec.label || slot, row: spec.row || 0, columns: spec.columns, menu: spec.menu });
+      rowMenus[slot] = fn;
+    },
+    // A whole page: GET requests whose path matches `re`. The handler writes the response itself.
+    addPage(re, handler) {
+      pages.push({ re, handler });
+    },
+    // A chip in the project card's meta line, beside the folder name and the test badge.
+    addProjectChip(fn) {
+      chipFns.push(fn);
+    },
+    // A section of the New-folder form, and what it adds to the setup line, the AI prompt and the
+    // validation. Each member is optional.
+    addFolderSetup(setup) {
+      folderSetups.push({ name, ...setup });
+    },
+    // A stylesheet of the plugin's own, appended after the components (it may only add rules).
+    addCss(file) {
+      cssFiles.push(file);
+    },
+    // An action name workspace types may allow ('upsun' on sites): what `typeAllows` answers.
+    addTypeAction(action, types) {
+      addTypeAction(action, types);
+    },
+    addLabels(map) {
+      labels = { ...labels, ...map };
+    },
   };
 }
 
+/** What the manifest declares, wired in before register(api) runs. */
+function applyManifest(name, plugin) {
+  const m = plugin.manifest || {};
+  for (const [action, types] of Object.entries(m.typeActions || {})) addTypeAction(action, types);
+  for (const f of m.css || []) cssFiles.push(path.join(plugin.dir, f));
+  if (m.labels) {
+    try {
+      const data = yaml.load(fs.readFileSync(path.join(plugin.dir, m.labels), 'utf8')) || {};
+      // Both the bare key, as the plugin's own settings file is edited, and the plugin-prefixed one.
+      for (const [k, v] of Object.entries(data)) { labels[k] = v; labels[`plugin.${name}.${k}`] = v; }
+    } catch (_) { /* no labels: the keys show as they are */ }
+  }
+}
+
 function loadPlugins() {
+  const known = new Map(installedPlugins().map((p) => [p.name, p]));
   for (const [name, rawConfig] of Object.entries(pluginConfigs())) {
     const config = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
     if (String(config.enabled) !== 'true' && config.enabled !== true) continue;
@@ -118,13 +173,17 @@ function loadPlugins() {
       console.error(`plugin '${name}' skipped: names are lowercase letters, digits and hyphens.`);
       continue;
     }
-    // A node module first: `module:` names a package (installed from npm, or linked from this repo with a
-    // `file:` dependency in package.json), which is how a plugin is shared between machines. A folder under
-    // plugins/<name>/ is the fallback, and the whole mechanism for a plugin that needs no package.
-    const local = path.join(PLUGINS_DIR, name, 'index.js');
+    // A node module first: `module:` names a package (installed from npm, or linked from this repo
+    // with a `file:` dependency in package.json), which is how a plugin is shared between machines.
+    // A folder under plugins/<name>/ is the fallback, and the whole mechanism for a plugin that
+    // needs no package.
+    const local = path.join(__dirname, 'plugins', name, 'index.js');
     let source = '';
     if (config.module) {
       try { require.resolve(String(config.module)); source = String(config.module); } catch (_) { /* not installed: say so below */ }
+    }
+    if (!source && known.has(name) && known.get(name).module) {
+      try { require.resolve(known.get(name).module); source = known.get(name).module; } catch (_) { /* fall through */ }
     }
     if (!source && fs.existsSync(local)) {
       source = local;
@@ -135,6 +194,7 @@ function loadPlugins() {
       continue;
     }
     try {
+      if (known.has(name)) applyManifest(name, known.get(name));
       const mod = require(source);
       if (typeof mod.register !== 'function') throw new Error('no register(api) export');
       mod.register(makeApi(name, config));
@@ -155,12 +215,36 @@ function pluginFragment(pathname, req, res) {
     res.end(html);
   };
   const searchParams = new URL(req.url, 'http://localhost').searchParams;
+  // Run it NOW, not in a microtask: a handler that answers synchronously has answered when this
+  // returns, which is what the callers (and the tests) rely on. An async handler's rejection is
+  // still caught, so a plugin cannot leave a request hanging.
+  const fail = (err) => { try { send(`<div class="msg error">Plugin ${esc(m[1])} failed: ${esc(err.message)}</div>`, 500); } catch (_) { /* headers sent */ } };
   try {
-    fragments[m[1]]({ req, res, send, rest: m[2] || '', searchParams });
+    const r = fragments[m[1]]({ req, res, send, rest: m[2] || '', searchParams });
+    if (r && typeof r.catch === 'function') r.catch(fail);
   } catch (err) {
-    send(`<div class="msg error">Plugin ${esc(m[1])} failed: ${esc(err.message)}</div>`, 500);
+    fail(err);
   }
   return true;
+}
+
+/** Handle a GET of a page a plugin registered. Returns true when one matched. */
+async function pluginPage(pathname, req, res) {
+  for (const { re, handler } of pages) {
+    const match = pathname.match(re);
+    if (!match) continue;
+    const send = (html, status = 200) => {
+      res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+    };
+    try {
+      await handler({ req, res, match, send });
+    } catch (err) {
+      try { send(`<p>Plugin page failed: ${esc(err.message)}</p>`, 500); } catch (_) { /* headers sent */ }
+    }
+    return true;
+  }
+  return false;
 }
 
 /** Rail groups every loaded plugin wants on this page. */
@@ -190,9 +274,32 @@ function pluginProjectActionsHtml(ctx) {
   return html;
 }
 
+/** The named row menus, by slot, for the row layout to place. A slot a plugin has nothing for is ''. */
+function pluginRowMenus(ctx) {
+  const out = {};
+  for (const [slot, fn] of Object.entries(rowMenus)) {
+    try { out[slot] = fn(ctx) || ''; } catch (_) { out[slot] = ''; }
+  }
+  return out;
+}
+
+/** The chips plugins put in a project card's meta line. */
+function pluginProjectChipsHtml(ctx) {
+  let html = '';
+  for (const fn of chipFns) {
+    try { html += fn(ctx) || ''; } catch (_) { /* a broken chip is no chip */ }
+  }
+  return html;
+}
+
+const pluginFolderSetups = () => folderSetups;
+const pluginCssFiles = () => cssFiles.filter((f) => fs.existsSync(f));
+const pluginLabels = () => labels;
+
 loadPlugins();
 
 module.exports = {
-  pluginActions: actions, pluginFragment, pluginPageActionGroups, pluginProjectActionsHtml,
-  loadedPlugins: loaded,
+  pluginActions: actions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
+  pluginRowMenus, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginLabels,
+  loadedPlugins: loaded, pluginConfigs,
 };

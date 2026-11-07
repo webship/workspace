@@ -1,0 +1,7 @@
+# Upsun — core/config/plugin.upsun.settings.yml
+#
+# The Upsun CLI inside the dashboard container. The host login (`upsun login`) lives in the
+# system keyring, which a container cannot reach, so the dashboard needs an API token: Upsun
+# console → My profile → API tokens. Not an Atlassian token (those start ATATT): Upsun refuses
+# them with a message that reads like an expiry. Injected only into Upsun jobs, never printed.
+cli_token: CHANGE_ME

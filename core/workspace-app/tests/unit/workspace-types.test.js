@@ -27,11 +27,11 @@ test('an explicit type wins, a bad one falls back, kind decides the rest', () =>
 
 test('sites carry the full toolbelt, code drops the site controls, lists carry none', () => {
   const sites = typeActions('sites');
-  for (const a of ['build', 'ddev', 'upsun', 'backup', 'remove', 'graphify', 'ragify', 'tests', 'checks', 'users']) {
+  for (const a of ['build', 'ddev', 'backup', 'remove', 'graphify', 'ragify', 'tests', 'checks', 'users']) {
     assert.ok(sites.has(a), `sites misses ${a}`);
   }
   const code = typeActions('code');
-  for (const a of ['ddev', 'upsun', 'users', 'tests']) assert.ok(!code.has(a), `code should not carry ${a}`);
+  for (const a of ['ddev', 'users', 'tests']) assert.ok(!code.has(a), `code should not carry ${a}`);
   for (const a of ['backup', 'remove', 'graphify', 'ragify', 'checks']) assert.ok(code.has(a), `code misses ${a}`);
   // Lists carry no project actions; files and media take only New folder, a page action.
   for (const t of ['files', 'media']) assert.deepEqual([...typeActions(t)], ['folder'], `${t} should carry only folder`);
@@ -56,4 +56,13 @@ test('the settings dropdown and the registry cannot drift', () => {
   for (const type of Object.keys(TYPES)) {
     assert.ok(labels.includes(`    ${type}:`), `settings.labels.yml type options miss '${type}'`);
   }
+});
+
+test('a plugin can allow its action on the types it names, and only there', () => {
+  const { addTypeAction } = require('../../workspace-types');
+  addTypeAction('x-cloud', ['sites']);
+  assert.ok(typeActions('sites').has('x-cloud'));
+  assert.ok(!typeActions('code').has('x-cloud'));
+  addTypeAction('x-cloud', ['sites']);
+  assert.strictEqual([...typeActions('sites')].filter((a) => a === 'x-cloud').length, 1, 'registered once');
 });

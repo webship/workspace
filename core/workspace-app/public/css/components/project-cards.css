@@ -135,7 +135,6 @@ html[data-rows-view="grid-1"] #webship-workspace-projects .project-row { max-wid
 .pcard-meta .uk-icon { flex: none; }
 .pcard-meta .pcard-key { background: var(--subtle-brand); color: var(--link); font-family: var(--font-code); font-weight: 600; text-decoration: none; }
 .pcard-meta .proj-alias { color: var(--text-subtle) !important; }   /* an earlier component paints every alias link-blue with !important */
-.pcard-meta .proj-upsun-link { max-width: 11rem; }
 .pcard-meta > .uk-label-success { background: var(--ok-soft); color: var(--ok-ink); }
 .pcard-chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .pcard-meta .pcard-slug { font: 0.7rem / 1 var(--font-code); color: var(--text-subtle); background: var(--surface); }

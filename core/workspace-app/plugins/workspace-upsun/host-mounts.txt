@@ -1,0 +1,2 @@
+# Directories the dashboard container bind-mounts for this plugin; host-mounts.sh creates them as you first.
+~/.upsun-cli

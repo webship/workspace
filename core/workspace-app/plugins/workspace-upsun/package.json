@@ -1,0 +1,29 @@
+{
+  "name": "@webship/workspace-upsun",
+  "version": "1.0.0",
+  "description": "Upsun for Webship Workspace: the UPSUN menu on every site row, environments and live URLs, get database and files, link and deploy from the command line, the upsun CLI in the dashboard container.",
+  "main": "index.js",
+  "private": true,
+  "license": "ISC",
+  "repository": "github:webship/workspace-upsun",
+  "scripts": { "test": "node --test tests/*.test.js" },
+  "workspacePlugin": {
+    "name": "upsun",
+    "label": "Upsun",
+    "settingsFile": "plugin.upsun.settings.yml",
+    "settingsTemplate": "config/plugin.upsun.settings.yml",
+    "labels": "config/settings.labels.yml",
+    "legacySettingsKey": "upsun",
+    "typeActions": { "upsun": ["sites"] },
+    "commands": { "types": ["sites"], "workspaces": ["dev", "test", "demos", "sandboxes", "projects"], "files": ["commands/cmd-tools-upsun.sh"] },
+    "scripts": {
+      "functions": ["scripts/functions/fun-upsun.sh"],
+      "args": ["scripts/args/arg-upsun.sh"],
+      "machine": ["scripts/upsun-ai.sh"],
+      "hostInstall": "scripts/host-install.sh"
+    },
+    "ddev": { "compose": ["ddev/docker-compose.upsun-cli.yaml"], "hostMounts": ["~/.upsun-cli"] },
+    "themes": ["config/theme.upsun.yml"],
+    "css": ["public/upsun.css"]
+  }
+}

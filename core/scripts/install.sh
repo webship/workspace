@@ -7,7 +7,7 @@
 ## machine: git, gh, curl, wget, jq, rsync, unzip, zip, sed, vim, links, lynx,
 ##          diffutils, htop, p7zip-full, gcc, g++, make, python3, gawk, screen, Node.js
 ## (npm + npx, which also powers the skills.sh CLI), Docker, DDEV and
-## gitlab-ci-local, Claude Code, mkcert, twg, upsun. Idempotent: whatever is already
+## gitlab-ci-local, Claude Code, mkcert, twg, and what each installed plugin asks for. Idempotent: whatever is already
 ## is left alone.
 ##
 ## It also trusts the local https certificates, because every workspace URL is
@@ -393,55 +393,6 @@ else
   printf '  – %-16s %s\n' "web IDE" "skipped: the dashboard container is not running"
 fi
 
-# The upsun CLI, same shape as twg: a per-person OAuth session, mounted into the
-# dashboard from the host rather than installed in the image.
-# ~/.local/bin is where the tarball route puts it and is not always on PATH, so
-# `command -v` alone reports it missing on a machine that has it.
-UPSUN_BIN='';
-for candidate in "$(command -v upsun 2>/dev/null)" "${HOME}/.local/bin/upsun" "${HOME}/.upsun-cli/bin/upsun" ; do
-  [ -n "${candidate}" ] && [ -x "${candidate}" ] && { UPSUN_BIN="${candidate}"; break; }
-done
-if [ -n "${UPSUN_BIN}" ] ; then
-  printf '  ✓ %-16s %s\n' "upsun" "${UPSUN_BIN}" ;
-else
-  printf '  ✗ %-16s %s\n' "upsun" "missing — deploys and the UPSUN menu need it (developer.upsun.com/cli)" ;
-fi
-
-# The DASHBOARD's Upsun access is a separate thing from the host CLI's. `upsun login`
-# writes a session into the host keyring, and the dashboard's container cannot reach a
-# keyring — so the container needs an API TOKEN in upsun.cli_token. Without it every
-# UPSUN action in the dashboard fails. Checked by SHAPE, never printed: an Atlassian
-# token in that field is refused by Upsun with a message that reads like an expiry.
-UPSUN_TOKEN_STATE="$(python3 - <<'PYEOF' 2>/dev/null || echo unknown
-import io, re
-try:
-    s = io.open('core/config/settings.yml', encoding='utf-8').read()
-except Exception:
-    print('unknown'); raise SystemExit
-m = re.search(r'^upsun:\s*$.*?^\s+cli_token:\s*(\S+)', s, re.M | re.S)
-t = m.group(1) if m else ''
-if not t or t in ('CHANGE_ME', "''", '""'):
-    print('unset')
-elif t.startswith('ATATT'):
-    print('atlassian')
-else:
-    print('set')
-PYEOF
-)";
-case "${UPSUN_TOKEN_STATE}" in
-  set)       printf '  ✓ %-16s %s\n' "upsun token" "set for the dashboard (upsun.cli_token)" ;;
-  atlassian) printf '  ✗ %-16s %s\n' "upsun token" "upsun.cli_token holds an ATLASSIAN token — Upsun refuses it" ;;
-  unset)     printf '  ✗ %-16s %s\n' "upsun token" "upsun.cli_token not set — every UPSUN action in the dashboard fails" ;;
-  *)         ;;
-esac
-
-# Upsun's own AI toolkit for coding agents: developer.upsun.com/ai
-if bash "$(dirname "${BASH_SOURCE[0]}")/upsun-ai.sh" --check --quiet > /dev/null 2>&1 ; then
-  printf '  ✓ %-16s %s\n' "upsun AI" "skill + read-only MCP installed" ;
-else
-  printf '  ✗ %-16s %s\n' "upsun AI" "Upsun's agent skill/MCP not installed (developer.upsun.com/ai)" ;
-fi
-
 # Docker CREATES a missing bind-mount source, as a root-owned directory. Every optional
 # tool the dashboard shares from the host is such a source, so this is checked before
 # anything installs into one of them.
@@ -691,55 +642,13 @@ if [ -n "$(command -v ddev 2>/dev/null)" ] && [ "$(command -v ddev)" != "${SHIM_
   fi
 fi
 
-# upsun — the Upsun CLI, which cmd-tools-upsun.sh and the dashboard's UPSUN menu drive.
-# https://developer.upsun.com/cli · https://docs.upsun.com/administration/cli.html
-# Offered, never automatic: it holds cloud credentials for real environments, so the
-# decision to put it on a machine is a person's.
-if [ -z "${UPSUN_BIN}" ] && confirm "Install the Upsun CLI (deploys, environments — holds cloud credentials)?" ; then
-  case "${PKG}" in
-    brew) brew install upsun/tap/upsun-cli ;;
-    *)
-      # Upsun's own installer sets up an apt repository, so it needs root and an
-      # interactive password — it fails outright in a pipe with "sudo: A terminal is
-      # required to authenticate". The release tarball needs neither: one static binary
-      # into ~/.local/bin, which is where twg goes too. Falls back to the official
-      # installer if GitHub cannot be reached.
-      upsun_ver="$(wget -qO- https://api.github.com/repos/upsun/cli/releases/latest 2>/dev/null \
-        | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p' | head -1)" ;
-      if [ -n "${upsun_ver}" ] ; then
-        upsun_tgz="upsun_${upsun_ver}_linux_amd64.tar.gz" ;
-        [ "$(uname -m)" == 'aarch64' ] && upsun_tgz="upsun_${upsun_ver}_linux_arm64.tar.gz" ;
-        upsun_tmp="$(mktemp -d)" ;
-        if wget -qO "${upsun_tmp}/upsun.tgz" \
-             "https://github.com/upsun/cli/releases/download/v${upsun_ver}/${upsun_tgz}" \
-           && tar -xzf "${upsun_tmp}/upsun.tgz" -C "${upsun_tmp}" upsun ; then
-          mkdir -p "${HOME}/.local/bin" ;
-          install -m 0755 "${upsun_tmp}/upsun" "${HOME}/.local/bin/upsun" ;
-          echo "  Installed upsun ${upsun_ver} to ~/.local/bin/upsun (no root needed)." ;
-        else
-          echo "  Could not fetch the release tarball — falling back to Upsun's installer (needs sudo)." ;
-          curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash ;
-        fi
-        rm -rf "${upsun_tmp}" ;
-      else
-        curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash ;
-      fi ;;
-  esac
-  echo "  Sign in with:  upsun login   (it opens your browser, then writes SSH certificates)" ;
-  echo "  The DASHBOARD needs its own credential: `upsun login` writes a host keyring" ;
-  echo "  session, and its container cannot reach a keyring. Put an UPSUN API token in" ;
-  echo "  upsun.cli_token in core/config/settings.yml (Upsun console -> My profile ->" ;
-  echo "  API tokens). Not an Atlassian token — Upsun refuses those with a message that" ;
-  echo "  reads like an expiry." ;
-fi
-
-# Upsun's AI toolkit — the skill that teaches an agent the Upsun CLI and its config
-# format, and the hosted MCP server. https://developer.upsun.com/ai
-# Registered READ-ONLY: that is Upsun's own beta default, and writes there are
-# permanent on live environments.
-if confirm "Install Upsun's agent skill and read-only MCP server (developer.upsun.com/ai)?" ; then
-  bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/upsun-ai.sh" || true ;
-fi
+# The host side of every installed plugin (core/scripts/plugins/<name>/host-install.sh): the
+# tools a plugin needs on this machine, offered the same way as everything above.
+for plugin_host_install in "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"/plugins/*/host-install.sh ; do
+  [ -f "${plugin_host_install}" ] || continue ;
+  echo "" ; echo "Plugin $(basename "$(dirname "${plugin_host_install}")"):" ;
+  bash "${plugin_host_install}" || true ;
+done
 
 # Claude Code — the CLI the dashboard's agents, the Screens page and the Jira
 # actions all run (code.claude.com/docs/en/quickstart). The same package the

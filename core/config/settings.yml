@@ -236,6 +236,9 @@ assistant:
 # modules (module: <require-name>). `workspaces` limits which folders get the feature; empty or
 # absent means all of them. See core/workspace-app/PLUGINS.md to write one.
 plugins:
+  upsun:
+    module: "@webship/workspace-upsun"
+    enabled: true
   workspace-notes:
     enabled: true
     # Comma-separated workspace folders, e.g. "dev,test". Empty = every workspace.
@@ -267,13 +270,6 @@ jira:
   # Writing to Jira (comments, worklogs) stays off until explicitly enabled;
   # "Do the work" then also posts a PM-readable comment and a worklog.
   allow_writes: false
-
-# The Upsun CLI inside the dashboard container. The host login lives in the
-# system keyring, which containers cannot reach — an API token (Upsun console →
-# My profile → API tokens) is the headless session. Injected only into Upsun
-# jobs, never the app environment.
-upsun:
-  cli_token: "CHANGE_ME"
 
 # ElevenLabs, for the final voiceover of a narrated video (videos/cmd-tools-elevenlabs.sh). Nothing is
 # sent to ElevenLabs unless a person agrees to a run, and the stage is not offered without a real key.

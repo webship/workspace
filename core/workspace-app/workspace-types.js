@@ -4,7 +4,7 @@
  *
  * Two layers decide whether a control appears, and they answer different questions:
  *
- *   capability  does this folder ship the script?   (findBackupScript, cmd-tools-upsun.sh …)
+ *   capability  does this folder ship the script?   (findBackupScript, cmd-tools-testing.sh …)
  *   policy      does this KIND of folder want it?   (this file)
  *
  * Discovery alone was the whole story until now, which meant a folder got every
@@ -22,8 +22,8 @@
 const TYPES = {
   sites: {
     label: 'Sites — DDEV projects',
-    description: 'Built Drupal sites: DDEV and Upsun controls, tests, users, the full toolbelt.',
-    actions: ['build', 'folder', 'ddev', 'upsun', 'jira', 'backup', 'clone', 'remove', 'graphify', 'ragify', 'tests', 'checks', 'users'],
+    description: 'Built Drupal sites: DDEV controls, tests, users, the full toolbelt.',
+    actions: ['build', 'folder', 'ddev', 'jira', 'backup', 'clone', 'remove', 'graphify', 'ragify', 'tests', 'checks', 'users'],
   },
   code: {
     label: 'Code — packages and repositories',
@@ -75,4 +75,11 @@ function typeActions(type) {
   return new Set((TYPES[type] || TYPES.sites).actions);
 }
 
-module.exports = { TYPES, DEFAULT_TYPE_BY_KEY, isType, resolveType, typeActions };
+/** An action a plugin brings ('upsun' on sites): allowed on the types it names from now on. */
+function addTypeAction(action, types) {
+  for (const type of types || []) {
+    if (TYPES[type] && !TYPES[type].actions.includes(action)) TYPES[type].actions.push(action);
+  }
+}
+
+module.exports = { TYPES, DEFAULT_TYPE_BY_KEY, isType, resolveType, typeActions, addTypeAction };

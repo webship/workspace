@@ -1,0 +1,4 @@
+# Labels for core/config/plugin.upsun.settings.yml, merged into the Settings page.
+cli_token:
+  label: Upsun API token
+  info: 'What "Get database & files" and the environment lists use to reach Upsun from the dashboard: an API token from the Upsun console (My profile → API tokens). Not an Atlassian token.'

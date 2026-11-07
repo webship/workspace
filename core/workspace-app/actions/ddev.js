@@ -29,7 +29,6 @@ const {
 } = require('../test-reports');
 const { NAME_RE, SCRIPT_RE } = require('../validate');
 const { commandBlock } = require('../command-block');
-const { upsunLinkOf } = require('../upsun');
 const { wsUrl } = require('../urls');
 const { findGraphifyScript, findRagifyScript } = require('../workspaces');
 const { DDEV_ACTIONS, projectDdevCommands, serialiseRouter, touchesRouter } = require('../ddev');

@@ -300,7 +300,6 @@ code, pre, .job-output, .chat-log pre { font-family: var(--font-code); }
 /* The links get their own line under the title, not the title's line. */
 .proj-launch-line { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: .15rem 0 .35rem; }
 .proj-launch-line .proj-alias { display: inline-flex; align-items: center; gap: .25rem; }
-.proj-upsun-link { white-space: nowrap; }
 /* Storybook is a different destination from the site, so it reads as one: the brand colour and a
    book, against the muted grey the other aliases use. It is the component library, and the whole
    reason for showing it is that people go looking for it and cannot find the address. */
@@ -374,7 +373,7 @@ code, pre, .job-output, .chat-log pre { font-family: var(--font-code); }
    2.42:1 — the row went from "quieter" to unreadable, and a colour that was checked stopped being the
    colour rendered. --text-subtle is 8.45:1 and is the quiet one by design. */
 .proj-launch-line.is-stopped .uk-button,
-.proj-launch-line.is-stopped .proj-alias:not(.proj-upsun-link) { color: var(--text-subtle); }
+.proj-launch-line.is-stopped .proj-alias:not(.proj-plugin-link) { color: var(--text-subtle); }
 
 /* The DDEV menu is a palette, not a list: at nearly thirty entries a single
    column runs off the screen, so it flows into two and each group stays whole. */

@@ -50,7 +50,6 @@ const { CONFIG_DIR, ROOT } = require('./workspaces');
 
 const BUILTIN_BUTTONS = [
   { id: 'ddev', label: 'DDEV', row: 0 },
-  { id: 'upsun', label: 'UPSUN', row: 0 },
   { id: 'jira', label: 'JIRA', row: 0 },
   { id: 'ide', label: 'IDE', row: 0 },
   { id: 'git', label: 'GIT', row: 0 },
@@ -68,6 +67,18 @@ const BUILTIN_BUTTONS = [
 ];
 const BUILTIN_IDS = new Set(BUILTIN_BUTTONS.map((b) => b.id));
 const DEFAULT_ROWS = [0, 1].map((row) => BUILTIN_BUTTONS.filter((b) => b.row === row).map((b) => b.id));
+
+/** A button a plugin adds (plugin-loader's addRowMenu): known to the layout like a built-in one. */
+function registerButton(spec) {
+  if (BUILTIN_IDS.has(spec.id)) return;
+  const row = spec.row === 1 ? 1 : 0;
+  const entry = { id: spec.id, label: spec.label || spec.id, row };
+  if (spec.columns === false) entry.columns = false;
+  if (spec.menu === false) entry.menu = false;
+  BUILTIN_BUTTONS.push(entry);
+  BUILTIN_IDS.add(spec.id);
+  DEFAULT_ROWS[row].push(spec.id);
+}
 const MAX_ROWS = 6;
 const MAX_COLUMNS = 4;
 
@@ -1366,6 +1377,7 @@ function arrangementFromForm(layout, form) {
 }
 
 module.exports = {
+  registerButton,
   BUILTIN_BUTTONS,
   BUILTIN_IDS,
   DEFAULT_ROWS,

@@ -29,7 +29,7 @@ pass=0; fail=0; failures=()
 # of libraries and bootstrap files that are sourced, never run. So every NEW machine
 # script has to be added here by hand — host-mounts.sh and upsun-ai.sh had been
 # sitting in core/scripts untested because that step was missed.
-MACHINE_SCRIPTS=(autostart.sh sync-tooling.sh install.sh trust-https.sh docker-gid.sh host-mounts.sh upsun-ai.sh storage.sh)
+MACHINE_SCRIPTS=(autostart.sh sync-tooling.sh install.sh trust-https.sh docker-gid.sh host-mounts.sh storage.sh plugins.sh)
 
 for ws in "${workspaces[@]}" commands core/scripts; do
   dir="${WORKSPACE_ROOT}/${ws}"

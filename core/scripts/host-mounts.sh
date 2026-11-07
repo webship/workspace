@@ -73,12 +73,22 @@ DIRS=(
   "${HOME}/.claude"          # Claude Code's config, for the assistant chat
   "${HOME}/.config/gh"       # gh auth, for the private dev-ai-agents repo
   "${HOME}/.config/twg"      # Teamwork Graph CLI session (Jira)
-  "${HOME}/.upsun-cli"       # Upsun CLI session
   "${HOME}/.local/bin"       # where user binaries live: twg, drupal-ci-local
 )
 
 # Files to own. A missing file mount is the same trap, and an empty file is the
 # right stand-in for these two: both are written by the tool that owns them.
+# What installed plugins mount (core/scripts/plugins/<name>/host-mounts.txt, one path per line,
+# ~ allowed): the same trap, so the same ownership.
+for plugin_mounts in "$(dirname "${BASH_SOURCE[0]}")"/plugins/*/host-mounts.txt ; do
+  [ -f "${plugin_mounts}" ] || continue ;
+  while IFS= read -r mount_line ; do
+    mount_line="${mount_line%%#*}"; mount_line="${mount_line// /}" ;
+    [ -n "${mount_line}" ] || continue ;
+    DIRS+=("${mount_line/#\~/${HOME}}") ;
+  done < "${plugin_mounts}" ;
+done
+
 FILES=(
   "${HOME}/.claude.json"     # Claude Code's project state
 )

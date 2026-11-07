@@ -118,8 +118,10 @@ function writeSettingsValues(file, updates) {
     const [, indentStr, k, gap, rest] = m;
     const comment = rest.match(/\s+#.*$/);
     // Quote when the value could otherwise change type or break the parse.
-    const needsQuote = !bool
-      && (/[:#]|^\s|\s$/.test(value) || (value !== '' && /^(y|n|yes|no|true|false|on|off|null|~)$/i.test(value)));
+    // A value that already is a quoted scalar ("" from an emptied field, '…' from a form) is kept as it is.
+    const quoted = /^(".*"|'.*')$/.test(value);
+    const needsQuote = !bool && !quoted
+      && (/[:#]|^\s|\s$|^[@`!&*%|>{}\[\]?]|^-\s|^-$/.test(value) || (value !== '' && /^(y|n|yes|no|true|false|on|off|null|~)$/i.test(value)));
     const out = needsQuote ? JSON.stringify(value) : value;
     lines[line] = `${indentStr}${k}:${gap || ' '}${out}${comment ? comment[0] : ''}`;
     changed += 1;
@@ -348,7 +350,7 @@ function upsertSettingsValue(file, dotted, value) {
     parentLine = found;
   }
   const add = [];
-  for (let d = depth; d < parts.length; d += 1) add.push(`${' '.repeat(d * 2)}${parts[d]}:${d === parts.length - 1 ? ` ${/[:#]|^\s|\s$/.test(out) ? JSON.stringify(out) : out}` : ''}`);
+  for (let d = depth; d < parts.length; d += 1) add.push(`${' '.repeat(d * 2)}${parts[d]}:${d === parts.length - 1 ? ` ${!/^(".*"|'.*')$/.test(out) && /[:#]|^\s|\s$|^[@`!&*%|>{}\[\]?]|^-\s|^-$/.test(out) ? JSON.stringify(out) : out}` : ''}`);
   if (parentLine >= 0) lines.splice(parentLine + 1, 0, ...add);
   else {
     while (lines.length && lines[lines.length - 1] === '') lines.pop();
