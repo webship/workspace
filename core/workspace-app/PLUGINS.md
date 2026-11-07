@@ -217,6 +217,15 @@ settings stay. `--uninstall` removes the commands and keeps the settings file an
 functions the commands call still live in `core/scripts/functions` (and in `scripts.functions` of
 the plugin, placed under `core/scripts/plugins/<name>/functions/`).
 
+## Hooks a feature plugin reaches for
+
+Besides the row menus, pages, fragments and actions, the loader offers: `addForge(host, …)` (the
+credential the dashboard uses for a git host: `github-auth.js` asks it first), `addOpenWith(fn)` (the
+Open-with menu for a folder: project rows, the files pages, the images gallery) and `addFolderLink(fn)`
+(a link that opens a folder elsewhere, inside the COMPOSER menu). `api.lib` also hands a plugin what
+git says about a folder (`hasOwnGit`, `gitWorktreeInfo`, `projectHasGit`, `gitBranchOf`), the
+lingering-session tail (`lingerTail`, `LINGER_MARK`), `tildePath` and `hostRunnerRequest`.
+
 ## Families
 
 Plugins that do the same job for different services share a base package, so a provider is thin and
