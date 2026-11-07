@@ -46,6 +46,11 @@ async function ghCliAuth() {
 // dashboard runs. Never logged.
 function githubEnv() {
   if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) return process.env;
+  // A forge plugin (@webship/workspace-github) owns the credential when it is active.
+  try {
+    const forge = require('./plugin-loader').pluginForge('github.com');
+    if (forge && typeof forge.env === 'function') return forge.env() || process.env;
+  } catch (_) { /* the loader is not up yet: the legacy block below answers */ }
   const github = (() => { try { return (loadSettings().git || {}).github || {}; } catch (_) { return {}; } })();
   // gh's own login is preferred when it works; the cached probe answers without waiting.
   if (String(github.use_gh_cli) !== 'false' && _ghAuth && _ghAuth.login) return process.env;

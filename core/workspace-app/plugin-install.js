@@ -89,7 +89,8 @@ function placeSettings(plugin, placed) {
   if (m.legacySettingsKey) {
     try {
       const settings = yaml.load(fs.readFileSync(path.join(CONFIG_DIR, 'settings.yml'), 'utf8')) || {};
-      const legacy = settings[m.legacySettingsKey];
+      // Dotted keys name a nested block: git.github is settings.git.github.
+      const legacy = String(m.legacySettingsKey).split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), settings);
       if (legacy && typeof legacy === 'object') {
         for (const [k, v] of Object.entries(legacy)) {
           if (v == null || v === '' || v === 'CHANGE_ME') continue;

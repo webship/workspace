@@ -81,6 +81,7 @@ const workKeyLinkFns = [];   // (key) -> url | null
 const workPromptFns = [];    // ({ key, workspace, project }) -> prompt | null
 const sessionLogFns = [];    // (session, dirs) -> file | ''
 const assistantContextFns = []; // () -> a paragraph for the assistant's system context, or ''
+const forges = {};           // '<host>' -> { name, label, env(), auth() }: who answers for a git forge host
 
 let _screens = { at: 0, rows: [], running: false };
 function screensCached() {
@@ -205,6 +206,11 @@ function makeApi(name, config) {
     // A paragraph of the assistant's system context: what this plugin lets it reach, and the rules.
     addAssistantContext(fn) {
       assistantContextFns.push(fn);
+    },
+    // Who answers for a git forge host ('github.com'): `env()` is the environment a child process
+    // needs to authenticate there (a token), or null; `auth()` says who, for the settings page.
+    addForge(host, spec) {
+      forges[String(host).toLowerCase()] = { name, ...spec };
     },
   };
 }
@@ -378,6 +384,12 @@ function pluginWorkPrompt(ctx) {
   for (const fn of workPromptFns) { try { const p = fn(ctx); if (p) return p; } catch (_) { /* next */ } }
   return null;
 }
+/** The plugin answering for a forge host, or null. */
+function pluginForge(host) {
+  return forges[String(host || '').toLowerCase()] || null;
+}
+function pluginForges() { return { ...forges }; }
+
 function pluginAssistantContext() {
   const out = [];
   for (const fn of assistantContextFns) { try { const s = fn(); if (s) out.push(s); } catch (_) { /* next */ } }
@@ -395,6 +407,6 @@ loadPlugins();
 module.exports = {
   pluginActions: actions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
   pluginRowMenus, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginLabels,
-  pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext,
+  pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext, pluginForge, pluginForges,
   loadedPlugins: loaded, pluginConfigs,
 };

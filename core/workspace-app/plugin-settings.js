@@ -31,7 +31,7 @@ function readPluginSettings(name) {
     if (fs.existsSync(full)) return yaml.load(fs.readFileSync(full, 'utf8')) || {};
   } catch (_) { /* unreadable: treated as empty */ }
   const legacy = LEGACY_KEYS[name];
-  return (legacy && loadSettings()[legacy]) || {};
+  return (legacy && String(legacy).split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), loadSettings())) || {};
 }
 
 /** Make sure the file exists, private to the owner, before something writes into it. */

@@ -38,6 +38,16 @@ source ${WORKSPACE_SCRIPTS}/bootstrap-functions.sh || exit 1 ;
 # Load settings.
 eval $(parse_yaml ${WORKSPACE_CONFIG}/settings.yml);
 
+# The settings files installed plugins own (core/config/plugin.<name>.settings.yml), as
+# plugin_<name>_<key> variables, so a plugin's bash hooks read the same values the dashboard does.
+for plugin_settings_file in "${WORKSPACE_CONFIG}"/plugin.*.settings.yml ; do
+  [ -f "${plugin_settings_file}" ] || continue ;
+  plugin_settings_name="$(basename "${plugin_settings_file}" .settings.yml)";
+  plugin_settings_name="${plugin_settings_name#plugin.}";
+  eval $(parse_yaml "${plugin_settings_file}" "plugin_${plugin_settings_name//-/_}_");
+done
+unset plugin_settings_file plugin_settings_name ;
+
 # settings.yml carries no paths: they follow the checkout, for whoever is running
 # it. Set root/path/scripts/config/backups there only to override that.
 root="${root:-${WORKSPACE_ROOT}}";

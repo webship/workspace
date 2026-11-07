@@ -31,7 +31,7 @@ function tree() {
     'workspaces:', '  - dev', '  - modules',
     // The shipped Google Drive plugin is on by default; off here, so only the fake one is loaded.
     'plugins:', '  x-cloud:', '    enabled: true', '  google-drive-sync:', '    enabled: false',
-    'x_cloud:', '  token: carried-over', '',
+    'x_cloud:', '  token: carried-over', 'git:', '  x-forge:', '    username: forge-me', '    token: CHANGE_ME', '',
   ].join('\n'));
   fs.writeFileSync(path.join(config, 'workspace.dev.settings.yml'), 'doc:\n  name: dev\ntype: sites\n');
   fs.writeFileSync(path.join(config, 'workspace.modules.settings.yml'), 'doc:\n  name: modules\ntype: code\n');
@@ -67,6 +67,7 @@ function tree() {
       api.addAction('ping', ({ send }) => send('pong'));
       api.addFragment(({ send, rest }) => send('frag:' + rest));
       api.addLabels({ region: { label: 'Region' } });
+      api.addForge('forge.test', { label: 'X Forge', env: () => ({ X_TOKEN: 'secret' }), auth: () => ({ username: 'me', how: 'token' }) });
     };`);
   return { root, config, plugins, dir };
 }
@@ -99,7 +100,8 @@ test('a plugin reaches every hook, and what it registers is what the dashboard d
       const hitF = l.pluginFragment('/fragments/p/x-cloud/one/two', { url: '/fragments/p/x-cloud/one/two' }, res2);
       console.log(JSON.stringify({ menus, none, chips, setups: setups.length, steps: setups[0].steps('dev', 'n', { x: '1' }, {}), problem: setups[0].problem('dev', { x: 'bad' }, {}),
         hit, page, hitF, frag, css: l.pluginCssFiles(), labels: l.pluginLabels(), sitesHas: TYPES.sites.actions.includes('x-cloud'), codeHas: TYPES.code.actions.includes('x-cloud'),
-        button: rl.DEFAULT_ROWS[0].includes('x-cloud'), action: Object.keys(l.pluginActions), loaded: l.loadedPlugins }));
+        button: rl.DEFAULT_ROWS[0].includes('x-cloud'), action: Object.keys(l.pluginActions), loaded: l.loadedPlugins,
+        forge: l.pluginForge('FORGE.test') && l.pluginForge('FORGE.test').env(), noForge: l.pluginForge('other.test') }));
     });`, env(t));
   const r = JSON.parse(out);
   assert.strictEqual(r.menus['x-cloud'], '<div class="act-menu-x-cloud">dev/site1</div>');
@@ -118,6 +120,25 @@ test('a plugin reaches every hook, and what it registers is what the dashboard d
   assert.ok(r.button, 'the row-menu slot joins the default layout');
   assert.deepStrictEqual(r.action, ['/actions/p/x-cloud/ping']);
   assert.deepStrictEqual(r.loaded, [{ name: 'x-cloud', source: 'plugins/x-cloud' }]);
+  assert.deepStrictEqual(r.forge, { X_TOKEN: 'secret' }, 'a forge answers for its host, whatever the case');
+  assert.strictEqual(r.noForge, null);
+});
+
+test('a dotted legacy key names a nested settings.yml block, for the reader and the installer', () => {
+  const t = tree();
+  const dir = path.join(t.plugins, 'x-forge');
+  fs.mkdirSync(path.join(dir, 'config'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: '@webship/workspace-x-forge', version: '0.1.0', main: 'index.js',
+    workspacePlugin: { name: 'x-forge', settingsFile: 'plugin.x-forge.settings.yml', settingsTemplate: 'config/plugin.x-forge.settings.yml', legacySettingsKey: 'git.x-forge' } }));
+  fs.writeFileSync(path.join(dir, 'config', 'plugin.x-forge.settings.yml'), 'username: CHANGE_ME\ntoken: CHANGE_ME\n');
+  fs.writeFileSync(path.join(dir, 'index.js'), 'module.exports.register = () => {};');
+  const read = node(`console.log(JSON.stringify(require('./plugin-settings').readPluginSettings('x-forge')))`, env(t));
+  assert.deepStrictEqual(JSON.parse(read), { username: 'forge-me', token: 'CHANGE_ME' }, 'before the file exists, the nested block answers');
+  const r = spawnSync(process.execPath, ['plugin-install.js', 'install', 'x-forge'], { cwd: APP, env: { ...process.env, ...env(t) }, encoding: 'utf8' });
+  assert.strictEqual(r.status, 0, r.stderr);
+  const settings = fs.readFileSync(path.join(t.config, 'plugin.x-forge.settings.yml'), 'utf8');
+  assert.match(settings, /^username: forge-me$/m, 'the nested block value is carried into the file');
+  assert.match(settings, /^token: CHANGE_ME$/m, 'a placeholder is not carried');
 });
 
 test('the manifest reader sees a plugin folder and answers the command line', () => {

@@ -118,15 +118,17 @@ function ensure_gh_cli() {
   # signed in and there is no reason to hold a second credential. Inside the dashboard
   # container it is not — gh reads the same mounted ~/.config/gh, but the token itself lives
   # in the host keyring, which the container cannot read.
-  if [ ! "${git_github_use_gh_cli}" == 'false' ] && gh api user --jq .login > /dev/null 2>&1 ; then
+  # The GitHub plugin (plugin.github.settings.yml) owns these once it is installed; the settings.yml block is the older home.
+  local use_cli="${plugin_github_use_gh_cli:-${git_github_use_gh_cli}}" token="${plugin_github_token:-${git_github_token}}";
+  if [ ! "${use_cli}" == 'false' ] && gh api user --jq .login > /dev/null 2>&1 ; then
     return 0 ;
   fi
 
   # Then the token from settings.yml. An environment variable still wins over both, and the
   # value is never echoed.
   if [ -z "${GH_TOKEN}" ] && [ -z "${GITHUB_TOKEN}" ] \
-     && [ -n "${git_github_token}" ] && [ "${git_github_token}" != 'CHANGE_ME' ]; then
-    export GH_TOKEN="${git_github_token}" ;
+     && [ -n "${token}" ] && [ "${token}" != 'CHANGE_ME' ]; then
+    export GH_TOKEN="${token}" ;
   fi
   if gh api user --jq .login > /dev/null 2>&1 ; then
     return 0 ;
