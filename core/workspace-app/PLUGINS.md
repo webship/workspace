@@ -195,6 +195,20 @@ api.addProjectActions(({ key, project, meta }) => {
 });
 ```
 
+## Families
+
+Plugins that do the same job for different services share a base package, so a provider is thin and
+the surface is one. A base is an ordinary private npm package the provider depends on; it is not a
+plugin itself (no manifest) and the dashboard never sees it.
+
+| Family | Base | What the base draws | A provider supplies |
+| --- | --- | --- | --- |
+| Hosting (`upsun`, `acquia`, `digitalocean`, `cpanel`, `aws`, `azure`, `godaddy`) | `@webship/workspace-hosting` — `registerHosting(api, provider)` | the per-provider row menu (linked / unlinked), the live-site chip, the environments modal and list, the get-database-and-files flow, the branch-and-data block, the tool verbs as screen sessions, the `/<id>-site/<ws>/<project>` jump, the New-folder section, the family stylesheet | a `HostingProvider`: how a project is detected as linked, the CLI and its token, the environments and their URLs, the verbs its `cmd-tools-<id>.sh` carries (status, activities, logs, deploy…), the pull flags, the console URL |
+
+`@webship/workspace-upsun` 2.0.0 is the reference provider: `register(api)` is one line, the facts are
+in `src/lib/provider.ts`, and the bash tool, compose file, host install, settings template and theme
+are what the installer places.
+
 ## The reference plugin
 
 `plugins/workspace-notes/` is the working example: a Notes rail button per enabled workspace,
