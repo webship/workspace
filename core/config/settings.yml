@@ -236,6 +236,90 @@ assistant:
 # modules (module: <require-name>). `workspaces` limits which folders get the feature; empty or
 # absent means all of them. See core/workspace-app/PLUGINS.md to write one.
 plugins:
+  ide:
+    module: "@webship/workspace-ide"
+    enabled: true
+  drupal-themes:
+    module: "@webship/workspace-drupal-themes"
+    enabled: true
+  drupal-modules:
+    module: "@webship/workspace-drupal-modules"
+    enabled: true
+  drupal-profiles:
+    module: "@webship/workspace-drupal-profiles"
+    enabled: true
+  rag:
+    module: "@webship/workspace-rag"
+    enabled: true
+  graph:
+    module: "@webship/workspace-graph"
+    enabled: true
+  avatar:
+    module: "@webship/workspace-avatar"
+    enabled: true
+  ai-prompts:
+    module: "@webship/workspace-ai-prompts"
+    enabled: true
+  ai-commands:
+    module: "@webship/workspace-ai-commands"
+    enabled: true
+  ai-skills:
+    module: "@webship/workspace-ai-skills"
+    enabled: true
+  ai-agents:
+    module: "@webship/workspace-ai-agents"
+    enabled: true
+  libraries:
+    module: "@webship/workspace-libraries"
+    enabled: true
+  worklogs:
+    module: "@webship/workspace-worklogs"
+    enabled: true
+  audio:
+    module: "@webship/workspace-audio"
+    enabled: true
+  images:
+    module: "@webship/workspace-images"
+    enabled: true
+  video:
+    module: "@webship/workspace-video"
+    enabled: true
+  docs:
+    module: "@webship/workspace-docs"
+    enabled: true
+  projects:
+    module: "@webship/workspace-projects"
+    enabled: true
+  demos:
+    module: "@webship/workspace-demos"
+    enabled: true
+  sandboxes:
+    module: "@webship/workspace-sandboxes"
+    enabled: true
+  test:
+    module: "@webship/workspace-test"
+    enabled: true
+  dev:
+    module: "@webship/workspace-dev"
+    enabled: true
+  drupal-recipes:
+    module: "@webship/workspace-drupal-recipes"
+    enabled: true
+  drupal-site-templates:
+    module: "@webship/workspace-drupal-site-templates"
+    enabled: true
+  products:
+    module: "@webship/workspace-products"
+    enabled: true
+  designs:
+    module: "@webship/workspace-designs"
+    enabled: true
+  specs:
+    module: "@webship/workspace-specs"
+    enabled: true
+  git:
+    module: "@webship/workspace-git"
+    enabled: true
   docker:
     module: "@webship/workspace-docker"
     enabled: true
