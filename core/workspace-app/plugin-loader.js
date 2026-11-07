@@ -93,6 +93,8 @@ const workPromptFns = [];    // ({ key, workspace, project }) -> prompt | null
 const sessionLogFns = [];    // (session, dirs) -> file | ''
 const assistantContextFns = []; // () -> a paragraph for the assistant's system context, or ''
 const forges = {};           // '<host>' -> { name, label, env(), auth() }: who answers for a git forge host
+const openWithFns = [];      // (abs, { label, caption, git }) -> html | null: the Open-with menu for a folder (the IDE plugin)
+const folderLinkFns = [];    // (abs) -> { href, label, icon?, title? } | null: a link to open a folder elsewhere (the Web IDE)
 
 let _screens = { at: 0, rows: [], running: false };
 function screensCached() {
@@ -220,6 +222,15 @@ function makeApi(name, config) {
     // needs to authenticate there (a token), or null; `auth()` says who, for the settings page.
     addForge(host, spec) {
       forges[String(host).toLowerCase()] = { name, ...spec };
+    },
+    // The "Open with" menu for a folder: the Web IDE here, an editor on the browser's machine. Drawn on
+    // project rows (the IDE slot), the files pages and the images gallery. The first plugin that answers wins.
+    addOpenWith(fn) {
+      openWithFns.push(fn);
+    },
+    // A link that opens a folder elsewhere (the Web IDE on it), offered inside other menus (COMPOSER).
+    addFolderLink(fn) {
+      folderLinkFns.push(fn);
     },
   };
 }
@@ -393,6 +404,22 @@ function pluginWorkPrompt(ctx) {
   for (const fn of workPromptFns) { try { const p = fn(ctx); if (p) return p; } catch (_) { /* next */ } }
   return null;
 }
+/** The Open-with menu for a folder, from the first plugin that draws one; '' without an IDE plugin. */
+function pluginOpenWith(abs, opts = {}) {
+  for (const fn of openWithFns) {
+    try { const html = fn(abs, opts); if (html) return html; } catch (e) { console.error(`plugin open-with failed: ${e.message}`); }
+  }
+  return '';
+}
+/** Links that open a folder elsewhere: [{ href, label, icon, title }]. */
+function pluginFolderLinks(abs) {
+  const out = [];
+  for (const fn of folderLinkFns) {
+    try { const l = fn(abs); if (l && l.href) out.push(l); } catch (e) { console.error(`plugin folder link failed: ${e.message}`); }
+  }
+  return out;
+}
+
 /** The plugin answering for a forge host, or null. */
 function pluginForge(host) {
   return forges[String(host || '').toLowerCase()] || null;
@@ -416,6 +443,6 @@ loadPlugins();
 module.exports = {
   pluginActions: actions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
   pluginRowMenus, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginLabels,
-  pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext, pluginForge, pluginForges,
+  pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext, pluginForge, pluginForges, pluginOpenWith, pluginFolderLinks,
   loadedPlugins: loaded, pluginConfigs,
 };

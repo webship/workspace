@@ -15,6 +15,7 @@ const os = require('os');
 const path = require('path');
 
 // The GIT menu is a plugin's now (@webship/workspace-git); its slot is registered here the way the loader does.
+require('../../row-layout').registerButton({ id: 'ide', label: 'IDE', row: 0 });
 require('../../row-layout').registerButton({ id: 'git', label: 'GIT', row: 0 });
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rowlayout-'));
@@ -51,7 +52,7 @@ const texts = (html) => rl.splitTopLevelLi(html).map((li) => rl.plainText(li));
 test('with no file there are two rows, and they are the row as it was', () => {
   const layout = rl.loadRowLayoutFresh();
   assert.deepStrictEqual(rl.DEFAULT_ROWS, [
-    ['ddev', 'ide', 'tests', 'git'],
+    ['ddev', 'tests', 'ide', 'git'],
     ['screens', 'composer', 'node', 'backup', 'clone', 'graph', 'rag', 'more'],
   ]);
   assert.deepStrictEqual(layout.rows, rl.DEFAULT_ROWS);
@@ -506,7 +507,7 @@ test('the row, the SCREENS fragment and the Commands page are wired to rows mana
   const map = /rowLayout\.rowLinesHtml\(\{([\s\S]*?)\}, rowCtx, \{ preArranged: new Set\(\['ddev', 'more'\]\) \}\)/.exec(src);
   assert.ok(map, 'the row draws its rows from rowLinesHtml');
   // The GIT slot is registered by this test (a plugin's), so it reaches the layout through pluginRowMenus, not the map.
-  for (const b of rl.BUILTIN_BUTTONS) if (b.id !== 'git') assert.match(map[1], new RegExp(`\\b${b.id}: \\w+`), `${b.id} is not handed to the layout`);
+  for (const b of rl.BUILTIN_BUTTONS) if (b.id !== 'git' && b.id !== 'ide') assert.match(map[1], new RegExp(`\\b${b.id}: \\w+`), `${b.id} is not handed to the layout`);
   assert.match(src, /<div class="pcard-tools"[^>]*>\s*\$\{rowLines\.first\}\$\{rowLines\.second\}/);
   // The empty extra rows are filtered out, and what remains joins the same strip of tools on the card.
   assert.match(src, /const extraRows = rowLines\.extra\.filter\(Boolean\);/);

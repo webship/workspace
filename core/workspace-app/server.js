@@ -85,7 +85,7 @@ const {
 // Optional features workspaces turn on from settings.yml `plugins:` — see PLUGINS.md.
 const {
   pluginActions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
-  pluginRowMenus, pluginProjectChipsHtml, pluginLabels,
+  pluginRowMenus, pluginOpenWith, pluginFolderLinks, pluginProjectChipsHtml, pluginLabels,
   pluginProjectBadgesHtml, pluginSettingsOptions, pluginWorkKeyLink, pluginWorkPrompt,
 } = require('./plugin-loader');
 // How a project row is arranged — the order of its buttons and of what is inside their menus (Commands → Buttons).
@@ -104,7 +104,7 @@ const buildOrderPage = require('./build-order-page');
 const { uikitIcons, tablerIcons, iconHtml, isKnownIcon } = require('./icons');
 const { PAGE_SIZES, defaultPageSize, PROJECT_FILTERS, SORTS, defaultSort, readPageState, setPageCookie, paginate, listControlsHtml, listPagerHtml } = require('./lists');
 const { commandBlock } = require('./command-block');
-const { HOME_URL, wsUrl, ideBaseUrl, IDE_HOST, IDE_BIND } = require('./urls');
+const { HOME_URL, wsUrl } = require('./urls');
 const { VIDEO_RE, AUDIO_RE, DOC_ARTIFACT_RE, humanTime, humanSize, tildePath } = require('./format');
 const audioVoice = require('./audio-voice');
 const videoEdit = require('./video-edit');
@@ -502,7 +502,7 @@ const filePath = (key, rel) => `/files/${encodeURIComponent(key)}/${encodePath(r
 
 // What the images gallery takes from this file: the folder docs and the IDE menu, like every file list.
 function imagesGalleryDeps() {
-  return { folderDocs: folderDocsHtml('images'), openWith: openWithMenuHtml(workspaceDir('images'), { label: 'IDE', caption: 'files' }), viewSwitcher: viewSwitcherHtml('files') };
+  return { folderDocs: folderDocsHtml('images'), openWith: pluginOpenWith(workspaceDir('images'), { label: 'IDE', caption: 'files' }), viewSwitcher: viewSwitcherHtml('files') };
 }
 
 async function itemRowsHtml(key, state, sub) {
@@ -805,7 +805,7 @@ async function itemRowsHtml(key, state, sub) {
     <!-- A folder of documents is what an editor with a file tree is FOR: the item list here
          edits one file at a time in a modal, which is right for a quick change and wrong for
          moving things, renaming, or reading two files side by side. -->
-    <div class="uk-margin-small-bottom items-open-with">${openWithMenuHtml(meta.dir, { label: 'IDE', caption: 'files' })}</div>
+    <div class="uk-margin-small-bottom items-open-with">${pluginOpenWith(meta.dir, { label: 'IDE', caption: 'files' })}</div>
     ${listControlsHtml(`/fragments/${key}/items`, target, st, meta.nounPlural, browsable ? kindFilter : null, {
       ...(rel ? { path: rel } : {}), ...(browsable && st.kind && st.kind !== defaultKind(key) ? { kind: st.kind } : {}) })}
     ${st.q ? `<p class="uk-text-meta">${p.total} of ${items.length} ${esc(meta.nounPlural)} match “${esc(st.q)}”.</p>` : ''}
@@ -924,48 +924,7 @@ function promptFile(text) {
 // No breadcrumb. It said "Workspaces / Dev" beside a page whose heading is already Dev, above a
 // rail whose first item is already All workspaces — three ways of saying where you are, on a tree
 // exactly two levels deep. The lockup goes home; the heading says where home led.
-// Is the Web IDE up? A cached TCP probe against the loopback address code-server binds,
-// because the alternative is a menu item that opens a blank tab and explains nothing.
-//
-// The same principle as the Jira gate: a control that cannot work is disabled with the
-// reason, never offered. GitLab does this well on its own workspaces panel — it says "No
-// agents available to create workspaces" and links the troubleshooting page rather than
-// showing a button that fails.
-let _ideState = { at: 0, up: false, checked: false };
-const IDE_TTL = 10 * 1000;
-function ideUp() {
-  if (_ideState.checked && Date.now() - _ideState.at < IDE_TTL) return _ideState.up;
-  // Kick off a refresh and answer from the last result: the row renderers are synchronous.
-  const net = require('net');
-  const sock = new net.Socket();
-  let settled = false;
-  const done = (up) => {
-    if (settled) return;
-    settled = true;
-    _ideState = { at: Date.now(), up, checked: true };
-    sock.destroy();
-  };
-  sock.setTimeout(1500);
-  sock.once('connect', () => done(true));
-  sock.once('timeout', () => done(false));
-  sock.once('error', () => done(false));
-  try { sock.connect(IDE_BIND.port, IDE_BIND.host); } catch (_) { done(false); }
-  // First call has no answer yet: assume up, so a slow first paint never hides the button
-  // that is almost certainly fine. The next render has the truth.
-  return _ideState.checked ? _ideState.up : true;
-}
 
-/**
- * "Open with" — the Web IDE here, or an editor on the machine the browser is running on.
- *
- * Modelled on GitLab's Code menu, and it keeps GitLab's distinction, which is the whole
- * point: the Web IDE runs HERE and works from any device, while the other two hand off to
- * software installed where the BROWSER is. A link that silently does nothing is worse than
- * no link, so each is labelled with which it is and a copyable path is offered for the
- * case where no URL handler is registered (a terminal always works).
- *
- * `label` lets a folder page say "Open the folder" while a project row says "Open with".
- */
 /**
  * The GIT menu for one project row, placed right after IDE.
  *
@@ -1008,7 +967,7 @@ function composerMenuHtml(key, p, projectPath, isDdev, mode = 'manifest') {
         ? 'This workspace only edits composer.json: require and remove add or drop the line with --no-update. Nothing is installed.'
         : (isDdev ? 'Runs as ddev composer in this project.' : "Not a DDEV project — runs in the dashboard's DDEV container.")}${pkg ? '' : ' composer.json is not valid JSON — validate says where.'}</span></li>
       ${manifest ? `<li><a href="vscode://file${esc(path.join(projectPath, 'composer.json'))}" title="Opens composer.json in the VS Code on YOUR machine"><span uk-icon="icon: file-edit; ratio: .7"></span> Edit composer.json in VS Code</a></li>
-      ${ideUp() ? `<li><a href="${esc(`${ideBaseUrl()}/?folder=${encodeURIComponent(projectPath)}`)}" target="_blank" rel="noopener" title="The Web IDE, opened on this folder"><span uk-icon="icon: code; ratio: .7"></span> Edit in the Web IDE</a></li>` : ''}` : ''}`;
+      ${pluginFolderLinks(projectPath).map((l) => `<li><a href="${esc(l.href)}" target="_blank" rel="noopener" title="${esc(l.title || l.label)}"><span uk-icon="icon: ${esc(l.icon || 'code')}; ratio: .7"></span> ${esc(l.label)}</a></li>`).join('')}` : ''}`;
   const packageBlock = `
       <li class="uk-nav-header">A package</li>
       <li><div class="composer-package">
@@ -1101,44 +1060,6 @@ function nodeMenuHtml(key, p, projectPath, isDdev) {
   </div><span class="act-status uk-text-meta">${esc(caption)}</span></span>`;
 }
 
-function openWithMenuHtml(abs, { label = 'IDE', caption = 'code', git = null } = {}) {
-  const ide = `${ideBaseUrl()}/?folder=${encodeURIComponent(abs)}`;
-  // What git says about the folder belongs INSIDE the menu, not in the caption:
-  // the caption is a one-word status and a branch name is neither short nor
-  // stable, but it is the first thing you want to know once the editor is about
-  // to open on it.
-  const gitHead = (git && git.role !== 'none') ? `
-      <li class="uk-nav-header">${git.role === 'linked' ? 'Git worktree' : 'Git'}</li>
-      <li data-entry="branch"><span class="uk-text-meta"><span uk-icon="icon: git-branch; ratio: .7"></span>
-        ${esc(git.branch || 'a detached HEAD')}${git.unpushed ? ` · ${git.unpushed} unpushed` : ''}${git.dirty ? ` · ${git.dirty} changed` : ''}</span></li>
-      ${git.role === 'linked' ? `<li data-entry="worktree of"><span class="uk-text-meta">of <code>${esc(tildePath(git.primary))}</code></span></li>` : ''}
-      ${git.role === 'primary' ? `<li data-entry="worktrees"><span class="uk-text-meta">${git.others.length} worktree(s) live off this checkout</span></li>` : ''}
-      <li class="uk-nav-divider"></li>` : '';
-  return `<span class="act-with-status"><div class="uk-inline">
-    <button class="uk-button uk-button-default uk-button-small" type="button"
-      title="Open this in the browser IDE, or hand it to an editor on your own machine"><span uk-icon="icon: code; ratio: .7"></span> ${esc(label)} <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-    <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">
-      ${gitHead}
-      <li class="uk-nav-header">Here, in the browser</li>
-      ${ideUp()
-        ? `<li><a href="${esc(ide)}" target="_blank" rel="noopener"
-             title="VS Code in the browser, served by this dashboard — works from any device"><span uk-icon="icon: code; ratio: .7"></span> Web IDE</a></li>`
-        // Disabled with the reason and the fix rather than a link that opens a blank tab:
-        // the IDE is a daemon in this container and can be down on its own (an image
-        // rebuilt but not restarted, a crash) while the dashboard beside it is fine.
-        : `<li><span class="uk-text-meta ide-unavailable">The Web IDE is not running. Its daemon lives in this container — <code>ddev restart</code>, or <code>docker exec ddev-workspace-web supervisorctl status</code></span></li>`}
-      <li class="uk-nav-divider"></li>
-      <li class="uk-nav-header">On the machine you are browsing from</li>
-      <li><a href="vscode://file${esc(abs)}"
-             title="Opens the VS Code installed on YOUR machine. Needs the vscode:// handler, which VS Code registers when it is installed."><span uk-icon="icon: desktop; ratio: .7"></span> Visual Studio Code</a></li>
-      <li><a href="jetbrains://idea/open?file=${encodeURIComponent(abs)}"
-             title="Opens IntelliJ IDEA on YOUR machine. Needs the JetBrains Toolbox URL handler; if nothing happens, copy the path below and run: idea <path>"><span uk-icon="icon: desktop; ratio: .7"></span> IntelliJ IDEA</a></li>
-      <li class="uk-nav-divider"></li>
-      <li><a href="#" class="copy-cmd" data-copy="${esc(abs)}"
-             title="Copy the path — for: code ${esc(abs)}  ·  idea ${esc(abs)}  (a terminal needs no URL handler)"><span uk-icon="icon: copy; ratio: .7"></span> Copy the path</a></li>
-    </ul></div>
-  </div><span class="act-status uk-text-meta">${esc(caption)}</span></span>`;
-}
 
 // Which part of the guide answers "how does this page work".
 function helpAnchorFor(context) {
@@ -3291,16 +3212,6 @@ async function projectRowsHtml(key, dir, state) {
     // Git is asked once per row and shared by IDE and GIT: each gitWorktreeInfo call is several
     // git processes, and a page of fifty rows would otherwise double them for nothing.
     const gitInfo = gitWorktreeInfo(projectPath);
-    const openWithMenu = (() => {
-      // The caption says only WHETHER there is a repository — that is the fact that
-      // decides whether the clone form can offer a worktree, and it is one word.
-      // The branch, and what depends on it, is in the menu: a branch name is long,
-      // changes under you, and is not a status.
-      const g = gitInfo;
-      const caption = g.role === 'none' ? 'code'
-        : (g.role === 'linked' ? 'code · worktree' : 'code · git');
-      return openWithMenuHtml(projectPath, { caption, git: g });
-    })();
     const composerMenu = composerMenuHtml(key, p, projectPath, isDdev, meta.composerMode);
     const nodeMenu = nodeMenuHtml(key, p, projectPath, isDdev);
     const vals = (extra = '') => `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
@@ -3644,7 +3555,7 @@ async function projectRowsHtml(key, dir, state) {
     // SCREENS is drawn beside the running state in the card's head, so the tool strip leaves it out.
     const screensOnTools = '';
     const rowLines = rowLayout.rowLinesHtml({
-      ddev: ddevButton, ide: openWithMenu, tests: testsMenu,
+      ddev: ddevButton, tests: testsMenu,
       // The menus activated plugins bring, in the slots they registered (UPSUN, …).
       ...pluginRowMenus({ key, project: p, dir, meta, allowed, vals }),
       screens: screensOnTools, composer: composerMenu, node: nodeMenu, backup: backupButton, clone: cloneButton,
@@ -8226,5 +8137,4 @@ server.listen(PORT, () => {
   // paint and wrong straight after a restart, where it would offer a link to a daemon
   // that has not come up yet. Verified: without this, the first load after a restart
   // showed nine live Web IDE links while code-server was refusing connections.
-  ideUp();
 });
