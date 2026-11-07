@@ -236,6 +236,15 @@ assistant:
 # modules (module: <require-name>). `workspaces` limits which folders get the feature; empty or
 # absent means all of them. See core/workspace-app/PLUGINS.md to write one.
 plugins:
+  bitbucket:
+    module: "@webship/workspace-bitbucket"
+    enabled: true
+  github:
+    module: "@webship/workspace-github"
+    enabled: true
+  gitlab:
+    module: "@webship/workspace-gitlab"
+    enabled: true
   acquia:
     module: "@webship/workspace-acquia"
     enabled: true
