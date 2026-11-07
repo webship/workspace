@@ -147,6 +147,31 @@ function install(name) {
     }
   }
   for (const f of m.themes || []) { const d = path.join(CONFIG_DIR, path.basename(f)); copyFile(path.join(plugin.dir, f), d); placed.push(rel(d)); }
+  // A workspace folder the plugin IS (modules, themes, dev…): the folder, its settings file (placed once,
+  // never overwritten — it holds this machine's lists — and kept on uninstall) and its commands.
+  // --activate puts the key on settings.yml's workspaces list; --deactivate takes it off.
+  const ws = m.workspace || null;
+  if (ws && /^[a-z0-9_-]+$/.test(String(ws.key || ''))) {
+    const folder = path.join(ROOT, ws.key);
+    fs.mkdirSync(folder, { recursive: true });
+    if (ws.settingsTemplate) {
+      const d = path.join(CONFIG_DIR, `workspace.${ws.key}.settings.yml`);
+      // Recorded every time, placed only once: a path an earlier install recorded and this one does not is removed as stale.
+      if (!fs.existsSync(d)) copyFile(path.join(plugin.dir, ws.settingsTemplate), d);
+      placed.push(rel(d));
+    }
+    for (const f of ws.files || []) {
+      const d = path.join(folder, path.basename(f));
+      copyFile(path.join(plugin.dir, f), d, { fill: { __WORKSPACE__: ws.key } });
+      placed.push(rel(d));
+    }
+    // Written once, for a person to edit: what the folder is for.
+    for (const f of ws.docs || []) {
+      const d = path.join(folder, path.basename(f));
+      if (!fs.existsSync(d)) copyFile(path.join(plugin.dir, f), d, { fill: { __WORKSPACE__: ws.key } });
+      placed.push(rel(d));
+    }
+  }
   // webship-js features, under tests/features/plugins/<name>/: the dashboard's cucumber paths cover every
   // folder below tests/features, so an installed plugin's scenarios run with `ddev test-dashboard browser`.
   for (const f of m.features || []) { const d = path.join(ROOT, 'core', 'workspace-app', 'tests', 'features', 'plugins', name, path.basename(f)); copyFile(path.join(plugin.dir, f), d); placed.push(rel(d)); }
@@ -166,6 +191,8 @@ function uninstall(name) {
   if (!entry) return { name, removed: [] };
   const removed = [];
   for (const p of entry.placed || []) {
+    // A workspace's own settings file and its docs stay: they hold what a person put there.
+    if (/^core\/config\/workspace\.[a-z0-9_-]+\.settings\.yml$/.test(p) || /\/(AGENTS|CLAUDE|README)\.md$/.test(p)) continue;
     try { fs.rmSync(path.join(ROOT, p)); removed.push(p); } catch (_) { /* already gone */ }
   }
   try { fs.rmSync(path.join(SCRIPTS_DIR, 'plugins', name), { recursive: true, force: true }); } catch (_) { /* nothing there */ }

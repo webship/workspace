@@ -195,6 +195,28 @@ api.addProjectActions(({ key, project, meta }) => {
 });
 ```
 
+## A workspace as a plugin
+
+A workspace folder (modules, themes, recipes, dev, …) can itself be a plugin: the package carries
+the folder's `workspace.<key>.settings.yml` template, its `cmd-*.sh` commands and its docs, and the
+manifest names the folder:
+
+```json
+"workspacePlugin": {
+  "name": "drupal-themes",
+  "workspace": { "key": "themes", "settingsTemplate": "config/workspace.themes.settings.yml",
+                 "files": ["commands/cmd-build-theme.sh"], "docs": ["docs/AGENTS.md"] }
+}
+```
+
+`--install` makes the folder, places the settings file once (never overwritten: it holds this
+machine's lists) and the commands (`__WORKSPACE__` filled with the key), and writes the docs once.
+`--activate` puts the key on settings.yml's `workspaces:` list, at the end (the dashboard's order;
+move it in Settings → Workspaces); `--deactivate` takes it off, and the folder, its content and its
+settings stay. `--uninstall` removes the commands and keeps the settings file and the docs. The bash
+functions the commands call still live in `core/scripts/functions` (and in `scripts.functions` of
+the plugin, placed under `core/scripts/plugins/<name>/functions/`).
+
 ## Families
 
 Plugins that do the same job for different services share a base package, so a provider is thin and

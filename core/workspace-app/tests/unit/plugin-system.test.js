@@ -203,3 +203,45 @@ test('plugins.sh lists the step a plugin is at, activates and deactivates it in 
   assert.match(sh('--list').stdout, /x-cloud.*activated · next: install/);
   assert.strictEqual(sh('--activate', 'nope').status, 1, 'an unknown plugin is refused');
 });
+
+test('a plugin that is a workspace: install makes the folder, its settings file and commands; activate lists it; deactivate delists it; uninstall keeps the settings', () => {
+  const t = tree();
+  const dir = path.join(t.plugins, 'x-themes');
+  fs.mkdirSync(path.join(dir, 'config'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'commands'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: '@webship/workspace-x-themes', version: '0.1.0', main: 'index.js',
+    workspacePlugin: { name: 'x-themes', workspace: { key: 'x-themes', settingsTemplate: 'config/workspace.x-themes.settings.yml', files: ['commands/cmd-build-theme.sh'], docs: ['docs/AGENTS.md'] } } }));
+  fs.mkdirSync(path.join(dir, 'docs'));
+  fs.writeFileSync(path.join(dir, 'docs', 'AGENTS.md'), '# __WORKSPACE__\n');
+  fs.writeFileSync(path.join(dir, 'config', 'workspace.x-themes.settings.yml'), 'doc:\n  name: x-themes\ntype: code\nthemes:\n  - olivero\n');
+  fs.writeFileSync(path.join(dir, 'commands', 'cmd-build-theme.sh'), '#!/usr/bin/env bash\n# in __WORKSPACE__\n');
+  fs.writeFileSync(path.join(dir, 'index.js'), 'module.exports.register = () => {};');
+  const sh = (verb) => spawnSync('bash', [path.join(APP, '..', 'scripts', 'plugins.sh'), verb, 'x-themes'], { env: { ...process.env, ...env(t) }, encoding: 'utf8' });
+  const r = spawnSync(process.execPath, ['plugin-install.js', 'install', 'x-themes'], { cwd: APP, env: { ...process.env, ...env(t) }, encoding: 'utf8' });
+  assert.strictEqual(r.status, 0, r.stderr);
+  assert.ok(fs.existsSync(path.join(t.root, 'x-themes')), 'the folder is made');
+  assert.match(fs.readFileSync(path.join(t.config, 'workspace.x-themes.settings.yml'), 'utf8'), /- olivero/);
+  assert.match(fs.readFileSync(path.join(t.root, 'x-themes', 'cmd-build-theme.sh'), 'utf8'), /# in x-themes/);
+  assert.strictEqual(fs.readFileSync(path.join(t.root, 'x-themes', 'AGENTS.md'), 'utf8'), '# x-themes\n');
+  // A person's edits to the settings file and the docs survive a reinstall.
+  fs.writeFileSync(path.join(t.config, 'workspace.x-themes.settings.yml'), 'doc:\n  name: x-themes\ntype: code\nthemes:\n  - mine\n');
+  fs.writeFileSync(path.join(t.root, 'x-themes', 'AGENTS.md'), 'edited\n');
+  assert.strictEqual(spawnSync(process.execPath, ['plugin-install.js', 'install', 'x-themes'], { cwd: APP, env: { ...process.env, ...env(t) }, encoding: 'utf8' }).status, 0);
+  assert.match(fs.readFileSync(path.join(t.config, 'workspace.x-themes.settings.yml'), 'utf8'), /- mine/);
+  assert.strictEqual(fs.readFileSync(path.join(t.root, 'x-themes', 'AGENTS.md'), 'utf8'), 'edited\n');
+  const a = sh('--activate');
+  assert.strictEqual(a.status, 0, a.stderr);
+  assert.match(a.stdout, /Workspace x-themes added to the workspaces list/);
+  const listed = () => (require('js-yaml').load(fs.readFileSync(path.join(t.config, 'settings.yml'), 'utf8')).workspaces || []);
+  assert.deepStrictEqual(listed(), ['dev', 'modules', 'x-themes'], 'appended, in the dashboard order');
+  assert.strictEqual(sh('--activate').status, 0);
+  assert.deepStrictEqual(listed(), ['dev', 'modules', 'x-themes'], 'activating again does not double it');
+  const d = sh('--deactivate');
+  assert.strictEqual(d.status, 0, d.stderr);
+  assert.deepStrictEqual(listed(), ['dev', 'modules']);
+  const u = spawnSync(process.execPath, ['plugin-install.js', 'uninstall', 'x-themes'], { cwd: APP, env: { ...process.env, ...env(t) }, encoding: 'utf8' });
+  assert.strictEqual(u.status, 0, u.stderr);
+  assert.ok(!fs.existsSync(path.join(t.root, 'x-themes', 'cmd-build-theme.sh')), 'the command is gone');
+  assert.ok(fs.existsSync(path.join(t.config, 'workspace.x-themes.settings.yml')), 'the settings file stays: it holds what a person put there');
+  assert.ok(fs.existsSync(path.join(t.root, 'x-themes', 'AGENTS.md')), 'the docs stay');
+});

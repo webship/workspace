@@ -51,6 +51,22 @@ set_plugin_setting() {
 
 plugin_module() { ( cd "${APP}" && node plugin-manifest.js --json "$1" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s||"null");process.stdout.write(p&&p.module?p.module:"")})' ) ; }
 plugin_known()  { ( cd "${APP}" && node plugin-manifest.js "$1" > /dev/null 2>&1 ) ; }
+# A plugin that IS a workspace folder names it in its manifest (workspace.key); activating it puts the
+# key on settings.yml's workspaces list (the dashboard's order), deactivating takes it off.
+plugin_workspace_key() { ( cd "${APP}" && node plugin-manifest.js --json "$1" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s||"null");const w=p&&p.manifest&&p.manifest.workspace;process.stdout.write(w&&w.key?String(w.key):"")})' ) ; }
+set_workspaces_list() {
+  local verb="$1" key="$2" ;
+  [ -n "${key}" ] || return 0 ;
+  ( cd "${APP}" && node -e '
+    const [verb, key] = process.argv.slice(1);
+    const { upsertSettingsList } = require("./settings-file");
+    const { loadSettings } = require("./workspaces");
+    const now = (loadSettings().workspaces || []).map(String);
+    const next = verb === "add" ? (now.includes(key) ? now : [...now, key]) : now.filter((k) => k !== key);
+    if (next.join(",") !== now.join(",")) upsertSettingsList("settings.yml", "workspaces", next);
+    process.stdout.write(verb === "add" ? (now.includes(key) ? "" : `Workspace ${key} added to the workspaces list.\n`) : (now.includes(key) ? `Workspace ${key} taken off the workspaces list (the folder and its settings stay).\n` : ""));
+  ' "${verb}" "${key}" ) ;
+}
 
 verb="${1:-}"; name="${2:-}";
 case "${verb}" in
@@ -84,11 +100,13 @@ case "${verb}" in
     module="$(plugin_module "${name}")" ;
     set_plugin_setting "${name}" enabled true ;
     [ -n "${module}" ] && set_plugin_setting "${name}" module "${module}" ;
+    set_workspaces_list add "$(plugin_workspace_key "${name}")" ;
     echo "Activated: plugins.${name} in core/config/settings.yml. Next: --install ${name}." ;;
 
   --deactivate)
     [ -n "${name}" ] || { echo "Which plugin?" ; exit 1 ; } ;
     set_plugin_setting "${name}" enabled false ;
+    set_workspaces_list remove "$(plugin_workspace_key "${name}")" ;
     echo "Deactivated: plugins.${name}.enabled: false. Its files stay; --uninstall removes them." ;
     restart_app ;;
 
