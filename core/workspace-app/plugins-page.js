@@ -26,7 +26,7 @@ function needsInstall(m = {}) {
   const s = m.scripts || {};
   return !!((s.functions || []).length || (s.args || []).length || (s.machine || []).length || s.hostInstall
     || ((m.ddev || {}).compose || []).length || ((m.ddev || {}).hostMounts || []).length
-    || ((m.commands || {}).files || []).length || (m.themes || []).length || m.settingsTemplate);
+    || ((m.commands || {}).files || []).length || (m.themes || []).length || (m.features || []).length || m.settingsTemplate);
 }
 
 function stepOf(plugin, config, placed) {

@@ -22,6 +22,7 @@
  *   themes              -> core/config/
  *   settingsTemplate    -> core/config/plugin.<name>.settings.yml, only when absent, carrying the
  *                          values of the settings.yml block it replaces (legacySettingsKey)
+ *   features            -> core/workspace-app/tests/features/plugins/<name>/  (webship-js runs them)
  */
 
 const fs = require('fs');
@@ -145,6 +146,9 @@ function install(name) {
     }
   }
   for (const f of m.themes || []) { const d = path.join(CONFIG_DIR, path.basename(f)); copyFile(path.join(plugin.dir, f), d); placed.push(rel(d)); }
+  // webship-js features, under tests/features/plugins/<name>/: the dashboard's cucumber paths cover every
+  // folder below tests/features, so an installed plugin's scenarios run with `ddev test-dashboard browser`.
+  for (const f of m.features || []) { const d = path.join(ROOT, 'core', 'workspace-app', 'tests', 'features', 'plugins', name, path.basename(f)); copyFile(path.join(plugin.dir, f), d); placed.push(rel(d)); }
   placeSettings(plugin, placed);
   // What an earlier install placed and this one did not (a workspace that changed type, a file the
   // manifest dropped) goes away, so the tree never holds a stale copy.

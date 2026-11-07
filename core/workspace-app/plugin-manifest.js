@@ -16,7 +16,8 @@ const fs = require('fs');
 const path = require('path');
 
 const APP_DIR = __dirname;
-const PLUGINS_DIR = path.join(APP_DIR, 'plugins');
+// Overridable for tests, like WORKSPACE_ROOT: a temporary folder of fake plugins.
+const PLUGINS_DIR = process.env.WORKSPACE_PLUGINS_DIR || path.join(APP_DIR, 'plugins');
 
 function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return null; }

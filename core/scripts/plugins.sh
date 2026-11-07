@@ -19,7 +19,9 @@
 set -u
 WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}";
 WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(cd "${WORKSPACE_SCRIPTS}/../.." && pwd)}";
-APP="${WORKSPACE_ROOT}/core/workspace-app";
+# The dashboard app lives beside these scripts (not necessarily under WORKSPACE_ROOT: a test points the
+# root at a temporary tree while the code stays here).
+APP="$(cd "${WORKSPACE_SCRIPTS}/../workspace-app" && pwd)";
 SETTINGS="${WORKSPACE_ROOT}/core/config/settings.yml";
 
 usage() { sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^## \{0,1\}//'; }
@@ -27,6 +29,8 @@ usage() { sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^## \{0,1\}//'; }
 # Inside the dashboard container the app runs supervised; on the host there is nothing to restart but
 # the container's process, reached through docker.
 restart_app() {
+  # A test drives these verbs against a temporary tree; it must never restart the dashboard that serves.
+  [ -n "${WORKSPACE_PLUGINS_NO_RESTART:-}" ] && return 0 ;
   if command -v supervisorctl > /dev/null 2>&1 && supervisorctl status webextradaemons:workspace-app > /dev/null 2>&1 ; then
     supervisorctl restart webextradaemons:workspace-app ;
   elif command -v docker > /dev/null 2>&1 ; then

@@ -177,7 +177,7 @@ function loadPlugins() {
     // with a `file:` dependency in package.json), which is how a plugin is shared between machines.
     // A folder under plugins/<name>/ is the fallback, and the whole mechanism for a plugin that
     // needs no package.
-    const local = path.join(__dirname, 'plugins', name, 'index.js');
+    const local = path.join(require('./plugin-manifest').PLUGINS_DIR, name, 'index.js');
     let source = '';
     if (config.module) {
       try { require.resolve(String(config.module)); source = String(config.module); } catch (_) { /* not installed: say so below */ }

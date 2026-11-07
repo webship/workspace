@@ -1,0 +1,36 @@
+name: ci
+on:
+  push:
+    branches: ['1.0.x']
+  pull_request:
+jobs:
+  dashboard:
+    name: dashboard unit tests, plugin cycle, cmd smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      # The plugin packages live in private repositories of this organisation. A fine-grained token with
+      # read access to them goes in the WORKSPACE_PLUGINS_TOKEN secret; without it the job falls back to the
+      # workflow's own token, which reaches this repository only.
+      - run: git config --global url."https://x-access-token:${{ secrets.WORKSPACE_PLUGINS_TOKEN || github.token }}@github.com/".insteadOf "https://github.com/"
+      - run: sudo apt-get install -y -qq python3-yaml
+      - name: install the dashboard (plugins build on install)
+        working-directory: core/workspace-app
+        run: npm ci --no-audit --no-fund
+      - name: unit tests
+        working-directory: core/workspace-app
+        run: node --test tests/unit/*.test.js plugins/*/tests/*.test.js
+      - name: the plugin cycle on a clean tree
+        run: |
+          bash core/scripts/plugins.sh --list
+          bash core/scripts/plugins.sh --activate upsun
+          cd core/workspace-app && node plugin-install.js install upsun && cd ../..
+          bash core/scripts/plugins.sh --list
+          test -f dev/cmd-tools-upsun.sh
+          test -f core/scripts/plugins/upsun/functions/fun-upsun.sh
+          cd core/workspace-app && node plugin-install.js uninstall upsun
+      - name: every cmd-*.sh parses and answers --help
+        run: bash core/scripts/tests/cmd-smoke-test.sh
