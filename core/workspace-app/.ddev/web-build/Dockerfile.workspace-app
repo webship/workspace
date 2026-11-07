@@ -15,6 +15,9 @@ RUN apt-get update -o Acquire::AllowInsecureRepositories=true || true \
     # The docker client: `docker-cli` on trixie (DDEV >= 1.25), `docker.io` on bookworm (DDEV 1.24).
     && (apt-get install -y --no-install-recommends --allow-unauthenticated docker-cli \
         || apt-get install -y --no-install-recommends --allow-unauthenticated docker.io) \
+    # The compose plugin, for the DOCKER menu's verbs (docker compose up/down/ps/logs) from the dashboard.
+    && (apt-get install -y --no-install-recommends --allow-unauthenticated docker-compose-plugin \
+        || apt-get install -y --no-install-recommends --allow-unauthenticated docker-compose-v2 || true) \
     && rm -rf /var/lib/apt/lists/*
 
 # code-server — VS Code in the browser, the Web IDE the project rows link to.

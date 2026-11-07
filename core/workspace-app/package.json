@@ -24,7 +24,7 @@
     "@webship/workspace-github": "github:webship/workspace-github#1.0.x",
     "@webship/workspace-gitlab": "github:webship/workspace-gitlab#1.0.x",
     "@webship/workspace-godaddy": "github:webship/workspace-godaddy#1.0.x",
-    "@webship/workspace-google-drive": "file:plugins/google-drive-sync",
+    "@webship/workspace-google-drive": "github:webship/workspace-google-drive#1.0.x",
     "@webship/workspace-jira": "github:webship/workspace-jira#1.0.x",
     "@webship/workspace-kubernetes": "github:webship/workspace-kubernetes#1.0.x",
     "@webship/workspace-lando": "github:webship/workspace-lando#1.0.x",

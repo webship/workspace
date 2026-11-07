@@ -16,7 +16,7 @@ const yaml = require('js-yaml');
 
 const { CONFIG_DIR, loadSettings } = require('./workspaces');
 
-const LEGACY_KEYS = { 'google-drive-sync': 'google_drive' };
+const LEGACY_KEYS = {};
 // A plugin package says in its manifest which settings.yml block its file replaces.
 try {
   for (const p of require('./plugin-manifest').installedPlugins()) {

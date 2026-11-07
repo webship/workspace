@@ -81,7 +81,6 @@ source ${WORKSPACE_SCRIPTS}/functions/fun-ragify.sh || exit 1 ;
 source ${WORKSPACE_SCRIPTS}/functions/fun-rag.sh || exit 1 ;
 
 # Include Google Drive (push a workspace folder to a Drive folder, and its MCP server) functions.
-source ${WORKSPACE_SCRIPTS}/functions/fun-drive-sync.sh || exit 1 ;
 
 # Include automated-testing (set up and run a project's suite) functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-testing.sh || exit 1 ;

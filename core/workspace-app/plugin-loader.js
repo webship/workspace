@@ -98,9 +98,7 @@ const loaded = [];           // { name, source } for the settings page and diagn
 // overwritten by an update, so a plugin that needed its entry added by hand would simply not
 // appear for anybody who had installed before it existed. A line in the file still wins, so
 // `enabled: false` turns one off.
-const SHIPPED_PLUGINS = {
-  'google-drive-sync': { enabled: true, module: '@webship/workspace-google-drive', workspaces: 'videos,audio,docs,specs,test' },
-};
+const SHIPPED_PLUGINS = {};
 
 function pluginConfigs() {
   const block = loadSettings().plugins;

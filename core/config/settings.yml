@@ -236,6 +236,10 @@ assistant:
 # modules (module: <require-name>). `workspaces` limits which folders get the feature; empty or
 # absent means all of them. See core/workspace-app/PLUGINS.md to write one.
 plugins:
+  google-drive-sync:
+    module: "@webship/workspace-google-drive"
+    enabled: true
+    workspaces: videos,audio,docs,specs,test
   docker:
     module: "@webship/workspace-docker"
     enabled: true
