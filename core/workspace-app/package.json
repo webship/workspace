@@ -13,6 +13,12 @@
   "license": "ISC",
   "description": "Visual dashboard + AI assistant for the Webship Workspace tooling",
   "dependencies": {
+    "@webship/workspace-acquia": "github:webship/workspace-acquia#1.0.x",
+    "@webship/workspace-aws": "github:webship/workspace-aws#1.0.x",
+    "@webship/workspace-azure": "github:webship/workspace-azure#1.0.x",
+    "@webship/workspace-cpanel": "github:webship/workspace-cpanel#1.0.x",
+    "@webship/workspace-digitalocean": "github:webship/workspace-digitalocean#1.0.x",
+    "@webship/workspace-godaddy": "github:webship/workspace-godaddy#1.0.x",
     "@webship/workspace-google-drive": "file:plugins/google-drive-sync",
     "@webship/workspace-jira": "github:webship/workspace-jira#1.0.x",
     "@webship/workspace-upsun": "github:webship/workspace-upsun#1.0.x",

@@ -236,6 +236,24 @@ assistant:
 # modules (module: <require-name>). `workspaces` limits which folders get the feature; empty or
 # absent means all of them. See core/workspace-app/PLUGINS.md to write one.
 plugins:
+  acquia:
+    module: "@webship/workspace-acquia"
+    enabled: true
+  aws:
+    module: "@webship/workspace-aws"
+    enabled: true
+  azure:
+    module: "@webship/workspace-azure"
+    enabled: true
+  cpanel:
+    module: "@webship/workspace-cpanel"
+    enabled: true
+  digitalocean:
+    module: "@webship/workspace-digitalocean"
+    enabled: true
+  godaddy:
+    module: "@webship/workspace-godaddy"
+    enabled: true
   jira:
     module: "@webship/workspace-jira"
     enabled: true
