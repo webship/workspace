@@ -20,7 +20,6 @@ const css = read('public/css/components/project-rows.css');
 test('the agent chip says working, or waiting for you, in words', () => {
   assert.match(server, /\$\{agentWaiting \? 'waiting for you' : 'agent working'\}/);
   assert.ok(!/agent running\$\{/.test(server), 'the chip no longer says running');
-  assert.match(server, /agent working<\/span> ` : ''/, 'and neither does the same chip on the Jira page');
 });
 
 test('the toolbar says how many are waiting, not only a hand', () => {

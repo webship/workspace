@@ -1,0 +1,20 @@
+# Labels for core/config/plugin.jira.settings.yml, merged into the Settings page.
+site:
+  label: Jira site
+  info: The Atlassian site the dashboard links workitems to (https://<org>.atlassian.net).
+account:
+  label: My Jira account
+  info: Whose workitems the "My workitems" scope shows — your Jira email or account id. Empty hides that scope.
+default_project:
+  label: Default Jira project
+  info: Preselected in the workitems modal. A project's own .jira-project file overrides it per project ("Remember" in the modal).
+allow_writes:
+  label: Allow writing to Jira
+  info: Off = agents work locally and post NOTHING to Jira. On = "Do the work" also posts a PM-readable comment and a worklog. Comments and worklogs stay refused while off.
+  options:
+    "false": "Off — never post to Jira (default)"
+    "true": "On — agents may comment and log work"
+max_agents:
+  label: Task agents at once
+  info: How many Claude Code agents may work Jira workitems at the same time. Each is a full session inside a site; too many can exhaust the machine.
+  number: { min: 1, max: 8, step: 1 }

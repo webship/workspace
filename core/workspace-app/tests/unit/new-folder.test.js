@@ -105,23 +105,17 @@ test('the setup line chains DDEV, the webship-js setup and what the plugins add,
 
 test('the AI tasks go to one Claude Code prompt, and the form is checked before anything is made', () => {
   const fa = require('../../actions/folders');
-  const p = fa.claudePrompt('dev', 'demo1', { jira: '1', jira_project: 'WEBSHIP', note: 'Try search', prompt: 'Then say hello' });
-  assert.match(p, /jira-workitem-manager agent to create one workitem in the Jira project WEBSHIP/);
+  const p = fa.claudePrompt('dev', 'demo1', { note: 'Try search', prompt: 'Then say hello' });
   assert.ok(p.endsWith('Then say hello'));
   assert.equal(fa.claudePrompt('dev', 'demo1', {}), '');
-  if (fa.jiraProject('dev')) {
-    assert.match(fa.formProblem('dev', { jira: '1', jira_project: 'WEBSHIP', note: '' }), /what the folder is for/);
-    assert.match(fa.formProblem('dev', { jira: '1', jira_project: '1x', note: 'x' }), /Jira project key/);
-  }
   assert.equal(fa.formProblem('dev', {}), '');
 });
 
-test('the form offers Jira where the workspace has it, and the sections plugins hand it', () => {
-  const html = folders.folderFormHtml('dev', { jiraProject: 'WEBSHIP', pluginSetups: '<div class="x-plugin-setup">cloud</div>' });
-  assert.match(html, /name="jira" value="1"/);
-  assert.match(html, /name="jira_project" value="WEBSHIP"/);
+test('the form offers the sections plugins hand it, under Connect it', () => {
+  const html = folders.folderFormHtml('dev', { pluginSetups: '<div class="x-plugin-setup">cloud</div>' });
+  assert.match(html, /Connect it/, 'the section opens when a plugin hands something in');
   assert.match(html, /x-plugin-setup/, 'a plugin section is under Connect it');
   const bare = folders.folderFormHtml('modules', {});
-  assert.doesNotMatch(bare, /name="jira"|Connect it/);
+  assert.doesNotMatch(bare, /Connect it/);
   const css = fs.readFileSync(path.join(root, 'public/css/components/folders.css'), 'utf8');
 });

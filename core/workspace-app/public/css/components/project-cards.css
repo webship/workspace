@@ -113,7 +113,6 @@ html[data-rows-view="grid-1"] #webship-workspace-projects .project-row { max-wid
 .pcard-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; min-width: 0; min-height: var(--pcard-chip); }
 .pcard-meta .pcard-chip,
 .pcard-meta .proj-alias,
-.pcard-meta .jira-key,
 .pcard-meta > .uk-label {
   display: inline-flex;
   align-items: center;

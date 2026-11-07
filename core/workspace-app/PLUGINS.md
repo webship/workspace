@@ -149,6 +149,23 @@ module.exports.register = (api) => {
 | `api.addTypeAction(action, types)` | What the manifest's `typeActions` does, from code. |
 | `api.addCss(file)` | A stylesheet appended after the components (what the manifest's `css` does). |
 | `api.addLabels(map)` | Labels for its settings keys (what the manifest's `labels` does). |
+| `api.addProjectBadge(fn)` | A badge in the project card's corner, sent with every screens poll so it clears itself. `fn({ key, project, dir, sessions })` returns HTML or null; `sessions` is the project's live screens. |
+| `api.addSettingsOptions(file, dotted, fn)` | Live options for a field of a settings file (what a CLI can see rather than a hand-typed key). `fn()` is async and returns `[value, label][]`, or null for a plain input. |
+| `api.addScreenStartHook(fn)` | Called after a screen session started for a work item (the New screen form's `work` key): `fn({ session, workKey, workspace, project, dir, form })` notes the run, posts if asked, returns HTML or ''. |
+| `api.addWorkKeyLink(fn)` | Where a work-item key found in a project's name links to: `fn(key)` returns a URL or null (the chip is plain text without one). |
+| `api.addWorkPrompt(fn)` | The prompt a screen started for a work item begins with: `fn({ key, workspace, project })` returns it, or null for the dashboard's own. |
+| `api.addSessionLog(fn)` | Where a session's log lives when the dashboard does not know: `fn(session, dirs)` returns a file in one of `dirs`, or ''. |
+| `api.addAssistantContext(fn)` | A paragraph of the assistant's system context: what this plugin lets it reach, and the rules. |
+
+`api.lib` also lends `tabModalHtml`, `hubDomain()`, `listScreens()`, `agentSessions()`, `screenLogFor()`, `claudeSessionsFor()` and
+`screensCached()` (the last `screen -ls`, for a renderer that cannot wait). The types of all of it are
+`@webship/workspace-plugin-api`; a plugin written in TypeScript is checked against them.
+
+## TypeScript
+
+A plugin package is TypeScript: `src/` compiled to `dist/` by `tsc` on install (`prepare`), so the dashboard
+requires `dist/src/index.js` and a clone of the repository builds itself. Its tests are TypeScript too
+and run compiled (`npm test`); `@webship/workspace-upsun` is the shape to copy.
 | `api.settings` | This plugin's own settings file: `file`, `read()`, `set(dotted, value)` and `setList(dotted, items)`, which change one key or list in place, comments kept, creating the file when it is missing. |
 | `api.lib` | Shared helpers: `esc`, `humanSize`, `humanTime`, `ROOT`, `loadWorkspaces`, `workspaceDir`, `isValidWorkspace`, `startJob`, `jobFragment`, `listProjects`, `NAME_RE`, `wsUrl` — `screenAction` (start a command as a Screen session, the way every long action does), `auth` (`sessionOf(req)`, `googleButton`, `BUTTON_CSS` from the dashboard's Google sign-in), plus the type layer: `TYPES`, `workspaceType(key)`, `typeAllows(key, action)`. |
 

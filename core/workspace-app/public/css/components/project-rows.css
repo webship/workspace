@@ -131,8 +131,8 @@
    line of its own while the row still had room for it. Pushed right it costs nothing until the row is
    genuinely full, and then it wraps like every other control. */
 .project-note-corner { margin-left: auto; display: inline-flex; align-items: center; gap: .5rem; }
-.project-jira-keys:empty { display: none; }
-.project-jira-keys { display: inline-flex; align-items: center; gap: .4rem; }
+.project-plugin-badges:empty { display: none; }
+.project-plugin-badges { display: inline-flex; align-items: center; gap: .4rem; }
 
 /* Quiet until there is something to read is the TOKEN's job, not an opacity: fading a colour that was
    checked for contrast is how every contrast failure here started, and tests/unit/accessibility.test.js
@@ -144,17 +144,6 @@
 .project-real-name { font-size: .7rem; color: var(--text-subtle); }
 .project-title-row .project-title[title] { cursor: help; }
 
-/* The workitem an agent here is working: small text, because it is a reference rather than a state —
-   the states live on the name line, this says what the running agent is FOR. It opens the workitem in
-   Jira, so it is link-coloured and underlined on hover like every other outbound reference here.
-   Prefixed with the cluster because UIKit is linked AFTER this stylesheet: a single class of ours loses
-   the tie, which is what left this rendering as grey meta text rather than as the link it is. */
-.project-note-corner .jira-key {
-  font-size: .75rem; font-family: var(--font-code); font-weight: 600;
-  color: var(--link); text-decoration: none; white-space: nowrap;
-}
-.project-note-corner .jira-key:hover,
-.project-note-corner .jira-key:focus-visible { text-decoration: underline; }
 
 /* ---------- Browsing a folder of files (docs, designs) ---------- */
 

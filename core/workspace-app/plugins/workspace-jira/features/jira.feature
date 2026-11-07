@@ -1,4 +1,4 @@
-Feature: Jira tasks on the project rows
+Feature: The Jira plugin on the project rows
   A sites workspace project row offers its Jira surface, and the actions hold
   their guards without ever needing Jira to answer.
 
@@ -6,24 +6,24 @@ Feature: Jira tasks on the project rows
   # rows carry the menu and the modal link.
   Scenario: The JIRA menu is on the project rows
     Given I am on "/dev"
-     Then "[hx-get^='/fragments/projects/jira/dev/']" should be attached
+     Then "[hx-get^='/fragments/p/jira/list/dev/']" should be attached
 
   # The guards answer without Jira: a malformed key never reaches twg.
   Scenario: A malformed key is refused at the door
-    When I post "/actions/jira-task" with '{"workspace":"dev","projectName":"v11x00b1i18n","key":"not-a-key","mode":"view"}'
+    When I post "/actions/p/jira/task" with '{"workspace":"dev","projectName":"v11x00b1i18n","key":"not-a-key","mode":"view"}'
     Then the action response should contain "Not a Jira key"
 
   @needs-jira-writes-off
   Scenario: Write modes are refused while Jira writes are off
-    When I post "/actions/jira-task" with '{"workspace":"dev","projectName":"v11x00b1i18n","key":"WEBSHIP-1","mode":"comment"}'
+    When I post "/actions/p/jira/task" with '{"workspace":"dev","projectName":"v11x00b1i18n","key":"WEBSHIP-1","mode":"comment"}'
     Then the action response should contain "Writing to Jira is off"
 
   Scenario: An unknown project cannot host an agent
-    When I post "/actions/jira-task" with '{"workspace":"dev","projectName":"no-such-project","key":"WEBSHIP-1","mode":"view"}'
+    When I post "/actions/p/jira/task" with '{"workspace":"dev","projectName":"no-such-project","key":"WEBSHIP-1","mode":"view"}'
     Then the action response should contain "Project not found"
 
   Scenario: Watching a task nobody worked on says so
-    When I post "/actions/jira-task" with '{"workspace":"dev","projectName":"v11x00b1i18n","key":"WEBSHIP-424242","mode":"watch"}'
+    When I post "/actions/p/jira/task" with '{"workspace":"dev","projectName":"v11x00b1i18n","key":"WEBSHIP-424242","mode":"watch"}'
     Then the action response should contain "No agent log"
 
   Scenario: The Screens modal lists sessions or says there are none

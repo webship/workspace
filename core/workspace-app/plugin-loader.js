@@ -32,6 +32,8 @@ const { fileFor, readPluginSettings, ensurePluginSettingsFile } = require('./plu
 const googleAuth = require('./auth-google');
 const { iconHtml } = require('./icons');
 const { commandBlock } = require('./command-block');
+const { tabModalHtml } = require('./tab-modal');
+const claudeSessions = require('./claude-sessions');
 const { installedPlugins } = require('./plugin-manifest');
 
 // What register(api) hands every plugin. Shared helpers rather than reaching into server.js: the
@@ -40,7 +42,16 @@ const lib = {
   esc, humanSize, humanTime, cliError,
   ROOT, CONFIG_DIR, loadSettings, loadWorkspaces, workspaceDir, isValidWorkspace,
   run, startJob, jobFragment, runningJobKey, listProjects, screenAction, startInScreen, screenStartedHtml,
-  NAME_RE, wsUrl, iconHtml, commandBlock,
+  NAME_RE, wsUrl, iconHtml, commandBlock, tabModalHtml,
+  // The dashboard's hostname, for links a plugin posts elsewhere; the screen sessions on this machine;
+  // which of them are agents; and the Claude Code transcripts a folder holds.
+  hubDomain: () => require('./workspaces').hubDomain(),
+  listScreens: (...a) => require('./screens').listScreens(...a),
+  agentSessions: (...a) => require('./screens').agentSessions(...a),
+  screenLogFor: (...a) => require('./screens').screenLogFor(...a),
+  claudeSessionsFor: (...a) => claudeSessions.sessionsFor(...a),
+  // The last `screen -ls`, for a renderer that cannot wait: refreshed in the background, at most every 10s.
+  screensCached: () => screensCached(),
   // The type registry, and what a workspace resolved to — so a plugin can offer itself only
   // where it makes sense ("sites only", "not on media").
   TYPES,
@@ -63,6 +74,23 @@ const chipFns = [];          // ({ key, project, dir, meta }) -> html | null
 const folderSetups = [];     // { html(ws, ctx), steps(ws, name, form, ctx), prompt(ws, name, form, ctx), problem(ws, form, ctx) }
 const cssFiles = [];         // absolute paths, appended to the stylesheet after the components
 let labels = {};             // settings labels, merged into settings.labels.yml's
+const badgeFns = [];         // ({ key, project, dir, sessions }) -> html | null, in the card's corner, refreshed with the screens poll
+const settingsOptionFns = []; // ({ file, dotted }) -> Promise<[value, label][] | null>
+const screenStartFns = [];   // async ({ session, workKey, workspace, project, dir, form }) -> html | ''
+const workKeyLinkFns = [];   // (key) -> url | null
+const workPromptFns = [];    // ({ key, workspace, project }) -> prompt | null
+const sessionLogFns = [];    // (session, dirs) -> file | ''
+const assistantContextFns = []; // () -> a paragraph for the assistant's system context, or ''
+
+let _screens = { at: 0, rows: [], running: false };
+function screensCached() {
+  if (!_screens.running && Date.now() - _screens.at > 10 * 1000) {
+    _screens.running = true;
+    require('./screens').listScreens().then((rows) => { _screens = { at: Date.now(), rows: rows || [], running: false }; })
+      .catch(() => { _screens.running = false; });
+  }
+  return _screens.rows;
+}
 const loaded = [];           // { name, source } for the settings page and diagnostics
 
 // Plugins that are on without a line in settings.yml. A machine's settings.yml is never
@@ -146,6 +174,37 @@ function makeApi(name, config) {
     },
     addLabels(map) {
       labels = { ...labels, ...map };
+    },
+    // A badge in the project card's corner, sent with every screens poll (so it clears itself): what an
+    // agent here is working on, say. `sessions` is this project's live screen list.
+    addProjectBadge(fn) {
+      badgeFns.push(fn);
+    },
+    // Live options for a field of a settings file ('plugin.jira.settings.yml', 'default_project'): what a
+    // CLI can see, rather than a hand-typed value. Async; null means a plain input.
+    addSettingsOptions(file, dotted, fn) {
+      settingsOptionFns.push({ file, dotted, fn });
+    },
+    // Called after a screen session started for a work item (the New screen form's `work` key): note
+    // the run, say so on the item. Returns HTML to show, or ''.
+    addScreenStartHook(fn) {
+      screenStartFns.push(fn);
+    },
+    // Where a work-item key found in a project's name links to.
+    addWorkKeyLink(fn) {
+      workKeyLinkFns.push(fn);
+    },
+    // The prompt a screen started for a work item begins with, or null for the dashboard's own.
+    addWorkPrompt(fn) {
+      workPromptFns.push(fn);
+    },
+    // Where a session's log lives when the dashboard does not know ('jira-<key>' logs inside the project).
+    addSessionLog(fn) {
+      sessionLogFns.push(fn);
+    },
+    // A paragraph of the assistant's system context: what this plugin lets it reach, and the rules.
+    addAssistantContext(fn) {
+      assistantContextFns.push(fn);
     },
   };
 }
@@ -293,6 +352,41 @@ function pluginProjectChipsHtml(ctx) {
 }
 
 const pluginFolderSetups = () => folderSetups;
+
+function pluginProjectBadgesHtml(ctx) {
+  let html = '';
+  for (const fn of badgeFns) { try { html += fn(ctx) || ''; } catch (_) { /* a broken badge is no badge */ } }
+  return html;
+}
+async function pluginSettingsOptions(file, dotted) {
+  for (const o of settingsOptionFns) {
+    if (o.file !== file || o.dotted !== dotted) continue;
+    try { const r = await o.fn({ file, dotted }); if (r && r.length) return r; } catch (_) { /* a plain input then */ }
+  }
+  return null;
+}
+async function pluginScreenStarted(ctx) {
+  let html = '';
+  for (const fn of screenStartFns) { try { html += (await fn(ctx)) || ''; } catch (err) { html += `<div class="msg error">${esc(err.message)}</div>`; } }
+  return html;
+}
+function pluginWorkKeyLink(key) {
+  for (const fn of workKeyLinkFns) { try { const u = fn(key); if (u) return u; } catch (_) { /* next */ } }
+  return null;
+}
+function pluginWorkPrompt(ctx) {
+  for (const fn of workPromptFns) { try { const p = fn(ctx); if (p) return p; } catch (_) { /* next */ } }
+  return null;
+}
+function pluginAssistantContext() {
+  const out = [];
+  for (const fn of assistantContextFns) { try { const s = fn(); if (s) out.push(s); } catch (_) { /* next */ } }
+  return out;
+}
+function pluginSessionLog(session, dirs) {
+  for (const fn of sessionLogFns) { try { const f = fn(session, dirs); if (f) return f; } catch (_) { /* next */ } }
+  return '';
+}
 const pluginCssFiles = () => cssFiles.filter((f) => fs.existsSync(f));
 const pluginLabels = () => labels;
 
@@ -301,5 +395,6 @@ loadPlugins();
 module.exports = {
   pluginActions: actions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
   pluginRowMenus, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginLabels,
+  pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext,
   loadedPlugins: loaded, pluginConfigs,
 };

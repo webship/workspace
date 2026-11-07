@@ -58,7 +58,7 @@ async function listContainerScreens() {
 }
 
 // Where a session's log lives, when the dashboard knows the convention:
-// jira-<key> logs sit in the project that ran the agent; generic runs log
+// a plugin's sessions log where the plugin says; generic runs log
 // under ~/.workspace-screens/<session>.log. Unknown sessions return null —
 // they can still be stopped or reattached, just not tailed.
 function screenLogFor(session) {
@@ -68,18 +68,16 @@ function screenLogFor(session) {
     const f = path.join(dir, `${session}.log`);
     if (fs.existsSync(f)) return f;
   }
-  const m = session.match(/(?:^|--)jira-([a-z0-9]+-[0-9]+)$/);
-  if (m) {
-    const key = m[1].toUpperCase();
+  // A plugin's convention (a jira-<key> session logs inside the project it works): asked of every
+  // project folder, so a session started by hand is found the same as one the dashboard started.
+  {
+    const dirs = [];
     for (const ws of Object.values(loadWorkspaces())) {
       if (ws.kind === 'files') continue;
-      try {
-        for (const p of fs.readdirSync(ws.dir)) {
-          const f = path.join(ws.dir, p, `.jira-${key}.log`);
-          if (fs.existsSync(f)) return f;
-        }
-      } catch (_) { /* skip */ }
+      try { for (const p of fs.readdirSync(ws.dir)) dirs.push(path.join(ws.dir, p)); } catch (_) { /* skip */ }
     }
+    const f = require('./plugin-loader').pluginSessionLog(session, dirs);
+    if (f) return f;
   }
   return null;
 }
@@ -302,7 +300,7 @@ function promptTemplates() {
 }
 
 /** The sessions running in a directory: the .cwd note each start leaves, plus
- * the jira-<key> convention whose log lives inside the project itself. */
+ * whatever convention a plugin's sessions follow (a log inside the project). */
 async function screensForDir(dir) {
   const live = await listScreens();
   const store = path.join(ROOT, '.screens');
@@ -310,9 +308,7 @@ async function screensForDir(dir) {
     try {
       if (fs.readFileSync(path.join(store, `${s.session}.cwd`), 'utf8').trim() === dir) return true;
     } catch (_) { /* no note */ }
-    const m = s.session.match(/(?:^|--)jira-([a-z0-9]+-[0-9]+)/);
-    if (m) return fs.existsSync(path.join(dir, `.jira-${m[1].toUpperCase()}.log`));
-    return false;
+    return !!require('./plugin-loader').pluginSessionLog(s.session, [dir]);
   });
 }
 
@@ -353,9 +349,8 @@ async function activityByDir(dirs) {
       const d = fs.readFileSync(path.join(store, `${session}.cwd`), 'utf8').trim();
       if (known.has(d)) return d;
     } catch (_) { /* no note */ }
-    const m = session.match(/(?:^|--)jira-([a-z0-9]+-[0-9]+)/);
-    if (m) return dirs.find((d) => fs.existsSync(path.join(d, `.jira-${m[1].toUpperCase()}.log`))) || '';
-    return '';
+    const f = require('./plugin-loader').pluginSessionLog(session, dirs);
+    return f ? (dirs.find((d) => f.startsWith(d + path.sep)) || '') : '';
   };
   return activityFromSessions(sessions, { agents: agentSessions(sessions), dirOf });
 }

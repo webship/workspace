@@ -116,38 +116,14 @@ async function screen_new({ form, send, res }) {
   if (answer.already) return send(`<div class="msg error">A session called <strong>${esc(fullSession)}</strong> is already running.</div>`, 409);
   if (!answer.ok) return send(`<div class="msg error">Could not start it: <pre>${esc(String(answer.error || '').slice(-250))}</pre></div>`, 500);
 
-  // Started for a Jira workitem: note the run, and say so on the workitem if that was asked for.
-  //
-  // The note is written whether or not anything is posted — a workitem gets worked more than once, and
-  // `screen -ls` answers only for the ones still running, so a finished run would otherwise leave
-  // nothing that maps a conversation back to the task.
+  // Started for a work item (the form's `work_key`): the plugins note the run and say so on the item
+  // if that was asked for. The dashboard itself keeps no record of what a key means.
   const workKey = String(form.work_key || '').toUpperCase();
   let posted = '';
   if (/^[A-Z][A-Z0-9]+-[0-9]+$/.test(workKey)) {
-    const runs = require('../jira-sessions');
     const wm = String(form.target || '').match(/^p:([a-z0-9_-]+):(.+)$/);
-    runs.recordRun(fullSession, { key: workKey, workspace: wm ? wm[1] : '', project: wm ? wm[2] : '', dir });
-    const claudeId = await runs.fillClaudeId(fullSession, dir);
-    if (String(form.comment_session || '') === '1') {
-      const { hubDomain } = require('../workspaces');
-      const where = `https://${hubDomain()}/terminal/${encodeURIComponent(fullSession)}`;
-      // Written HERE, and only the session's identity: never a transcript, an output, or anything the
-      // agent said. It says where it runs, because a reader of the workitem is not necessarily at this
-      // machine — and it says plainly that there is no claude.ai page, so nobody goes looking for one.
-      const body = [
-        `🤖 Claude Code is working on this${wm ? ` in **${wm[2]}** (${wm[1]})` : ''}.`,
-        '',
-        `- session: \`${fullSession}\``,
-        `- watch it: ${where}`,
-        ...(claudeId ? [`- resume the conversation on that machine: \`claude --resume ${claudeId}\``] : []),
-        '',
-        '_Started from the Webship Workspace dashboard. The session runs on that machine, not on claude.ai._',
-      ].join('\n');
-      const r = await require('../jira').postComment(workKey, body);
-      posted = r.ok
-        ? `<div class="msg assistant">Commented on <strong>${esc(workKey)}</strong> that <code>${esc(fullSession)}</code> is running.</div>`
-        : `<div class="msg error">The session started, but the comment on ${esc(workKey)} did not post: <pre>${esc(r.error.slice(0, 200))}</pre></div>`;
-    }
+    posted = await require('../plugin-loader').pluginScreenStarted({ session: fullSession, workKey,
+      workspace: wm ? wm[1] : '', project: wm ? wm[2] : '', dir, form });
   }
   // A session that exists now should show up now: the badge in the topbar, the row's SCREENS menu and
   // the screens page all listen for this, so none of them waits out its own poll to admit that the

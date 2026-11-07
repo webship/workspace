@@ -78,16 +78,21 @@ core/workspace-app/.cache/
 core/workspace-app/.ddev/docker-compose.second-storage.yaml
 
 # plugins — managed by core/scripts/plugins.sh; do not edit between the markers
+/core/config/plugin.jira.settings.yml
 /core/config/plugin.upsun.settings.yml
 /core/config/plugins.installed.yml
 /core/config/theme.upsun.yml
 /core/scripts/plugins/
+/core/scripts/plugins/jira/host-install.sh
+/core/scripts/plugins/jira/host-mounts.txt
 /core/scripts/plugins/upsun/args/arg-upsun.sh
 /core/scripts/plugins/upsun/functions/fun-upsun.sh
 /core/scripts/plugins/upsun/host-install.sh
 /core/scripts/plugins/upsun/host-mounts.txt
 /core/scripts/plugins/upsun/upsun-ai.sh
+/core/workspace-app/.ddev/docker-compose.plugin-jira-twg.yaml
 /core/workspace-app/.ddev/docker-compose.plugin-upsun-upsun-cli.yaml
+/core/workspace-app/tests/features/plugins/jira/jira.feature
 /demos/cmd-tools-upsun.sh
 /dev/cmd-tools-upsun.sh
 /projects/cmd-tools-upsun.sh

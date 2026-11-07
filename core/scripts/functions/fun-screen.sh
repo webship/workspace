@@ -66,17 +66,13 @@ function screen_command() {
     return $? ;
   fi
 
-  # A jira-<key> session logs inside the project that runs it, not here.
+  # A session a plugin started may log inside the project it works, as .<session-tail>.log (a Jira
+  # agent's `dev--site1--jira-key-1` writes .JIRA-KEY-1.log there): looked for by name, case aside.
   if [ ! -f "${logfile}" ] ; then
-    case "${SESSION}" in
-      jira-*)
-        local key ;
-        key="$(echo "${SESSION#jira-}" | tr '[:lower:]' '[:upper:]')" ;
-        local found ;
-        found="$(find "${WORKSPACE_ROOT}" -maxdepth 3 -name ".jira-${key}.log" -print -quit 2>/dev/null)" ;
-        [ -n "${found}" ] && logfile="${found}" ;
-      ;;
-    esac ;
+    local tail_name found ;
+    tail_name="${SESSION##*--}" ;
+    found="$(find "${WORKSPACE_ROOT}" -maxdepth 3 -iname ".${tail_name}.log" -print -quit 2>/dev/null)" ;
+    [ -n "${found}" ] && logfile="${found}" ;
   fi
 
   if [ "${FOLLOW}" == 'yes' ] ; then

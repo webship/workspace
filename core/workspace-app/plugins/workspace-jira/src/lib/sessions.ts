@@ -19,17 +19,22 @@
  * Nothing here posts anything anywhere. What a run is worth telling Jira is the caller's decision.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import type { PluginLib } from '@webship/workspace-plugin-api';
 
-const { ROOT } = require('./workspaces');
-const claudeSessions = require('./claude-sessions');
+export interface RunNote { session: string; key: string; project: string; dir: string; at: number; claude: string }
+export interface Run extends RunNote { live: boolean }
+export interface LiveSession { session: string; state?: string }
+
+export default function sessions(lib: PluginLib) {
+  const { ROOT } = lib;
 
 const STORE = () => path.join(ROOT, '.screens');
-const noteFile = (session) => path.join(STORE(), `${session}.run.json`);
+const noteFile = (session: string) => path.join(STORE(), `${session}.run.json`);
 
 /** The workitem a session name carries, if it carries one: `dev--blog1--jira-webship-2199`. */
-function keyOfSession(session) {
+function keyOfSession(session: unknown): string {
   const m = String(session || '').match(/--jira-([a-z][a-z0-9]*-[0-9]+)(?:--|$)/i);
   return m ? m[1].toUpperCase() : '';
 }
@@ -41,10 +46,10 @@ function keyOfSession(session) {
  * and the newest of those belongs to the LAST run, not to the one just started. Only a transcript
  * written after the session came up can be this session's.
  */
-function claudeIdFor(dir, since) {
+function claudeIdFor(dir: string, since: number): string {
   if (!dir) return '';
   try {
-    const [latest] = claudeSessions.sessionsFor(dir, { limit: 1 });
+    const [latest] = lib.claudeSessionsFor(dir, { limit: 1 }) as any[];
     if (!latest) return '';
     const at = Number(latest.at || 0);
     return at && at >= since - 2000 ? latest.id : '';
@@ -54,7 +59,7 @@ function claudeIdFor(dir, since) {
 }
 
 /** Write the note for a run that has just started. Returns what was written. */
-function recordRun(session, { key, workspace, project, dir }) {
+function recordRun(session: string, { key, workspace, project, dir }: { key: string; workspace?: string; project?: string; dir?: string }): Omit<RunNote, 'session'> {
   const note = {
     key: String(key || '').toUpperCase(),
     project: [workspace, project].filter(Boolean).join('/'),
@@ -76,8 +81,8 @@ function recordRun(session, { key, workspace, project, dir }) {
  * caller is answering a click. It gives up quietly — a note without an id still says a run happened,
  * which is most of what the list is for.
  */
-async function fillClaudeId(session, dir, { tries = 6, waitMs = 700 } = {}) {
-  let note;
+async function fillClaudeId(session: string, dir: string, { tries = 6, waitMs = 700 } = {}): Promise<string> {
+  let note: any;
   try { note = JSON.parse(fs.readFileSync(noteFile(session), 'utf8')); } catch (_) { return ''; }
   for (let i = 0; i < tries; i += 1) {
     const id = claudeIdFor(dir, note.at);
@@ -92,7 +97,7 @@ async function fillClaudeId(session, dir, { tries = 6, waitMs = 700 } = {}) {
 }
 
 /** One run, as the page and the comment both want it. */
-function readNote(session) {
+function readNote(session: string): RunNote | null {
   try {
     const n = JSON.parse(fs.readFileSync(noteFile(session), 'utf8'));
     return { session, ...n };
@@ -107,13 +112,13 @@ function readNote(session) {
  * Live is asked of the sessions passed in rather than looked up here, so the caller makes one
  * `screen -ls` for a page of workitems instead of one per row.
  */
-function runsFor(key, liveSessions = []) {
+function runsFor(key: unknown, liveSessions: LiveSession[] = []): Run[] {
   const want = String(key || '').toUpperCase();
   if (!want) return [];
   const live = new Set(liveSessions.filter((s) => !/dead/i.test(s.state || '')).map((s) => s.session));
   let files = [];
   try { files = fs.readdirSync(STORE()).filter((f) => f.endsWith('.run.json')); } catch (_) { return []; }
-  const runs = [];
+  const runs: Run[] = [];
   for (const f of files) {
     const note = readNote(f.replace(/\.run\.json$/, ''));
     if (!note || note.key !== want) continue;
@@ -127,7 +132,8 @@ function runsFor(key, liveSessions = []) {
     if (runs.some((r) => r.session === s.session)) continue;
     runs.push({ session: s.session, key: want, project: '', dir: '', at: 0, claude: '', live: true });
   }
-  return runs.sort((a, b) => (b.live - a.live) || (b.at - a.at));
+  return runs.sort((a, b) => (Number(b.live) - Number(a.live)) || (b.at - a.at));
 }
 
-module.exports = { keyOfSession, recordRun, fillClaudeId, readNote, runsFor, claudeIdFor, noteFile };
+  return { keyOfSession, recordRun, fillClaudeId, readNote, runsFor, claudeIdFor, noteFile };
+}

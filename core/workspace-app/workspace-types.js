@@ -23,7 +23,7 @@ const TYPES = {
   sites: {
     label: 'Sites — DDEV projects',
     description: 'Built Drupal sites: DDEV controls, tests, users, the full toolbelt.',
-    actions: ['build', 'folder', 'ddev', 'jira', 'backup', 'clone', 'remove', 'graphify', 'ragify', 'tests', 'checks', 'users'],
+    actions: ['build', 'folder', 'ddev', 'backup', 'clone', 'remove', 'graphify', 'ragify', 'tests', 'checks', 'users'],
   },
   code: {
     label: 'Code — packages and repositories',

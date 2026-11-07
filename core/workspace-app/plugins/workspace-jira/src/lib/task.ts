@@ -1,24 +1,22 @@
 /**
- * The Jira actions: remember a project's Jira project, and hand a workitem to
- * Claude Code — view, analyze, work (in a screen session), watch, comment,
- * log. One module per area of the dashboard; server.js merges the maps. The
- * domain primitives live in ../jira, shared with the rendering.
+ * The Jira actions: remember a project's Jira project, and hand a workitem to Claude Code — view,
+ * analyze, work (in a screen session), watch, comment, log. A factory over api, twg and the runs.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import type { ActionContext, PluginApi } from '@webship/workspace-plugin-api';
 
-const { esc } = require('../html');
-const { loadWorkspaces, workspaceDir } = require('../workspaces');
-const { run, startJob, jobFragment, startInScreen, screenStartedHtml, screenAction } = require('../jobs');
-const { listScreens, screenLogFor } = require('../screens');
-const { postComment: jiraComment } = require('../jira');
-const { hubDomain } = require('../workspaces');
+import type TwgT from './twg';
+import type SessionsT from './sessions';
 
-const NAME_RE = /^[a-zA-Z0-9_\-]+$/;
-const loadSettings = () => require('../workspaces').loadSettings();
+export default function task(api: PluginApi, twg: ReturnType<typeof TwgT>, runs: ReturnType<typeof SessionsT>) {
+  const { esc, loadWorkspaces, run, startJob, jobFragment, startInScreen, screenStartedHtml, screenAction, listScreens, hubDomain } = api.lib;
+  const NAME_RE = /^[a-zA-Z0-9_\-]+$/;
+  const settings = () => api.settings.read() || {};
+  const base = `/fragments/p/${api.name}`;
 
-async function jira_set_project({ form, res, send, workspace, pathname }) {
+async function jira_set_project({ form, res, send, workspace }: ActionContext) {
     const meta = loadWorkspaces()[workspace];
     const src = String(form.projectName || '');
     const jKey = String(form.key || '').trim().toUpperCase();
@@ -34,15 +32,15 @@ async function jira_set_project({ form, res, send, workspace, pathname }) {
     // Answer with the reloaded modal so the remember state is what the file now says.
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8',
       'HX-Trigger': 'refresh-projects' });
-    const url = `/fragments/projects/jira/${encodeURIComponent(workspace)}/${encodeURIComponent(src)}${jKey ? `?project=${jKey}` : ''}`;
+    const url = `${base}/list/${encodeURIComponent(workspace)}/${encodeURIComponent(src)}${jKey ? `?project=${jKey}` : ''}`;
     return res.end(`<div hx-get="${url}" hx-trigger="load" hx-target="#editor-modal-body" hx-swap="innerHTML"><p class="uk-text-meta">Saved — reloading…</p></div>`);
   }
 
 // Names being started right now: the live `screen -ls` check cannot see a
 // session whose `screen -dmS` has not returned yet.
-const startingAgents = new Set();
+const startingAgents = new Set<string>();
 
-async function jira_task({ form, res, send, workspace, pathname }) {
+async function jira_task({ form, send, workspace }: ActionContext) {
     const meta = loadWorkspaces()[workspace];
     const jKey = String(form.key || '').toUpperCase();
     const mode = String(form.mode || '');
@@ -50,17 +48,17 @@ async function jira_task({ form, res, send, workspace, pathname }) {
     if (!meta || !meta.typeActions.has('jira')) return send('<div class="msg error">This workspace has no Jira surface.</div>', 400);
     if (!/^[A-Z][A-Z0-9]+-[0-9]+$/.test(jKey)) return send('<div class="msg error">Not a Jira key.</div>', 400);
     if (!NAME_RE.test(src) || !fs.existsSync(path.join(meta.dir, src))) return send('<div class="msg error">Project not found.</div>', 404);
-    const jiraWrites = (() => { try { return String((loadSettings().jira || {}).allow_writes) === 'true'; } catch (_) { return false; } })();
+    const jiraWrites = String(settings().allow_writes) === 'true';
     if (!jiraWrites && ['comment', 'worklog'].includes(mode)) {
-      return send('<div class="msg error">Writing to Jira is off (jira.allow_writes in settings.yml). Analyze, View and local work stay available.</div>', 403);
+      return send('<div class="msg error">Writing to Jira is off (allow_writes in plugin.jira.settings.yml). Analyze, View and local work stay available.</div>', 403);
     }
     const projectDir = path.join(meta.dir, src);
-    const claudeIn = (dir, prompt, tools) =>
+    const claudeIn = (dir: string, prompt: string, tools: string) =>
       `cd ${JSON.stringify(dir)} && claude -p ${JSON.stringify(prompt)} ${tools} --verbose --no-session-persistence`;
     // Start Claude Code interactively in a screen session — the same mechanism
     // as New screen on the Screens page, so every Jira action can be watched,
     // answered and steered from the browser terminal.
-    const startClaudeSession = async (verbName, prompt, tools) => {
+    const startClaudeSession = async (verbName: string, prompt: string, tools: string): Promise<{ ok: boolean; session?: string; why?: string; started?: any }> => {
       // Same naming as every other command on this row.
       const session = `${workspace}--${src}--${verbName}`.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-{3,}/g, '--').slice(0, 60);
       if (startingAgents.has(session)) return { ok: false, why: 'already starting' };
@@ -76,12 +74,12 @@ async function jira_task({ form, res, send, workspace, pathname }) {
       if (started.needsRunner) return { ok: false, session: started.session, why: 'runner', started };
       return { ok: false, session: started.session, why: started.already ? 'running' : (started.why || 'it did not start') };
     };
-    const sessionAnswer = (session, what) => `<div class="msg assistant">${what}
+    const sessionAnswer = (session: string, what: string) => `<div class="msg assistant">${what}
       — Claude Code is running in screen session <code>${esc(session)}</code>.
       Open its terminal on the <a href="/screens">Screens page</a> to watch it, answer it, or steer it; closing the window leaves it running.</div>`;
     const READ_ONLY = '--allowedTools Bash Read Glob Grep --disallowedTools Write Edit';
     const FULL = '--allowedTools Bash Read Write Edit Glob Grep';
-    let title; let shellLine; let phases = null; let timeoutMin = 10;
+    let title = ''; let shellLine = ''; let phases: string[] | null = null; let timeoutMin = 10;
     if (mode === 'view') {
       const verbName = `jira-${jKey.toLowerCase()}-about`;
       const started = await startClaudeSession(verbName,
@@ -103,7 +101,7 @@ async function jira_task({ form, res, send, workspace, pathname }) {
     } else if (mode === 'work') {
       // One agent at a time by default: three concurrent claudes once OOM-killed
       // this container. jira.max_agents in settings.yml raises the ceiling.
-      const maxAgents = Math.max(1, parseInt((loadSettings().jira || {}).max_agents, 10) || 1);
+      const maxAgents = Math.max(1, parseInt(String(settings().max_agents), 10) || 1);
       // Dead sockets are not agents: a container SIGKILL leaves `screen -ls`
       // rows in (Dead ???) state, which would block this path forever.
       const liveAgents = (await listScreens())
@@ -140,7 +138,6 @@ async function jira_task({ form, res, send, workspace, pathname }) {
       // Every run is NOTED, whether or not anything is posted about it: a workitem gets worked more
       // than once, and `screen -ls` answers only for the ones still running. The note is what lets the
       // row list the finished ones and offer to resume their conversations.
-      const runs = require('../jira-sessions');
       runs.recordRun(started.session, { key: jKey, workspace, project: src, dir: projectDir });
       // The claude id arrives a second or two later, when the CLI writes its first transcript line.
       const claudeId = await runs.fillClaudeId(started.session, projectDir);
@@ -163,7 +160,7 @@ async function jira_task({ form, res, send, workspace, pathname }) {
           '',
           '_Started from the Webship Workspace dashboard. The session runs on that machine, not on claude.ai._',
         ].join('\n');
-        const r = await jiraComment(jKey, body);
+        const r = await twg.postComment(jKey, body);
         posted = r.ok
           ? ' The session was commented on the workitem.'
           : ` The comment could not be posted: ${esc(r.error.slice(0, 160))}`;
@@ -218,7 +215,5 @@ async function jira_task({ form, res, send, workspace, pathname }) {
       cmdLine: shellLine, label: `${mode} ${jKey}` });
   }
 
-module.exports = {
-  '/actions/jira-set-project': jira_set_project,
-  '/actions/jira-task': jira_task,
-};
+  return { 'set-project': jira_set_project, task: jira_task };
+}

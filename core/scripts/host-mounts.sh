@@ -11,8 +11,6 @@
 ##   a bind mount whose SOURCE does not exist is CREATED — as a directory,
 ##   owned by root.
 ##
-## So on a machine that has not installed twg, the first `ddev start` creates
-## `~/.local/bin/twg` as a root-owned directory, and `~/.local/bin` with it. Then:
 ##
 ##   - the dashboard's Jira gate sees a directory where a binary should be, so
 ##     the JIRA button never appears, however complete `jira:` in settings.yml is;
@@ -72,7 +70,6 @@ PROBLEMS=0
 DIRS=(
   "${HOME}/.claude"          # Claude Code's config, for the assistant chat
   "${HOME}/.config/gh"       # gh auth, for the private dev-ai-agents repo
-  "${HOME}/.config/twg"      # Teamwork Graph CLI session (Jira)
   "${HOME}/.local/bin"       # where user binaries live: twg, drupal-ci-local
 )
 
@@ -149,78 +146,6 @@ for f in "${FILES[@]}" ; do
     PROBLEMS=$((PROBLEMS + 1))
   fi
 done
-
-# The twg binary is mounted as a FILE, and it is deliberately NOT created here: an
-# empty file would be executable-shaped and the dashboard would offer a Jira button
-# for a CLI that cannot run. What can be cleared is the root-owned directory Docker
-# left in its place, which otherwise blocks installing twg there.
-TWG="${HOME}/.local/bin/twg"
-if [ -d "${TWG}" ] ; then
-  if [ -n "$(ls -A "${TWG}" 2>/dev/null)" ] ; then
-    warn "  ✗ ${TWG/#${HOME}/~} is a non-empty directory — leaving it alone."
-    PROBLEMS=$((PROBLEMS + 1))
-  elif [ "${CHECK_ONLY}" == 'yes' ] ; then
-    warn "  ✗ ${TWG/#${HOME}/~} is an empty directory Docker created for the bind mount."
-    warn "    It hides the Jira button and blocks installing twg there."
-    PROBLEMS=$((PROBLEMS + 1))
-  elif rmdir "${TWG}" 2>/dev/null ; then
-    say "  ✓ removed the empty ${TWG/#${HOME}/~} placeholder"
-    MADE=$((MADE + 1))
-  elif can_sudo && sudo rmdir "${TWG}" ; then
-    say "  ✓ removed the root-owned ${TWG/#${HOME}/~} placeholder, so twg can be installed there"
-    MADE=$((MADE + 1))
-  else
-    warn "  ✗ ${TWG/#${HOME}/~} is an empty root-owned directory and cannot be removed as you."
-    warn "    Remove it so twg can be installed there:  sudo rmdir ${TWG}"
-    PROBLEMS=$((PROBLEMS + 1))
-  fi
-fi
-
-# ---------------------------------------------- the twg mount, only when it exists --
-# Docker recreates the placeholder on EVERY start, so removing it is not enough: while
-# twg is not installed, the mount itself has to go. Commenting the line out is how, and
-# it is restored the moment twg appears — the same "a script owns this compose value"
-# arrangement docker-gid.sh uses for the docker GID.
-COMPOSE_TWG="$(cd "$(dirname "${BASH_SOURCE[0]}")/../workspace-app/.ddev" 2>/dev/null && pwd)/docker-compose.twg.yaml"
-if [ -f "${COMPOSE_TWG}" ] ; then
-  # grep -q, not `grep -c … || echo 0`: grep EXITS 1 when it finds nothing, so the
-  # `|| echo 0` appended a second line and the variable became "0\n0" — which is not
-  # equal to "0", so every check took the "mount is active" branch and reported a
-  # problem on a machine that was already correct.
-  if grep -q '^      - "\${HOME}/.local/bin/twg:' "${COMPOSE_TWG}" 2>/dev/null ; then
-    twg_line_active='yes'
-  else
-    twg_line_active='no'
-  fi
-  if [ -f "${TWG}" ] && [ -x "${TWG}" ] ; then
-    if [ "${twg_line_active}" == 'no' ] ; then
-      if [ "${CHECK_ONLY}" == 'yes' ] ; then
-        warn "  ✗ twg is installed but its mount is commented out — the container cannot see it."
-        PROBLEMS=$((PROBLEMS + 1))
-      else
-        sed -i 's|^      # - "\${HOME}/.local/bin/twg:|      - "${HOME}/.local/bin/twg:|' "${COMPOSE_TWG}" ;
-        say "  ✓ twg is installed — its mount re-enabled (ddev restart to apply)" ;
-        MADE=$((MADE + 1)) ;
-      fi
-    else
-      say "  ✓ twg is mounted into the dashboard" ;
-    fi
-  else
-    if [ "${twg_line_active}" == 'yes' ] ; then
-      if [ "${CHECK_ONLY}" == 'yes' ] ; then
-        warn "  ✗ twg is not installed, but its mount is active — Docker will keep recreating"
-        warn "    ${TWG/#${HOME}/~} as a root-owned directory on every start."
-        PROBLEMS=$((PROBLEMS + 1))
-      else
-        sed -i 's|^      - "\${HOME}/.local/bin/twg:|      # - "${HOME}/.local/bin/twg:|' "${COMPOSE_TWG}" ;
-        say "  ✓ twg is not installed — its mount disabled, so nothing is created for it" ;
-        MADE=$((MADE + 1)) ;
-      fi
-    else
-      say "  ✓ twg is not installed, and nothing is mounted for it" ;
-    fi
-  fi
-fi
 
 say ""
 if [ "${CHECK_ONLY}" == 'yes' ] ; then

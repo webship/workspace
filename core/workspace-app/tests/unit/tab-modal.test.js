@@ -38,10 +38,10 @@ test('the address is kept only when the modal asks for it, and a back link is a 
   assert.match(back, /<button type="button" class="tabmodal-back" hx-get="\/list"/);
 });
 
-test('the settings modal and the workitem modal are built from it', () => {
+test('the settings modal is built from it, and plugins get it through api.lib', () => {
   const server = read('server.js');
   assert.match(server, /tabModal\.tabModalHtml\(\{ id: 'settings'/);
-  assert.match(server, /tabModal\.tabModalHtml\(\{\s*id: 'workitem'/);
+  assert.match(read('plugin-loader.js'), /tabModalHtml,/, 'a plugin (the Jira workitem modal) builds on the same');
   assert.match(server, /const isFragment = \(req\)/);
   assert.match(server, /if \(options\.fragment\) return/);
 });

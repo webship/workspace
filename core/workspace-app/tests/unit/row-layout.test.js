@@ -48,7 +48,7 @@ const texts = (html) => rl.splitTopLevelLi(html).map((li) => rl.plainText(li));
 test('with no file there are two rows, and they are the row as it was', () => {
   const layout = rl.loadRowLayoutFresh();
   assert.deepStrictEqual(rl.DEFAULT_ROWS, [
-    ['ddev', 'jira', 'ide', 'git', 'tests'],
+    ['ddev', 'ide', 'git', 'tests'],
     ['screens', 'composer', 'node', 'backup', 'clone', 'graph', 'rag', 'more'],
   ]);
   assert.deepStrictEqual(layout.rows, rl.DEFAULT_ROWS);
@@ -68,7 +68,7 @@ test('rows: every button placed exactly once, extra rows kept, a new button in i
   const all = [...l.rows.flat(), ...l.hidden];
   assert.strictEqual(all.length, new Set(all).size, 'no button twice');
   for (const b of rl.BUILTIN_BUTTONS) assert.ok(all.includes(b.id), `${b.id} is missing`);
-  assert.ok(l.rows[0].includes('jira'), 'a button the file never mentions keeps its default row');
+  assert.ok(l.rows[0].includes('ide'), 'a button the file never mentions keeps its default row');
   assert.ok(l.rows[1].includes('tools'), 'a button made by an action goes to the second row');
   assert.ok(!all.includes('nope') && !all.includes('x-unknown'));
 
@@ -379,7 +379,7 @@ test('the Rows tab keeps your place: a save bar in view, open cards and scroll c
 
 test('a save writes only what differs from what a menu shows by default', () => {
   rl.arrangeNavInner('ddev', DDEV_INNER, { layout: rl.normalizeLayout({}) });
-  rl.arrangeNavInner('jira', '<li class="uk-nav-header">link</li><li><a>Status</a></li><li><a>Logs</a></li>', { layout: rl.normalizeLayout({}) });
+  rl.arrangeNavInner('ide', '<li class="uk-nav-header">link</li><li><a>Status</a></li><li><a>Logs</a></li>', { layout: rl.normalizeLayout({}) });
   const untouched = (id) => {
     const cat = rl.seenMenu(id).groups;
     return {
@@ -389,7 +389,7 @@ test('a save writes only what differs from what a menu shows by default', () => 
     };
   };
   // Every card posts its whole, unchanged order; the one change is a hidden command in DDEV.
-  const form = { ...untouched('ddev'), ...untouched('jira'), hide_entry_ddev: 'restart' };
+  const form = { ...untouched('ddev'), ...untouched('ide'), hide_entry_ddev: 'restart' };
   const doc = rl.toDoc(rl.normalizeLayout(rl.arrangementFromForm(rl.normalizeLayout({}), form)));
   assert.deepStrictEqual(Object.keys(doc.menus), ['ddev'], 'a menu nobody changed is not written');
   assert.deepStrictEqual(doc.menus.ddev, { groups: [], hidden_groups: [], hidden_entries: ['restart'] }, 'nor the order of a menu that was only hidden from');
@@ -429,7 +429,7 @@ test('the Rows form describes rows, the order inside groups, and hidden commands
   assert.strictEqual(next.rows[0][0], 'more');
   assert.ok(next.rows[1].includes('ddev'));
   assert.deepStrictEqual(next.hidden, ['git']);
-  assert.ok(next.rows[0].includes('jira'), 'a button the form did not carry keeps the place it had');
+  assert.ok(next.rows[0].includes('ide'), 'a button the form did not carry keeps the place it had');
   assert.deepStrictEqual(next.menus.ddev.groups.slice(0, 2), ['build', 'project']);
   assert.deepStrictEqual(next.menus.ddev.order.project, ['describe', 'start-stop'], 'an entry the menu never had is dropped');
   assert.deepStrictEqual(next.menus.ddev.hiddenEntries, ['restart']);

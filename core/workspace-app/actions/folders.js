@@ -16,7 +16,6 @@ const { pluginFolderSetups } = require('../plugin-loader');
 const setupCtx = (ws) => { const m = loadWorkspaces()[ws]; return { allowed: (m && m.typeActions) || new Set() }; };
 
 const shq = (v) => `'${String(v).replace(/'/g, `'\\''`)}'`;
-const JIRA_PROJECT_RE = /^[A-Z][A-Z0-9]+$/;
 
 /** Whether this workspace offers New folder: project workspaces whose type allows it. */
 function canMakeFolder(ws) {
@@ -38,12 +37,6 @@ const allows = (ws, action) => { const m = loadWorkspaces()[ws]; return !!(m && 
 
 /** Whether the workspace ships the testing command the webship-js setup runs. */
 function canTest(ws) { return ships(ws, 'cmd-tools-testing.sh'); }
-
-/** The Jira project new workitems go to, or '' when this workspace has no Jira. */
-function jiraProject(ws) {
-  if (!allows(ws, 'jira')) return '';
-  try { return String((loadSettings().jira || {}).default_project || '').trim().toUpperCase(); } catch (_) { return ''; }
-}
 
 /** DDEV project types the form offers, the same list Configure DDEV uses. */
 function projectTypes() {
@@ -70,11 +63,6 @@ function setupLine(ws, name, form) {
 function claudePrompt(ws, name, form) {
   const parts = [];
   const what = String(form.note || '').trim();
-  if (form.jira === '1') {
-    const key = String(form.jira_project || '').trim().toUpperCase();
-    parts.push(`Use the jira-workitem-manager agent to create one workitem in the Jira project ${key} for the work in this folder (${ws}/${name}): "${what}". `
-      + `Follow its house shape, with no AI-mention lines. Then write ${key} into the file .jira-project here, and tell me the new key and its link.`);
-  }
   for (const s of pluginFolderSetups()) if (s.prompt) parts.push(...(s.prompt(ws, name, form, setupCtx(ws)) || []));
   const own = String(form.prompt || '').trim();
   if (own) parts.push(own);
@@ -83,11 +71,6 @@ function claudePrompt(ws, name, form) {
 
 /** Why the form cannot be run as sent, or ''. */
 function formProblem(ws, form) {
-  if (form.jira === '1') {
-    if (!jiraProject(ws)) return 'This workspace has no Jira project to create a workitem in.';
-    if (!JIRA_PROJECT_RE.test(String(form.jira_project || '').trim().toUpperCase())) return 'The Jira project key is letters and digits, starting with a letter.';
-    if (!String(form.note || '').trim()) return 'Say what the folder is for: the Jira workitem is written from it.';
-  }
   for (const s of pluginFolderSetups()) if (s.problem) { const why = s.problem(ws, form, setupCtx(ws)); if (why) return why; }
   return '';
 }
@@ -172,11 +155,11 @@ function folderFormFor(ws, req, { readPageState } = {}) {
       suggestion: folders.suggestName(where.ok ? where.abs : meta.dir, 'new-folder-') });
   }
   return folders.folderFormHtml(ws, { label: meta.label, suggestion: folders.suggestName(meta.dir),
-    projectTypes: projectTypes(), canTest: canTest(ws), jiraProject: jiraProject(ws),
+    projectTypes: projectTypes(), canTest: canTest(ws),
     pluginSetups: pluginFolderSetups().map((s) => (s.html ? s.html(ws, setupCtx(ws)) : '')).filter(Boolean).join('') });
 }
 
 module.exports = {
   '/actions/folder-new': folder_new,
-  canMakeFolder, isFilesWorkspace, folderFormFor, canTest, jiraProject, projectTypes, setupLine, claudePrompt, formProblem,
+  canMakeFolder, isFilesWorkspace, folderFormFor, canTest, projectTypes, setupLine, claudePrompt, formProblem,
 };

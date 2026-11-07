@@ -50,7 +50,6 @@ const { CONFIG_DIR, ROOT } = require('./workspaces');
 
 const BUILTIN_BUTTONS = [
   { id: 'ddev', label: 'DDEV', row: 0 },
-  { id: 'jira', label: 'JIRA', row: 0 },
   { id: 'ide', label: 'IDE', row: 0 },
   { id: 'git', label: 'GIT', row: 0 },
   { id: 'tests', label: 'Tests', row: 0 },

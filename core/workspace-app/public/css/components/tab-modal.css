@@ -140,5 +140,3 @@
 #editor-modal .uk-modal-close-default:hover { background: color-mix(in srgb, var(--text-subtle) 14%, transparent); }
 #editor-modal .uk-modal-close-default:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
 
-/* The Jira list: a card hidden by the quick filter really is gone from the layout. */
-.jira-card[hidden] { display: none; }

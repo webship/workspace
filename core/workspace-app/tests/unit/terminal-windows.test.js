@@ -143,10 +143,11 @@ test('the layer is empty until something is opened', () => {
 });
 
 test('every way in opens a window, and none of them fills the editor modal', () => {
-  // Three places open a terminal — the Screens row, the SCREENS dropdown on a project, and the Jira
-  // agent button — and each used to replace the one modal, which is what made a second one impossible.
+  // Two places in the core open a terminal — the Screens row and the SCREENS dropdown on a project —
+  // and plugins (Jira's agent button) use the same attribute; each used to replace the one modal, which
+  // is what made a second one impossible.
   const openers = (server + screensJs).match(/data-open-terminal=/g) || [];
-  assert.ok(openers.length >= 3, `every opener is declarative (found ${openers.length})`);
+  assert.ok(openers.length >= 2, `every opener is declarative (found ${openers.length})`);
   assert.doesNotMatch(server + screensJs,
     /screen-term\/\$\{[^}]*\}"\s+hx-target="#editor-modal-body"/,
     'a terminal never goes into the editor modal again');

@@ -738,16 +738,18 @@ document.addEventListener('click', (e) => {
   }, true);
 })();
 
-// The Jira workitem list: typing narrows the cards already on screen at once, by key, title, status,
-// type and person, while the debounced request asks Jira for the wider answer. The server's list then
-// replaces the cards, so nothing the page did not have is ever hidden by this.
+// A list's quick filter: typing narrows the cards already on screen at once (each card says what it is
+// in data-find), while the debounced request asks the server for the wider answer. The input names
+// the list it filters in data-list-find (a selector); the server's reply then replaces the cards, so
+// nothing the page did not have is ever hidden by this. Plugins' lists (Jira's workitems) use it too.
 document.addEventListener('input', (e) => {
-  const box = e.target.closest && e.target.closest('input[data-jira-find]');
+  const box = e.target.closest && e.target.closest('input[data-list-find]');
   if (!box) return;
   const words = box.value.toLowerCase().split(/\s+/).filter(Boolean);
-  const host = document.getElementById('jira-results');
+  let host = null;
+  try { host = document.querySelector(box.dataset.listFind || ''); } catch (_) { /* not a selector */ }
   if (!host) return;
-  const cards = [...host.querySelectorAll('.jira-card')];
+  const cards = [...host.querySelectorAll('[data-find]')];
   let shown = 0;
   cards.forEach((c) => {
     const hay = c.dataset.find || '';
@@ -755,13 +757,13 @@ document.addEventListener('input', (e) => {
     c.hidden = !on;
     if (on) shown += 1;
   });
-  let note = host.querySelector('.jira-find-note');
+  let note = host.querySelector('.list-find-note');
   if (!note) {
     note = document.createElement('p');
-    note.className = 'jira-find-note uk-text-meta';
+    note.className = 'list-find-note uk-text-meta';
     host.prepend(note);
   }
-  note.textContent = words.length && cards.length ? `${shown} of ${cards.length} shown here, asking Jira for more…` : '';
+  note.textContent = words.length && cards.length ? `${shown} of ${cards.length} shown here, asking for more…` : '';
   note.hidden = !note.textContent;
 });
 

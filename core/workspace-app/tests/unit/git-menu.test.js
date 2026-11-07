@@ -125,13 +125,14 @@ test('git commands run in screen sessions, and nothing is rendered at the end of
   assert.match(src, /href="\/terminal\/\$\{encodeURIComponent\(session\)\}"/);
 });
 
-test('the row puts IDE then GIT right after JIRA, shares one git read, and copies carry a cd', () => {
+test('the row puts IDE then GIT right after DDEV, shares one git read, and copies carry a cd', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
   assert.match(src, /\.\.\.require\('\.\/actions\/git'\)/, 'the git routes are not merged');
-  // Where the buttons sit is Commands → Buttons now (row-layout.js); by default IDE then GIT come right after JIRA.
+  // Where the buttons sit is Commands → Buttons now (row-layout.js); by default IDE then GIT come right after DDEV
+  // (JIRA is a plugin's slot now, registered between them when the plugin is on).
   const { DEFAULT_LINES } = require('../../row-layout');
-  assert.deepStrictEqual(DEFAULT_LINES[0].slice(DEFAULT_LINES[0].indexOf('jira'), DEFAULT_LINES[0].indexOf('jira') + 3), ['jira', 'ide', 'git'],
-    'IDE then GIT must come right after JIRA by default');
+  assert.deepStrictEqual(DEFAULT_LINES[0].slice(DEFAULT_LINES[0].indexOf('ddev'), DEFAULT_LINES[0].indexOf('ddev') + 3), ['ddev', 'ide', 'git'],
+    'IDE then GIT must come right after DDEV by default');
   // …and only once: handed to the layout a single time, so a row never carries two IDE or two GIT buttons.
   assert.strictEqual((src.match(/\bide: openWithMenu\b/g) || []).length, 1);
   assert.strictEqual((src.match(/\bgit: gitMenu\b/g) || []).length, 1);
