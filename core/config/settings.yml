@@ -236,6 +236,21 @@ assistant:
 # modules (module: <require-name>). `workspaces` limits which folders get the feature; empty or
 # absent means all of them. See core/workspace-app/PLUGINS.md to write one.
 plugins:
+  docker:
+    module: "@webship/workspace-docker"
+    enabled: true
+  docksal:
+    module: "@webship/workspace-docksal"
+    enabled: true
+  kubernetes:
+    module: "@webship/workspace-kubernetes"
+    enabled: true
+  lando:
+    module: "@webship/workspace-lando"
+    enabled: true
+  podman:
+    module: "@webship/workspace-podman"
+    enabled: true
   bitbucket:
     module: "@webship/workspace-bitbucket"
     enabled: true
