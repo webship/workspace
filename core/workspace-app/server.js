@@ -151,21 +151,6 @@ const NAME_RE = /^[a-zA-Z0-9_\-]+$/;
 // both the /help page and whoever reads it in the repository.
 const APP_DOCS = path.join(__dirname, 'docs');
 
-/**
- * Is this project directory a git checkout?
- *
- * `rev-parse --git-dir` rather than a test for a `.git` directory, because a
- * project that is ITSELF a worktree carries `.git` as a FILE pointing at the real
- * one — and a worktree of a worktree is both legal and useful. Asking git is the
- * only answer that is right for every shape, including a submodule.
- */
-function projectHasGit(dir) {
-  try {
-    return spawnSync('git', ['-C', dir, 'rev-parse', '--git-dir'],
-      { stdio: ['ignore', 'ignore', 'ignore'], timeout: 5000 }).status === 0;
-  } catch (_) { return false; }
-}
-
 // The addresses a project answers at beside its canonical one — see ddev-domains.js, which owns the
 // parsing because `additional_hostnames` and `additional_fqdns` are two different DDEV keys and
 // reading only the first is what hid every Storybook domain in the tree.
@@ -231,55 +216,8 @@ function hostnameOwner(label, skipDir) {
   return '';
 }
 
-/**
- * What a project folder IS to git: 'none', 'plain', 'primary' (other worktrees
- * live off its .git) or 'linked' (it is a worktree). The destructive difference:
- * deleting a PRIMARY takes the only copy of the repository with it and leaves
- * every linked worktree a folder of files git can say nothing about.
- *
- * Deliberately the same questions fun-git-worktrees.sh asks, so the dashboard and
- * the command cannot disagree about what is safe.
- */
-function gitWorktreeInfo(dir) {
-  const out = {
-    role: 'none', branch: '', others: [], primary: '', unpushed: 0, dirty: 0,
-  };
-  if (!projectHasGit(dir)) return out;
-  const git = (args) => {
-    const r = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', timeout: 5000 });
-    return r.status === 0 ? String(r.stdout || '').trim() : '';
-  };
-  const gitdir = git(['rev-parse', '--absolute-git-dir']);
-  const common = git(['rev-parse', '--path-format=absolute', '--git-common-dir']);
-  const list = git(['worktree', 'list', '--porcelain'])
-    .split('\n').filter((l) => l.startsWith('worktree ')).map((l) => l.slice(9));
-  const self = fs.realpathSync.native ? (() => { try { return fs.realpathSync(dir); } catch (_) { return dir; } })() : dir;
-  out.primary = list[0] || '';
-  out.others = list.filter((p) => { try { return fs.realpathSync(p) !== self; } catch (_) { return p !== self; } });
-  // A repository with no commits yet has a branch that EXISTS but points at nothing, so
-  // `rev-parse --abbrev-ref HEAD` fails and the menus read "detached HEAD" for a folder that was
-  // `git init`-ed a moment ago. `symbolic-ref` still names the branch; only when that fails too is
-  // HEAD really detached.
-  const b = git(['rev-parse', '--abbrev-ref', 'HEAD']);
-  const named = git(['symbolic-ref', '--short', '-q', 'HEAD']);
-  out.branch = (b && b !== 'HEAD') ? b : named;
-  out.unborn = !git(['rev-parse', '--verify', '-q', 'HEAD']) && !!named;
-  out.unpushed = parseInt(git(['rev-list', '--count', 'HEAD', '--not', '--remotes']) || '0', 10) || 0;
-  out.dirty = git(['status', '--porcelain', '--untracked-files=normal']).split('\n').filter(Boolean).length;
-  if (gitdir && common && gitdir !== common) out.role = 'linked';
-  else out.role = out.others.length ? 'primary' : 'plain';
-  return out;
-}
-
-/** The branch a checkout is on, or '' — used only to label the worktree control. */
-function gitBranchOf(dir) {
-  try {
-    const r = spawnSync('git', ['-C', dir, 'rev-parse', '--abbrev-ref', 'HEAD'],
-      { encoding: 'utf8', timeout: 5000 });
-    return r.status === 0 ? String(r.stdout || '').trim() : '';
-  } catch (_) { return ''; }
-}
 const { ITEM_NAME_RE } = require('./validate');
+const { projectHasGit, hasOwnGit, gitWorktreeInfo, gitBranchOf } = require('./git-info');
 const SCRIPT_RE = /^cmd-[a-zA-Z0-9_.-]+\.sh$/;
 
 // The tooling repository the commands workspace compares against and proposes to.
@@ -1037,51 +975,6 @@ function ideUp() {
  * push is never one misplaced click away. The caption is one word of status — clean, N changed,
  * N unpushed — and the branch is in the menu header, the same split the IDE menu makes.
  */
-function gitMenuHtml(key, p, projectPath, g) {
-  const { GIT_RUN_ACTIONS, GIT_COPY_COMMANDS, hasOwnGit } = require('./actions/git');
-  const button = (title) => `<button class="uk-button uk-button-default uk-button-small" type="button" title="${esc(title)}"><span uk-icon="icon: git-branch; ratio: .7"></span> GIT <span uk-icon="icon: chevron-down; ratio: .6"></span></button>`;
-  const vals = `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
-  // The folder's OWN .git decides, not git's rev-parse: a subfolder of a parent repository would
-  // otherwise be offered that parent's history as if it were its own.
-  if (!hasOwnGit(projectPath) || !g || g.role === 'none') {
-    return `<span class="act-with-status"><div class="uk-inline act-menu act-menu-git">
-      ${button('No git repository in this folder yet')}
-      <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">
-        <li class="uk-nav-header">Not a git repository yet</li>
-        <li><a href hx-post="/actions/git-init" ${vals}><span uk-icon="icon: plus-circle; ratio: .7"></span> git init — start a repository here</a></li>
-        <li><span class="uk-text-meta">The common commands appear once this folder has its own .git.</span></li>
-      </ul></div>
-    </div><span class="act-status uk-text-meta">no repo</span></span>`;
-  }
-  const cdPath = tildePath(projectPath);
-  const caption = g.dirty ? `${g.dirty} changed` : (g.unpushed ? `${g.unpushed} unpushed` : 'clean');
-  const facts = [
-    g.role === 'linked' ? `a worktree of ${tildePath(g.primary)}` : '',
-    g.role === 'primary' ? `${g.others.length} worktree(s) live off this checkout` : '',
-    g.unpushed ? `${g.unpushed} commit(s) on no remote` : '',
-    g.dirty ? `${g.dirty} uncommitted change(s)` : '',
-  ].filter(Boolean);
-  const run = Object.entries(GIT_RUN_ACTIONS).map(([route, a]) =>
-    `<li><a href hx-post="${route}" ${vals}><span uk-icon="icon: play; ratio: .7"></span> ${esc(a.label)}</a></li>`).join('');
-  const copy = GIT_COPY_COMMANDS.map((c) => {
-    const line = `cd ${cdPath} && ${c.line}`;
-    return `<li><a href="#" class="copy-cmd" data-copy="${esc(line)}" title="Copy: ${esc(line)}"><span uk-icon="icon: copy; ratio: .7"></span> ${esc(c.label)}</a></li>`;
-  }).join('');
-  return `<span class="act-with-status"><div class="uk-inline act-menu act-menu-git">
-    ${button(`Git on ${g.branch || 'a detached HEAD'}`)}
-    <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">
-      <li class="uk-nav-header">${g.role === 'linked' ? 'Git worktree' : 'Git'} · ${esc(g.branch || 'detached HEAD')}${g.unborn ? ' · no commits yet' : ''}</li>
-      ${facts.length ? `<li data-entry="facts"><span class="uk-text-meta">${esc(facts.join(' · '))}</span></li>` : ''}
-      <li class="uk-nav-divider"></li>
-      <li class="uk-nav-header">Run here</li>
-      ${run}
-      <li class="uk-nav-divider"></li>
-      <li class="uk-nav-header">Copy to a terminal</li>
-      ${copy}
-    </ul></div>
-  </div><span class="act-status uk-text-meta">${esc(caption)}</span></span>`;
-}
-
 /**
  * The COMPOSER menu: only on a folder with its own composer.json. The commands and what they may be
  * given live in actions/composer.js; this only lays them out. A DDEV project runs `ddev composer`;
@@ -3408,7 +3301,6 @@ async function projectRowsHtml(key, dir, state) {
         : (g.role === 'linked' ? 'code · worktree' : 'code · git');
       return openWithMenuHtml(projectPath, { caption, git: g });
     })();
-    const gitMenu = gitMenuHtml(key, p, projectPath, gitInfo);
     const composerMenu = composerMenuHtml(key, p, projectPath, isDdev, meta.composerMode);
     const nodeMenu = nodeMenuHtml(key, p, projectPath, isDdev);
     const vals = (extra = '') => `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
@@ -3428,7 +3320,7 @@ async function projectRowsHtml(key, dir, state) {
     // what is hidden (Commands → Buttons), and rearranges every menu inside the same way. With no
     // row-actions.yml that is exactly the row as it has always been.
     const rowCtx = { layout: rowLayoutNow, key, project: p, isDdev, hasComposer: require('./actions/composer').hasComposerJson(projectPath),
-      hasNode: require('./actions/node').hasPackageJson(projectPath), hasGit: require('./actions/git').hasOwnGit(projectPath) };
+      hasNode: require('./actions/node').hasPackageJson(projectPath), hasGit: hasOwnGit(projectPath) };
     const testBadge = (() => {
       const t = testReportFor(dir, p);
       if (!t) return key === 'test' ? '<span class="uk-label test-none" title="No cucumber_report.json under this project — the tests have not been run here">no test report yet</span>' : '';
@@ -3752,7 +3644,7 @@ async function projectRowsHtml(key, dir, state) {
     // SCREENS is drawn beside the running state in the card's head, so the tool strip leaves it out.
     const screensOnTools = '';
     const rowLines = rowLayout.rowLinesHtml({
-      ddev: ddevButton, ide: openWithMenu, git: gitMenu, tests: testsMenu,
+      ddev: ddevButton, ide: openWithMenu, tests: testsMenu,
       // The menus activated plugins bring, in the slots they registered (UPSUN, …).
       ...pluginRowMenus({ key, project: p, dir, meta, allowed, vals }),
       screens: screensOnTools, composer: composerMenu, node: nodeMenu, backup: backupButton, clone: cloneButton,
@@ -4722,7 +4614,6 @@ const ACTIONS = {
   ...require('./actions/plugins'),
   ...require('./actions/ai-items'),
   ...require('./actions/screens'),
-  ...require('./actions/git'),
   ...require('./actions/composer'),
   ...require('./actions/node'),
   ...require('./actions/row-actions'),
@@ -7160,7 +7051,7 @@ const server = http.createServer(async (req, res) => {
           // Arranged like the row's other menus (Commands → Buttons); the row's copy is only a loading line.
           return res.end(rowLayout.arrangeNavInner('screens', screensNav, { key: sm[1], project: sm[2],
             isDdev: require('./actions/composer').isDdevProject(sDir), hasComposer: require('./actions/composer').hasComposerJson(sDir),
-            hasNode: require('./actions/node').hasPackageJson(sDir), hasGit: require('./actions/git').hasOwnGit(sDir) }) + hand + agentBadge + keysBadge);
+            hasNode: require('./actions/node').hasPackageJson(sDir), hasGit: hasOwnGit(sDir) }) + hand + agentBadge + keysBadge);
         } }
       { const cm = pathname.match(/^\/fragments\/projects\/ddev-config\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);
         if (cm && isValidWorkspace(cm[1])) {

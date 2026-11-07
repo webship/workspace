@@ -67,13 +67,17 @@ test('with sign-in on, a page goes to sign in, an htmx call is told to, and an a
 });
 
 test('it fails closed: on with no client, or with nobody allowed, it lets nobody in and says why', async () => {
+  // No client: the Drive plugin's file is gone for this case, and put back after.
+  const pluginFile = path.join(CONFIG, 'plugin.google-drive-sync.settings.yml');
+  const client = fs.readFileSync(pluginFile, 'utf8');
+  fs.unlinkSync(pluginFile);
   fs.writeFileSync(path.join(CONFIG, 'settings.yml'), `hub_domain: ${HUB}\nauth:\n  google:\n    enabled: true\n    allowed_domains:\n      - example.com\n`);
   let s = await appServer();
   try {
     const r = await get(s, '/dev');
     assert.strictEqual(r.status, 503);
     assert.match(r.body, /letting nobody in/);
-  } finally { s.close(); }
+  } finally { s.close(); fs.writeFileSync(pluginFile, client); }
   setSettings('auth:\n  google:\n    enabled: true');
   s = await appServer();
   try { assert.strictEqual((await get(s, '/dev')).status, 503); } finally { s.close(); }

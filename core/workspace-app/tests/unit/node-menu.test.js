@@ -17,7 +17,7 @@ const path = require('path');
 const node = require('../../actions/node');
 const { MANAGERS, NODE_GROUPS, NODE_RUN_ACTIONS, NODE_PACKAGE_ACTIONS, NODE_SCRIPT_ROUTE, hasPackageJson, nodeInfo,
   nodeArgsFor, nodePackageRefusal, nodeScripts, nodeScreenCommand } = node;
-const { LINGER_MARK } = require('../../actions/git');
+const { LINGER_MARK } = require('../../linger');
 
 function folder(files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nodemenu-'));

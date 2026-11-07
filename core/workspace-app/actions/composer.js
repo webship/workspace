@@ -39,7 +39,7 @@ const { esc } = require('../html');
 const { ROOT, workspaceDir, loadWorkspaces } = require('../workspaces');
 const { startInScreen, screenStartedHtml, hostRunnerRequest } = require('../jobs');
 const { NAME_RE } = require('../validate');
-const { lingerTail, LINGER_MARK } = require('./git');
+const { lingerTail, LINGER_MARK } = require('../linger');
 
 // In the order people reach for them: what is run every day first, then looking around, then the rare ones.
 const COMPOSER_RUN_ACTIONS = {

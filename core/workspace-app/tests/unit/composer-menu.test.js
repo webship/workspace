@@ -16,7 +16,9 @@ const path = require('path');
 const composer = require('../../actions/composer');
 const { COMPOSER_RUN_ACTIONS, COMPOSER_PACKAGE_ACTIONS, SCRIPT_ROUTE, hasComposerJson, packageRefusal,
   composerScripts, composerScreenCommand, sessionFinished } = composer;
-const { gitScreenCommand, LINGER_MARK } = require('../../actions/git');
+const { LINGER_MARK, lingerTail } = require('../../linger');
+// The GIT plugin's session line, for the comparison below: the same tail, the same no-prompt no-pager git.
+const gitScreenCommand = (label, args) => `GIT_TERMINAL_PROMPT=0 git --no-pager ${args.join(' ')}; ${lingerTail(label)}`;
 
 test('the menu offers install, update and the common commands, each with a handler', () => {
   const labels = Object.values(COMPOSER_RUN_ACTIONS).map((a) => a.label);

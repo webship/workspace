@@ -30,7 +30,7 @@ const { esc } = require('../html');
 const { workspaceDir } = require('../workspaces');
 const { screenStartedHtml } = require('../jobs');
 const { NAME_RE } = require('../validate');
-const { lingerTail } = require('./git');
+const { lingerTail } = require('../linger');
 const { startUnlessRunning, terminalLink, isDdevProject, dashboardDir, sq, SAFE_PATH_RE } = require('./composer');
 
 // The order of the tabs. yarn first: every site project in this tree uses it.

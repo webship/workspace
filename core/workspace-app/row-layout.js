@@ -51,7 +51,6 @@ const { CONFIG_DIR, ROOT } = require('./workspaces');
 const BUILTIN_BUTTONS = [
   { id: 'ddev', label: 'DDEV', row: 0 },
   { id: 'ide', label: 'IDE', row: 0 },
-  { id: 'git', label: 'GIT', row: 0 },
   { id: 'tests', label: 'Tests', row: 0 },
   // These three lay out their own menus (SCREENS is filled in by a request), so they take no column setting.
   { id: 'screens', label: 'SCREENS', row: 1, columns: false },

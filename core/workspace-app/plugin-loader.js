@@ -57,6 +57,17 @@ const lib = {
   TYPES,
   // The dashboard's Google sign-in, for a plugin that wants to know who is signed in or draw the button.
   auth: { sessionOf: googleAuth.sessionOf, googleButton: googleAuth.googleButton, BUTTON_CSS: googleAuth.BUTTON_CSS },
+  // What git says about a folder (its own .git, worktree role, branch, what a remove destroys), the
+  // lingering-session tail every short command ends with, a path with ~ for the home, and the host
+  // runner (stop a session before starting it afresh): what the GIT plugin and its kin draw from.
+  projectHasGit: (dir) => require('./git-info').projectHasGit(dir),
+  hasOwnGit: (dir) => require('./git-info').hasOwnGit(dir),
+  gitWorktreeInfo: (dir) => require('./git-info').gitWorktreeInfo(dir),
+  gitBranchOf: (dir) => require('./git-info').gitBranchOf(dir),
+  lingerTail: (label) => require('./linger').lingerTail(label),
+  LINGER_MARK: require('./linger').LINGER_MARK,
+  tildePath: (p) => require('./format').tildePath(p),
+  hostRunnerRequest: (...a) => require('./jobs').hostRunnerRequest(...a),
   workspaceType: (key) => (loadWorkspaces()[key] || {}).type || null,
   typeAllows: (key, action) => {
     const meta = loadWorkspaces()[key];

@@ -131,7 +131,8 @@ test('every clone command documents the worktree option', () => {
 });
 
 test('the dashboard offers the worktree only for a git checkout', () => {
-  const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
+  // The git questions live in git-info.js now (shared with the GIT plugin through api.lib); the forms stay in server.js.
+  const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', '..', 'git-info.js'), 'utf8');
   assert.match(server, /function projectHasGit/);
   assert.match(server, /rev-parse', '--git-dir'/);
   // The control is absent, not disabled, when there is no repository.
@@ -239,7 +240,8 @@ test('every remove command offers --force', () => {
 });
 
 test('the dashboard asks git the same questions the script does', () => {
-  const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
+  // The git questions live in git-info.js now (shared with the GIT plugin through api.lib); the forms stay in server.js.
+  const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', '..', 'git-info.js'), 'utf8');
   assert.match(server, /function gitWorktreeInfo/);
   // The warning is shown before the confirm, and force is forwarded, never assumed.
   assert.match(server, /This is the main git checkout/);
