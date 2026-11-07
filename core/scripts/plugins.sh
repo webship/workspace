@@ -53,20 +53,13 @@ case "${verb}" in
   -h|--help|'') usage ; exit 0 ;;
 
   --list)
-    echo "Plugins the dashboard can see (core/workspace-app), and where each one is:" ;
+    echo "Plugins the dashboard can see (core/workspace-app), and the step each is at:" ;
     ( cd "${APP}" && node -e '
-      const { installedPlugins } = require("./plugin-manifest");
-      const { status } = require("./plugin-install");
-      const yaml = require("js-yaml"); const fs = require("fs");
-      let settings = {}; try { settings = yaml.load(fs.readFileSync("../config/settings.yml", "utf8")) || {}; } catch (_) {}
-      const on = settings.plugins || {};
-      const placed = Object.fromEntries(status().map((s) => [s.name, s]));
-      for (const p of installedPlugins()) {
-        const cfg = on[p.name] || {};
-        const active = cfg.enabled === true || String(cfg.enabled) === "true";
-        const st = placed[p.name] || {};
-        const step = !active ? "required · not activated" : !st.installed ? "activated · not installed" : st.settingsFile === false ? "installed · not configured" : "ready";
-        console.log(`  ${p.name.padEnd(14)} ${(p.module || "-").padEnd(34)} ${(p.version || "").padEnd(8)} ${step}${st.missing && st.missing.length ? ` (missing ${st.missing.length} placed file(s): run --install again)` : ""}`);
+      const { rows, STEPS } = require("./plugins-page");
+      for (const p of rows()) {
+        const step = p.step >= 3 ? "ready" : `${STEPS[p.step]} · next: ${["activate", "install", "configure"][p.step]}`;
+        const missing = p.placed.missing && p.placed.missing.length ? ` (missing ${p.placed.missing.length} placed file(s): --install again)` : "";
+        console.log(`  ${p.name.padEnd(18)} ${(p.module || p.spec || "-").padEnd(36)} ${(p.version || "").padEnd(8)} ${step}${missing}`);
       }
     ' ) ;;
 

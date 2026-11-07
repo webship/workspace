@@ -29,11 +29,13 @@ const path = require('path');
 const yaml = require('js-yaml');
 
 const { pluginByName, installedPlugins } = require('./plugin-manifest');
+// The workspace root as the dashboard knows it — NOT __dirname's parents: inside the container the
+// app runs at /var/www/html while the tree is bind-mounted at its own absolute path, and the record
+// written from one side must be the one read from the other.
+const { ROOT, CONFIG_DIR } = require('./workspaces');
 
-const ROOT = path.resolve(__dirname, '..', '..');
-const CONFIG_DIR = path.join(ROOT, 'core', 'config');
 const SCRIPTS_DIR = path.join(ROOT, 'core', 'scripts');
-const DDEV_DIR = path.join(__dirname, '.ddev');
+const DDEV_DIR = path.join(ROOT, 'core', 'workspace-app', '.ddev');
 const RECORD = path.join(CONFIG_DIR, 'plugins.installed.yml');
 const GITIGNORE = path.join(ROOT, '.gitignore');
 const BLOCK_START = '# plugins — managed by core/scripts/plugins.sh; do not edit between the markers';

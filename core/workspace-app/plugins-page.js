@@ -16,7 +16,7 @@ const { esc } = require('./html');
 const { installedPlugins } = require('./plugin-manifest');
 const { status, RECORD } = require('./plugin-install');
 const { pluginConfigs, loadedPlugins } = require('./plugin-loader');
-const { CONFIG_DIR } = require('./workspaces');
+const { ROOT, CONFIG_DIR } = require('./workspaces');
 
 const STEPS = ['required', 'activated', 'installed', 'configured'];
 
@@ -96,7 +96,7 @@ function pluginsPageHtml() {
         <button class="uk-button uk-button-default uk-button-small uk-margin-small-left" type="submit">Require</button>
       </form>
       <div class="plugin-cards">${cards || '<p class="uk-text-meta">No plugin packages yet. Require one above.</p>'}</div>
-      <p class="uk-text-meta uk-margin-small-top">What each install placed is recorded in <code>${esc(path.relative(path.join(CONFIG_DIR, '..', '..'), RECORD))}</code>.</p>
+      <p class="uk-text-meta uk-margin-small-top">What each install placed is recorded in <code>${esc(path.relative(ROOT, RECORD))}</code>.</p>
     </section>`;
 }
 
