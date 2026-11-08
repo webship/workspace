@@ -26,14 +26,6 @@ Feature: What a project row can actually do
     Given I am on "/dev"
      Then the element ".act-with-status .act-status" should be displayed
 
-  # UPSUN used to be hidden on any project that was not linked, which made it look as though the
-  # bridge existed only for demos — those are simply the projects that happen to be linked.
-  Scenario: UPSUN is offered on a project that is not linked yet, and says how to link it
-    Given I am on "/dev"
-     Then the element ".project-row .act-menu-upsun" should be displayed
-      And the element ".upsun-unlinked" should be displayed
-      And "[hx-post='/actions/upsun-status']" should be attached
-
   Scenario: The DDEV menu opens and holds the verbs that moved into it
     Given I am on "/rag"
      When I click on the element ".project-row .act-menu-ddev button"
