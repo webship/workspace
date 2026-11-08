@@ -23,12 +23,12 @@ const TYPES = {
   sites: {
     label: 'Sites — DDEV projects',
     description: 'Built Drupal sites: DDEV controls, tests, users, the full toolbelt.',
-    actions: ['build', 'folder', 'ddev', 'backup', 'clone', 'remove', 'graphify', 'ragify', 'tests', 'checks', 'users'],
+    actions: ['build', 'folder', 'ddev', 'backup', 'clone', 'remove', 'ragify', 'tests', 'checks', 'users'],
   },
   code: {
     label: 'Code — packages and repositories',
     description: 'Modules, themes, libraries, recipes: quality checks and knowledge tools, no site controls.',
-    actions: ['build', 'folder', 'backup', 'remove', 'graphify', 'ragify', 'checks'],
+    actions: ['build', 'folder', 'backup', 'remove', 'ragify', 'checks'],
   },
   files: {
     label: 'Files — documents and drafts',

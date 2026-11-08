@@ -26,7 +26,6 @@ const {
   workspaceDir,
   findBackupScript,
   findRemoveScript,
-  findGraphifyScript,
   findRagifyScript,
   findBuilderScripts,
   listBackups,
@@ -85,7 +84,7 @@ const {
 // Optional features workspaces turn on from settings.yml `plugins:` — see PLUGINS.md.
 const {
   pluginActions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
-  pluginRowMenus, pluginOpenWith, pluginFolderLinks, pluginProjectChipsHtml, pluginLabels,
+  pluginRowMenus, pluginWorkspaceView, pluginOpenWith, pluginFolderLinks, pluginProjectChipsHtml, pluginLabels,
   pluginProjectBadgesHtml, pluginSettingsOptions, pluginWorkKeyLink, pluginWorkPrompt,
 } = require('./plugin-loader');
 // How a project row is arranged — the order of its buttons and of what is inside their menus (Commands → Buttons).
@@ -133,7 +132,6 @@ const {
 const { commandAuthorPrompt, commandEditPrompt } = require('./command-author');
 const { checksCaption, checksDeclaredOf, checksRowsOf } = require('./checks');
 const { testReportPdfHtml } = require('./report-pdf');
-const { graphStoreDir, hasGraph, graphCounts, listGraphs } = require('./graphs');
 const {
   milvusProjectName, milvusRestBase, ragInstances, ragBindings, ragInstanceFor, ragWriteBinding,
   ragCollectionName, milvusPost, ragCollections, ragInvalidate,
@@ -143,7 +141,6 @@ const {
   ddevProjectName, listProjects, listProjectsDetailed,
   startInScreen, screenStartedHtml, screenAction, screenSessionName,
 } = require('./jobs');
-const { vaultDir, indexNote, vaultView, vaultCanvas, vaultFrame, obsidianMenuItems } = require('./obsidian');
 const { assembleCss, cssVersion, listThemes, themeLabel, createTheme, themePreview, isYamlOnlyTheme } = require('./themes');
 const NAME_RE = /^[a-zA-Z0-9_\-]+$/;
 
@@ -2887,7 +2884,8 @@ function homeCardsHtml(message) {
   const workspaces = loadWorkspaces();
   const keys = Object.keys(workspaces);
   const cards = Object.values(workspaces).map((w) => {
-    const projectCount = w.key === 'graphs' ? listGraphs().length
+    const view = pluginWorkspaceView(w.key);
+    const projectCount = view && view.count ? view.count()
       : w.kind === 'files' ? listItems(w.key).length : listProjects(w.dir).length;
     const hasBuilders = w.kind === 'files' || !w.typeActions.has('build') ? false : findBuilderScripts(w.dir).length > 0;
     const backupCount = listBackups(w.key).length;
@@ -3144,7 +3142,6 @@ async function projectRowsHtml(key, dir, state) {
   const canBackup = allowed.has('backup') && !!findBackupScript(dir);
   const canClone = allowed.has('clone') && fs.existsSync(path.join(dir, 'cmd-tools-clone.sh'));
   const canRemove = allowed.has('remove') && !!findRemoveScript(dir);
-  const canGraphify = allowed.has('graphify') && !!findGraphifyScript(dir);
   const canRagify = allowed.has('ragify') && !!findRagifyScript(dir);
   const canTest = allowed.has('tests') && fs.existsSync(path.join(dir, 'cmd-tools-testing.sh'));
   const canChecks = allowed.has('checks') && fs.existsSync(path.join(dir, 'cmd-tools-checks.sh'));
@@ -3459,25 +3456,6 @@ async function projectRowsHtml(key, dir, state) {
             hx-get="/fragments/projects/clone-form/${encodeURIComponent(key)}/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
             hx-on::after:request="UIkit.modal('#editor-modal').show()"
             title="Clone this ${esc(meta.noun)} — a copy, or a git worktree sharing its history"><span uk-icon="icon: copy; ratio: .7"></span> Clone</button>` : '';
-    const graphMenu = canGraphify ? (() => {
-            const built = hasGraph(key, p, 'graph.json') || hasGraph(key, p, 'graph.html');
-            const busy = !!runningJobKey(`graphify:${key}/${p}`);
-            return `<span class="act-with-status"><div class="uk-inline act-menu act-menu-graph">
-              <button class="uk-button uk-button-default uk-button-small" type="button" title="Knowledge graph"><span uk-icon="icon: git-fork; ratio: .7"></span> Graph <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-              
-              <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">
-                <li data-entry="build the graph"><a href hx-post="/actions/graphify" ${vals()} class="${busy ? 'uk-disabled' : ''}"><span uk-icon="icon: play; ratio: .7"></span> ${built ? 'Rebuild the graph' : 'Build the graph'}${busy ? ' (running…)' : ''}</a></li>
-                ${built ? `<li class="uk-nav-divider"></li>
-                ${hasGraph(key, p, 'graph.html') ? `<li><a href="/graph/${esc(key)}/${esc(p)}" target="_blank" title="Loads vis-network from unpkg.com, so it needs internet"><span uk-icon="icon: image; ratio: .7"></span> Open the graph</a></li>` : ''}
-                ${hasGraph(key, p, 'GRAPH_REPORT.md') ? `<li><a href="/graph/${esc(key)}/${esc(p)}/report" target="_blank"><span uk-icon="icon: file-text; ratio: .7"></span> Read the report</a></li>` : ''}
-                <li><a href="/graph/${esc(key)}/${esc(p)}/download" title="The graph as a .tar.gz, to hand to another workspace"><span uk-icon="icon: download; ratio: .7"></span> Download to share</a></li>
-                <li><a href hx-post="/actions/graph-mcp-command" ${vals()}><span uk-icon="icon: link; ratio: .7"></span> Connect over MCP…</a></li>
-                ${obsidianMenuItems(key, p, vals, busy)}
-                <li class="uk-nav-divider"></li>
-                <li><a href class="uk-text-danger arm-step" hx-post="/actions/graph-remove" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete the graph</a></li>` : ''}
-              </ul></div>
-            </div><span class="act-status uk-text-meta">${built ? 'built' : 'none'}</span></span>`;
-          })() : '';
     const ragMenu = canRagify ? (() => {
             // The RAG index: the same shape as the Graph menu next to it, because it answers the
             // half of the tree the graph does not — prose, templates and configuration.
@@ -3559,7 +3537,7 @@ async function projectRowsHtml(key, dir, state) {
       // The menus activated plugins bring, in the slots they registered (UPSUN, …).
       ...pluginRowMenus({ key, project: p, dir, meta, allowed, vals }),
       screens: screensOnTools, composer: composerMenu, node: nodeMenu, backup: backupButton, clone: cloneButton,
-      graph: graphMenu, rag: ragMenu, more: moreMenu,
+      rag: ragMenu, more: moreMenu,
     }, rowCtx, { preArranged: new Set(['ddev', 'more']) });
     // What is written down about this folder, read once: the name it is called by is the heading, the
     // paragraph is the row's tooltip, and the pen that edits both sits in the card's own corner.
@@ -3840,7 +3818,7 @@ function pageActionGroups(context) {
     groups.push({ id: 'go-to', label: 'Go to', items: [
       link('default', 'arrow-left', `Back to ${meta.label}`, wsUrl(key)),
     ] });
-  } else if (meta && meta.kind === 'files' && key !== 'graphs') {
+  } else if (meta && meta.kind === 'files' && !(pluginWorkspaceView(key) || {}).noFilesActions) {
     // Audio makes things rather than writes them, so each kind of thing is its own action and its own modal.
     // Each is a modal, not an inline form: the result of generating stays in the window that asked for it.
     const modal = 'hx-target="#editor-modal-body" hx-swap="innerHTML"';
@@ -4324,57 +4302,6 @@ function commandsShell(title, subtitle, active, body, context = 'commands') {
 </main>`, context);
 }
 
-function graphRowsHtml(state) {
-  const all = listGraphs();
-  const st = state;
-  const filtered = st.q
-    ? all.filter((g) => g.name.toLowerCase().includes(st.q.toLowerCase()))
-    : all;
-  const sorted = filtered.slice().sort((SORTS[st.sort] || SORTS[defaultSort()] || SORTS.newest).cmp);
-  const p = paginate(sorted, st);
-
-  const rows = p.slice.map((g) => `
-    <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
-      <div class="item-row-body">
-        <span class="uk-text-bold">${iconHtml('tabler:hierarchy-2', 0.8)} ${esc(g.project)}
-          <span class="uk-text-meta item-machine" title="The workspace the project lives in">${esc(g.workspace)}</span></span>
-        <div class="item-meta-line">
-          <span class="uk-text-meta item-time">${esc(humanTime(g.mtime))}</span>
-          <span class="uk-text-meta">· ${esc(humanSize(g.size))}</span>
-          ${g.nodes != null ? `<span class="uk-label" title="Nodes and edges, from graphify's own build file">${g.nodes} nodes${g.links != null ? ` · ${g.links} edges` : ''}</span>` : ''}
-          ${g.projectExists ? '' : '<span class="uk-label" title="The project is gone — the graph outlived it, and is safe to delete">project removed</span>'}
-        </div>
-        <div class="project-actions">
-          ${g.hasHtml ? `<a class="uk-button uk-button-default uk-button-small" href="/graph/${esc(g.workspace)}/${esc(g.project)}" target="_blank" title="Loads vis-network from unpkg.com, so it needs internet"><span uk-icon="icon: image; ratio: .7"></span> Open</a>` : ''}
-          ${g.hasReport ? `<a class="uk-button uk-button-default uk-button-small" href="/graph/${esc(g.workspace)}/${esc(g.project)}/report" target="_blank"><span uk-icon="icon: file-text; ratio: .7"></span> Report</a>` : ''}
-          <a class="uk-button uk-button-default uk-button-small" href="/graph/${esc(g.workspace)}/${esc(g.project)}/download"><span uk-icon="icon: download; ratio: .7"></span> Download</a>
-          ${g.projectExists ? `<button class="uk-button uk-button-secondary uk-button-small" hx-post="/actions/graphify" hx-vals='{"workspace":"${esc(g.workspace)}","projectName":"${esc(g.project)}"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" title="Re-extract and re-cluster from the project"><span uk-icon="icon: refresh; ratio: .7"></span> Rebuild</button>` : ''}
-          <button class="uk-button uk-button-danger uk-button-small arm-step" hx-post="/actions/graph-remove" hx-vals='{"workspace":"${esc(g.workspace)}","projectName":"${esc(g.project)}","confirm":"yes"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" hx-trigger="confirmed-remove"><span uk-icon="icon: trash; ratio: .7"></span> Delete</button>
-        </div>
-      </div>
-    </div>`).join('');
-
-  // The controls get the BARE URL: htmx appends the included inputs without deduping, and
-  // readPageState reads the FIRST q/sort — a URL already carrying ?q= made the search box a no-op.
-  // The pager keeps the qs form so page links preserve the current search.
-  const bareUrl = '/fragments/graphs/list';
-  const qs = new URLSearchParams();
-  if (st.q) qs.set('q', st.q);
-  if (st.sort !== defaultSort()) qs.set('sort', st.sort);
-  const url = `${bareUrl}${qs.toString() ? `?${qs}` : ''}`;
-  const pager = listPagerHtml(url, '#webship-workspace-projects', p, st, 'graphs');
-
-  return `
-    <h3 class="uk-margin-small-bottom">Graphs <span class="uk-badge">${all.length}</span></h3>
-    <p class="uk-text-meta uk-margin-small-bottom">One directory per project in <code>${esc(path.join(ROOT, 'graphs'))}/&lt;workspace&gt;/&lt;project&gt;/</code>,
-      built by <code>cmd-tools-graphify.sh</code> from the project's workspace folder. Query one with
-      <code>graphify query "…" --graph ${esc(path.join(ROOT, 'graphs'))}/&lt;workspace&gt;/&lt;project&gt;/graph.json</code>.</p>
-    ${listControlsHtml(bareUrl, '#webship-workspace-projects', st, 'graphs')}
-    ${pager}
-    ${rows || '<p class="uk-text-meta">No graphs yet — build one from the Graph menu on any project row.</p>'}
-    ${pager}`;
-}
-
 async function workspacePage(key, state) {
   await refreshLiveSessions();
   const workspaces = loadWorkspaces();
@@ -4384,12 +4311,8 @@ async function workspacePage(key, state) {
   const builders = isFiles || !meta.typeActions.has('build') ? [] : findBuilderScripts(dir);
   const builderOptions = builders.map((s) => `<option value="${esc(s)}">${esc(builderLabel(dir, s))}</option>`).join('');
 
-  const listSection = key === 'graphs' ? `
-    <div id="webship-workspace-projects" hx-get="/fragments/graphs/list" hx-trigger="refresh-projects from:body">
-      ${graphRowsHtml(state)}
-    </div>
-
-` : meta.kind === 'commands' ? `
+  const view = pluginWorkspaceView(key);
+  const listSection = view && view.listHtml ? view.listHtml(state) : meta.kind === 'commands' ? `
     <div id="webship-workspace-projects" hx-get="/fragments/cc/list" hx-trigger="refresh-projects from:body">
       ${await commandCatalogHtml(state)}
     </div>
@@ -4517,8 +4440,6 @@ const ACTIONS = {
   ...require('./actions/ddev'),
   ...require('./actions/ddev-mail').make({ mailpitFor: ddevMail.mailpitFor(ddevStatusMap) }),
   ...require('./actions/ddev-addons'),
-  ...require('./actions/graphs'),
-  ...require('./actions/obsidian'),
   ...require('./actions/rag'),
   ...require('./actions/testing'),
   ...require('./actions/checks'),
@@ -5660,80 +5581,6 @@ const server = http.createServer(async (req, res) => {
         const out = path.join(tmp, 'report.pdf');
         const cleanup = () => { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (_) { /* gone */ } };
 
-      // The vault: its index note, and the whole thing as an archive. Same symlink discipline
-      // as the graph routes below — a project directory that is a link would otherwise read
-      // outside the workspace, and this container bind-mounts ~/.claude as well as ~/workspace.
-      const vaultMatch = pathname.match(/^\/obsidian\/([a-z0-9_-]+)\/([a-zA-Z0-9_.-]+)\/(index|download|view|canvas|frame)$/);
-      if (vaultMatch && isValidWorkspace(vaultMatch[1])) {
-        const [, wsKey, project, what] = vaultMatch;
-        if (project.includes('..')) { res.writeHead(400); return res.end('bad name'); }
-        let real;
-        try {
-          real = fs.realpathSync(vaultDir(wsKey, project));
-          const base = fs.realpathSync(path.join(ROOT, 'graphs'));
-          if (!real.startsWith(base + path.sep) || !fs.statSync(real).isDirectory()) throw new Error('outside');
-        } catch (_) {
-          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-          return res.end('No vault yet — build one from the Graph menu on the project row.');
-        }
-
-        if (what === 'frame') {
-          const wanted = String(new URL(req.url, 'http://localhost').searchParams.get('what') || 'view');
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          return res.end(vaultFrame(wsKey, project, wanted));
-        }
-
-        if (what === 'view' || what === 'canvas') {
-          // Built before the head is written: a throw after writeHead becomes a 200 with an
-          // empty body, which reads as "the vault is empty" rather than "this broke".
-          let page;
-          try {
-            const themed = cssVersion(styleSettings().theme);
-            page = what === 'view'
-              ? vaultView(wsKey, project, String(new URL(req.url, 'http://localhost').searchParams.get('note') || ''), themed)
-              : vaultCanvas(wsKey, project, themed);
-          } catch (e) {
-            res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-            return res.end(`Could not read the vault: ${e.message}`);
-          }
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          return res.end(page);
-        }
-
-        if (what === 'index') {
-          // Read before the head is written: computing after writeHead turns a throw into a
-          // 200 with an empty body, which reads as "it worked and there is nothing there".
-          let md;
-          try {
-            md = fs.readFileSync(path.join(real, indexNote(project)), 'utf8');
-          } catch (_) {
-            res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-            return res.end('<div class="msg error">The vault has no index note. Rebuild it.</div>');
-          }
-          const vaultUri = `obsidian://open?path=${encodeURIComponent(real)}`;
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          return res.end(`<h3>${esc(project)} <span class="uk-text-meta">Obsidian vault</span></h3>
-            <p class="uk-text-meta">${esc(real)}</p>
-            <p><a class="uk-button uk-button-primary uk-button-small" href="${esc(vaultUri)}">Open in Obsidian</a>
-               <a class="uk-button uk-button-default uk-button-small" href="/obsidian/${esc(wsKey)}/${esc(project)}/download">Download</a></p>
-            <pre class="uk-background-muted uk-padding-small" style="white-space:pre-wrap">${esc(md)}</pre>`);
-        }
-
-        const vaultArchive = `${wsKey}--${project}--obsidian.tar.gz`;
-        res.writeHead(200, {
-          'Content-Type': 'application/gzip',
-          'Content-Disposition': `attachment; filename="${vaultArchive.replace(/[^A-Za-z0-9._-]/g, '_')}"`,
-          'X-Content-Type-Options': 'nosniff',
-        });
-        const vtar = spawn('tar', ['-czf', '-', '-C', path.dirname(real), path.basename(real)],
-          { stdio: ['ignore', 'pipe', 'pipe'] });
-        vtar.stdout.pipe(res);
-        vtar.stderr.resume();
-        vtar.on('error', () => { try { res.destroy(); } catch (_) { /* client gone */ } });
-        res.on('close', () => { try { vtar.kill(); } catch (_) { /* already exited */ } });
-        return;
-      }
-
         // Rendered from the run's JSON through our own print stylesheet, not from
         // cucumber-html-reporter's page: that page's feature and scenario bodies are Bootstrap
         // collapsibles which print CLOSED — a PDF of nothing but headers — and its CSS comes from
@@ -5778,66 +5625,6 @@ const server = http.createServer(async (req, res) => {
           stream.on('close', cleanup);
         });
         return;
-      }
-      const graphDlMatch = pathname.match(/^\/graph\/([a-z0-9_-]+)\/([a-zA-Z0-9_.\-]+)\/download$/);
-      if (graphDlMatch && isValidWorkspace(graphDlMatch[1])) {
-        const [, wsKey, project] = graphDlMatch;
-        if (project.includes('..')) { res.writeHead(400); return res.end('bad name'); }
-        const out = graphStoreDir(wsKey, project);
-        let real;
-        try {
-          real = fs.realpathSync(out);
-          const base = fs.realpathSync(path.join(ROOT, 'graphs'));
-          if (!real.startsWith(base + path.sep) || !fs.statSync(real).isDirectory()) throw new Error('nope');
-        } catch (_) {
-          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-          return res.end('No graph yet — build one from the Graph menu on the project row.');
-        }
-        // Streamed straight from tar: a graph runs to tens of MB and buffering it would hold
-        // the whole thing in the app's memory.
-        const name = `${wsKey}--${project}--graph.tar.gz`;
-        res.writeHead(200, {
-          'Content-Type': 'application/gzip',
-          'Content-Disposition': `attachment; filename="${name.replace(/[^A-Za-z0-9._-]/g, '_')}"`,
-          'X-Content-Type-Options': 'nosniff',
-        });
-        const tar = spawn('tar', ['-czf', '-', '-C', path.dirname(real), path.basename(real)],
-          { stdio: ['ignore', 'pipe', 'pipe'] });
-        tar.stdout.pipe(res);
-        tar.stderr.resume();
-        tar.on('error', () => { try { res.destroy(); } catch (_) { /* client gone */ } });
-        res.on('close', () => { try { tar.kill(); } catch (_) { /* already exited */ } });
-        return;
-      }
-      const graphMatch = pathname.match(/^\/graph\/([a-z0-9_-]+)\/([a-zA-Z0-9_\-]+)(\/report)?$/);
-      if (graphMatch && isValidWorkspace(graphMatch[1])) {
-        const wantsReport = !!graphMatch[3];
-        const dir = path.join(ROOT, 'graphs');
-        const file = path.join(graphStoreDir(graphMatch[1], graphMatch[2]),
-          wantsReport ? 'GRAPH_REPORT.md' : 'graph.html');
-        // Resolve symlinks before trusting the path: a project directory that
-        // is a symlink would otherwise read outside the workspace, and this
-        // container bind-mounts ~/.claude as well as ~/workspace.
-        let real = null;
-        try {
-          const base = fs.realpathSync(dir);
-          real = fs.realpathSync(file);
-          if (real !== base && !real.startsWith(base + path.sep)) real = null;
-          if (real && !fs.statSync(real).isFile()) real = null;
-        } catch (_) { real = null; }
-        if (!real) {
-          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-          return res.end('No graph yet — press Graph on the project row to build one.');
-        }
-        // graph.html is generated from the project's own code: serve it with
-        // scripts sandboxed away from this origin, and stream it (it runs to
-        // tens of MB on a large codebase).
-        res.writeHead(200, {
-          'Content-Type': wantsReport ? 'text/plain; charset=utf-8' : 'text/html; charset=utf-8',
-          'X-Content-Type-Options': 'nosniff',
-          'Content-Security-Policy': 'sandbox allow-scripts allow-popups;',
-        });
-        return fs.createReadStream(real).pipe(res);
       }
       const jobMatch = pathname.match(/^\/fragments\/job\/([a-z0-9-]+)$/);
       if (jobMatch) {
@@ -6092,7 +5879,7 @@ const server = http.createServer(async (req, res) => {
         return res.end(made.html);
       }
       const newMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/new$/);
-      if (newMatch && newMatch[1] !== 'graphs' && isValidWorkspace(newMatch[1]) && loadWorkspaces()[newMatch[1]].kind === 'files') {
+      if (newMatch && !(pluginWorkspaceView(newMatch[1]) || {}).noNewForm && isValidWorkspace(newMatch[1]) && loadWorkspaces()[newMatch[1]].kind === 'files') {
         const key = newMatch[1];
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(editorFormHtml(key, '', (ITEM_TEMPLATES[key] || ITEM_TEMPLATES.docs)('my-' + loadWorkspaces()[key].noun), true));
@@ -6534,10 +6321,6 @@ const server = http.createServer(async (req, res) => {
       }
       // The images public/ actually holds, as tiles. A settings value has to match a file
       // exactly, so this shows what is there rather than asking you to remember a filename.
-      if (pathname === '/fragments/graphs/list') {
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(graphRowsHtml(readPageState(req)));
-      }
       if (pathname === '/fragments/jobs/inline') {
         const rows = [...jobs.entries()].filter(([, j]) => !j.done && j.inline).map(([id, j]) => `
           <div class="uk-flex uk-flex-middle uk-flex-between uk-margin-small-bottom">

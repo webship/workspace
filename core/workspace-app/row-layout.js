@@ -58,7 +58,6 @@ const BUILTIN_BUTTONS = [
   // Single buttons, with no menu inside to arrange or to add actions to.
   { id: 'backup', label: 'Backup', row: 1, menu: false },
   { id: 'clone', label: 'Clone', row: 1, menu: false },
-  { id: 'graph', label: 'Graph', row: 1 },
   { id: 'rag', label: 'RAG', row: 1 },
   { id: 'more', label: 'More', row: 1 },
 ];

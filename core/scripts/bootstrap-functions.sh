@@ -43,10 +43,7 @@ source ${WORKSPACE_SCRIPTS}/functions/fun-build-website.sh || exit 1 ;
 source ${WORKSPACE_SCRIPTS}/functions/fun-build-webships.sh || exit 1 ;
 
 # Include Obsidian (reading a project's graph as a vault) functions.
-source ${WORKSPACE_SCRIPTS}/functions/fun-obsidian.sh || exit 1 ;
 
-# Include graphify (knowledge graph) functions.
-source ${WORKSPACE_SCRIPTS}/functions/fun-graphify.sh || exit 1 ;
 
 # Include AI provider key functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-ai-providers.sh || exit 1 ;
@@ -68,8 +65,6 @@ source ${WORKSPACE_SCRIPTS}/functions/fun-wordpress.sh || exit 1 ;
 source ${WORKSPACE_SCRIPTS}/functions/fun-odoo.sh || exit 1 ;
 source ${WORKSPACE_SCRIPTS}/functions/fun-avatar.sh || exit 1 ;
 
-# Include graphs workspace (the graph store and its MCP wiring) functions.
-source ${WORKSPACE_SCRIPTS}/functions/fun-graphs.sh || exit 1 ;
 
 # Include Milvus (self-hosted vector database in DDEV) functions.
 source ${WORKSPACE_SCRIPTS}/functions/fun-milvus.sh || exit 1 ;

@@ -27,12 +27,12 @@ test('an explicit type wins, a bad one falls back, kind decides the rest', () =>
 
 test('sites carry the full toolbelt, code drops the site controls, lists carry none', () => {
   const sites = typeActions('sites');
-  for (const a of ['build', 'ddev', 'backup', 'remove', 'graphify', 'ragify', 'tests', 'checks', 'users']) {
+  for (const a of ['build', 'ddev', 'backup', 'remove', 'ragify', 'tests', 'checks', 'users']) {
     assert.ok(sites.has(a), `sites misses ${a}`);
   }
   const code = typeActions('code');
   for (const a of ['ddev', 'users', 'tests']) assert.ok(!code.has(a), `code should not carry ${a}`);
-  for (const a of ['backup', 'remove', 'graphify', 'ragify', 'checks']) assert.ok(code.has(a), `code misses ${a}`);
+  for (const a of ['backup', 'remove', 'ragify', 'checks']) assert.ok(code.has(a), `code misses ${a}`);
   // Lists carry no project actions; files and media take only New folder, a page action.
   for (const t of ['files', 'media']) assert.deepEqual([...typeActions(t)], ['folder'], `${t} should carry only folder`);
   assert.equal(typeActions('ai-items').size, 0, 'ai-items should carry no actions');
