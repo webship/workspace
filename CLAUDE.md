@@ -1,6 +1,6 @@
 # Webship Workspace
 
-This is `~/workspace` — the Drupal development workspace for Webship/VDO-style projects. Previously lived at `/var/www/html` under a LAMP stack; now DDEV-only (no host Apache, PHP, or MySQL).
+This is `~/workspace` — the Drupal development workspace for Webship projects. Previously lived at `/var/www/html` under a LAMP stack; now container-based with no host Apache, PHP or MySQL: DDEV by default for the builders, and Docker Compose, Lando, Docksal, Podman and Kubernetes through the container plugins (`@webship.co/workspace-docker`, `-lando`, `-docksal`, `-podman`, `-kubernetes`).
 
 ## Layout
 
@@ -22,9 +22,9 @@ Critical dashboard rules:
 
 Every `cmd-*.sh` resolves `WORKSPACE_SCRIPTS` from its own path and sources `${WORKSPACE_SCRIPTS}/bootstrap.sh`, which derives `WORKSPACE_ROOT` / `_PATH` / `_CONFIG` and loads `core/config/settings.yml` plus the relevant `workspace.<dir>.settings.yml`. A fresh clone works with no env vars and no install step; exported `WORKSPACE_*` variables (or `root`/`path`/`scripts`/`config`/`backups` in `settings.yml`) still win as overrides. `settings.yml` carries no paths and no `database:` block.
 
-## DDEV-only workflow
+## Container workflow
 
-All project builds go through DDEV — never raw `composer`/`drush`/`mysql` against the host:
+The builders go through DDEV — never raw `composer`/`drush`/`mysql` against the host. A project on another runtime (a compose file, `.lando.yml`, `.docksal/`, a Containerfile, Kubernetes manifests) gets that runtime's menu from its plugin instead:
 - `ddev config --project-type=drupal --docroot=<docroot> --project-name=<name> --auto` + `ddev start` before anything else in a build.
 - `ddev composer ...` / `ddev drush ...` for all package and Drupal-console operations.
 - `ddev delete -y -O` instead of dropping a host database; `ddev export-db --file=...` instead of `mysqldump`.
