@@ -239,7 +239,7 @@ plugin itself (no manifest) and the dashboard never sees it.
 | Forges (`github`, `gitlab`, `bitbucket`) | `@webship.co/workspace-forge` — `registerForge(api, forge)` | the credential the dashboard uses for the host (`api.addForge`, which `github-auth.js` asks before the legacy `git.github` block), the row menu on every project whose git remote is at the host (repository, open issues and pull or merge requests, open one from the branch in a terminal, clone URL), the repository chip, the New-folder clone option | a `ForgeProvider`: the host, the CLI, how a remote URL reads, the pages, the issue and request lists, the clone URL |
 | Container runtimes (`docker`, `lando`, `docksal`, `podman`, `kubernetes`) | `@webship.co/workspace-container` — `registerContainer(api, runtime)` | the row menu on every project the runtime recognises (its verbs as terminal sessions in the project, grouped, with the site link), the up/down caption answered after the row is drawn, the New-folder init option | a `ContainerRuntime`: how a folder is detected as a project, the CLI, how to tell whether it is up, the verbs and their commands |
 
-`@webship.co/workspace-upsun` 2.0.0 is the reference provider: `register(api)` is one line, the facts are
+`@webship.co/workspace-upsun` is the reference provider: `register(api)` is one line, the facts are
 in `src/lib/provider.ts`, and the bash tool, compose file, host install, settings template and theme
 are what the installer places.
 
