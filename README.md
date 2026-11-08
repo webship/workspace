@@ -1,6 +1,6 @@
 # Webship Workspace
 
-A Drupal development workspace that runs entirely on [DDEV](https://ddev.com) — no host-level Apache, PHP or MySQL — with a web dashboard for the whole of it.
+A Drupal development workspace that runs in containers — no host-level Apache, PHP or MySQL — with a web dashboard for the whole of it. The builders use [DDEV](https://ddev.com); projects on Docker Compose, Lando, Docksal, Podman or Kubernetes get their runtime's menu from a plugin, and everything optional (hosting providers, git forges, the IDE, Google Drive, each workspace folder) is an `@webship.co/workspace-<name>` plugin you require, activate, install and configure.
 
 Every project you build gets its own containers and its own database. Nothing is shared, nothing is
 installed on the host, and a fresh clone works with no setup: each script locates the workspace from
@@ -126,7 +126,7 @@ No paths are listed: `root`, `path`, `scripts`, `config` and `backups` are deriv
 
 There is no `database:` section either: every DDEV project manages its own isolated database, and DDEV's `settings.ddev.php` owns the connection.
 
-Make sure [DDEV](https://ddev.readthedocs.io/en/stable/users/install/) and Docker are installed — that's the only runtime dependency now; there's nothing to install at the OS/package level.
+Make sure [DDEV](https://ddev.readthedocs.io/en/stable/users/install/) and Docker are installed — that's the only runtime dependency of the core; the other container runtimes are optional, each behind its plugin, and nothing is installed at the OS/package level.
 
 ## Web dashboard (workspace.ddev.site)
 
