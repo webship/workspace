@@ -40,7 +40,7 @@ function tree() {
   const dir = path.join(plugins, 'x-cloud');
   for (const d of ['scripts/functions', 'scripts/args', 'commands', 'ddev', 'config', 'public', 'features']) fs.mkdirSync(path.join(dir, d), { recursive: true });
   fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({
-    name: '@webship/workspace-x-cloud', version: '0.1.0', main: 'index.js',
+    name: '@webship.co/workspace-x-cloud', version: '0.1.0', main: 'index.js',
     workspacePlugin: {
       name: 'x-cloud', label: 'X Cloud', settingsFile: 'plugin.x-cloud.settings.yml', settingsTemplate: 'config/plugin.x-cloud.settings.yml',
       legacySettingsKey: 'x_cloud', labels: 'config/labels.yml', typeActions: { 'x-cloud': ['sites'] },
@@ -128,7 +128,7 @@ test('a dotted legacy key names a nested settings.yml block, for the reader and 
   const t = tree();
   const dir = path.join(t.plugins, 'x-forge');
   fs.mkdirSync(path.join(dir, 'config'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: '@webship/workspace-x-forge', version: '0.1.0', main: 'index.js',
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: '@webship.co/workspace-x-forge', version: '0.1.0', main: 'index.js',
     workspacePlugin: { name: 'x-forge', settingsFile: 'plugin.x-forge.settings.yml', settingsTemplate: 'config/plugin.x-forge.settings.yml', legacySettingsKey: 'git.x-forge' } }));
   fs.writeFileSync(path.join(dir, 'config', 'plugin.x-forge.settings.yml'), 'username: CHANGE_ME\ntoken: CHANGE_ME\n');
   fs.writeFileSync(path.join(dir, 'index.js'), 'module.exports.register = () => {};');
@@ -144,7 +144,7 @@ test('a dotted legacy key names a nested settings.yml block, for the reader and 
 test('the manifest reader sees a plugin folder and answers the command line', () => {
   const t = tree();
   const out = node(`const m = require('./plugin-manifest'); console.log(JSON.stringify(m.installedPlugins().map((p) => [p.name, p.module, p.spec])));`, env(t));
-  assert.deepStrictEqual(JSON.parse(out).filter((x) => x[0] === 'x-cloud'), [['x-cloud', '@webship/workspace-x-cloud', 'plugins/x-cloud']]);
+  assert.deepStrictEqual(JSON.parse(out).filter((x) => x[0] === 'x-cloud'), [['x-cloud', '@webship.co/workspace-x-cloud', 'plugins/x-cloud']]);
   const r = spawnSync(process.execPath, ['plugin-manifest.js', 'nope'], { cwd: APP, env: { ...process.env, ...env(t) }, encoding: 'utf8' });
   assert.strictEqual(r.status, 1, 'an unknown name is a non-zero exit, for the shell');
 });
@@ -209,7 +209,7 @@ test('a plugin that is a workspace: install makes the folder, its settings file 
   const dir = path.join(t.plugins, 'x-themes');
   fs.mkdirSync(path.join(dir, 'config'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'commands'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: '@webship/workspace-x-themes', version: '0.1.0', main: 'index.js',
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: '@webship.co/workspace-x-themes', version: '0.1.0', main: 'index.js',
     workspacePlugin: { name: 'x-themes', workspace: { key: 'x-themes', settingsTemplate: 'config/workspace.x-themes.settings.yml', files: ['commands/cmd-build-theme.sh'], docs: ['docs/AGENTS.md'] } } }));
   fs.mkdirSync(path.join(dir, 'docs'));
   fs.writeFileSync(path.join(dir, 'docs', 'AGENTS.md'), '# __WORKSPACE__\n');

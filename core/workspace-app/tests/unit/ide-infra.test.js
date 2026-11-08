@@ -1,7 +1,7 @@
 /**
  * The Web IDE's infrastructure stays with the dashboard image: code-server as a supervised daemon
  * bound to loopback, and the nginx vhost that proxies the ide. host to it. The menu that opens it
- * is the IDE plugin's (@webship/workspace-ide), which expects this same address.
+ * is the IDE plugin's (@webship.co/workspace-ide), which expects this same address.
  */
 const assert = require('node:assert');
 const { test } = require('node:test');

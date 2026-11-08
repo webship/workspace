@@ -14,7 +14,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-// The GIT menu is a plugin's now (@webship/workspace-git); its slot is registered here the way the loader does.
+// The GIT menu is a plugin's now (@webship.co/workspace-git); its slot is registered here the way the loader does.
 require('../../row-layout').registerButton({ id: 'ide', label: 'IDE', row: 0 });
 require('../../row-layout').registerButton({ id: 'git', label: 'GIT', row: 0 });
 

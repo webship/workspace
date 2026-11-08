@@ -237,136 +237,136 @@ assistant:
 # absent means all of them. See core/workspace-app/PLUGINS.md to write one.
 plugins:
   ide:
-    module: "@webship/workspace-ide"
+    module: "@webship.co/workspace-ide"
     enabled: true
   drupal-themes:
-    module: "@webship/workspace-drupal-themes"
+    module: "@webship.co/workspace-drupal-themes"
     enabled: true
   drupal-modules:
-    module: "@webship/workspace-drupal-modules"
+    module: "@webship.co/workspace-drupal-modules"
     enabled: true
   drupal-profiles:
-    module: "@webship/workspace-drupal-profiles"
+    module: "@webship.co/workspace-drupal-profiles"
     enabled: true
   rag:
-    module: "@webship/workspace-rag"
+    module: "@webship.co/workspace-rag"
     enabled: true
   graph:
-    module: "@webship/workspace-graph"
+    module: "@webship.co/workspace-graph"
     enabled: true
   avatar:
-    module: "@webship/workspace-avatar"
+    module: "@webship.co/workspace-avatar"
     enabled: true
   ai-prompts:
-    module: "@webship/workspace-ai-prompts"
+    module: "@webship.co/workspace-ai-prompts"
     enabled: true
   ai-commands:
-    module: "@webship/workspace-ai-commands"
+    module: "@webship.co/workspace-ai-commands"
     enabled: true
   ai-skills:
-    module: "@webship/workspace-ai-skills"
+    module: "@webship.co/workspace-ai-skills"
     enabled: true
   ai-agents:
-    module: "@webship/workspace-ai-agents"
+    module: "@webship.co/workspace-ai-agents"
     enabled: true
   libraries:
-    module: "@webship/workspace-libraries"
+    module: "@webship.co/workspace-libraries"
     enabled: true
   worklogs:
-    module: "@webship/workspace-worklogs"
+    module: "@webship.co/workspace-worklogs"
     enabled: true
   audio:
-    module: "@webship/workspace-audio"
+    module: "@webship.co/workspace-audio"
     enabled: true
   images:
-    module: "@webship/workspace-images"
+    module: "@webship.co/workspace-images"
     enabled: true
   video:
-    module: "@webship/workspace-video"
+    module: "@webship.co/workspace-video"
     enabled: true
   docs:
-    module: "@webship/workspace-docs"
+    module: "@webship.co/workspace-docs"
     enabled: true
   projects:
-    module: "@webship/workspace-projects"
+    module: "@webship.co/workspace-projects"
     enabled: true
   demos:
-    module: "@webship/workspace-demos"
+    module: "@webship.co/workspace-demos"
     enabled: true
   sandboxes:
-    module: "@webship/workspace-sandboxes"
+    module: "@webship.co/workspace-sandboxes"
     enabled: true
   test:
-    module: "@webship/workspace-test"
+    module: "@webship.co/workspace-test"
     enabled: true
   dev:
-    module: "@webship/workspace-dev"
+    module: "@webship.co/workspace-dev"
     enabled: true
   drupal-recipes:
-    module: "@webship/workspace-drupal-recipes"
+    module: "@webship.co/workspace-drupal-recipes"
     enabled: true
   drupal-site-templates:
-    module: "@webship/workspace-drupal-site-templates"
+    module: "@webship.co/workspace-drupal-site-templates"
     enabled: true
   products:
-    module: "@webship/workspace-products"
+    module: "@webship.co/workspace-products"
     enabled: true
   designs:
-    module: "@webship/workspace-designs"
+    module: "@webship.co/workspace-designs"
     enabled: true
   specs:
-    module: "@webship/workspace-specs"
+    module: "@webship.co/workspace-specs"
     enabled: true
   git:
-    module: "@webship/workspace-git"
+    module: "@webship.co/workspace-git"
     enabled: true
   docker:
-    module: "@webship/workspace-docker"
+    module: "@webship.co/workspace-docker"
     enabled: true
   docksal:
-    module: "@webship/workspace-docksal"
+    module: "@webship.co/workspace-docksal"
     enabled: true
   kubernetes:
-    module: "@webship/workspace-kubernetes"
+    module: "@webship.co/workspace-kubernetes"
     enabled: true
   lando:
-    module: "@webship/workspace-lando"
+    module: "@webship.co/workspace-lando"
     enabled: true
   podman:
-    module: "@webship/workspace-podman"
+    module: "@webship.co/workspace-podman"
     enabled: true
   bitbucket:
-    module: "@webship/workspace-bitbucket"
+    module: "@webship.co/workspace-bitbucket"
     enabled: true
   github:
-    module: "@webship/workspace-github"
+    module: "@webship.co/workspace-github"
     enabled: true
   gitlab:
-    module: "@webship/workspace-gitlab"
+    module: "@webship.co/workspace-gitlab"
     enabled: true
   acquia:
-    module: "@webship/workspace-acquia"
+    module: "@webship.co/workspace-acquia"
     enabled: true
   aws:
-    module: "@webship/workspace-aws"
+    module: "@webship.co/workspace-aws"
     enabled: true
   azure:
-    module: "@webship/workspace-azure"
+    module: "@webship.co/workspace-azure"
     enabled: true
   cpanel:
-    module: "@webship/workspace-cpanel"
+    module: "@webship.co/workspace-cpanel"
     enabled: true
   digitalocean:
-    module: "@webship/workspace-digitalocean"
+    module: "@webship.co/workspace-digitalocean"
     enabled: true
   godaddy:
-    module: "@webship/workspace-godaddy"
+    module: "@webship.co/workspace-godaddy"
     enabled: true
   jira:
-    module: "@webship/workspace-jira"
+    module: "@webship.co/workspace-jira"
     enabled: true
   upsun:
-    module: "@webship/workspace-upsun"
+    module: "@webship.co/workspace-upsun"
     enabled: true
   workspace-notes:
     enabled: true
@@ -376,7 +376,7 @@ plugins:
   # with its own settings file, core/config/plugin.google-drive-sync.settings.yml.
   google-drive-sync:
     enabled: true
-    module: "@webship/workspace-google-drive"
+    module: "@webship.co/workspace-google-drive"
     workspaces: "videos,audio,docs,specs,test"
 
 # ElevenLabs, for the final voiceover of a narrated video (videos/cmd-tools-elevenlabs.sh). Nothing is

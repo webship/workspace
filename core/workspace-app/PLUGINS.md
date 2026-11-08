@@ -62,14 +62,14 @@ when the package is not installed yet). To ship one inside this repo, keep it in
 `package.json` and link it from the dashboard's:
 
 ```json
-"dependencies": { "@webship/workspace-google-drive": "file:plugins/google-drive-sync" }
+"dependencies": { "@webship.co/workspace-google-drive": "file:plugins/google-drive-sync" }
 ```
 
 ```yaml
 plugins:
   google-drive-sync:
     enabled: true
-    module: "@webship/workspace-google-drive"
+    module: "@webship.co/workspace-google-drive"
 ```
 
 `npm install` links it into `node_modules`. `plugins/google-drive-sync` is the worked example: `index.js`
@@ -159,13 +159,13 @@ module.exports.register = (api) => {
 
 `api.lib` also lends `tabModalHtml`, `hubDomain()`, `listScreens()`, `agentSessions()`, `screenLogFor()`, `claudeSessionsFor()` and
 `screensCached()` (the last `screen -ls`, for a renderer that cannot wait). The types of all of it are
-`@webship/workspace-plugin-api`; a plugin written in TypeScript is checked against them.
+`@webship.co/workspace-plugin-api`; a plugin written in TypeScript is checked against them.
 
 ## TypeScript
 
 A plugin package is TypeScript: `src/` compiled to `dist/` by `tsc` on install (`prepare`), so the dashboard
 requires `dist/src/index.js` and a clone of the repository builds itself. Its tests are TypeScript too
-and run compiled (`npm test`); `@webship/workspace-upsun` is the shape to copy.
+and run compiled (`npm test`); `@webship.co/workspace-upsun` is the shape to copy.
 | `api.settings` | This plugin's own settings file: `file`, `read()`, `set(dotted, value)` and `setList(dotted, items)`, which change one key or list in place, comments kept, creating the file when it is missing. |
 | `api.lib` | Shared helpers: `esc`, `humanSize`, `humanTime`, `ROOT`, `loadWorkspaces`, `workspaceDir`, `isValidWorkspace`, `startJob`, `jobFragment`, `listProjects`, `NAME_RE`, `wsUrl` — `screenAction` (start a command as a Screen session, the way every long action does), `auth` (`sessionOf(req)`, `googleButton`, `BUTTON_CSS` from the dashboard's Google sign-in), plus the type layer: `TYPES`, `workspaceType(key)`, `typeAllows(key, action)`. |
 
@@ -234,12 +234,12 @@ plugin itself (no manifest) and the dashboard never sees it.
 
 | Family | Base | What the base draws | A provider supplies |
 | --- | --- | --- | --- |
-| Hosting (`upsun`, `acquia`, `digitalocean`, `cpanel`, `aws`, `azure`, `godaddy`) | `@webship/workspace-hosting` — `registerHosting(api, provider)` | the per-provider row menu (linked / unlinked), the live-site chip, the environments modal and list, the get-database-and-files flow, the branch-and-data block, the tool verbs as screen sessions, the `/<id>-site/<ws>/<project>` jump, the New-folder section, the family stylesheet | a `HostingProvider`: how a project is detected as linked, the CLI and its token, the environments and their URLs, the verbs its `cmd-tools-<id>.sh` carries (status, activities, logs, deploy…), the pull flags, the console URL |
+| Hosting (`upsun`, `acquia`, `digitalocean`, `cpanel`, `aws`, `azure`, `godaddy`) | `@webship.co/workspace-hosting` — `registerHosting(api, provider)` | the per-provider row menu (linked / unlinked), the live-site chip, the environments modal and list, the get-database-and-files flow, the branch-and-data block, the tool verbs as screen sessions, the `/<id>-site/<ws>/<project>` jump, the New-folder section, the family stylesheet | a `HostingProvider`: how a project is detected as linked, the CLI and its token, the environments and their URLs, the verbs its `cmd-tools-<id>.sh` carries (status, activities, logs, deploy…), the pull flags, the console URL |
 
-| Forges (`github`, `gitlab`, `bitbucket`) | `@webship/workspace-forge` — `registerForge(api, forge)` | the credential the dashboard uses for the host (`api.addForge`, which `github-auth.js` asks before the legacy `git.github` block), the row menu on every project whose git remote is at the host (repository, open issues and pull or merge requests, open one from the branch in a terminal, clone URL), the repository chip, the New-folder clone option | a `ForgeProvider`: the host, the CLI, how a remote URL reads, the pages, the issue and request lists, the clone URL |
-| Container runtimes (`docker`, `lando`, `docksal`, `podman`, `kubernetes`) | `@webship/workspace-container` — `registerContainer(api, runtime)` | the row menu on every project the runtime recognises (its verbs as terminal sessions in the project, grouped, with the site link), the up/down caption answered after the row is drawn, the New-folder init option | a `ContainerRuntime`: how a folder is detected as a project, the CLI, how to tell whether it is up, the verbs and their commands |
+| Forges (`github`, `gitlab`, `bitbucket`) | `@webship.co/workspace-forge` — `registerForge(api, forge)` | the credential the dashboard uses for the host (`api.addForge`, which `github-auth.js` asks before the legacy `git.github` block), the row menu on every project whose git remote is at the host (repository, open issues and pull or merge requests, open one from the branch in a terminal, clone URL), the repository chip, the New-folder clone option | a `ForgeProvider`: the host, the CLI, how a remote URL reads, the pages, the issue and request lists, the clone URL |
+| Container runtimes (`docker`, `lando`, `docksal`, `podman`, `kubernetes`) | `@webship.co/workspace-container` — `registerContainer(api, runtime)` | the row menu on every project the runtime recognises (its verbs as terminal sessions in the project, grouped, with the site link), the up/down caption answered after the row is drawn, the New-folder init option | a `ContainerRuntime`: how a folder is detected as a project, the CLI, how to tell whether it is up, the verbs and their commands |
 
-`@webship/workspace-upsun` 2.0.0 is the reference provider: `register(api)` is one line, the facts are
+`@webship.co/workspace-upsun` 2.0.0 is the reference provider: `register(api)` is one line, the facts are
 in `src/lib/provider.ts`, and the bash tool, compose file, host install, settings template and theme
 are what the installer places.
 
