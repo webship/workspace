@@ -11,15 +11,15 @@ dashboard with an agentic AI assistant, published to
 - New workspaces: **docs, agents, skills, prompts, recipes, components**
   (settings, per-folder scripts, backups dirs); reordered so AI Agents,
   AI Skills, Prompts, Docs lead the home page.
-- Cloned `vardot/dev-ai-agents` + `barmoog/ai-agents`; installed their Claude
+- Cloned `upstream/dev-ai-agents` + `barmoog/ai-agents`; installed their Claude
   Code agents/skills into `~/.claude`; authored 16 `webship-workspace-*`
   agents (one per workspace folder).
 - Fixed `core/scripts/install/install.sh` (wrote empty env values on fresh
   installs); sanitized repo configs for team installs (`/home/YOUR_USER`,
   `CHANGE_ME`); branch corrected `11.0.x` → `1.0.x` and set as default.
 - Builders: added **Drupal 11.4.x/11.4.0**, **Drupal CMS 2.1.0/2.x** (new
-  `distributions/drupal_cms.yml` + `arg-drupal_cms.sh`), **Varbase
-  9.2.x/9.2.0**; Varbase 11.0.x authored by the AI assistant on request;
+  `distributions/drupal_cms.yml` + `arg-drupal_cms.sh`), **the upstream distribution
+  9.2.x/9.2.0**; the upstream distribution 11.0.x authored by the AI assistant on request;
   removed all Cucumber `cmd-` scripts; every builder carries a
   `# workspace-name:` header shown in the UI.
 - `core/scripts/tests/cmd-smoke-test.sh`: syntax + safe `--help` execution +
@@ -84,7 +84,7 @@ dashboard with an agentic AI assistant, published to
 indicators + palette · `72236e1` title case · `01295da` agent mode ·
 `1828fa8` backups + sparkle logo · `9de5f1c` backups pills + delete ·
 `e1f5f38` /​ws/backups pages · `aafe2fd` live terminal + stop fix ·
-`68a8dab` Varbase 11 builders · `79a9844` 3-per-row · `841ed38` VDO logo ·
+`68a8dab` the upstream distribution 11 builders · `79a9844` 3-per-row · `841ed38` VDO logo ·
 `627d5ef` toolbar + breadcrumb · `00513b6` 4-per-row sidebar · `20a087f`
 context-aware assistant + prompts ws · `e97cc76` cucumber removal ·
 `c3d2ebf` per-workspace nouns · `ce9b63a` spacing + responsive · `c3ca2f8`
