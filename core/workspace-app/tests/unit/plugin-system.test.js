@@ -190,7 +190,7 @@ test('plugins.sh lists the step a plugin is at, activates and deactivates it in 
   const sh = (...args) => spawnSync('bash', [path.join(SCRIPTS, 'plugins.sh'), ...args], { cwd: t.root, env: { ...process.env, ...env(t), WORKSPACE_SCRIPTS: SCRIPTS }, encoding: 'utf8', timeout: 60000 });
   let r = sh('--list');
   assert.strictEqual(r.status, 0, r.stderr);
-  assert.match(r.stdout, /x-cloud\s+@webship\/workspace-x-cloud\s+0\.1\.0\s+activated · next: install/);
+  assert.match(r.stdout, /x-cloud\s+@webship\.co\/workspace-x-cloud\s+0\.1\.0\s+activated · next: install/);
   r = sh('--deactivate', 'x-cloud');
   assert.strictEqual(r.status, 0, r.stderr);
   assert.match(fs.readFileSync(path.join(t.config, 'settings.yml'), 'utf8'), /x-cloud:\n(?:    .*\n)*?    enabled: false/);
@@ -199,7 +199,7 @@ test('plugins.sh lists the step a plugin is at, activates and deactivates it in 
   assert.strictEqual(r.status, 0, r.stderr);
   const s = fs.readFileSync(path.join(t.config, 'settings.yml'), 'utf8');
   assert.match(s, /x-cloud:\n(?:    .*\n)*?    enabled: true/, 'enabled, wherever in the block the writer put it');
-  assert.match(s, /module: "@webship\/workspace-x-cloud"/, 'a module name starting with @ is quoted');
+  assert.match(s, /module: "@webship\.co\/workspace-x-cloud"/, 'a module name starting with @ is quoted');
   assert.match(sh('--list').stdout, /x-cloud.*activated · next: install/);
   assert.strictEqual(sh('--activate', 'nope').status, 1, 'an unknown plugin is refused');
 });
