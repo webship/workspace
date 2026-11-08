@@ -68,6 +68,7 @@ function tree() {
       api.addFragment(({ send, rest }) => send('frag:' + rest));
       api.addLabels({ region: { label: 'Region' } });
       api.addForge('forge.test', { label: 'X Forge', env: () => ({ X_TOKEN: 'secret' }), auth: () => ({ username: 'me', how: 'token' }) });
+      api.addWorkspaceView('x-store', { listHtml: (state) => '<div class="x-list">' + (state.q || '') + '</div>', count: () => 7, noNewForm: true });
     };`);
   return { root, config, plugins, dir };
 }
@@ -101,7 +102,8 @@ test('a plugin reaches every hook, and what it registers is what the dashboard d
       console.log(JSON.stringify({ menus, none, chips, setups: setups.length, steps: setups[0].steps('dev', 'n', { x: '1' }, {}), problem: setups[0].problem('dev', { x: 'bad' }, {}),
         hit, page, hitF, frag, css: l.pluginCssFiles(), labels: l.pluginLabels(), sitesHas: TYPES.sites.actions.includes('x-cloud'), codeHas: TYPES.code.actions.includes('x-cloud'),
         button: rl.DEFAULT_ROWS[0].includes('x-cloud'), action: Object.keys(l.pluginActions), loaded: l.loadedPlugins,
-        forge: l.pluginForge('FORGE.test') && l.pluginForge('FORGE.test').env(), noForge: l.pluginForge('other.test') }));
+        forge: l.pluginForge('FORGE.test') && l.pluginForge('FORGE.test').env(), noForge: l.pluginForge('other.test'),
+        view: l.pluginWorkspaceView('x-store') && { list: l.pluginWorkspaceView('x-store').listHtml({ q: 'abc' }), count: l.pluginWorkspaceView('x-store').count(), noNewForm: l.pluginWorkspaceView('x-store').noNewForm }, noView: l.pluginWorkspaceView('dev') }));
     });`, env(t));
   const r = JSON.parse(out);
   assert.strictEqual(r.menus['x-cloud'], '<div class="act-menu-x-cloud">dev/site1</div>');
@@ -122,6 +124,8 @@ test('a plugin reaches every hook, and what it registers is what the dashboard d
   assert.deepStrictEqual(r.loaded, [{ name: 'x-cloud', source: 'plugins/x-cloud' }]);
   assert.deepStrictEqual(r.forge, { X_TOKEN: 'secret' }, 'a forge answers for its host, whatever the case');
   assert.strictEqual(r.noForge, null);
+  assert.deepStrictEqual(r.view, { list: '<div class="x-list">abc</div>', count: 7, noNewForm: true }, 'a plugin owns a workspace folder\'s page');
+  assert.strictEqual(r.noView, null);
 });
 
 test('a dotted legacy key names a nested settings.yml block, for the reader and the installer', () => {

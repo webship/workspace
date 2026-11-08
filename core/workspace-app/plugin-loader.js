@@ -68,6 +68,11 @@ const lib = {
   LINGER_MARK: require('./linger').LINGER_MARK,
   tildePath: (p) => require('./format').tildePath(p),
   hostRunnerRequest: (...a) => require('./jobs').hostRunnerRequest(...a),
+  // The list helpers a plugin's own list page draws with (paging, sorting, the controls), the
+  // stylesheet version a standalone page links, and the script finder (cmd-tools-<x>.sh in a folder).
+  lists: require('./lists'),
+  cssVersionNow: () => require('./themes').cssVersion(require('./workspaces').styleSettings().theme),
+  findScript: (dir, patterns) => require('./workspaces').findScript(dir, patterns),
   workspaceType: (key) => (loadWorkspaces()[key] || {}).type || null,
   typeAllows: (key, action) => {
     const meta = loadWorkspaces()[key];
@@ -94,6 +99,7 @@ const sessionLogFns = [];    // (session, dirs) -> file | ''
 const assistantContextFns = []; // () -> a paragraph for the assistant's system context, or ''
 const forges = {};           // '<host>' -> { name, label, env(), auth() }: who answers for a git forge host
 const openWithFns = [];      // (abs, { label, caption, git }) -> html | null: the Open-with menu for a folder (the IDE plugin)
+const workspaceViews = {};   // '<key>' -> { name, listHtml(state), count(), noFilesActions, noNewForm }: a plugin that owns a workspace folder's page
 const folderLinkFns = [];    // (abs) -> { href, label, icon?, title? } | null: a link to open a folder elsewhere (the Web IDE)
 
 let _screens = { at: 0, rows: [], running: false };
@@ -231,6 +237,13 @@ function makeApi(name, config) {
     // A link that opens a folder elsewhere (the Web IDE on it), offered inside other menus (COMPOSER).
     addFolderLink(fn) {
       folderLinkFns.push(fn);
+    },
+    // A plugin that owns a workspace folder's page (the graphs workspace): its list section
+    // (`listHtml(state)`), the count on the home card (`count()`), and whether the files-page
+    // actions and the New-folder form stay away from it.
+    addWorkspaceView(key, view) {
+      if (!/^[a-z0-9_-]+$/.test(String(key))) throw new Error(`${name}: invalid workspace key '${key}'`);
+      workspaceViews[key] = { name, ...view };
     },
   };
 }
@@ -404,6 +417,11 @@ function pluginWorkPrompt(ctx) {
   for (const fn of workPromptFns) { try { const p = fn(ctx); if (p) return p; } catch (_) { /* next */ } }
   return null;
 }
+/** The plugin view of a workspace folder's page, or null. */
+function pluginWorkspaceView(key) {
+  return workspaceViews[String(key || '')] || null;
+}
+
 /** The Open-with menu for a folder, from the first plugin that draws one; '' without an IDE plugin. */
 function pluginOpenWith(abs, opts = {}) {
   for (const fn of openWithFns) {
@@ -443,6 +461,6 @@ loadPlugins();
 module.exports = {
   pluginActions: actions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
   pluginRowMenus, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginLabels,
-  pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext, pluginForge, pluginForges, pluginOpenWith, pluginFolderLinks,
+  pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext, pluginForge, pluginForges, pluginOpenWith, pluginFolderLinks, pluginWorkspaceView,
   loadedPlugins: loaded, pluginConfigs,
 };

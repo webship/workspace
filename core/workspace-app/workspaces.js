@@ -256,10 +256,6 @@ function findRemoveScript(dir) {
   return findScript(dir, [/^cmd-tools-remove\.sh$/]);
 }
 
-function findGraphifyScript(dir) {
-  return findScript(dir, [/^cmd-tools?-graphify\.sh$/]);
-}
-
 function findRagifyScript(dir) {
   return findScript(dir, [/^cmd-tools?-ragify\.sh$/]);
 }
@@ -549,7 +545,7 @@ module.exports = {
   workspaceDir,
   findBackupScript,
   findRemoveScript,
-  findGraphifyScript,
+  findScript,
   findRagifyScript,
   findBuilderScripts,
   builderLabel,
