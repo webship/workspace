@@ -26,6 +26,7 @@ jobs:
       - name: the plugin cycle on a clean tree
         run: |
           bash core/scripts/plugins.sh --list
+          bash core/scripts/plugins.sh --require @webship.co/workspace-upsun@^1.0.0
           bash core/scripts/plugins.sh --activate upsun
           cd core/workspace-app && node plugin-install.js install upsun && cd ../..
           bash core/scripts/plugins.sh --list
