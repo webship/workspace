@@ -8,12 +8,52 @@
 
 'use strict';
 
-const test = require('node:test');
+const { test, before, after } = require('node:test');
 const assert = require('node:assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { copyConfig } = require('./_isolated-config');
+
+// The walk is tested on a tree built here, not on whatever this checkout holds: a fresh clone has no
+// built site and no changelog in it, and a test that passed only on a full machine said nothing about
+// the code. The module reads its root once, at load, so the root is set before it is required.
+const REPO = path.join(__dirname, '../../../..');
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-changelog-root-'));
+process.env.WORKSPACE_ROOT = root;
 
 const {
   parseChangelog, kindOf, looksLikeVersion, listChangelogs, changelogFor, releasesFor, changelogIndex,
 } = require('../../changelog');
+
+const write = (rel, text) => {
+  fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+  fs.writeFileSync(path.join(root, rel), text);
+};
+
+before(() => {
+  fs.mkdirSync(path.join(root, 'core'), { recursive: true });
+  copyConfig(path.join(REPO, 'core/config'), path.join(root, 'core/config'));
+  // A product with a Keep a Changelog file (Unreleased on top, as they are written), a built site in
+  // dev/ with the old Drupal .txt, and a project that keeps none.
+  write('products/starter/CHANGELOG.md', `# Changelog
+
+## [Unreleased]
+### Added
+- Something that is not out yet
+
+## [1.0.3] - 2026-09-14
+### Added
+- Add a Newsletter Canvas page at \`/newsletter\`
+`);
+  write('dev/blog1/CHANGELOG.txt', `Blog 7.x-1.1, 2012-02-22
+------------------------
+- #1 by someone: a fix
+`);
+  write('dev/plain/README.md', 'No changelog here.\n');
+});
+
+after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 /* ---------------- the formats ---------------- */
 
@@ -138,7 +178,7 @@ test('an empty file, and a file of nothing but prose, are no releases rather tha
   assert.deepEqual(parseChangelog('# Changelog\n\nAll notable changes are documented here.\n'), []);
 });
 
-/* ---------------- against the real tree ---------------- */
+/* ---------------- against the tree built above ---------------- */
 
 test('a changelog anywhere in the tree is found, not only in products/', () => {
   const found = listChangelogs();
@@ -151,7 +191,9 @@ test('a changelog anywhere in the tree is found, not only in products/', () => {
   // The point of the change: it is a walk of every workspace, not a list of one.
   const workspaces = new Set(found.map((c) => c.workspace));
   assert.ok(workspaces.size > 1,
-    `only ${[...workspaces]} was walked — a built site in dev/ keeps one too`);
+    `only ${[...workspaces]} was walked, and a built site in dev/ keeps one too`);
+  assert.deepEqual(found.map((c) => `${c.workspace}/${c.item}`).sort(), ['dev/blog1', 'products/starter'],
+    'both files, and nothing for the project that keeps none');
 });
 
 test('a name that climbs out of its workspace is refused', () => {
@@ -174,4 +216,8 @@ test('the index summarises everything without throwing on any of it', () => {
     // The newest release is the first in the file, never "Unreleased" — a version people can install.
     assert.ok(!/^unreleased$/i.test(r.latest), `${r.label} reports Unreleased as its latest`);
   }
+  const starter = rows.find((r) => r.item === 'starter');
+  assert.equal(starter.latest, '1.0.3', 'the Unreleased block on top is passed over');
+  assert.equal(starter.unreleasedEntries, 1);
+  assert.equal(rows.find((r) => r.item === 'blog1').latest, 'Blog 7.x-1.1');
 });

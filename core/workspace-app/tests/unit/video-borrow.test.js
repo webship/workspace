@@ -70,7 +70,12 @@ before(async () => {
   fs.copyFileSync(path.join(REPO, 'videos/cmd-tools-video-edit.sh'), path.join(root, 'videos/cmd-tools-video-edit.sh'));
   fs.writeFileSync(path.join(root, 'docs/main-voiceover-script.md'), MAIN_SCRIPT);
   fs.writeFileSync(path.join(root, 'docs/other-voiceover-script.md'), OTHER_SCRIPT);
-  if (!CAN_RUN) return;
+  if (!CAN_RUN) {
+    // No ffmpeg on this machine: the engine tests are skipped, but the form and the fragments read only a
+    // video's name beside its script, so a file by that name is enough for them to run here too.
+    for (const n of ['main.mp4', 'other.mp4']) fs.writeFileSync(V(n), Buffer.alloc(100, 1));
+    return;
+  }
   const make = (name, source, dur, tone) => run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'lavfi', '-i', `${source}:rate=15:duration=${dur}`,
     '-f', 'lavfi', '-i', `sine=frequency=${tone}:duration=${dur}`, '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac',
     '-shortest', V(name)], { env: env() });
@@ -78,10 +83,27 @@ before(async () => {
   await make('other.mp4', 'smptebars=size=200x200', 9, 880);
 });
 
-after(() => {
-  for (const s of servers) s.kill();
-  fs.rmSync(root, { recursive: true, force: true });
-});
+/**
+ * Stop the servers this file started, then remove a tree, trying again for a moment. The server runs `ddev list` with
+ * HOME inside the tree, and a ddev still finishing after the server is gone puts `~/.ddev` back while the tree is
+ * being removed: a single rmSync then fails with ENOTEMPTY and the tree is left in /tmp.
+ */
+async function stopAndRemove(dirs) {
+  await Promise.all(servers.map((s) => new Promise((resolve) => {
+    if (s.exitCode !== null || s.signalCode !== null) return resolve();
+    s.once('exit', resolve);
+    s.kill();
+  })));
+  for (const dir of dirs) {
+    for (let i = 0; i < 50; i += 1) {
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) { /* something was still writing */ }
+      await new Promise((r) => setTimeout(r, 100));
+      if (!fs.existsSync(dir)) break;
+    }
+  }
+}
+
+after(() => stopAndRemove([root]));
 
 const args = (...more) => ['-a', 'edit', '--video', V('main.mp4'), '--script', path.join(root, 'docs/main-voiceover-script.md'), ...more];
 const borrow = (what, after = 'end', script = true) => ['--borrow', [V('other.mp4'), what, after, script ? path.join(root, 'docs/other-voiceover-script.md') : ''].join('|').replace(/\|+$/, '')];
