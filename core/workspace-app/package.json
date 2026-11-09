@@ -1,7 +1,7 @@
 {
   "name": "workspace-dashboard",
-  "version": "1.0.0-beta2",
-  "description": "The Webship Workspace dashboard: a lean core (workspaces, builders, settings, the assistant shell, the plugin system) that every feature joins as a @webship.co/workspace-<name> plugin \u2014 required with npm, then activated, installed and configured.",
+  "version": "1.0.0-rc1",
+  "description": "The Webship Workspace dashboard: a lean core (workspaces, builders, settings, the assistant shell, the plugin system) that every feature joins as a @webship.co/workspace-<name> plugin — required with npm, then activated, installed and configured.",
   "license": "ISC",
   "main": "server.js",
   "scripts": {
