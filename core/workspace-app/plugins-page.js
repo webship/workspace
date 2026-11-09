@@ -17,6 +17,7 @@ const { installedPlugins } = require('./plugin-manifest');
 const { status, RECORD } = require('./plugin-install');
 const { pluginConfigs, loadedPlugins } = require('./plugin-loader');
 const { ROOT, CONFIG_DIR } = require('./workspaces');
+const { FAMILIES, SCOPE } = require('./plugin-catalog');
 
 const STEPS = ['required', 'activated', 'installed', 'configured'];
 
@@ -95,9 +96,34 @@ function pluginsPageHtml() {
         <input class="uk-input uk-form-small uk-form-width-large" name="spec" placeholder="github:webship/workspace-jira" aria-label="Package to require" required pattern="[A-Za-z0-9@:/._#+~-]+">
         <button class="uk-button uk-button-default uk-button-small uk-margin-small-left" type="submit">Require</button>
       </form>
-      <div class="plugin-cards">${cards || '<p class="uk-text-meta">No plugin packages yet. Require one above.</p>'}</div>
+      <div class="plugin-cards">${cards || '<p class="uk-text-meta">No plugin packages yet. Pick one from the catalogue below, or require one above.</p>'}</div>
       <p class="uk-text-meta uk-margin-small-top">What each install placed is recorded in <code>${esc(path.relative(ROOT, RECORD))}</code>.</p>
+    </section>
+    ${catalogHtml(new Set(list.map((p) => p.module)))}`;
+}
+
+/** The catalogue: every plugin a person can add, by family; what is already required is marked. */
+function catalogHtml(have = new Set()) {
+  const families = FAMILIES.map((f) => `
+      <div class="plugin-family">
+        <h3 class="uk-margin-small-bottom">${esc(f.label)} <span class="uk-text-meta">${esc(f.about)}</span></h3>
+        <ul class="uk-list uk-list-divider plugin-catalog">
+          ${f.plugins.map(([name, label]) => {
+    const module = `${SCOPE}/workspace-${name}`;
+    const present = have.has(module);
+    return `<li class="uk-flex uk-flex-between uk-flex-middle">
+              <span><strong>${esc(label)}</strong> <code class="uk-text-meta">${esc(module)}</code></span>
+              ${present ? '<span class="uk-label">required</span>' : `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/plugins" hx-vals='{"verb":"require","spec":"${esc(module)}"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" title="npm install ${esc(module)} into core/workspace-app">Require</button>`}
+            </li>`;
+  }).join('')}
+        </ul>
+      </div>`).join('');
+  return `
+    <section class="settings-group plugin-catalog-section">
+      <h2 class="settings-group-head">Catalogue</h2>
+      <p class="uk-text-meta">The core ships empty. Add what you need, one package at a time: <strong>Require</strong> installs it with npm into <code>core/workspace-app/package.json</code>, then Activate, Install and Configure above. Nothing is added until you ask for it.</p>
+      ${families}
     </section>`;
 }
 
-module.exports = { pluginsPageHtml, rows, stepOf, needsInstall, STEPS };
+module.exports = { pluginsPageHtml, catalogHtml, rows, stepOf, needsInstall, STEPS };

@@ -1,0 +1,292 @@
+# Paths are not listed here: the tooling locates itself from the checkout, for
+# whoever is running it. Add root/path/scripts/config/backups only to override
+# that (or export WORKSPACE_ROOT/PATH/SCRIPTS/CONFIG).
+# The admin user a fresh install is given — Drupal, Webship, Drupal CMS and anything else
+# built here. These are local development sites, so `pass` is deliberately NOT treated as a
+# secret: the settings form shows it, because checking what you will log in with is the whole
+# point of the field.
+account:
+  name: webmaster
+  pass: CHANGE_ME
+  mail: info@webship.co
+
+# Who contributions are credited to — on webship/workspace, webship/ai-agents and every
+# drupal.org issue, merge request and pull request this tooling opens. Per machine: this live
+# copy holds your real values, the committed one ships CHANGE_ME.
+# After bootstrap.sh these are $contributor_name and $contributor_email in any
+# cmd-*.sh. The Webship agents read them too — see webship/ai-agents
+# .claude/agents/RULES.md, "Contributor identity".
+contributor:
+  name: CHANGE_ME
+  email: CHANGE_ME
+
+# AI provider keys for the sites this workspace builds. When a built site has
+# the AI stack (Drupal CMS AI, Webship AI), set_ai_provider_keys wires these
+# in after install. Placeholders are skipped; real keys live ONLY in your own
+# checkout — never commit them. parse_yaml flattens each to
+# $ai_providers_<provider>_api_key.
+git:
+  # One block per forge: GitHub, drupal.org's GitLab at git.drupalcode.org, and Bitbucket. Each
+  # holds the host, the account name that forge knows you by, the address commits carry there,
+  # and its token. `drupal` IS a GitLab instance, which is why there is no separate gitlab entry.
+  #
+  # `token` renders as an empty password field: the value is never sent back to the browser,
+  # never echoed into a job log, never written to actions.log. The commit NAME comes from
+  # contributor.name above; only the address varies per forge.
+  github:
+    host: github.com
+    # Authenticate with the `gh` CLI's own login when it works, and only fall back to the token
+    # below. Inside the dashboard container gh is not signed in — it reads the same ~/.config/gh
+    # but the token lives in the host keyring, which the container cannot read. That is what the
+    # token is for.
+    use_gh_cli: true
+    username: CHANGE_ME
+    email: CHANGE_ME
+    token: CHANGE_ME
+  drupal:
+    host: git.drupalcode.org
+    username: CHANGE_ME
+    email: CHANGE_ME
+    token: CHANGE_ME
+  bitbucket:
+    host: bitbucket.org
+    username: CHANGE_ME
+    email: CHANGE_ME
+    token: CHANGE_ME
+
+sources:
+  # Where a sync pulls from, and where a proposed change is filed. Change these to work from a
+  # fork or a different host — nothing here is hardcoded. An env var still wins for a one-off run.
+  tooling:
+    # This workspace's own commands, scripts and dashboard.
+    host: github.com
+    repo: webship/workspace
+    ref: 1.0.x
+  ai_items:
+    # The shared AI Agents, AI Skills and Prompts.
+    host: github.com
+    repo: webship/ai-agents
+    ref: main
+
+ai_providers:
+  # The local Claude Code CLI comes first and is the default: it needs no key of its own —
+  # it uses this machine's own Claude Code login — so nothing is sent to a third-party API
+  # and there is no key to leak. Set active: false to fall through to the keyed providers
+  # below, in the order they appear. An ANTHROPIC_API_KEY/OPENAI_API_KEY/GEMINI_API_KEY in
+  # the environment still wins over all of this, for a one-off run.
+  claude_code_cli:
+    active: true
+  openai:
+    api_key: sk-change-this
+  anthropic:
+    api_key: sk-change-this
+  gemini:
+    api_key: sk-change-this
+  xai:
+    api_key: sk-change-this
+  stability:
+    api_key: sk-change-this
+workspaces: []
+# Workspace folders are plugins (dev, test, drupal-modules, …): `webship-workspace plugin require <name>`
+# puts one on this list when you activate it. See Settings → Plugins, or `webship-workspace catalog`.
+
+# The base domain every dashboard URL is built from, and what DDEV routes.
+#
+#   <project>.<tld>          the first label is the DDEV project name, the rest is the project TLD
+#   workspace.ddev.site      the dashboard
+#   dev.workspace.ddev.site  a workspace page
+#   blog1.dev.workspace...   a project's site
+#
+# Change it with the command, never by hand — it applies the TLD to DDEV as well, and editing this
+# line alone leaves the dashboard's links and DDEV's routing pointing at different places:
+#
+#   bash ~/workspace/core/scripts/autostart.sh --domain workspace.ddev.site
+#
+# Keep ddev.site on a laptop: *.ddev.site resolves to 127.0.0.1 at ANY depth, which is the only
+# reason the nested scheme works with an empty /etc/hosts, and /etc/hosts cannot hold wildcards.
+# On a Docker host or dedicated server, use your own domain and point *.<domain> at the host.
+# ~/workspace with the DDEV project name `workspace` is the blessed default —
+# leave this as is there. Additional side-by-side checkouts (~/webship-workspace,
+# ~/un-workspace, …) each need their own identity: in that checkout run
+#   cd core/workspace-app && ddev config --project-name=<folder-name>
+# and set hub_domain to <folder-name>.ddev.site (or delete the key — it then
+# derives from the DDEV project name). Screen logs, backups and graphs already
+# live inside each checkout, so nothing else collides.
+hub_domain: workspace.ddev.site
+
+# The Workspace's default language: what the AI Assistant answers in, listens for and speaks.
+# en-US, en-GB, ar-JO, ar-SA, ar-AE, ar-EG, fr-FR, de-DE, es-ES or tr-TR. assistant.speech_language,
+# when set, still pins the microphone and the voice on their own.
+language: en-US
+
+# Second storage: a folder on another disk that whole workspace folders can live on, each one a
+# symlink from this tree. Per machine and never synced, like contributor:. Empty means none.
+# Managed with core/scripts/storage.sh (--status, --move, --back, --mounts).
+storage:
+  second: ""
+
+# Whether the dashboard comes back on its own after a reboot.
+# Install the boot service with: bash ~/workspace/core/scripts/autostart.sh --enable
+dashboard:
+  # Which projects start at boot. A word, not only a list:
+  #   workspace    just the dashboard — the default; seconds to boot, everything else one click away
+  #   running      whatever was running at the last clean shutdown
+  #   all          every registered project (each is a web + db container competing for RAM)
+  #   dev1,test2   exactly those, in that order
+  # The dashboard is always started first and always included, whatever this says.
+  autostart: workspace
+
+# The AI assistant panel, and its voice. Last in this file because it is the longest block and the
+# least often edited — the things above it are the ones you come here to change.
+#
+# Speech is the browser's own, in both directions: no key, no service, nothing leaves the machine.
+# Every value below is optional and the defaults are what ships.
+assistant:
+  intro: true
+  # What the assistant is CALLED, everywhere it is named: the panel's heading, the control in the
+  # navigation, the launcher and the full page at /assistant. This is the default — the home
+  # dashboard and every page that belongs to no workspace. A workspace overrides it with its own
+  # `assistant: name:` in workspace.<name>.settings.yml.
+  name: AI Assistant
+  # What the composer says when it is empty. `none` (or off / default / auto) means no placeholder,
+  # which is what ships: an empty field with a cursor in it already says "type here", and a prompt
+  # that suggests what to ask narrows what gets asked. Overridable per workspace the same way.
+  placeholder: none
+  # The assistant's avatar: the one the robot icon in the panel shows first, one of `avatars`, hidden
+  # (and silent) with the next click. `none` takes the icon away.
+  avatar: druplicon
+  # The avatars that can be picked in the panel's avatar settings. druplicon ships with the dashboard;
+  # any other name is a character (characters/<name>.json) or a model (public/models/<name>.vrm) in an
+  # avatars workspace project, served from there and never copied here. Licences are per model: add
+  # only what you may use, and a fan-made model only on your own machine.
+  avatars:
+    - druplicon
+  # Per avatar, optional: the hair colour it starts with (#rrggbb; each browser can pick another), and the
+  # Claude Code agent it brings while shown (used only when installed in ~/.claude/agents), e.g.
+  #   avatar_hair:
+  #     labiba-meme: "#0074e0"
+  #   avatar_agents:
+  #     druplicon: avatar-druplicon
+  # Where the assistant keeps what the team teaches it (MEMORY.md), relative to the workspace root.
+  # Private to this machine: gitignored, and never copied by sync-tooling or the updater.
+  memory: core/workspace-app/.memory
+  # The Claude Code agent the assistant runs as, when it is installed in ~/.claude/agents: its rules
+  # and skills on top of the dashboard's own. `none` runs the assistant without one.
+  agent: webship-workspace
+
+  # Voice IN — the browser's own speech recognition.
+  # false removes the microphone rather than leaving a button that does nothing.
+  voice_input: true
+  # Send on its own after this many ms of silence. 0 = never; you press send.
+  submit_after_silence: 2500
+  # Pin the recogniser's language, e.g. en-US, en-GB, ar-JO. Ships as en-US; `auto` follows the browser instead.
+  # Worth setting if you dictate anything but your browser's language: a recogniser left on the
+  # wrong one does not fail, it returns confident nonsense.
+  speech_language: en-US
+  # Show words as they are guessed, before the recogniser settles on them.
+  interim_results: true
+  # Stop listening once the message is sent.
+  stop_after_submit: true
+
+  # Voice OUT — the assistant reads its answer aloud. Browser synthesis, so no key either.
+  voice_output: true
+  # A voice by name, as the browser lists it (Chrome: "Google US English"; the exact names differ
+  # per browser and per OS). `default` uses the browser default; an unknown name falls back to it.
+  voice_name: default
+  speech_rate: 1
+  speech_pitch: 1
+  speech_volume: 1
+
+  # Spoken words that ACT instead of being typed. true listens for the command's own word —
+  # command_stop: true listens for "stop". Each one costs you that word in ordinary dictation, so
+  # describing a submit button would send the message; that is why they are all off.
+  # A phrase of your own works too, and is the only way to have one in another language:
+  #   command_stop: توقف
+  command_submit: false
+  command_stop: false
+  command_pause: false
+  command_resume: false
+  command_clear: false
+
+# Optional dashboard features, per plugin — folders under core/workspace-app/plugins/ or npm
+# modules (module: <require-name>). `workspaces` limits which folders get the feature; empty or
+# absent means all of them. See core/workspace-app/PLUGINS.md to write one.
+plugins: {}
+# Every optional feature is an npm package @webship.co/workspace-<name>; `plugins.sh --activate` adds
+# its block here. Nothing is added until you ask for it.
+
+# ElevenLabs, for the final voiceover of a narrated video (videos/cmd-tools-elevenlabs.sh). Nothing is
+# sent to ElevenLabs unless a person agrees to a run, and the stage is not offered without a real key.
+# ELEVENLABS_API_KEY in the environment wins over api_key. voice_id `ask` means choose one each time.
+# region: global | us | eu | in | sg (an isolated residency environment is a separate account and key).
+elevenlabs:
+  api_key: CHANGE_ME
+  voice_id: ask
+  model_id: eleven_v4
+  region: global
+  pronunciation: ""
+
+# Short codes for the name the Build form proposes.
+#
+# A name is `<code><major>x<minor><patch>b<n>`:
+#
+#   w11x0xb1        Webship, the 11.0.x branch, first build
+#   w11x00b1        Webship, the ~11.0.0 release
+#
+# The code comes from the product's TITLE. Several words give their initials — Haven is `h`,
+# Website Starter is `ws`, Drupal CMS is `dc`. A single word keeps its word, because reducing it to a
+# letter is where a code stops being readable and starts being a puzzle, and because it collides:
+# Haven and Healthcare would both be `h`.
+#
+# Override any of them here. The three below are the ones the derivation gets wrong or that are typed
+# often enough to have earned a letter.
+short_codes:
+  webship: w
+  drupal: d
+  # Webship's own site templates: their initials all come out as `ws`, so each gets a code.
+  website_starter: wst
+  webship_starter: wsh
+  webship_portal: wpo
+  webapi_starter: wapi
+  webships_starter: wss
+  webships_project: wsp
+
+# Sign in with Google for the dashboard itself. Off, which is right on a laptop where the dashboard answers
+# only that laptop. Turn it on for a remote hub (hub_domain set to a public domain): every page, action and
+# terminal then needs a Google account whose verified email is in allowed_domains (or allowed_emails).
+# It uses the same OAuth client as the Google Drive plugin (plugin.google-drive-sync.settings.yml); add this
+# redirect URI to that client:
+#   https://<hub_domain>/auth/google/callback
+# Nothing allowed means nobody is let in. Locked out? Set enabled back to false here; it applies at once.
+auth:
+  google:
+    enabled: false
+    allowed_domains: []
+    # allowed_emails:
+    #   - someone@example.org
+    # How long a sign-in lasts, in hours (1 to 720).
+    session_hours: 12
+
+# Default styling for the dashboard. Every value is optional — the defaults below are what
+# ships, and /settings rewrites only the line you change.
+#   mode          light | dark | system   (system follows the OS setting)
+#   editor_theme  auto | light | dark     (auto follows mode)
+#   theme         a directory under core/workspace-app/public/themes — the palette every
+#                 component asks for. `mode` chooses which half of it you see.
+#   logo          a filename in core/workspace-app/public — not a path or a URL, because
+#                 everything the dashboard loads is served from itself
+#   logo_on_dark  the mark to swap in on a dark page; defaults to `logo`
+#   favicon       the browser-tab icon; defaults to `logo`
+#
+# mode and editor_theme are DEFAULTS, for someone who has not used the theme toggle. A stored
+# choice always wins over them.
+style:
+  workspace_name: workspace
+  mode: light
+  editor_theme: auto
+  theme: default
+  logo:
+  logo_on_dark:
+  favicon:
+  page_size: 50
+  page_sort: newest

@@ -2920,6 +2920,24 @@ function homeCardsHtml(message) {
            uk-grid data-sortable=".ws-card-wrap" data-sortable-view="home"
            data-order="${esc(keys.join(','))}" data-file="settings.yml" data-key="workspaces">${cards}</div>
       ${message || ''}
+      ${keys.length ? '' : emptyWorkspaceHtml()}
+    </div>`;
+}
+
+// A fresh workspace has no folders and no plugins: that is the design, not a fault, and the first
+// thing to see is what can be added and how.
+function emptyWorkspaceHtml() {
+  const { FAMILIES } = require('./plugin-catalog');
+  const families = FAMILIES.map((f) => `<li><strong>${esc(f.label)}</strong> <span class="uk-text-meta">${esc(f.plugins.map(([n]) => n).join(' · '))}</span></li>`).join('');
+  return `<div class="uk-card uk-card-default uk-card-body uk-margin-small-top empty-workspace">
+      <h2 class="uk-h4">Empty, on purpose</h2>
+      <p>This workspace has no folders and no plugins yet. Everything is an npm package <code>@webship.co/workspace-&lt;name&gt;</code>,
+        added one at a time when you ask for it — from <a href="/settings/plugins">Settings → Plugins</a>, or:</p>
+      <pre class="uk-background-muted uk-padding-small">webship-workspace plugin require dev
+webship-workspace plugin activate dev
+webship-workspace plugin install dev</pre>
+      <ul class="uk-list uk-list-collapse">${families}</ul>
+      <p class="uk-text-meta"><a href="/settings/plugins">Open the catalogue</a> · the full list: <code>webship-workspace catalog</code></p>
     </div>`;
 }
 

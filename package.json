@@ -1,0 +1,51 @@
+{
+  "name": "@webship.co/workspace",
+  "version": "1.0.0-beta2",
+  "description": "Webship Workspace: a container-based development workspace with a web dashboard. The core ships empty; workspace folders, hosting providers, git forges, container runtimes and features are @webship.co/workspace-<name> plugins you add one at a time.",
+  "license": "GPL-2.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webship/workspace.git"
+  },
+  "homepage": "https://github.com/webship/workspace#readme",
+  "bin": {
+    "webship-workspace": "core/bin/workspace.js"
+  },
+  "files": [
+    "core/bin",
+    "core/config/settings.template.yml",
+    "core/config/style.yml",
+    "core/config/settings.labels.yml",
+    "core/config/theme.*.yml",
+    "core/docs",
+    "core/scripts",
+    "core/workspace-app/*.js",
+    "core/workspace-app/actions",
+    "core/workspace-app/commands",
+    "core/workspace-app/docs",
+    "core/workspace-app/public",
+    "core/workspace-app/scripts",
+    "core/workspace-app/plugins/workspace-notes",
+    "core/workspace-app/tests",
+    "core/workspace-app/.ddev",
+    "core/workspace-app/package.json",
+    "core/workspace-app/cucumber.js",
+    "core/workspace-app/playwright.config.js",
+    "core/workspace-app/screenrc",
+    "core/workspace-app/PLUGINS.md",
+    "core/workspace-app/WORKSPACES.md",
+    "core/workspace-app/README.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test core/workspace-app/tests/unit/workspace-bin.test.js",
+    "postinstall": "node -e \"console.log('Webship Workspace: run  webship-workspace init [dir]  to make a workspace (empty), then add plugins one at a time.')\""
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

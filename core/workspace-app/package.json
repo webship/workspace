@@ -1,27 +1,9 @@
 {
-  "name": "@webship.co/workspace",
-  "version": "1.0.0-beta1",
-  "description": "The Webship Workspace dashboard: a lean core (workspaces, builders, settings, the assistant shell, the plugin system) that every feature joins as a @webship.co/workspace-<name> plugin — required with npm, then activated, installed and configured.",
+  "name": "workspace-dashboard",
+  "version": "1.0.0-beta2",
+  "description": "The Webship Workspace dashboard: a lean core (workspaces, builders, settings, the assistant shell, the plugin system) that every feature joins as a @webship.co/workspace-<name> plugin \u2014 required with npm, then activated, installed and configured.",
   "license": "ISC",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/webship/workspace.git",
-    "directory": "core/workspace-app"
-  },
   "main": "server.js",
-  "files": [
-    "*.js",
-    "actions",
-    "commands",
-    "docs",
-    "public",
-    "scripts",
-    "plugins/workspace-notes",
-    "screenrc",
-    "PLUGINS.md",
-    "WORKSPACES.md",
-    "README.md"
-  ],
   "scripts": {
     "start": "node server.js",
     "test": "npm run test:unit && npm run test:browser",
@@ -41,9 +23,7 @@
   "devDependencies": {
     "webship-js": "^2.0.4"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "keywords": [],
-  "author": ""
+  "author": "",
+  "private": true
 }
