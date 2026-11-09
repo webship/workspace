@@ -30,6 +30,8 @@ An npm package `@webship.co/workspace-<name>` (repository `github.com/webship/wo
 
 ## Read more
 
+**New here?** The dashboard's own guide is in [core/workspace-app/docs](core/workspace-app/docs): the [user guide](core/workspace-app/docs/USER-GUIDE.md) for the pages and what each button does (also served at `/help`), and the [developer guide](core/workspace-app/docs/DEVELOPER-GUIDE.md) for how the app is built.
+
 - [Getting started](core/docs/getting-started.md) — the first hour: install, add a workspace folder, build a site.
 - [Plugins](core/docs/plugins.md) — the four steps, the families, writing one.
 - [Workspaces](core/docs/workspaces.md) — folders, types, builders and the `cmd-*.sh` commands.
