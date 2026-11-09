@@ -514,7 +514,10 @@ test('the row, the SCREENS fragment and the Commands page are wired to rows mana
   assert.match(src, /const extraRows = rowLines\.extra\.filter\(Boolean\);/);
   assert.match(src, /\$\{extraRows\.join\(''\)\}/);
   assert.match(src, /const ddevItems = rowLayout\.arrangeNavInner\('ddev', ddevMenuItems, rowCtx\);/);
-  assert.match(src, /return res\.end\(rowLayout\.arrangeNavInner\('screens', screensNav,/);
+  // The SCREENS body is arranged where it is served: the legacy fragment, and the row-menu route every
+  // core menu (DDEV, COMPOSER, Tests, SCREENS) loads its body through when it opens — arranged, then columns.
+  assert.match(src, /return res\.end\(rowLayout\.arrangeNavInner\('screens', nav,/);
+  assert.match(src, /rowLayout\.columnizeButtonHtml\(slot, rowLayout\.arrangeButtonHtml\(slot, html, ctx\), layout\)/);
   assert.match(src, /'\/settings\/buttons'[\s\S]{0,400}settingsPage\('buttons'/);
   assert.match(src, /\.\.\.require\('\.\/actions\/row-actions'\)/);
   const ui = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'ui.js'), 'utf8');

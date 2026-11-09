@@ -406,14 +406,32 @@ function rowMenuHtml(slot, result, ctx = {}) {
   if (typeof result === 'string') return result;
   if (typeof result !== 'object' || typeof result.html !== 'string' || !result.html
     || typeof result.body !== 'string' || !/^\/fragments\/p\/[a-z0-9-]+\//.test(result.body)) return '';
-  const url = `/fragments/row-menu/${encodeURIComponent(slot)}/${encodeURIComponent(ctx.key || '')}/${encodeURIComponent(ctx.project || '')}?body=${encodeURIComponent(result.body)}`;
-  const classes = ['uk-inline', 'act-menu', `act-menu-${slot}`, ...String(result.classes || '').split(/\s+/).filter(Boolean)];
-  const caption = result.caption === undefined || result.caption === null || result.caption === '' ? ''
-    : `<span class="act-status uk-text-meta">${esc(String(result.caption))}</span>`;
-  return `<span class="act-with-status"><div class="${esc([...new Set(classes)].join(' '))}">${result.html}`
-    + `<div uk-dropdown="mode: click; pos: bottom-right" class="act-menu-lazy" hx-get="${esc(url)}" hx-trigger="menu-opened" hx-target="this" hx-swap="innerHTML">`
+  return menuShellHtml(slot, {
+    key: ctx.key, project: ctx.project, html: result.html, caption: result.caption, classes: result.classes,
+    query: `?body=${encodeURIComponent(result.body)}`,
+  });
+}
+
+/**
+ * The shell of a row menu whose body loads when it opens — the one markup for a plugin's lazy menu and for
+ * the core's own (DDEV, COMPOSER, Tests, SCREENS): `<span class="act-with-status">` around the
+ * `.uk-inline.act-menu.act-menu-<slot>` wrapper, the button (`html`), an empty `uk-dropdown` shell and the
+ * caption. The shell fetches `/fragments/row-menu/<slot>/<ws>/<project><query>` on `menu-opened` (the relay
+ * of UIkit's `beforeshow` in public/ui.js) and swaps the answer in as its inner HTML; `triggers` adds more
+ * (SCREENS also polls, for the badges it swaps out of band). `classes` go on the wrapper after
+ * `act-menu-<slot>`, `dropdownClasses` on the shell after `act-menu-lazy` (a menu's own width class).
+ */
+function menuShellHtml(slot, { key, project, html, caption, classes, dropdownClasses, triggers, query = '' } = {}) {
+  const url = `/fragments/row-menu/${encodeURIComponent(slot)}/${encodeURIComponent(key || '')}/${encodeURIComponent(project || '')}${query}`;
+  const wrap = ['uk-inline', 'act-menu', `act-menu-${slot}`, ...String(classes || '').split(/\s+/).filter(Boolean)];
+  const drop = ['act-menu-lazy', ...String(dropdownClasses || '').split(/\s+/).filter(Boolean)];
+  const trigger = ['menu-opened', ...String(triggers || '').split(/\s*,\s*/).filter(Boolean)].join(', ');
+  const cap = caption === undefined || caption === null || caption === '' ? ''
+    : `<span class="act-status uk-text-meta">${esc(String(caption))}</span>`;
+  return `<span class="act-with-status"><div class="${esc([...new Set(wrap)].join(' '))}">${html}`
+    + `<div uk-dropdown="mode: click; pos: bottom-right" class="${esc([...new Set(drop)].join(' '))}" hx-get="${esc(url)}" hx-trigger="${esc(trigger)}" hx-target="this" hx-swap="innerHTML">`
     + '<ul class="uk-nav uk-dropdown-nav"><li class="uk-nav-header">…</li></ul></div></div>'
-    + `${caption}</span>`;
+    + `${cap}</span>`;
 }
 
 /** Whether a plugin registered a row menu in this slot. */
@@ -523,7 +541,7 @@ loadPlugins();
 
 module.exports = {
   pluginActions: actions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
-  pluginRowMenus, rowMenuHtml, pluginRowMenuSlot, pluginRowMenuBody, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginLabels,
+  pluginRowMenus, rowMenuHtml, menuShellHtml, pluginRowMenuSlot, pluginRowMenuBody, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginLabels,
   pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext, pluginForge, pluginForges, pluginOpenWith, pluginFolderLinks, pluginWorkspaceView,
   loadedPlugins: loaded, pluginConfigs,
 };

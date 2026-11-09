@@ -84,7 +84,7 @@ const {
 // Optional features workspaces turn on from settings.yml `plugins:` — see PLUGINS.md.
 const {
   pluginActions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
-  pluginRowMenus, pluginRowMenuSlot, pluginRowMenuBody, pluginWorkspaceView, pluginOpenWith, pluginFolderLinks, pluginProjectChipsHtml, pluginLabels,
+  pluginRowMenus, menuShellHtml, pluginRowMenuSlot, pluginRowMenuBody, pluginWorkspaceView, pluginOpenWith, pluginFolderLinks, pluginProjectChipsHtml, pluginLabels,
   pluginProjectBadgesHtml, pluginSettingsOptions, pluginWorkKeyLink, pluginWorkPrompt,
 } = require('./plugin-loader');
 // How a project row is arranged — the order of its buttons and of what is inside their menus (Commands → Buttons).
@@ -937,15 +937,37 @@ function promptFile(text) {
  * anything else runs in the dashboard's DDEV container, and the menu says which.
  */
 function composerMenuHtml(key, p, projectPath, isDdev, mode = 'manifest') {
+  const { hasComposerJson } = require('./actions/composer');
+  if (!hasComposerJson(projectPath)) return '';
+  const manifest = mode !== 'full';
+  const { caption } = composerMenuState(projectPath);
+  // The row carries the button and the caption; the body (composerMenuBody) arrives from
+  // /fragments/row-menu/composer/<ws>/<project> when the menu opens — fifty rows, fifty buttons, no menu.
+  return menuShellHtml('composer', {
+    key, project: p, caption, dropdownClasses: `composer-dropdown${manifest ? '' : ' composer-dropdown-wide'}`,
+    html: '<button class="uk-button uk-button-default uk-button-small" type="button" title="Composer commands for this folder"><span uk-icon="icon: album; ratio: .7"></span> COMPOSER <span uk-icon="icon: chevron-down; ratio: .6"></span></button>',
+  });
+}
+
+/** What the COMPOSER caption says: composer.json parsed (or not), and whether a lock file sits beside it. */
+function composerMenuState(projectPath) {
+  let pkg = null;
+  try { pkg = JSON.parse(fs.readFileSync(path.join(projectPath, 'composer.json'), 'utf8')); } catch (_) { /* said in the caption */ }
+  const locked = fs.existsSync(path.join(projectPath, 'composer.lock'));
+  return { pkg, locked, caption: !pkg ? 'bad json' : (locked ? 'locked' : 'no lock') };
+}
+
+/**
+ * The COMPOSER menu's body — what used to sit inside the dropdown on every row — for one project, served
+ * by /fragments/row-menu/composer/<ws>/<project> when the menu opens. '' for a folder without composer.json.
+ */
+function composerMenuBody(key, p, projectPath, isDdev, mode = 'manifest') {
   const { SCRIPT_ROUTE, COMPOSER_GROUPS, composerActionsFor, hasComposerJson, composerScripts } = require('./actions/composer');
   if (!hasComposerJson(projectPath)) return '';
   // Only a site workspace (`composer: full`) installs; everywhere else only composer.json is edited. See actions/composer.js.
   const manifest = mode !== 'full';
   const { run, packages, scripts: withScripts } = composerActionsFor(mode);
-  let pkg = null;
-  try { pkg = JSON.parse(fs.readFileSync(path.join(projectPath, 'composer.json'), 'utf8')); } catch (_) { /* said in the caption */ }
-  const locked = fs.existsSync(path.join(projectPath, 'composer.lock'));
-  const caption = !pkg ? 'bad json' : (locked ? 'locked' : 'no lock');
+  const { pkg } = composerMenuState(projectPath);
   const vals = (extra = '') => `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
   // Daily first: install, update, outdated and validate are what a working day is made of.
   const groups = COMPOSER_GROUPS.filter((group) => Object.values(run).some((a) => a.group === group)).map((group) => `
@@ -986,10 +1008,7 @@ function composerMenuHtml(key, p, projectPath, isDdev, mode = 'manifest') {
       <ul class="uk-nav uk-dropdown-nav composer-col-commands">${head}${groups}</ul>
       <ul class="uk-nav uk-dropdown-nav composer-col-inputs">${packageBlock}${scriptsBlock}</ul>
     </div>`;
-  return `<span class="act-with-status"><div class="uk-inline act-menu act-menu-composer">
-    <button class="uk-button uk-button-default uk-button-small" type="button" title="Composer commands for this folder"><span uk-icon="icon: album; ratio: .7"></span> COMPOSER <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-    <div uk-dropdown="mode: click; pos: bottom-right" class="composer-dropdown${manifest ? '' : ' composer-dropdown-wide'}">${body}</div>
-  </div><span class="act-status uk-text-meta">${esc(caption)}</span></span>`;
+  return body;
 }
 
 /**
@@ -2708,7 +2727,7 @@ async function settingsPage(section, state, options = {}) {
       : `${options.fragment ? '' : back}${isPlugins ? require('./plugins-page').pluginsPageHtml() : isStyles ? stylesPageHtml()
         : isNavigation ? navPage.navEditorHtml(options.scope || 'global')
         : isBuildOrder ? buildOrderPage.editorHtml(options.scope || 'global')
-          : isButtons ? rowLayout.rowActionsEditorHtml()
+          : isButtons ? (await learnCoreMenus(), rowLayout.rowActionsEditorHtml())
             : options.raw ? settingsRawHtml(current)
               : await settingsFormHtml(current)}`;
 
@@ -3149,128 +3168,18 @@ function ddevStateOf(dir, project, statuses) {
 }
 
 
-async function projectRowsHtml(key, dir, state) {
-  const meta = loadWorkspaces()[key];
-  // Read once per page: every row on it is arranged the same way.
-  const rowLayoutNow = rowLayout.loadRowLayout();
-  const projects = listProjects(dir);
-  // Two gates per control: the folder must SHIP the script (capability), and the
-  // workspace's type must WANT the action (policy — `type:` in its settings file).
-  const allowed = meta.typeActions;
-  const canBackup = allowed.has('backup') && !!findBackupScript(dir);
-  const canClone = allowed.has('clone') && fs.existsSync(path.join(dir, 'cmd-tools-clone.sh'));
-  const canRemove = allowed.has('remove') && !!findRemoveScript(dir);
-  const canRagify = allowed.has('ragify') && !!findRagifyScript(dir);
-  const canTest = allowed.has('tests') && fs.existsSync(path.join(dir, 'cmd-tools-testing.sh'));
-  const canChecks = allowed.has('checks') && fs.existsSync(path.join(dir, 'cmd-tools-checks.sh'));
-  const canUsers = allowed.has('users') && fs.existsSync(path.join(dir, 'cmd-tools-add-users.sh'));
-  const canDdev = allowed.has('ddev');
-  // A DDEV project is not necessarily a Drupal one. Milvus and Penpot run in DDEV with
-  // no composer.json and no Drupal inside, so Composer install/update and every drush
-  // item would offer to operate on something that is not there.
-  const canDrupal = allowed.has('drupal');
-  const statuses = await ddevStatusMap();
-  // One question per SERVER for the whole table, not one per row — a workspace can mix projects
-  // bound to different servers, and a stopped one answers `up: false` rather than making every row
-  // wait for its own refused connection.
-  const ragByInstance = new Map();
-  if (canRagify) {
-    const needed = new Set(listProjects(dir).map((p) => ragInstanceFor(key, p)));
-    await Promise.all([...needed].map(async (i) => ragByInstance.set(i, await ragCollections(i))));
-  }
-
-  // Search, filter, sort, THEN page — so "page 2" is page 2 of what you asked for, and the
-  // counts in the pager describe the filtered set rather than the folder.
-  const st = state || { per: 'all', page: 1, q: '', sort: defaultSort(), status: 'all' };
-  const detailed = listProjectsDetailed(dir);
-  // What is running in each project — screens, and agents inside them. One question for the whole
-  // table (the filter, the sort and the counts in the menu all read it), asked of the same sources the
-  // row's SCREENS and agent badges read.
-  const activity = await activityByDir(detailed.map((it) => path.join(dir, it.name)));
-  detailed.forEach((it) => {
-    const a = activity.get(path.join(dir, it.name)) || {};
-    it.screens = a.screens || 0;
-    it.agents = a.agents || 0;
-  });
-  const q = (st.q || '').toLowerCase();
-  const wanted = st.status || 'all';
-  const filtered = detailed.filter((it) => {
-    if (q && !it.name.toLowerCase().includes(q)) return false;
-    if (wanted === 'all') return true;
-    if (wanted === 'screens') return it.screens > 0;
-    if (wanted === 'agents') return it.agents > 0;
-    const d = ddevStateOf(dir, it.name, statuses);
-    if (wanted === 'running') return d.running;
-    if (wanted === 'stopped') return d.isDdev && !d.running;
-    if (wanted === 'nodddev') return !d.isDdev;
-    if (wanted === 'tested') return !!testReportFor(dir, it.name);
-    if (wanted === 'failing') { const t = testReportFor(dir, it.name); return !!(t && t.summary && t.summary.failed); }
-    return true;
-  });
-  const sorted = filtered.slice().sort((SORTS[st.sort] || SORTS[defaultSort()] || SORTS.newest).cmp);
-
-  const pg = paginate(sorted, st);
-  const rows = pg.slice.map((it) => {
-    const p = it.name;
-    const { projectPath, ddevName, isDdev, status, running, mailpit } = ddevStateOf(dir, p, statuses);
-    // The IDE menu is built at row scope even though it renders in the state strip, right after
-    // JIRA. Defining it inside the strip's IIFE made it a ReferenceError at the point of use — and because a
-    // row's markup is built defensively, that silently dropped the whole action group
-    // instead of failing loudly. The PROJECT path, never `dir`: pointing an editor at the
-    // workspace folder opens twenty projects at once instead of the one that was clicked.
-    // The caption under IDE says what an editor would be opening. Whether the folder
-    // is a git checkout belongs there: it is the difference between "edit these
-    // files" and "there is history, a branch and a remote here", it decides whether
-    // the clone form can offer a worktree, and until now the only way to find out
-    // was to open a terminal. A worktree says so, because that is the case where
-    // the branch is the point.
-    // Git is asked once per row and shared by IDE and GIT: each gitWorktreeInfo call is several
-    // git processes, and a page of fifty rows would otherwise double them for nothing.
-    const gitInfo = gitWorktreeInfo(projectPath);
-    const composerMenu = composerMenuHtml(key, p, projectPath, isDdev, meta.composerMode);
-    const nodeMenu = nodeMenuHtml(key, p, projectPath, isDdev);
-    const vals = (extra = '') => `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
-    // The state chip is also the switch: Stopped or Paused starts the project, Running stops it (asked first).
-    // A project the registry has never heard of is simply stopped; any other DDEV state is shown as it is.
-    const statusBadge = !isDdev ? '' : (() => {
-      const st = running ? 'running' : (status === 'paused' ? 'paused' : (status === 'stopped' ? 'stopped' : ''));
-      if (!st) return `<span class="uk-label state-chip state-chip-off"><span class="state-dot" aria-hidden="true"></span>${esc(status)}</span>`;
-      const word = { running: 'Running', paused: 'Paused', stopped: 'Stopped' }[st];
-      const act = st === 'running' ? 'Stop' : 'Start';
-      const cls = st === 'running' ? 'uk-label-success' : `state-chip-off state-chip-${st}`;
-      return `<button type="button" class="uk-label ${cls} state-chip state-toggle${st === 'running' ? ' arm-step' : ''}"
-        hx-post="/actions/ddev-${act.toLowerCase()}"${st === 'running' ? ' hx-trigger="confirmed-remove"' : ''} ${vals()}
-        title="${act} ${esc(p)}" aria-label="${word}: ${act.toLowerCase()} ${esc(p)}"><span class="state-dot" aria-hidden="true"></span><span class="state-word">${word}</span><span class="state-act" aria-hidden="true">${act}</span></button>`;
-    })();
-    // Everything the row can show, each button under its id. row-layout.js decides the order, the line and
-    // what is hidden (Commands → Buttons), and rearranges every menu inside the same way. With no
-    // row-actions.yml that is exactly the row as it has always been.
-    const rowCtx = { layout: rowLayoutNow, key, project: p, isDdev, hasComposer: require('./actions/composer').hasComposerJson(projectPath),
-      hasNode: require('./actions/node').hasPackageJson(projectPath), hasGit: hasOwnGit(projectPath) };
-    const testBadge = (() => {
-      const t = testReportFor(dir, p);
-      if (!t) return key === 'test' ? '<span class="uk-label test-none" title="No cucumber_report.json under this project — the tests have not been run here">no test report yet</span>' : '';
-      const sm = t.summary;
-      const cls = !sm ? '' : sm.failed ? 'uk-label-danger' : 'uk-label-success';
-      const label = sm ? `${sm.passed}/${sm.scenarios} passed${sm.failed ? ` · ${sm.failed} failed` : ''}` : 'report';
-      return `<span class="uk-label ${cls}" title="${esc(humanTime(t.report.mtime))}">${esc(label)}</span>`;
-    })();
-    // A suite takes twenty minutes, so the row says so while it runs — and
-    // links straight to the session it runs in.
-    const testsRunning = sessionLive(key, p, 'tests') || sessionLive(key, p, 'tests-setup');
-    const runningBadge = testsRunning
-      ? `<a class="uk-label uk-label-warning tests-running" href="/terminal/${encodeURIComponent(screenSessionName(p, sessionLive(key, p, 'tests') ? 'tests' : 'tests-setup', key))}" target="_blank"
-           title="The suite is running in a screen session — open it">🧪 tests running</a>`
-      : '';
-    // DDEV and UPSUN belong to the runtime the badges describe, so they sit
-    // with them rather than at the far end of the action row.
-    // The one-word truth under the DDEV button, in the same place every other
-    // menu keeps its caption: the DDEV project name, or that there is none.
-    // Counted from the rendered menu below rather than hand-maintained: the
-    // number a row shows is the number of things it can actually do.
-    const ddevCaption = !canDdev ? '' : (isDdev ? '' : 'not configured');
-    // The menu's own body, built first so the caption can count what is in it.
-    const ddevMenuItems = !(canDdev && isDdev) ? '' : `
+/**
+ * The DDEV menu's items for one project — every <li> inside the dropdown, before the Buttons settings
+ * arrange them. The row builds them to count what the caption says ("12 commands") and the fragment
+ * /fragments/row-menu/ddev/<ws>/<project> builds them again, for one project, when the menu opens;
+ * the page itself carries only the button and the caption. `gates` is rowGates(): which verbs the
+ * workspace's type allows and the folder ships; `ddev` is ddevStateOf(): the project's name and state.
+ */
+function ddevMenuItemsHtml({ key, p, meta, projectPath, gates, ddev }) {
+  const { canDrupal, canBackup, canClone, canRemove } = gates;
+  const { ddevName, running, mailpit } = ddev;
+  const vals = (extra = '') => `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
+  return `
           <li class="uk-nav-header" data-group="project">${esc(ddevName)}</li>
           ${running
             ? `<li data-entry="start-stop"><a href hx-post="/actions/ddev-stop" ${vals()}><span uk-icon="icon: ban; ratio: .7"></span> Stop</a></li>`
@@ -3369,6 +3278,373 @@ async function projectRowsHtml(key, dir, state) {
           <li><a href class="uk-text-danger" hx-get="/fragments/projects/remove-form/${encodeURIComponent(key)}/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
                  hx-on::after:request="UIkit.modal('#editor-modal').show()"
                  title="Asks about a backup, then confirms, then removes"><span uk-icon="icon: trash; ratio: .7"></span> Remove the project…</a></li>` : ''}`;
+}
+
+/**
+ * Two gates per control on a project row: the folder must SHIP the script (capability), and the
+ * workspace's type must WANT the action (policy — `type:` in its settings file). Read once per page by
+ * the rows, and once per request by a menu body served on its own.
+ */
+function rowGates(dir, meta) {
+  const allowed = meta.typeActions;
+  return {
+    allowed,
+    canBackup: allowed.has('backup') && !!findBackupScript(dir),
+    canClone: allowed.has('clone') && fs.existsSync(path.join(dir, 'cmd-tools-clone.sh')),
+    canRemove: allowed.has('remove') && !!findRemoveScript(dir),
+    canRagify: allowed.has('ragify') && !!findRagifyScript(dir),
+    canTest: allowed.has('tests') && fs.existsSync(path.join(dir, 'cmd-tools-testing.sh')),
+    canChecks: allowed.has('checks') && fs.existsSync(path.join(dir, 'cmd-tools-checks.sh')),
+    canUsers: allowed.has('users') && fs.existsSync(path.join(dir, 'cmd-tools-add-users.sh')),
+    canDdev: allowed.has('ddev'),
+    // A DDEV project is not necessarily a Drupal one. Milvus and Penpot run in DDEV with
+    // no composer.json and no Drupal inside, so Composer install/update and every drush
+    // item would offer to operate on something that is not there.
+    canDrupal: allowed.has('drupal'),
+  };
+}
+
+/**
+ * What the Tests button says before it opens, for one project: the caption under it and its title.
+ * One quality menu, not two. Setting the environment up, running the suite, reading a report and
+ * running the checks a package declares are all "is this project sound?" — and on a packages
+ * workspace (products, modules, themes) there is no suite at all, so a separate Checks button would
+ * be the only one there and a separate Tests button the only one on a site. The verbs live together
+ * and the menu says which of them apply.
+ */
+function testsMenuState({ key, dir, p, gates }) {
+  const { canTest, canChecks } = gates;
+  // Running means a live screen session with the name this row's own
+  // buttons give it — the suite runs there, not in the dashboard.
+  const testsSession = screenSessionName(p, 'tests', key);
+  const busy = sessionLive(key, p, 'tests') || sessionLive(key, p, 'tests-setup');
+  const stack = canTest ? testingStackOf(dir, p) : 'none';
+  const busyChecks = sessionLive(key, p, 'checks');
+  const declared = canChecks ? checksDeclaredOf(dir, p) : { declared: 0, ready: 0, blocked: 0, hasPackageJson: false };
+  // The caption answers whichever question this workspace can ask: a site says
+  // whether it could start a suite right now, a package says what it declares.
+  // "ready" is the useful word — a project can carry a whole stack and still fail
+  // every scenario because the web image has no chromium libraries.
+  const ready = canTest ? testingReadiness(dir, p) : null;
+  const caption = canTest
+    ? (busy ? 'running now' : stack === 'none' ? 'not set up' : (ready.ready ? 'ready to test' : 'not ready'))
+    : checksCaption(key, dir, p);
+  const title = canTest ? (stack === 'none' ? 'No testing stack in this project yet' : `Automated testing (${stack})`) : `${declared.declared} check(s) declared in this package`;
+  return { testsSession, busy, stack, busyChecks, declared, ready, caption, title };
+}
+
+/**
+ * The Tests menu's body for one project — the list inside the dropdown, before the Buttons settings
+ * arrange it — served by /fragments/row-menu/tests/<ws>/<project> when the menu opens. '' where the
+ * workspace offers none of its verbs.
+ */
+function testsMenuBody({ key, dir, p, gates }) {
+  const { canTest, canChecks, canUsers } = gates;
+  if (!(canTest || canChecks || canUsers)) return '';
+  const vals = (extra = '') => `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
+  const { testsSession, busy, stack, busyChecks, declared, ready } = testsMenuState({ key, dir, p, gates });
+  const reports = canTest ? findTestReports(dir, p) : [];
+  const rows = canChecks ? checksRowsOf(dir, p) : [];
+  // Every alias, with the script the package actually declared for it. Seeing the pair is
+  // how you know the mapping is right — and each one runs on its own, because a spelling
+  // failure is not a reason to re-run the linters.
+  const symbol = { ready: '✅', masked: '⛔', refused: '🚫', skipped: '⏭', 'deps-missing': '⏭', 'unresolved-runner': '⏭' };
+  const aliasItems = rows.map((r) => (r.status === 'ready'
+    ? `<li><a href hx-post="/actions/checks" ${vals(`,"only":"${esc(r.id)}"`)} class="${busyChecks ? 'uk-disabled' : ''}" title="${esc(`${r.label} — runs ${r.script}`)}">
+         <span class="checks-alias">${esc(r.id)}</span> <code class="checks-script">${esc(r.script)}</code></a></li>`
+    : `<li><span class="uk-text-meta checks-alias-off" title="${esc(r.reason)}">${symbol[r.status] || '➖'} <span class="checks-alias">${esc(r.id)}</span> <code class="checks-script">${esc(r.script || '—')}</code></span></li>`)).join('');
+  return `<ul class="uk-nav uk-dropdown-nav" uk-nav="multiple: true">
+      ${canUsers ? `<li class="uk-nav-header">test users</li>
+      <li><a href hx-post="/actions/add-users" ${vals()}><span uk-icon="icon: users; ratio: .7"></span> Add the test users</a></li>
+      <li><a href hx-post="/actions/cancel-users" ${vals()}><span uk-icon="icon: minus-circle; ratio: .7"></span> Cancel the test users</a></li>
+      ${canTest || canChecks ? '<li class="uk-nav-divider"></li>' : ''}` : ''}
+      ${canTest ? `<li class="uk-nav-header" data-group="suite">${esc(stack === 'none' ? 'not set up' : stack)}${ready && stack !== 'none' ? esc(ready.ready ? ' · ready' : ` · missing ${ready.missing.join(' and ')}`) : ''}</li>
+      ${ready && !ready.ready && stack !== 'none' ? `<li data-entry="not ready note"><span class="uk-text-meta tests-not-ready">Set up the testing environment first — it installs ${esc(ready.missing.join(' and '))}.</span></li>` : ''}
+      <li data-entry="testing environment"><a href hx-post="/actions/testing-configure" ${vals()} class="${busy ? 'uk-disabled' : ''}"><span uk-icon="icon: cog; ratio: .7"></span> ${stack === 'none' ? 'Set up the testing environment' : 'Re-apply the testing environment'}${busy ? ' (running…)' : ''}</a></li>
+      ${busy ? `<li><a href="/terminal/${encodeURIComponent(testsSession)}" target="_blank" title="Open the session the suite is running in"><span uk-icon="icon: laptop; ratio: .7"></span> Watch it run in <code>${esc(testsSession)}</code></a></li>` : ''}
+      ${stack === 'none' ? '' : `<li><a href hx-post="/actions/testing-run" ${vals()} class="${busy ? 'uk-disabled' : ''}" title="${esc(ready && !ready.ready ? `It will install ${ready.missing.join(' and ')} first, which rebuilds the web image` : 'Run the suite')}"><span uk-icon="icon: play; ratio: .7"></span> Run the tests${busy ? ' (running…)' : ''}</a></li>`}
+      ${reports.length ? `<li class="uk-nav-divider"></li>
+      <li class="uk-nav-header" data-group="reports">${reports.length} report${reports.length > 1 ? 's' : ''}</li>
+      ${reports.map((r, i) => `<li><a href hx-get="/fragments/${esc(key)}/test-report/${encodeURIComponent(p)}?report=${i}" hx-target="#editor-modal-body" hx-swap="innerHTML" uk-toggle="target: #editor-modal" title="${esc(`${r.rel} · ${humanTime(r.mtime)}`)}"><span uk-icon="icon: file-text; ratio: .7"></span> ${esc(reportLabel(r))}</a></li>`).join('')}` : ''}` : ''}
+
+      ${canChecks ? `${canTest ? '<li class="uk-nav-divider"></li>' : ''}
+      <!-- Nested rather than flat: the aliases are a list of their own, and on a Drupal
+           tree with several reports a flat menu would run to twenty rows. -->
+      <li class="uk-parent act-menu-checks" data-entry="checks">
+        <a href><span uk-icon="icon: check; ratio: .7"></span> Checks <span class="uk-text-meta">${esc(declared.hasPackageJson ? `${declared.declared} declared · ${declared.ready} runnable` : 'no package.json')}</span></a>
+        <ul class="uk-nav-sub checks-sub">
+          <li><a href hx-post="/actions/checks-plan" ${vals()} hx-target="#editor-modal-body" hx-swap="innerHTML" uk-toggle="target: #editor-modal"><span uk-icon="icon: list; ratio: .7"></span> What this project checks</a></li>
+          ${declared.ready ? `<li><a href hx-post="/actions/checks" ${vals()} class="${busyChecks ? 'uk-disabled' : ''}"><span uk-icon="icon: play; ratio: .7"></span> Run every check${busyChecks ? ' (running…)' : ''}</a></li>` : ''}
+          ${aliasItems ? `<li class="uk-nav-divider"></li>${aliasItems}` : '<li><span class="uk-text-meta">This project declares none.</span></li>'}
+        </ul>
+      </li>` : ''}
+  </ul>`;
+}
+
+/**
+ * The SCREENS menu's body for one project, and what rides on it. `nav` is the list inside the dropdown
+ * (the sessions, the Claude items, new screen, all screens), before the Buttons settings arrange it;
+ * `oob` is swapped out of band into the row — the hand a waiting session raises on the button, the
+ * agent badge in the title and the plugins' badges. Served by /fragments/row-menu/screens/<ws>/<project>
+ * on open and on the row's own poll (the legacy /fragments/projects/screens/… answers the same).
+ */
+async function screensMenuBody(ws, project) {
+  const sDir = path.join(workspaceDir(ws), project);
+  const sessions = fs.existsSync(sDir) ? await screensForDir(sDir) : [];
+  const { sessionWaitingWhy } = require('./screens');
+  const waiting = sessions.map((s) => ({ s, why: sessionWaitingWhy(s) })).filter((x) => x.why);
+  const { agentSessions } = require('./screens');
+  const agentsHere = agentSessions(sessions);
+  const items = sessions.map((s) => {
+    const why = sessionWaitingWhy(s);
+    const isAgent = agentsHere.has(s.session);
+    // A session is named after where it runs — `test--ruverify1--jira-webship-9999` — so the
+    // project's own name is on every line of a menu that is already inside that project. The
+    // line leads with the part that differs; the whole name is the title, and the row is the
+    // one place it could ever be ambiguous.
+    const short = s.session.startsWith(`${ws}--${project}--`)
+      ? s.session.slice(`${ws}--${project}--`.length) : s.session;
+    // Dead is not runnable: `screen -ls` lists a session whose process is gone, and opening one
+    // attaches to nothing. Saying so beats a terminal that comes up empty.
+    const dead = /dead/i.test(s.state || '');
+    return `
+    <li data-entry="open a screen"><a href data-open-terminal="${esc(s.session)}" title="${esc(s.session)}${
+      s.started ? ` · started ${esc(s.started)}` : ''}">
+      ${isAgent ? iconHtml('tabler:robot-face', 0.7) : '<span uk-icon="icon: laptop; ratio: .7"></span>'} ${esc(short)}
+      <span class="screen-item-state">${
+        why ? `<span class="uk-label uk-label-warning" title="${esc(why)}">✋ waiting</span>`
+          : dead ? '<span class="uk-label">dead</span>'
+          : '<span class="uk-label uk-label-success">running</span>'}${
+        isAgent ? ' <span class="uk-label">agent</span>' : ''}</span></a></li>`;
+  }).join('');
+  // Out of band, into the row's own SCREENS button: this poll already runs every 15 seconds for
+  // the menu, so the hand on the row costs no request of its own and cannot be staler than the
+  // menu behind it. Always sent, empty when nothing is waiting — an OOB swap that is only sent
+  // sometimes leaves the last hand up after the question has been answered.
+  const hand = `<span class="screens-hand${waiting.length ? ' is-waiting' : ''}" id="screens-hand-${esc(ws)}-${esc(project)}" hx-swap-oob="true"${
+    waiting.length ? ` title="${esc(waiting.map((x) => `${x.s.session}: ${x.why}`).join(' · '))}"` : ''}>${
+    waiting.length ? `✋${waiting.length > 1 ? ` ${waiting.length}` : ''}` : ''}</span>`;
+  // And whether an AGENT is at work in this project — asked of the process table rather than of
+  // the session's name, so a session started from the CLI or by hand counts the same. Sent
+  // always, empty when there is none: an OOB swap that is only sent sometimes leaves the last
+  // answer standing after the agent has finished.
+  const agents = agentsHere;
+  const agentWaiting = waiting.some((x) => agents.has(x.s.session));
+  const agentBadge = `<span class="project-title-agent" id="agent-badge-${esc(ws)}-${esc(project)}" hx-swap-oob="true">${
+    agents.size
+      ? `<span class="uk-label ${agentWaiting ? 'uk-label-warning' : 'uk-label-success'} agent-live" title="${esc([...agents].join(' · '))}${
+        agentWaiting ? ' — and it has stopped to ask you something' : ''}">${
+        // Tabler's robot FACE rather than the 🤖 emoji, and rather than Tabler's whole-robot
+        // icon. An emoji is drawn by the platform's own font, so the same badge is a grey
+        // outline on one machine and a yellow cartoon on another, at a size and weight nothing
+        // here controls. And `robot` draws a head, antenna, arms and legs — at the 14px a label
+        // gives it, that is a smudge. `robot-face` spends the same pixels on four features
+        // instead of a dozen, which is the one that can still be read. Compared side by side at
+        // badge size rather than picked by name.
+        iconHtml('tabler:robot-face', 0.8)} ${agentWaiting ? 'waiting for you' : 'agent working'}${
+        agents.size > 1 ? ` (${agents.size})` : ''}</span>`
+      : ''}</span>`;
+  // The plugins' badges in the card's bottom-right cluster beside the pen (which work item an agent
+  // here is working, say). Sent on every poll, empty when there is nothing, so each clears itself.
+  const keysBadge = `<span class="project-plugin-badges" id="plugin-badges-${esc(ws)}-${esc(project)}" hx-swap-oob="true">${
+    pluginProjectBadgesHtml({ key: ws, project: project, dir: sDir, sessions })}</span>`;
+  const claudeItems = require('./actions/claude-session').menuItems({ ws: ws, project: project, sessions, agents: agentsHere, dir: sDir });
+  const screensNav = `${items || '<li class="uk-nav-header">No screens in this project</li>'}${claudeItems ? `
+    <li class="uk-nav-divider"></li>${claudeItems}` : ''}
+    <li class="uk-nav-divider"></li>
+    <li><a href hx-get="/fragments/screen-new-form?workspace=${encodeURIComponent(ws)}&amp;project=${encodeURIComponent(project)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
+           hx-on::after:request="UIkit.modal('#editor-modal').show()"><span uk-icon="icon: plus-circle; ratio: .7"></span> New screen here…</a></li>
+    <li><a href hx-get="/fragments/screen-new-form?workspace=${encodeURIComponent(ws)}&amp;project=${encodeURIComponent(project)}&amp;kind=claude" hx-target="#editor-modal-body" hx-swap="innerHTML"
+           hx-on::after:request="UIkit.modal('#editor-modal').show()">${iconHtml('tabler:sparkles', 0.7)} Claude Code here…</a></li>
+    <li><a href="/screens"><span uk-icon="icon: list; ratio: .7"></span> All screens</a></li>`;
+  return { nav: screensNav, oob: hand + agentBadge + keysBadge, dir: sDir };
+}
+
+// The row menus the core draws itself whose bodies load when they open — the slots
+// /fragments/row-menu/<slot>/<ws>/<project> answers with no `body` parameter (coreRowMenuBody).
+const CORE_ROW_MENUS = new Set(['ddev', 'composer', 'tests', 'screens']);
+
+/**
+ * The body of one of the core's row menus for one project, as `{ status, html }`: the dropdown's inner
+ * HTML — one `<ul class="uk-nav uk-dropdown-nav">` (SCREENS adds what it swaps out of band) — before the
+ * Buttons settings arrange it. Everything the row knew when it drew the button is read again here, for
+ * this project alone: the workspace's gates, the DDEV registry, the sessions. 404 for a folder that is
+ * not there or a menu the row would not have drawn on it, so a stale page cannot ask for verbs the
+ * project does not carry.
+ */
+async function coreRowMenuBody(slot, key, project) {
+  const none = (why) => ({ status: 404, html: `<ul class="uk-nav uk-dropdown-nav"><li class="uk-nav-header">${esc(why)}</li></ul>` });
+  const meta = loadWorkspaces()[key];
+  const dir = workspaceDir(key);
+  const projectPath = path.join(dir, project);
+  if (!meta || !fs.existsSync(projectPath) || !fs.statSync(projectPath).isDirectory()) return none('No such project.');
+  const gates = rowGates(dir, meta);
+  const isDdev = ddevProjectName(projectPath) !== null;
+  if (slot === 'ddev') {
+    if (!gates.canDdev || !isDdev) return none('Not a DDEV project.');
+    const ddev = ddevStateOf(dir, project, await ddevStatusMap());
+    const items = ddevMenuItemsHtml({ key, p: project, meta, projectPath, gates, ddev });
+    return { status: 200, html: `<ul class="uk-nav uk-dropdown-nav ddev-nav-columns">${items}\n        </ul>` };
+  }
+  if (slot === 'composer') {
+    const body = composerMenuBody(key, project, projectPath, isDdev, meta.composerMode);
+    return body ? { status: 200, html: body } : none('No composer.json here.');
+  }
+  if (slot === 'tests') {
+    const body = testsMenuBody({ key, dir, p: project, gates });
+    return body ? { status: 200, html: body } : none('No tests to offer here.');
+  }
+  if (slot === 'screens') {
+    const { nav, oob } = await screensMenuBody(key, project);
+    return { status: 200, html: `<ul class="uk-nav uk-dropdown-nav">${nav}</ul>${oob}` };
+  }
+  return none('No such menu.');
+}
+
+/**
+ * The Buttons settings page lists what each menu has been seen to hold (row-layout's seen record). A
+ * menu whose body loads when it opens (coreRowMenuBody) is recorded when one opens, so on a dashboard
+ * where nobody has opened COMPOSER or Tests yet the page would list nothing for them: before it is drawn,
+ * each such menu with nothing on record is built once, for the first project that carries it, and
+ * arranged — which is what records it. DDEV is counted on every row, so it is on record already, and
+ * SCREENS lists whatever sessions happen to run, which is nothing to learn from.
+ */
+async function learnCoreMenus() {
+  for (const slot of ['composer', 'tests']) {
+    if (Object.keys(rowLayout.seenMenu(slot).groups).length) continue;
+    let learned = false;
+    for (const [key, meta] of Object.entries(loadWorkspaces())) {
+      if (learned || meta.kind !== 'projects') continue;
+      let projects = [];
+      try { projects = listProjects(workspaceDir(key)).slice(0, 25); } catch (_) { continue; }
+      for (const p of projects) {
+        let answer;
+        try { answer = await coreRowMenuBody(slot, key, p); } catch (_) { continue; }
+        if (answer.status !== 200 || !/<a\b/.test(answer.html)) continue;
+        const projectPath = path.join(workspaceDir(key), p);
+        try {
+          rowLayout.arrangeButtonHtml(slot, answer.html, { layout: rowLayout.loadRowLayout(), key, project: p, isDdev: ddevProjectName(projectPath) !== null,
+            hasComposer: require('./actions/composer').hasComposerJson(projectPath),
+            hasNode: require('./actions/node').hasPackageJson(projectPath), hasGit: hasOwnGit(projectPath) });
+        } catch (_) { /* the page lists less, nothing breaks */ }
+        learned = true;
+        break;
+      }
+    }
+  }
+}
+
+async function projectRowsHtml(key, dir, state) {
+  const meta = loadWorkspaces()[key];
+  // Read once per page: every row on it is arranged the same way.
+  const rowLayoutNow = rowLayout.loadRowLayout();
+  const projects = listProjects(dir);
+  // Two gates per control (rowGates): the folder ships the script, and the workspace's type wants the action.
+  const gates = rowGates(dir, meta);
+  const { allowed, canBackup, canClone, canRemove, canRagify, canTest, canChecks, canUsers, canDdev } = gates;
+  const statuses = await ddevStatusMap();
+  // One question per SERVER for the whole table, not one per row — a workspace can mix projects
+  // bound to different servers, and a stopped one answers `up: false` rather than making every row
+  // wait for its own refused connection.
+  const ragByInstance = new Map();
+  if (canRagify) {
+    const needed = new Set(listProjects(dir).map((p) => ragInstanceFor(key, p)));
+    await Promise.all([...needed].map(async (i) => ragByInstance.set(i, await ragCollections(i))));
+  }
+
+  // Search, filter, sort, THEN page — so "page 2" is page 2 of what you asked for, and the
+  // counts in the pager describe the filtered set rather than the folder.
+  const st = state || { per: 'all', page: 1, q: '', sort: defaultSort(), status: 'all' };
+  const detailed = listProjectsDetailed(dir);
+  // What is running in each project — screens, and agents inside them. One question for the whole
+  // table (the filter, the sort and the counts in the menu all read it), asked of the same sources the
+  // row's SCREENS and agent badges read.
+  const activity = await activityByDir(detailed.map((it) => path.join(dir, it.name)));
+  detailed.forEach((it) => {
+    const a = activity.get(path.join(dir, it.name)) || {};
+    it.screens = a.screens || 0;
+    it.agents = a.agents || 0;
+  });
+  const q = (st.q || '').toLowerCase();
+  const wanted = st.status || 'all';
+  const filtered = detailed.filter((it) => {
+    if (q && !it.name.toLowerCase().includes(q)) return false;
+    if (wanted === 'all') return true;
+    if (wanted === 'screens') return it.screens > 0;
+    if (wanted === 'agents') return it.agents > 0;
+    const d = ddevStateOf(dir, it.name, statuses);
+    if (wanted === 'running') return d.running;
+    if (wanted === 'stopped') return d.isDdev && !d.running;
+    if (wanted === 'nodddev') return !d.isDdev;
+    if (wanted === 'tested') return !!testReportFor(dir, it.name);
+    if (wanted === 'failing') { const t = testReportFor(dir, it.name); return !!(t && t.summary && t.summary.failed); }
+    return true;
+  });
+  const sorted = filtered.slice().sort((SORTS[st.sort] || SORTS[defaultSort()] || SORTS.newest).cmp);
+
+  const pg = paginate(sorted, st);
+  const rows = pg.slice.map((it) => {
+    const p = it.name;
+    const ddev = ddevStateOf(dir, p, statuses);
+    const { projectPath, ddevName, isDdev, status, running } = ddev;
+    // The IDE menu is built at row scope even though it renders in the state strip, right after
+    // JIRA. Defining it inside the strip's IIFE made it a ReferenceError at the point of use — and because a
+    // row's markup is built defensively, that silently dropped the whole action group
+    // instead of failing loudly. The PROJECT path, never `dir`: pointing an editor at the
+    // workspace folder opens twenty projects at once instead of the one that was clicked.
+    // The caption under IDE says what an editor would be opening. Whether the folder
+    // is a git checkout belongs there: it is the difference between "edit these
+    // files" and "there is history, a branch and a remote here", it decides whether
+    // the clone form can offer a worktree, and until now the only way to find out
+    // was to open a terminal. A worktree says so, because that is the case where
+    // the branch is the point.
+    // Git is asked once per row and shared by IDE and GIT: each gitWorktreeInfo call is several
+    // git processes, and a page of fifty rows would otherwise double them for nothing.
+    const gitInfo = gitWorktreeInfo(projectPath);
+    const composerMenu = composerMenuHtml(key, p, projectPath, isDdev, meta.composerMode);
+    const nodeMenu = nodeMenuHtml(key, p, projectPath, isDdev);
+    const vals = (extra = '') => `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
+    // The state chip is also the switch: Stopped or Paused starts the project, Running stops it (asked first).
+    // A project the registry has never heard of is simply stopped; any other DDEV state is shown as it is.
+    const statusBadge = !isDdev ? '' : (() => {
+      const st = running ? 'running' : (status === 'paused' ? 'paused' : (status === 'stopped' ? 'stopped' : ''));
+      if (!st) return `<span class="uk-label state-chip state-chip-off"><span class="state-dot" aria-hidden="true"></span>${esc(status)}</span>`;
+      const word = { running: 'Running', paused: 'Paused', stopped: 'Stopped' }[st];
+      const act = st === 'running' ? 'Stop' : 'Start';
+      const cls = st === 'running' ? 'uk-label-success' : `state-chip-off state-chip-${st}`;
+      return `<button type="button" class="uk-label ${cls} state-chip state-toggle${st === 'running' ? ' arm-step' : ''}"
+        hx-post="/actions/ddev-${act.toLowerCase()}"${st === 'running' ? ' hx-trigger="confirmed-remove"' : ''} ${vals()}
+        title="${act} ${esc(p)}" aria-label="${word}: ${act.toLowerCase()} ${esc(p)}"><span class="state-dot" aria-hidden="true"></span><span class="state-word">${word}</span><span class="state-act" aria-hidden="true">${act}</span></button>`;
+    })();
+    // Everything the row can show, each button under its id. row-layout.js decides the order, the line and
+    // what is hidden (Commands → Buttons), and rearranges every menu inside the same way. With no
+    // row-actions.yml that is exactly the row as it has always been.
+    const rowCtx = { layout: rowLayoutNow, key, project: p, isDdev, hasComposer: require('./actions/composer').hasComposerJson(projectPath),
+      hasNode: require('./actions/node').hasPackageJson(projectPath), hasGit: hasOwnGit(projectPath) };
+    const testBadge = (() => {
+      const t = testReportFor(dir, p);
+      if (!t) return key === 'test' ? '<span class="uk-label test-none" title="No cucumber_report.json under this project — the tests have not been run here">no test report yet</span>' : '';
+      const sm = t.summary;
+      const cls = !sm ? '' : sm.failed ? 'uk-label-danger' : 'uk-label-success';
+      const label = sm ? `${sm.passed}/${sm.scenarios} passed${sm.failed ? ` · ${sm.failed} failed` : ''}` : 'report';
+      return `<span class="uk-label ${cls}" title="${esc(humanTime(t.report.mtime))}">${esc(label)}</span>`;
+    })();
+    // A suite takes twenty minutes, so the row says so while it runs — and
+    // links straight to the session it runs in.
+    const testsRunning = sessionLive(key, p, 'tests') || sessionLive(key, p, 'tests-setup');
+    const runningBadge = testsRunning
+      ? `<a class="uk-label uk-label-warning tests-running" href="/terminal/${encodeURIComponent(screenSessionName(p, sessionLive(key, p, 'tests') ? 'tests' : 'tests-setup', key))}" target="_blank"
+           title="The suite is running in a screen session — open it">🧪 tests running</a>`
+      : '';
+    // DDEV and UPSUN belong to the runtime the badges describe, so they sit
+    // with them rather than at the far end of the action row.
+    // The one-word truth under the DDEV button, in the same place every other
+    // menu keeps its caption: the DDEV project name, or that there is none.
+    // Counted from the rendered menu below rather than hand-maintained: the
+    // number a row shows is the number of things it can actually do.
+    const ddevCaption = !canDdev ? '' : (isDdev ? '' : 'not configured');
+    // The menu's own body, built first so the caption can count what is in it (ddevMenuItemsHtml).
+    const ddevMenuItems = !(canDdev && isDdev) ? '' : ddevMenuItemsHtml({ key, p, meta, projectPath, gates, ddev });
     // Arranged before it is counted, so the caption counts what the menu really shows.
     const ddevItems = rowLayout.arrangeNavInner('ddev', ddevMenuItems, rowCtx);
     const ddevCount = (ddevItems.match(/<a /g) || []).length;
@@ -3376,79 +3652,25 @@ async function projectRowsHtml(key, dir, state) {
         title="This folder has no .ddev/config.yaml — set one up so it can start"
         hx-get="/fragments/projects/ddev-config/${encodeURIComponent(key)}/${encodeURIComponent(p)}"
         hx-target="#editor-modal-body" hx-swap="innerHTML"
-        hx-on::after:request="UIkit.modal('#editor-modal').show()"><span uk-icon="icon: cog; ratio: .7"></span> Configure DDEV</button><span class="act-status uk-text-meta">${esc(ddevCaption)}</span></span>` : ''}${canDdev && isDdev ? `<span class="act-with-status"><div class="uk-inline act-menu act-menu-ddev">
-        <button class="uk-button uk-button-default uk-button-small" type="button" title="Start, stop, back up and inspect this DDEV project"><span uk-icon="icon: cog; ratio: .7"></span> DDEV <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-        <div uk-dropdown="mode: click; pos: bottom-right" class="ddev-dropdown-wide"><ul class="uk-nav uk-dropdown-nav ddev-nav-columns">${ddevItems}
-        </ul></div>
-      </div><span class="act-status uk-text-meta">${ddevCount} command${ddevCount === 1 ? '' : 's'}</span></span>` : ''}`;
+        hx-on::after:request="UIkit.modal('#editor-modal').show()"><span uk-icon="icon: cog; ratio: .7"></span> Configure DDEV</button><span class="act-status uk-text-meta">${esc(ddevCaption)}</span></span>` : ''}${canDdev && isDdev ? menuShellHtml('ddev', {
+        // The items arrive from /fragments/row-menu/ddev/<ws>/<project> when the menu opens (coreRowMenuBody);
+        // the row carries the button and the count.
+        key, project: p, caption: `${ddevCount} command${ddevCount === 1 ? '' : 's'}`, dropdownClasses: 'ddev-dropdown-wide',
+        html: '<button class="uk-button uk-button-default uk-button-small" type="button" title="Start, stop, back up and inspect this DDEV project"><span uk-icon="icon: cog; ratio: .7"></span> DDEV <span uk-icon="icon: chevron-down; ratio: .6"></span></button>',
+      }) : ''}`;
     // Order: what it is doing, the runtime menus that change that, then the
     // Tests menu and the result it produced.
     const testsMenu = `${canTest || canChecks || canUsers ? (() => {
-        // One quality menu, not two. Setting the environment up, running the suite, reading a
-        // report and running the checks a package declares are all "is this project sound?" —
-        // and on a packages workspace (products, modules, themes) there is no suite at all, so a
-        // separate Checks button would be the only one there and a separate Tests button the
-        // only one on a site. The verbs live together and the menu says which of them apply.
-        const reports = canTest ? findTestReports(dir, p) : [];
-        // Running means a live screen session with the name this row's own
-        // buttons give it — the suite runs there, not in the dashboard.
-        const testsSession = screenSessionName(p, 'tests', key);
-        const busy = sessionLive(key, p, 'tests') || sessionLive(key, p, 'tests-setup');
-        const stack = canTest ? testingStackOf(dir, p) : 'none';
-        const busyChecks = sessionLive(key, p, 'checks');
-        const declared = canChecks ? checksDeclaredOf(dir, p) : { declared: 0, ready: 0, blocked: 0, hasPackageJson: false };
-        const rows = canChecks ? checksRowsOf(dir, p) : [];
-        // The caption answers whichever question this workspace can ask: a site says
-        // whether it could start a suite right now, a package says what it declares.
-        // "ready" is the useful word — a project can carry a whole stack and still fail
-        // every scenario because the web image has no chromium libraries.
-        const ready = canTest ? testingReadiness(dir, p) : null;
-        const caption = canTest
-          ? (busy ? 'running now' : stack === 'none' ? 'not set up' : (ready.ready ? 'ready to test' : 'not ready'))
-          : checksCaption(key, dir, p);
-
-        // Every alias, with the script the package actually declared for it. Seeing the pair is
-        // how you know the mapping is right — and each one runs on its own, because a spelling
-        // failure is not a reason to re-run the linters.
-        const symbol = { ready: '✅', masked: '⛔', refused: '🚫', skipped: '⏭', 'deps-missing': '⏭', 'unresolved-runner': '⏭' };
-        const aliasItems = rows.map((r) => (r.status === 'ready'
-          ? `<li><a href hx-post="/actions/checks" ${vals(`,"only":"${esc(r.id)}"`)} class="${busyChecks ? 'uk-disabled' : ''}" title="${esc(`${r.label} — runs ${r.script}`)}">
-               <span class="checks-alias">${esc(r.id)}</span> <code class="checks-script">${esc(r.script)}</code></a></li>`
-          : `<li><span class="uk-text-meta checks-alias-off" title="${esc(r.reason)}">${symbol[r.status] || '➖'} <span class="checks-alias">${esc(r.id)}</span> <code class="checks-script">${esc(r.script || '—')}</code></span></li>`)).join('');
-
-        return `<span class="act-with-status"><div class="uk-inline act-menu act-menu-tests">
-          <!-- Never the danger variant: a failing suite is already stated in red on the state
-               strip above the name, and a permanently red menu button reads as "this control
-               is dangerous" rather than "those tests failed". -->
-          <button class="uk-button uk-button-secondary uk-button-small" type="button" title="${esc(canTest ? (stack === 'none' ? 'No testing stack in this project yet' : `Automated testing (${stack})`) : `${declared.declared} check(s) declared in this package`)}"><span uk-icon="icon: bolt; ratio: .7"></span> Tests <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-
-          <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav" uk-nav="multiple: true">
-            ${canUsers ? `<li class="uk-nav-header">test users</li>
-            <li><a href hx-post="/actions/add-users" ${vals()}><span uk-icon="icon: users; ratio: .7"></span> Add the test users</a></li>
-            <li><a href hx-post="/actions/cancel-users" ${vals()}><span uk-icon="icon: minus-circle; ratio: .7"></span> Cancel the test users</a></li>
-            ${canTest || canChecks ? '<li class="uk-nav-divider"></li>' : ''}` : ''}
-            ${canTest ? `<li class="uk-nav-header" data-group="suite">${esc(stack === 'none' ? 'not set up' : stack)}${ready && stack !== 'none' ? esc(ready.ready ? ' · ready' : ` · missing ${ready.missing.join(' and ')}`) : ''}</li>
-            ${ready && !ready.ready && stack !== 'none' ? `<li data-entry="not ready note"><span class="uk-text-meta tests-not-ready">Set up the testing environment first — it installs ${esc(ready.missing.join(' and '))}.</span></li>` : ''}
-            <li data-entry="testing environment"><a href hx-post="/actions/testing-configure" ${vals()} class="${busy ? 'uk-disabled' : ''}"><span uk-icon="icon: cog; ratio: .7"></span> ${stack === 'none' ? 'Set up the testing environment' : 'Re-apply the testing environment'}${busy ? ' (running…)' : ''}</a></li>
-            ${busy ? `<li><a href="/terminal/${encodeURIComponent(testsSession)}" target="_blank" title="Open the session the suite is running in"><span uk-icon="icon: laptop; ratio: .7"></span> Watch it run in <code>${esc(testsSession)}</code></a></li>` : ''}
-            ${stack === 'none' ? '' : `<li><a href hx-post="/actions/testing-run" ${vals()} class="${busy ? 'uk-disabled' : ''}" title="${esc(ready && !ready.ready ? `It will install ${ready.missing.join(' and ')} first, which rebuilds the web image` : 'Run the suite')}"><span uk-icon="icon: play; ratio: .7"></span> Run the tests${busy ? ' (running…)' : ''}</a></li>`}
-            ${reports.length ? `<li class="uk-nav-divider"></li>
-            <li class="uk-nav-header" data-group="reports">${reports.length} report${reports.length > 1 ? 's' : ''}</li>
-            ${reports.map((r, i) => `<li><a href hx-get="/fragments/${esc(key)}/test-report/${encodeURIComponent(p)}?report=${i}" hx-target="#editor-modal-body" hx-swap="innerHTML" uk-toggle="target: #editor-modal" title="${esc(`${r.rel} · ${humanTime(r.mtime)}`)}"><span uk-icon="icon: file-text; ratio: .7"></span> ${esc(reportLabel(r))}</a></li>`).join('')}` : ''}` : ''}
-
-            ${canChecks ? `${canTest ? '<li class="uk-nav-divider"></li>' : ''}
-            <!-- Nested rather than flat: the aliases are a list of their own, and on a Drupal
-                 tree with several reports a flat menu would run to twenty rows. -->
-            <li class="uk-parent act-menu-checks" data-entry="checks">
-              <a href><span uk-icon="icon: check; ratio: .7"></span> Checks <span class="uk-text-meta">${esc(declared.hasPackageJson ? `${declared.declared} declared · ${declared.ready} runnable` : 'no package.json')}</span></a>
-              <ul class="uk-nav-sub checks-sub">
-                <li><a href hx-post="/actions/checks-plan" ${vals()} hx-target="#editor-modal-body" hx-swap="innerHTML" uk-toggle="target: #editor-modal"><span uk-icon="icon: list; ratio: .7"></span> What this project checks</a></li>
-                ${declared.ready ? `<li><a href hx-post="/actions/checks" ${vals()} class="${busyChecks ? 'uk-disabled' : ''}"><span uk-icon="icon: play; ratio: .7"></span> Run every check${busyChecks ? ' (running…)' : ''}</a></li>` : ''}
-                ${aliasItems ? `<li class="uk-nav-divider"></li>${aliasItems}` : '<li><span class="uk-text-meta">This project declares none.</span></li>'}
-              </ul>
-            </li>` : ''}
-          </ul></div>
-        </div><span class="act-status uk-text-meta">${esc(caption)}</span></span>`;
+        // One quality menu, not two (testsMenuState says why). The row carries the button and the
+        // caption; the items arrive from /fragments/row-menu/tests/<ws>/<project> when the menu opens.
+        const t = testsMenuState({ key, dir, p, gates });
+        return menuShellHtml('tests', {
+          key, project: p, caption: t.caption,
+          // Never the danger variant: a failing suite is already stated in red on the state
+          // strip above the name, and a permanently red menu button reads as "this control
+          // is dangerous" rather than "those tests failed".
+          html: `<button class="uk-button uk-button-secondary uk-button-small" type="button" title="${esc(t.title)}"><span uk-icon="icon: bolt; ratio: .7"></span> Tests <span uk-icon="icon: chevron-down; ratio: .6"></span></button>`,
+        });
       })() : ''}`;
     const screensMenu = (() => {
             const n = projectScreenCount(projectPath);
@@ -3458,15 +3680,14 @@ async function projectRowsHtml(key, dir, state) {
             // the dropdown's own 15s poll, swapped out of band (see /fragments/projects/screens/…), so
             // it costs no request of its own and is never staler than the menu behind it.
             const handId = `screens-hand-${key}-${p}`;
-            return `<span class="act-with-status"><div class="uk-inline act-menu act-menu-screens">
-              <button class="uk-button ${n ? 'uk-button-primary' : 'uk-button-default'} uk-button-small" type="button" aria-label="SCREENS${n ? `, ${n} running` : ''}"
-                title="${n ? `${n} screen session${n > 1 ? 's' : ''} running in this project` : 'Screen sessions running in this project'}"><span uk-icon="icon: laptop; ratio: .7"></span> SCREENS${n ? ` <span class="uk-badge">${n}</span>` : ''}<span class="screens-hand" id="${esc(handId)}"></span> <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-              <div uk-dropdown="mode: click; pos: bottom-right">
-                <ul class="uk-nav uk-dropdown-nav" hx-get="/fragments/projects/screens/${encodeURIComponent(key)}/${encodeURIComponent(p)}" hx-trigger="load, every 30s, screens-changed from:body, menu-opened" hx-target="this" hx-swap="innerHTML">
-                  <li class="uk-nav-header">loading…</li>
-                </ul>
-              </div>
-            </div><span class="act-status uk-text-meta">${n ? `${n} running` : 'none'}</span></span>`;
+            // The same shell as the other row menus (its body is /fragments/row-menu/screens/<ws>/<project>,
+            // screensMenuBody) — and besides opening, it still asks on load, every 30 seconds and when a
+            // screen changes, because the hand and the agent badge on the row ride on that answer.
+            return menuShellHtml('screens', {
+              key, project: p, caption: n ? `${n} running` : 'none', triggers: 'load, every 30s, screens-changed from:body',
+              html: `<button class="uk-button ${n ? 'uk-button-primary' : 'uk-button-default'} uk-button-small" type="button" aria-label="SCREENS${n ? `, ${n} running` : ''}"
+                title="${n ? `${n} screen session${n > 1 ? 's' : ''} running in this project` : 'Screen sessions running in this project'}"><span uk-icon="icon: laptop; ratio: .7"></span> SCREENS${n ? ` <span class="uk-badge">${n}</span>` : ''}<span class="screens-hand" id="${esc(handId)}"></span> <span uk-icon="icon: chevron-down; ratio: .6"></span></button>`,
+            });
           })();
     // A project with no DDEV config has no menu to hold it, so Backup stays a button there.
     const backupButton = canBackup && !isDdev ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Backup</button>` : '';
@@ -5562,22 +5783,29 @@ const server = http.createServer(async (req, res) => {
       // The body of a plugin's row menu that loads when it opens (plugin-loader's rowMenuHtml): the
       // plugin's own fragment, arranged like an inline menu's items — the Buttons settings hide, order
       // and add to it the same way, and the settings page sees its entries once one has been opened.
+      // The core's own menus (DDEV, COMPOSER, Tests, SCREENS) take the same route with no `body`: their
+      // bodies come from coreRowMenuBody, computed for this one project when the menu opens.
       if (pathname.startsWith('/fragments/row-menu/')) {
         const m = pathname.match(/^\/fragments\/row-menu\/([a-z0-9-]+)\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);
         const body = new URL(req.url, 'http://localhost').searchParams.get('body') || '';
-        if (!m || !pluginRowMenuSlot(m[1]) || !isValidWorkspace(m[2]) || !NAME_RE.test(m[3]) || !/^\/fragments\/p\/[a-z0-9-]+\//.test(body)) {
+        const core = !!m && CORE_ROW_MENUS.has(m[1]) && !body;
+        if (!m || !isValidWorkspace(m[2]) || !NAME_RE.test(m[3])
+          || !(core || (pluginRowMenuSlot(m[1]) && /^\/fragments\/p\/[a-z0-9-]+\//.test(body)))) {
           res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
           return res.end('<ul class="uk-nav uk-dropdown-nav"><li class="uk-nav-header">No such menu.</li></ul>');
         }
         const [slot, key, project] = [m[1], m[2], m[3]];
-        const answer = await pluginRowMenuBody(body, req);
+        const answer = core ? await coreRowMenuBody(slot, key, project) : await pluginRowMenuBody(body, req);
         let html = answer.html;
         if (answer.status === 200) {
           const projectPath = path.join(workspaceDir(key), project);
-          const ctx = { layout: rowLayout.loadRowLayout(), key, project, isDdev: ddevProjectName(projectPath) !== null,
+          const layout = rowLayout.loadRowLayout();
+          const ctx = { layout, key, project, isDdev: ddevProjectName(projectPath) !== null,
             hasComposer: require('./actions/composer').hasComposerJson(projectPath),
             hasNode: require('./actions/node').hasPackageJson(projectPath), hasGit: hasOwnGit(projectPath) };
-          try { html = rowLayout.arrangeButtonHtml(slot, html, ctx); } catch (_) { /* shown as the plugin drew it */ }
+          // Hidden entries, order and your own actions, then the columns the menu was set to — the two
+          // passes a menu drawn inline went through (rowLayout.rowLinesHtml).
+          try { html = rowLayout.columnizeButtonHtml(slot, rowLayout.arrangeButtonHtml(slot, html, ctx), layout); } catch (_) { /* shown as it was drawn */ }
         }
         res.writeHead(answer.status, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(html);
@@ -6714,79 +6942,13 @@ const server = http.createServer(async (req, res) => {
         } }
       { const sm = pathname.match(/^\/fragments\/projects\/screens\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);
         if (sm && isValidWorkspace(sm[1])) {
-          const sDir = path.join(workspaceDir(sm[1]), sm[2]);
-          const sessions = fs.existsSync(sDir) ? await screensForDir(sDir) : [];
-          const { sessionWaitingWhy } = require('./screens');
-          const waiting = sessions.map((s) => ({ s, why: sessionWaitingWhy(s) })).filter((x) => x.why);
-          const { agentSessions } = require('./screens');
-          const agentsHere = agentSessions(sessions);
-          const items = sessions.map((s) => {
-            const why = sessionWaitingWhy(s);
-            const isAgent = agentsHere.has(s.session);
-            // A session is named after where it runs — `test--ruverify1--jira-webship-9999` — so the
-            // project's own name is on every line of a menu that is already inside that project. The
-            // line leads with the part that differs; the whole name is the title, and the row is the
-            // one place it could ever be ambiguous.
-            const short = s.session.startsWith(`${sm[1]}--${sm[2]}--`)
-              ? s.session.slice(`${sm[1]}--${sm[2]}--`.length) : s.session;
-            // Dead is not runnable: `screen -ls` lists a session whose process is gone, and opening one
-            // attaches to nothing. Saying so beats a terminal that comes up empty.
-            const dead = /dead/i.test(s.state || '');
-            return `
-            <li data-entry="open a screen"><a href data-open-terminal="${esc(s.session)}" title="${esc(s.session)}${
-              s.started ? ` · started ${esc(s.started)}` : ''}">
-              ${isAgent ? iconHtml('tabler:robot-face', 0.7) : '<span uk-icon="icon: laptop; ratio: .7"></span>'} ${esc(short)}
-              <span class="screen-item-state">${
-                why ? `<span class="uk-label uk-label-warning" title="${esc(why)}">✋ waiting</span>`
-                  : dead ? '<span class="uk-label">dead</span>'
-                  : '<span class="uk-label uk-label-success">running</span>'}${
-                isAgent ? ' <span class="uk-label">agent</span>' : ''}</span></a></li>`;
-          }).join('');
-          // Out of band, into the row's own SCREENS button: this poll already runs every 15 seconds for
-          // the menu, so the hand on the row costs no request of its own and cannot be staler than the
-          // menu behind it. Always sent, empty when nothing is waiting — an OOB swap that is only sent
-          // sometimes leaves the last hand up after the question has been answered.
-          const hand = `<span class="screens-hand${waiting.length ? ' is-waiting' : ''}" id="screens-hand-${esc(sm[1])}-${esc(sm[2])}" hx-swap-oob="true"${
-            waiting.length ? ` title="${esc(waiting.map((x) => `${x.s.session}: ${x.why}`).join(' · '))}"` : ''}>${
-            waiting.length ? `✋${waiting.length > 1 ? ` ${waiting.length}` : ''}` : ''}</span>`;
-          // And whether an AGENT is at work in this project — asked of the process table rather than of
-          // the session's name, so a session started from the CLI or by hand counts the same. Sent
-          // always, empty when there is none: an OOB swap that is only sent sometimes leaves the last
-          // answer standing after the agent has finished.
-          const agents = agentsHere;
-          const agentWaiting = waiting.some((x) => agents.has(x.s.session));
-          const agentBadge = `<span class="project-title-agent" id="agent-badge-${esc(sm[1])}-${esc(sm[2])}" hx-swap-oob="true">${
-            agents.size
-              ? `<span class="uk-label ${agentWaiting ? 'uk-label-warning' : 'uk-label-success'} agent-live" title="${esc([...agents].join(' · '))}${
-                agentWaiting ? ' — and it has stopped to ask you something' : ''}">${
-                // Tabler's robot FACE rather than the 🤖 emoji, and rather than Tabler's whole-robot
-                // icon. An emoji is drawn by the platform's own font, so the same badge is a grey
-                // outline on one machine and a yellow cartoon on another, at a size and weight nothing
-                // here controls. And `robot` draws a head, antenna, arms and legs — at the 14px a label
-                // gives it, that is a smudge. `robot-face` spends the same pixels on four features
-                // instead of a dozen, which is the one that can still be read. Compared side by side at
-                // badge size rather than picked by name.
-                iconHtml('tabler:robot-face', 0.8)} ${agentWaiting ? 'waiting for you' : 'agent working'}${
-                agents.size > 1 ? ` (${agents.size})` : ''}</span>`
-              : ''}</span>`;
-          // The plugins' badges in the card's bottom-right cluster beside the pen (which work item an agent
-          // here is working, say). Sent on every poll, empty when there is nothing, so each clears itself.
-          const keysBadge = `<span class="project-plugin-badges" id="plugin-badges-${esc(sm[1])}-${esc(sm[2])}" hx-swap-oob="true">${
-            pluginProjectBadgesHtml({ key: sm[1], project: sm[2], dir: sDir, sessions })}</span>`;
+          // The list's inner HTML, for a page drawn before the menus loaded their bodies through
+          // /fragments/row-menu/screens/…: arranged like the row's other menus (Commands → Buttons).
+          const { nav, oob, dir: sDir } = await screensMenuBody(sm[1], sm[2]);
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          const claudeItems = require('./actions/claude-session').menuItems({ ws: sm[1], project: sm[2], sessions, agents: agentsHere, dir: sDir });
-          const screensNav = `${items || '<li class="uk-nav-header">No screens in this project</li>'}${claudeItems ? `
-            <li class="uk-nav-divider"></li>${claudeItems}` : ''}
-            <li class="uk-nav-divider"></li>
-            <li><a href hx-get="/fragments/screen-new-form?workspace=${encodeURIComponent(sm[1])}&amp;project=${encodeURIComponent(sm[2])}" hx-target="#editor-modal-body" hx-swap="innerHTML"
-                   hx-on::after:request="UIkit.modal('#editor-modal').show()"><span uk-icon="icon: plus-circle; ratio: .7"></span> New screen here…</a></li>
-            <li><a href hx-get="/fragments/screen-new-form?workspace=${encodeURIComponent(sm[1])}&amp;project=${encodeURIComponent(sm[2])}&amp;kind=claude" hx-target="#editor-modal-body" hx-swap="innerHTML"
-                   hx-on::after:request="UIkit.modal('#editor-modal').show()">${iconHtml('tabler:sparkles', 0.7)} Claude Code here…</a></li>
-            <li><a href="/screens"><span uk-icon="icon: list; ratio: .7"></span> All screens</a></li>`;
-          // Arranged like the row's other menus (Commands → Buttons); the row's copy is only a loading line.
-          return res.end(rowLayout.arrangeNavInner('screens', screensNav, { key: sm[1], project: sm[2],
+          return res.end(rowLayout.arrangeNavInner('screens', nav, { key: sm[1], project: sm[2],
             isDdev: require('./actions/composer').isDdevProject(sDir), hasComposer: require('./actions/composer').hasComposerJson(sDir),
-            hasNode: require('./actions/node').hasPackageJson(sDir), hasGit: hasOwnGit(sDir) }) + hand + agentBadge + keysBadge);
+            hasNode: require('./actions/node').hasPackageJson(sDir), hasGit: hasOwnGit(sDir) }) + oob);
         } }
       { const cm = pathname.match(/^\/fragments\/projects\/ddev-config\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);
         if (cm && isValidWorkspace(cm[1])) {
