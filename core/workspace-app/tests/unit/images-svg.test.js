@@ -168,10 +168,16 @@ test('a drawing that lost shapes to the sanitiser is drawn again; one that never
   }
 });
 
-test('Gemini and Anthropic need a real key; Claude Code draws in a session, retried by its finish step', async () => {
+test('Gemini and Anthropic need a real key; Claude Code draws in a session, retried by its finish step', async (t) => {
   const noKey = await svg.generateSvg({ prompt: 'x', provider: 'anthropic', confirm: 'yes' });
   assert.equal(noKey.status, 503);
   assert.match(noKey.error, /ai_providers\.anthropic\.api_key/);
+  // The rest drives Claude Code, which needs the claude CLI on this machine (#113).
+  const claude = require('../../images-providers').get('claude_code_cli').available();
+  if (!claude.ok) {
+    t.skip(`needs Claude Code: ${claude.why}`);
+    return;
+  }
   const calls = [];
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'svgcc-'));
   try {
