@@ -37,9 +37,9 @@ Feature: Writing and changing the workspace commands
       And "p code.fname" should be attached
 
   Scenario: Commands can be searched and narrowed to one workspace folder
-    Given I am on "/settings/commands"
+    Given I am on "/commands"
      Then "input[name='q']" should be attached
-      And "select[name='ws']" should be attached
+      And "select[name='source']" should be attached
       And ".cmd-title" should be attached
       And ".cmd-file" should be attached
 

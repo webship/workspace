@@ -23,8 +23,8 @@ Feature: The menus on a project row
   # selector is unambiguous. On a page of twelve rows every selector matches twelve buttons, and a
   # test that has to say "the third one" is a test that breaks when a project is built.
   Scenario: The DDEV menu opens and holds the verbs that moved into it
-    Given I am on "/rag"
-      And I click on the element ".project-row .act-menu button"
+    Given I am on "/dev"
+      And I click on the element ".project-row >> nth=0 >> .act-menu-ddev button"
      Then ".uk-dropdown.uk-open" should be visible
       And I should see "Restart"
       And I should see "Describe (URLs, services)"
