@@ -11,13 +11,13 @@ Feature: Installing agents, skills and prompts
   # modal. The content had loaded; nothing appeared.
   Scenario: Editing a prompt opens the editor with its text in it
     Given I am on "/ai-prompts"
-     When I click on the element "[hx-get='/fragments/ai-prompts/edit/say']"
+     When I click on the element "[hx-get^='/fragments/ai-prompts/edit/'] >> nth=0"
      Then "#editor-modal.uk-open" should be visible
       And "#editor-modal .ace_editor" should be visible
       And "#editor-modal form[hx-post='/actions/save-item']" should be attached
 
   Scenario: The same Edit works on the agents workspace
     Given I am on "/ai-agents"
-     When I click on the element "[hx-get='/fragments/ai-agents/edit/webship-workspace']"
+     When I click on the element "[hx-get^='/fragments/ai-agents/edit/'] >> nth=0"
      Then "#editor-modal.uk-open" should be visible
       And "#editor-modal .ace_editor" should be visible
