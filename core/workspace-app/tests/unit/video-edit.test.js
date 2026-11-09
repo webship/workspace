@@ -79,17 +79,36 @@ before(async () => {
     await run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=15', '-f', 'lavfi', '-i', 'sine=frequency=440',
       '-t', '6', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', path.join(root, 'videos/demo.mp4')], { env });
     await run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'lavfi', '-i', 'sine=frequency=220:duration=10', '-c:a', 'libmp3lame', path.join(root, 'audio/sounds/bed.mp3')], { env });
-    fs.writeFileSync(path.join(root, 'videos/demo-poster.jpg'), Buffer.alloc(50, 2));
   } else {
+    // No ffmpeg on this machine: the command tests are skipped, and the page tests read only the files' names.
     fs.writeFileSync(path.join(root, 'videos/demo.mp4'), Buffer.alloc(100, 1));
     fs.writeFileSync(path.join(root, 'audio/sounds/bed.mp3'), Buffer.alloc(100, 1));
   }
+  // The poster is the row's thumbnail whichever way the video was made.
+  fs.writeFileSync(path.join(root, 'videos/demo-poster.jpg'), Buffer.alloc(50, 2));
 });
 
-after(() => {
-  for (const s of servers) s.kill();
-  for (const d of [root, home]) fs.rmSync(d, { recursive: true, force: true });
-});
+/**
+ * Stop the servers this file started, then remove a tree, trying again for a moment. The server runs `ddev list` with
+ * HOME inside the tree, and a ddev still finishing after the server is gone puts `~/.ddev` back while the tree is
+ * being removed: a single rmSync then fails with ENOTEMPTY and the tree is left in /tmp.
+ */
+async function stopAndRemove(dirs) {
+  await Promise.all(servers.map((s) => new Promise((resolve) => {
+    if (s.exitCode !== null || s.signalCode !== null) return resolve();
+    s.once('exit', resolve);
+    s.kill();
+  })));
+  for (const dir of dirs) {
+    for (let i = 0; i < 50; i += 1) {
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) { /* something was still writing */ }
+      await new Promise((r) => setTimeout(r, 100));
+      if (!fs.existsSync(dir)) break;
+    }
+  }
+}
+
+after(() => stopAndRemove([root, home]));
 
 const env = (extra = {}) => ({ PATH: `/usr/bin:/bin:${path.dirname(process.execPath)}:${path.join(home, 'bin')}`, HOME: home, WORKSPACE_ROOT: root, ...extra });
 const cli = (args) => run('bash', [path.join(root, 'videos/cmd-tools-video-edit.sh'), ...args], { env: env() });

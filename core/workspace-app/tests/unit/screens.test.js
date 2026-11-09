@@ -5,12 +5,36 @@
  * of `screen`, so they are pinned here rather than left to the browser tests.
  */
 
-const { test } = require('node:test');
+const { test, before, after } = require('node:test');
 const assert = require('node:assert');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { copyConfig } = require('./_isolated-config');
+
+// The targets are read from a tree built here, not from this checkout: a fresh clone holds the
+// workspace folders and no project in any of them. The modules read their root once, at load, so
+// it is set before they are required.
+const APP = path.join(__dirname, '../..');
+const REPO = path.join(APP, '../..');
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-screens-root-'));
+process.env.WORKSPACE_ROOT = root;
 
 const { screenTargets, screenTargetDir } = require('../../screens');
-const { ROOT } = require('../../workspaces');
+const { ROOT, loadWorkspaces } = require('../../workspaces');
+
+before(() => {
+  fs.mkdirSync(path.join(root, 'core'), { recursive: true });
+  copyConfig(path.join(REPO, 'core/config'), path.join(root, 'core/config'));
+  fs.symlinkSync(path.join(REPO, 'core/scripts'), path.join(root, 'core/scripts'));
+  fs.symlinkSync(APP, path.join(root, 'core/workspace-app'));
+  // Every workspace folder, as a clone has them; one project in dev/; a dot folder, which is not one.
+  for (const w of Object.values(loadWorkspaces())) fs.mkdirSync(w.dir, { recursive: true });
+  fs.mkdirSync(path.join(root, 'dev', 'blog1', '.ddev'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'dev', '.cache'), { recursive: true });
+});
+
+after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 test('the workspace root is always a place to start a session', () => {
   const root = screenTargets().find((t) => t.value === 'root');
@@ -38,6 +62,10 @@ test('workspace folders and projects are offered separately', () => {
   assert.ok(targets.some((t) => t.group === 'Projects'), 'at least one project is offered');
   const dev = targets.find((t) => t.value === 'ws:dev');
   assert.ok(dev && dev.dir === path.join(ROOT, 'dev'));
+  const blog = targets.find((t) => t.value === 'p:dev:blog1');
+  assert.ok(blog && blog.group === 'Projects' && blog.dir === path.join(ROOT, 'dev', 'blog1'),
+    'the project in dev/ is offered under Projects');
+  assert.ok(!targets.some((t) => t.value === 'p:dev:.cache'), 'a dot folder is not a project');
 });
 
 // The name rule is shared by the form, the actions and both /fragments routes:
@@ -55,20 +83,11 @@ test('a session name may not start with a dash, and holds no shell characters', 
 // share: the runner republishes its list every two seconds, so a stale file
 // means the runner is gone and nothing new may be started.
 test('a published session list is trusted only while it is fresh', () => {
-  const fs = require('fs');
-  const path = require('path');
-  const os = require('os');
-  const { ROOT } = require('../../workspaces');
   const file = path.join(ROOT, '.screens', 'host-sessions.json');
-  const had = fs.existsSync(file) ? fs.readFileSync(file) : null;
   const { hostSessionsFile } = require('../../jobs');
-  try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify({ at: Date.now(), host: os.hostname(), sessions: [{ session: 'a--b--c' }] }));
-    assert.equal(hostSessionsFile().sessions.length, 1, 'a list written now is the truth');
-    fs.writeFileSync(file, JSON.stringify({ at: Date.now() - 60000, sessions: [{ session: 'a--b--c' }] }));
-    assert.equal(hostSessionsFile(), null, 'a minute-old list means the runner stopped');
-  } finally {
-    if (had) fs.writeFileSync(file, had); else fs.rmSync(file, { force: true });
-  }
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ at: Date.now(), host: os.hostname(), sessions: [{ session: 'a--b--c' }] }));
+  assert.equal(hostSessionsFile().sessions.length, 1, 'a list written now is the truth');
+  fs.writeFileSync(file, JSON.stringify({ at: Date.now() - 60000, sessions: [{ session: 'a--b--c' }] }));
+  assert.equal(hostSessionsFile(), null, 'a minute-old list means the runner stopped');
 });

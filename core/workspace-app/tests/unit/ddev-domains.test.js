@@ -9,14 +9,39 @@
 
 'use strict';
 
-const test = require('node:test');
+const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { copyConfig } = require('./_isolated-config');
+
+// The walk over the workspaces runs on a tree built here, not on this checkout: a fresh clone holds no
+// project at all. The workspaces module reads its root once, at load, so it is set before the require.
+const REPO = path.join(__dirname, '../../../..');
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-ddev-domains-root-'));
+process.env.WORKSPACE_ROOT = root;
 
 const { ddevHostnames, ddevExtraDomains } = require('../../ddev-domains');
-const { ROOT } = require('../../workspaces');
+const { loadWorkspaces } = require('../../workspaces');
+
+/** A DDEV project inside a workspace of the built tree. */
+function inTree(workspace, name, yaml) {
+  const dir = path.join(root, workspace, name);
+  fs.mkdirSync(path.join(dir, '.ddev'), { recursive: true });
+  if (yaml !== null) fs.writeFileSync(path.join(dir, '.ddev', 'config.yaml'), yaml);
+}
+
+before(() => {
+  fs.mkdirSync(path.join(root, 'core'), { recursive: true });
+  copyConfig(path.join(REPO, 'core/config'), path.join(root, 'core/config'));
+  inTree('dev', 'blog', 'name: blog\nadditional_fqdns:\n  - storybook.blog.ddev.site\n');
+  inTree('dev', 'plain', 'name: plain\nadditional_hostnames:\n  - plain-dev\n');
+  inTree('products', 'shop', 'name: shop\nadditional_fqdns:\n  - mail.shop.ddev.site\n');
+  inTree('products', 'bare', null);
+});
+
+after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 /** A throwaway project directory holding one .ddev/config.yaml. */
 function project(yaml) {
@@ -130,11 +155,10 @@ additional_fqdns:
     'only a host whose FIRST label is storybook is the component library');
 });
 
-/* ---------------- against the real tree ---------------- */
+/* ---------------- against the tree built above ---------------- */
 
 test('the projects in this tree that ship a Storybook are found', () => {
   // The regression in one line: before this parsed additional_fqdns, every one of these was absent.
-  const { loadWorkspaces } = require('../../workspaces');
   const found = [];
   for (const w of Object.values(loadWorkspaces())) {
     if (!w.dir) continue;
@@ -148,6 +172,8 @@ test('the projects in this tree that ship a Storybook are found', () => {
     }
   }
   assert.ok(found.length > 0,
-    'no project in the tree declares a Storybook domain — either the tree changed or the fqdn key stopped being read');
+    'no project in the tree declares a Storybook domain: the fqdn key stopped being read');
   for (const p of found) assert.ok(p.includes('/'), p);
+  assert.deepEqual(found, ['dev/blog'],
+    'the one with a storybook fqdn, and not the label-only, the mail-only or the project with no config');
 });
