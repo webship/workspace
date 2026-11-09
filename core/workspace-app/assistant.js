@@ -21,7 +21,6 @@ const {
   findBuilderScripts, listBackups, commandFlags,
 } = require('./workspaces');
 const { run, listProjects } = require('./jobs');
-const { hasGraph } = require('./graphs');
 const { listSettingsFiles } = require('./settings-file');
 const { HOME_URL, wsUrl } = require('./urls');
 const { aiInventory } = require('./ai-inventory');
@@ -88,15 +87,7 @@ function pageContextFor(ctx) {
     const cMeta = loadWorkspaces()[cKey];
     if (ctxMatch[1] === 'workspace') {
       const projs = listProjects(cMeta.dir);
-      // Name the projects that have a graph, so the assistant queries it instead of
-      // grepping — and so it knows the graph exists at all, which it cannot infer.
-      const graphed = projs.filter((pr) => hasGraph(cKey, pr, 'graph.json'));
-      pageContext = `The user is on the "${cMeta.label}" workspace page (/${cKey}, folder ${cMeta.dir}). Projects currently listed: ${projs.join(', ') || '(none)'} .\n${workspaceAiContext(cKey)}`
-        + (graphed.length
-          ? ` These projects have a graphify knowledge graph, kept in ${ROOT}/graphs/${cKey}/<project>/ rather than inside the project: ${graphed.join(', ')}. `
-            + `For those, prefer \`graphify query "..." --graph ${ROOT}/graphs/${cKey}/<project>/graph.json\` (also explain, path, god-nodes) over grepping the tree, then read the files it points at. `
-            + 'It maps PHP classes under src/, JS and SQL only — it does NOT map hooks in .module/.theme/.install, Twig, or any *.yml, so routing, services and plugin wiring are absent and a question about those comes back empty whether or not the answer exists. Rebuild it with `bash cmd-tools-graphify.sh <project>` after code changes; the graph is a snapshot and does not follow edits.'
-          : '');
+      pageContext = `The user is on the "${cMeta.label}" workspace page (/${cKey}, folder ${cMeta.dir}). Projects currently listed: ${projs.join(', ') || '(none)'} .\n${workspaceAiContext(cKey)}`;
     } else {
       pageContext = `The user is on the "${cMeta.label}" backups page (/${cKey}/backups). Backups currently listed: ${listBackups(cKey).map((b) => b.file).join(', ') || '(none)'}.`;
     }
