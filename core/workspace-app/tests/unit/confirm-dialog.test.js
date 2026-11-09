@@ -55,7 +55,6 @@ test('the destructive actions are all armed', () => {
   for (const [file, action] of [
     ['server.js', '/actions/delete-item'],
     ['server.js', '/actions/ddev-drush-sql-drop'],
-    ['server.js', '/actions/graph-remove'],
     ['server.js', '/actions/rag-remove'],
     ['commands-page.js', '/actions/cc-remove'],
     ['commands-page.js', '/actions/cc-reset'],

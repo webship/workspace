@@ -6,7 +6,7 @@ Feature: The Screens manager
   Scenario: Screens is its own page, not a settings tab
     Given I am on "/screens"
      Then I should see "New screen"
-      And I should see "Wipe dead"
+      And I should see "Remove ended sessions"
 
   Scenario: The old settings URL still lands on the manager
     Given I am on "/settings/screens"
