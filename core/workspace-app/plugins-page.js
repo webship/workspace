@@ -93,7 +93,7 @@ function pluginsPageHtml() {
         <strong>configure</strong> its own settings file. The same as <code>bash core/scripts/plugins.sh</code>.</p>
       <form class="uk-flex uk-flex-middle uk-margin-small-bottom plugin-require" hx-post="/actions/plugins" hx-target="#webship-workspace-output" hx-swap="innerHTML">
         <input type="hidden" name="verb" value="require">
-        <input class="uk-input uk-form-small uk-form-width-large" name="spec" placeholder="github:webship/workspace-jira" aria-label="Package to require" required pattern="[A-Za-z0-9@:/._#+~-]+">
+        <input class="uk-input uk-form-small uk-form-width-large" name="spec" placeholder="@webship.co/workspace-jira" aria-label="Package to require" required pattern="[A-Za-z0-9@:/._#+~-]+">
         <button class="uk-button uk-button-default uk-button-small uk-margin-small-left" type="submit">Require</button>
       </form>
       <div class="plugin-cards">${cards || '<p class="uk-text-meta">No plugin packages yet. Pick one from the catalogue below, or require one above.</p>'}</div>
