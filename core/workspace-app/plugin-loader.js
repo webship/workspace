@@ -84,7 +84,7 @@ const actions = {};          // '/actions/p/<plugin>/<action>' -> handler(ctx)
 const fragments = {};        // '<plugin>' -> handler({ req, res, send, rest, searchParams })
 const pageActionFns = [];    // ({ view, key, meta }) -> { label, items: [html] } | null
 const projectActionFns = []; // ({ key, project, dir, meta }) -> html | null
-const rowMenus = {};         // '<slot>' -> ({ key, project, dir, meta, allowed, vals }) -> html | null
+const rowMenus = {};         // '<slot>' -> ({ key, project, dir, meta, allowed, vals }) -> html | { html, body, caption, classes } | null
 const pages = [];            // { re, handler({ req, res, match, send }) }
 const chipFns = [];          // ({ key, project, dir, meta }) -> html | null
 const folderSetups = [];     // { html(ws, ctx), steps(ws, name, form, ctx), prompt(ws, name, form, ctx), problem(ws, form, ctx) }
@@ -133,11 +133,17 @@ function appliesTo(config, workspaceKey) {
   return list.length === 0 || list.includes(workspaceKey);
 }
 
+// What this dashboard can do that an older one could not, for a package that serves several
+// dashboards: a plugin checks `api.capabilities.has(…)` before it uses a newer form of an answer.
+//   row-menu-body  a row-menu function may return `{ html, body }`: the body loads when the menu opens.
+const CAPABILITIES = Object.freeze(new Set(['row-menu-body']));
+
 function makeApi(name, config) {
   return {
     name,
     config,
     lib,
+    capabilities: CAPABILITIES,
     // This plugin's own settings file (core/config/plugin.<name>.settings.yml): read it, or change one
     // key or one list in place with comments kept. Secret-named keys stay out of the browser like
     // any setting.
@@ -163,7 +169,9 @@ function makeApi(name, config) {
     },
     // A named menu on every project row, in the slot the layout settings arrange: `spec` is
     // `{ label, row }` like a built-in button's. The function draws it, or returns null for a row
-    // the plugin has nothing to say about.
+    // the plugin has nothing to say about. It may also return `{ html, body, caption, classes }`:
+    // the button, and the URL of a fragment that answers the dropdown's inner HTML when the menu
+    // opens — so a page of fifty rows carries fifty buttons, not fifty menus (rowMenuHtml).
     addRowMenu(slot, spec, fn) {
       if (!/^[a-z0-9-]+$/.test(slot)) throw new Error(`${name}: invalid row menu slot '${slot}'`);
       rowLayout.registerButton({ id: slot, label: spec.label || slot, row: spec.row || 0, columns: spec.columns, menu: spec.menu });
@@ -376,9 +384,64 @@ function pluginProjectActionsHtml(ctx) {
 function pluginRowMenus(ctx) {
   const out = {};
   for (const [slot, fn] of Object.entries(rowMenus)) {
-    try { out[slot] = fn(ctx) || ''; } catch (_) { out[slot] = ''; }
+    try { out[slot] = rowMenuHtml(slot, fn(ctx), ctx); } catch (_) { out[slot] = ''; }
   }
   return out;
+}
+
+/**
+ * What a row-menu function answered, as the row's HTML.
+ *
+ * A string is the whole menu, drawn inline as it always was. An object `{ html, body, caption, classes }`
+ * is a menu whose body loads when it opens: `html` is the button, `body` the URL of a fragment the
+ * plugin serves (under /fragments/p/<plugin>/) whose response is the dropdown's inner HTML, `caption`
+ * the small text beside the button and `classes` extra classes on the menu's wrapper. The page then
+ * carries the button, the caption and an empty dropdown shell; UIkit's `beforeshow` on the shell is
+ * relayed as `menu-opened` (public/ui.js), and htmx fetches the body into it. The fetch goes through
+ * /fragments/row-menu/<slot>/<ws>/<project>, which asks the plugin's URL and arranges the items the
+ * way the Buttons settings arrange an inline menu's (hidden entries, order, your own actions).
+ */
+function rowMenuHtml(slot, result, ctx = {}) {
+  if (!result) return '';
+  if (typeof result === 'string') return result;
+  if (typeof result !== 'object' || typeof result.html !== 'string' || !result.html
+    || typeof result.body !== 'string' || !/^\/fragments\/p\/[a-z0-9-]+\//.test(result.body)) return '';
+  const url = `/fragments/row-menu/${encodeURIComponent(slot)}/${encodeURIComponent(ctx.key || '')}/${encodeURIComponent(ctx.project || '')}?body=${encodeURIComponent(result.body)}`;
+  const classes = ['uk-inline', 'act-menu', `act-menu-${slot}`, ...String(result.classes || '').split(/\s+/).filter(Boolean)];
+  const caption = result.caption === undefined || result.caption === null || result.caption === '' ? ''
+    : `<span class="act-status uk-text-meta">${esc(String(result.caption))}</span>`;
+  return `<span class="act-with-status"><div class="${esc([...new Set(classes)].join(' '))}">${result.html}`
+    + `<div uk-dropdown="mode: click; pos: bottom-right" class="act-menu-lazy" hx-get="${esc(url)}" hx-trigger="menu-opened" hx-target="this" hx-swap="innerHTML">`
+    + '<ul class="uk-nav uk-dropdown-nav"><li class="uk-nav-header">…</li></ul></div></div>'
+    + `${caption}</span>`;
+}
+
+/** Whether a plugin registered a row menu in this slot. */
+const pluginRowMenuSlot = (slot) => Object.prototype.hasOwnProperty.call(rowMenus, slot);
+
+/**
+ * The body of a lazy row menu: the plugin's fragment at `body` (a /fragments/p/<plugin>/… URL), asked
+ * the way a browser would and answered as `{ status, html }` instead of written to a response — so the
+ * caller can arrange the items before sending them. A plugin that never answers is given 30 seconds.
+ */
+function pluginRowMenuBody(body, req = {}) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (status, html) => { if (done) return; done = true; clearTimeout(timer); resolve({ status, html }); };
+    const timer = setTimeout(() => finish(504, '<li class="uk-nav-header">The menu did not answer.</li>'), 30000);
+    if (typeof timer.unref === 'function') timer.unref();
+    let status = 200;
+    let out = '';
+    const res = {
+      writeHead(code) { status = code || 200; },
+      setHeader() {},
+      write(chunk) { out += String(chunk || ''); },
+      end(chunk) { out += String(chunk || ''); finish(status, out); },
+    };
+    const pathname = String(body).split('?')[0];
+    const hit = pluginFragment(pathname, { url: body, method: 'GET', headers: (req && req.headers) || {} }, res);
+    if (!hit) finish(404, '<li class="uk-nav-header">No such menu.</li>');
+  });
 }
 
 /** The chips plugins put in a project card's meta line. */
@@ -460,7 +523,7 @@ loadPlugins();
 
 module.exports = {
   pluginActions: actions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
-  pluginRowMenus, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginLabels,
+  pluginRowMenus, rowMenuHtml, pluginRowMenuSlot, pluginRowMenuBody, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginLabels,
   pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext, pluginForge, pluginForges, pluginOpenWith, pluginFolderLinks, pluginWorkspaceView,
   loadedPlugins: loaded, pluginConfigs,
 };

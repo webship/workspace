@@ -315,9 +315,14 @@ document.body.addEventListener('click', (e) => {
 // sessions is the one thing you open the menu to read, and reading a thirty-second-old one is how you
 // end up clicking a session that has already finished.
 //
-// UIkit emits `beforeshow` on the dropdown, and htmx listens for `menu-opened` on the list inside it.
+// UIkit emits `beforeshow` on the dropdown, and htmx listens for `menu-opened` on the list inside it —
+// or on the dropdown itself, when the whole body loads as it opens (a plugin's lazy row menu). The
+// relay, rather than `hx-trigger="beforeshow"` on the dropdown: a nav inside a menu emits `beforeshow`
+// too when it unfolds, and that bubbling up must not fetch the menu again under the pointer.
 document.addEventListener('beforeshow', (e) => {
-  const list = e.target.querySelector && e.target.querySelector('[hx-trigger*="menu-opened"]');
+  const t = e.target;
+  if (!t || !t.querySelector) return;
+  const list = (t.matches && t.matches('[hx-trigger*="menu-opened"]')) ? t : t.querySelector('[hx-trigger*="menu-opened"]');
   if (list) list.dispatchEvent(new CustomEvent('menu-opened'));
 }, true);
 
