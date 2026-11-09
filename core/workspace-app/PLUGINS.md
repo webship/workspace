@@ -39,7 +39,8 @@ the same shape, which is how one is developed before it gets a repository.
                "machine": ["scripts/upsun-ai.sh"], "hostInstall": "scripts/host-install.sh" },
   "ddev": { "compose": ["ddev/docker-compose.upsun-cli.yaml"], "hostMounts": ["~/.upsun-cli"] },
   "themes": ["config/theme.upsun.yml"],
-  "css": ["public/upsun.css"]
+  "css": ["public/upsun.css"],
+  "features": ["features/upsun.feature"]              // webship-js scenarios, run by the dashboard's own suite
 }
 ```
 
@@ -50,6 +51,13 @@ manifest names (or every one of its types), with `__WORKSPACE__` replaced by the
 compose files as `core/workspace-app/.ddev/docker-compose.plugin-<name>-<file>`; host mounts in a
 `host-mounts.txt` that `host-mounts.sh` reads; themes in `core/config/`. `hostInstall` runs with
 `--check` after an install and in full from `install.sh`.
+
+Features land in `core/workspace-app/tests/features/plugins/<name>/`, so `ddev test-dashboard browser`
+runs them with the core's. A scenario that only holds when one of the plugin's settings is set says
+so in a tag: `@needs-setting-<plugin>-<key>` skips it, with the reason, while
+`core/config/plugin.<plugin>.settings.yml` has no value for `<key>` (the Jira feature tags its menu
+scenario `@needs-setting-jira-default_project`). A plugin ships no step definitions: webship-js's
+own steps and the core's are what a feature can use.
 
 Everything stays HTMX + UIKit: a plugin serves server-rendered fragments and wires them with
 `hx-get`/`hx-post`; no client frameworks.
