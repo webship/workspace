@@ -1,18 +1,17 @@
 Feature: The menus on a project row
   Every project row carries its state above the name and its verbs in menus.
 
-  Scenario: State is a strip above the folder name, not a word after it
+  Scenario: State is a line above the folder name, not a word after it
     Given I am on "/dev"
-     Then the element ".project-state" should be displayed
-      And the element ".project-row .project-head" should be displayed
+     Then ".project-row .pcard-state-line" should be attached
+      And ".project-row .pcard-head" should be attached
 
-  Scenario: The row offers the DDEV, Graph, RAG and Tests menus
+  # The Graph menu is the graph plugin's, asserted by its own feature.
+  Scenario: The row offers the DDEV and Tests menus
     Given I am on "/dev"
-     Then the element ".project-actions" should be displayed
-      And I should see "DDEV"
-      And I should see "Graph"
-      And I should see "RAG"
-      And I should see "Tests"
+     Then ".project-row .act-menu-ddev" should be attached
+      And ".project-row .act-menu-tests" should be attached
+      And ".project-row .act-menu-more" should be attached
 
   Scenario: A menu that carries a state word captions it under the button
     Given I am on "/dev"
