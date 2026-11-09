@@ -84,7 +84,7 @@ const {
 // Optional features workspaces turn on from settings.yml `plugins:` — see PLUGINS.md.
 const {
   pluginActions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
-  pluginRowMenus, pluginWorkspaceView, pluginOpenWith, pluginFolderLinks, pluginProjectChipsHtml, pluginLabels,
+  pluginRowMenus, pluginRowMenuSlot, pluginRowMenuBody, pluginWorkspaceView, pluginOpenWith, pluginFolderLinks, pluginProjectChipsHtml, pluginLabels,
   pluginProjectBadgesHtml, pluginSettingsOptions, pluginWorkKeyLink, pluginWorkPrompt,
 } = require('./plugin-loader');
 // How a project row is arranged — the order of its buttons and of what is inside their menus (Commands → Buttons).
@@ -5559,6 +5559,29 @@ const server = http.createServer(async (req, res) => {
       }
       if (pathname === '/actions/status') return handleAction(pathname, {}, res);
       if (pathname.startsWith('/fragments/p/') && pluginFragment(pathname, req, res)) return;
+      // The body of a plugin's row menu that loads when it opens (plugin-loader's rowMenuHtml): the
+      // plugin's own fragment, arranged like an inline menu's items — the Buttons settings hide, order
+      // and add to it the same way, and the settings page sees its entries once one has been opened.
+      if (pathname.startsWith('/fragments/row-menu/')) {
+        const m = pathname.match(/^\/fragments\/row-menu\/([a-z0-9-]+)\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);
+        const body = new URL(req.url, 'http://localhost').searchParams.get('body') || '';
+        if (!m || !pluginRowMenuSlot(m[1]) || !isValidWorkspace(m[2]) || !NAME_RE.test(m[3]) || !/^\/fragments\/p\/[a-z0-9-]+\//.test(body)) {
+          res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end('<ul class="uk-nav uk-dropdown-nav"><li class="uk-nav-header">No such menu.</li></ul>');
+        }
+        const [slot, key, project] = [m[1], m[2], m[3]];
+        const answer = await pluginRowMenuBody(body, req);
+        let html = answer.html;
+        if (answer.status === 200) {
+          const projectPath = path.join(workspaceDir(key), project);
+          const ctx = { layout: rowLayout.loadRowLayout(), key, project, isDdev: ddevProjectName(projectPath) !== null,
+            hasComposer: require('./actions/composer').hasComposerJson(projectPath),
+            hasNode: require('./actions/node').hasPackageJson(projectPath), hasGit: hasOwnGit(projectPath) };
+          try { html = rowLayout.arrangeButtonHtml(slot, html, ctx); } catch (_) { /* shown as the plugin drew it */ }
+        }
+        res.writeHead(answer.status, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(html);
+      }
       // The knowledge graph a project's graphify run produced. Those files live
       // inside the project, not under a docroot, so the dashboard serves them.
       // graph.html is not self-contained: it pulls vis-network from unpkg.com.

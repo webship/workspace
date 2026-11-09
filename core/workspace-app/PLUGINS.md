@@ -150,7 +150,8 @@ module.exports.register = (api) => {
 | `api.addFragment(handler)` | GET handler for `/fragments/p/<plugin>/<rest>`. Context: `{ req, res, send, rest, searchParams }`. |
 | `api.addPageActions(fn)` | `fn({ view, key, meta })` returns a rail group `{ label, items: [html] }` or null. Runs on every page render. |
 | `api.addProjectActions(fn)` | `fn({ key, project, dir, meta })` returns HTML appended to that project row's actions (or null). Runs per row on `projects`-kind pages. |
-| `api.addRowMenu(slot, { label, row }, fn)` | A named menu on every project row, in a slot the Buttons settings arrange like a built-in one. `fn({ key, project, dir, meta, allowed, vals })` returns the menu's HTML, or null for a row it has nothing for. |
+| `api.addRowMenu(slot, { label, row }, fn)` | A named menu on every project row, in a slot the Buttons settings arrange like a built-in one. `fn({ key, project, dir, meta, allowed, vals })` returns the menu's HTML, or null for a row it has nothing for — or `{ html, body }`, a menu whose body loads when it opens (below). |
+| `api.capabilities` | What this dashboard can do that an older one could not, as a `Set` of names; a package that serves several dashboards checks it before using a newer form of an answer. So far: `row-menu-body`. |
 | `api.addPage(re, handler)` | A whole page: GET requests whose path matches `re`. `handler({ req, res, match, send })` writes the response itself. |
 | `api.addProjectChip(fn)` | A chip in the project card's meta line. `fn({ key, project, dir, meta })` returns HTML or null. |
 | `api.addFolderSetup({ html, steps, prompt, problem })` | A section of the New-folder form (`html(ws, { allowed })`), the shell steps it adds (`steps(ws, name, form, ctx)` → array), the lines it adds to the Claude Code prompt (`prompt(…)` → array) and its validation (`problem(ws, form, ctx)` → '' or why). |
@@ -164,6 +165,45 @@ module.exports.register = (api) => {
 | `api.addWorkPrompt(fn)` | The prompt a screen started for a work item begins with: `fn({ key, workspace, project })` returns it, or null for the dashboard's own. |
 | `api.addSessionLog(fn)` | Where a session's log lives when the dashboard does not know: `fn(session, dirs)` returns a file in one of `dirs`, or ''. |
 | `api.addAssistantContext(fn)` | A paragraph of the assistant's system context: what this plugin lets it reach, and the rules. |
+
+### A row menu whose body loads when it opens
+
+A page of fifty rows must not carry fifty copies of every menu. Instead of the whole menu, a row-menu
+function may return an object:
+
+```js
+api.addRowMenu('cloud', { label: 'CLOUD', row: 0 }, ({ key, project, dir, allowed }) => {
+  if (!allowed.has('cloud')) return null;
+  return {
+    html: `<button class="uk-button uk-button-default uk-button-small" type="button">CLOUD <span uk-icon="icon: chevron-down; ratio: .6"></span></button>`,
+    body: `/fragments/p/${api.name}/menu/${encodeURIComponent(key)}/${encodeURIComponent(project)}`,
+    caption: 'linked',            // optional: the small text beside the button
+    classes: 'act-menu-hosting',  // optional: extra classes on the menu's wrapper
+  };
+});
+// The body: what used to be inside the dropdown, as a fragment.
+api.addFragment(({ send, rest }) => {
+  const m = rest.match(/^menu\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);
+  if (m) return send(`<ul class="uk-nav uk-dropdown-nav"><li><a href …>…</a></li></ul>`);
+});
+```
+
+| Key | What it is |
+| --- | --- |
+| `html` | The button that opens the menu. Required. |
+| `body` | The URL of a fragment this plugin serves (under `/fragments/p/<plugin>/`) whose response is the dropdown's inner HTML, normally one `<ul class="uk-nav uk-dropdown-nav">`. Required. |
+| `caption` | The text beside the button (`not linked`, `3 running`), or none. |
+| `classes` | Extra classes on the `.uk-inline.act-menu` wrapper, after the `act-menu-<slot>` the core adds. |
+
+The core draws `<span class="act-with-status"><div class="uk-inline act-menu act-menu-<slot> …">` + the
+button + an empty `uk-dropdown` shell + the caption. The shell carries `hx-get` to
+`/fragments/row-menu/<slot>/<ws>/<project>?body=<url>` with `hx-trigger="menu-opened"`: UIkit's
+`beforeshow` on the dropdown is relayed as `menu-opened` by `public/ui.js`, so the body is fetched each
+time the menu opens and never before. The core asks the plugin's `body` URL itself and arranges the
+items the way it arranges an inline menu's (the Buttons settings hide, order and add your own actions to
+it alike), so a lazy menu behaves like an inline one once open. A string return is unchanged: the whole
+menu, inline. A plugin that must also run on a dashboard older than this form checks
+`api.capabilities && api.capabilities.has('row-menu-body')` and falls back to the string.
 
 `api.lib` also lends `tabModalHtml`, `hubDomain()`, `listScreens()`, `agentSessions()`, `screenLogFor()`, `claudeSessionsFor()` and
 `screensCached()` (the last `screen -ls`, for a renderer that cannot wait). The types of all of it are

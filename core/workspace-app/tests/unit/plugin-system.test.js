@@ -61,11 +61,14 @@ function tree() {
   fs.writeFileSync(path.join(dir, 'index.js'), `
     module.exports.register = (api) => {
       api.addRowMenu('x-cloud', { label: 'X CLOUD', row: 0 }, ({ key, project, allowed }) => allowed.has('x-cloud') ? '<div class="act-menu-x-cloud">' + key + '/' + project + '</div>' : null);
+      // The lazy form: the button and the URL of the body, which the fragment below answers.
+      api.addRowMenu('x-lazy', { label: 'X LAZY', row: 0 }, ({ key, project, allowed }) => allowed.has('x-cloud')
+        ? { html: '<button class="x-lazy-button">X LAZY</button>', body: '/fragments/p/x-cloud/menu/' + key + '/' + project, caption: 'not linked', classes: 'act-menu-hosting x-family' } : null);
       api.addPage(/^\\/x-cloud\\/([a-z]+)$/, ({ send, match }) => send('page:' + match[1]));
       api.addProjectChip(({ project }) => '<span class="x-chip">' + project + '</span>');
       api.addFolderSetup({ html: () => '<div class="x-setup"></div>', steps: (ws, name, form) => form.x === '1' ? ['echo x ' + name] : [], prompt: () => ['x prompt'], problem: (ws, form) => form.x === 'bad' ? 'bad x' : '' });
       api.addAction('ping', ({ send }) => send('pong'));
-      api.addFragment(({ send, rest }) => send('frag:' + rest));
+      api.addFragment(({ send, rest }) => send(rest.startsWith('menu/') ? '<ul class="uk-nav uk-dropdown-nav"><li class="uk-nav-header">Menu for ' + rest.slice(5) + '</li><li><a href="#" class="x-lazy-item">Deploy</a></li></ul>' : 'frag:' + rest));
       api.addLabels({ region: { label: 'Region' } });
       api.addForge('forge.test', { label: 'X Forge', env: () => ({ X_TOKEN: 'secret' }), auth: () => ({ username: 'me', how: 'token' }) });
       api.addWorkspaceView('x-store', { listHtml: (state) => '<div class="x-list">' + (state.q || '') + '</div>', count: () => 7, noNewForm: true });
@@ -126,6 +129,40 @@ test('a plugin reaches every hook, and what it registers is what the dashboard d
   assert.strictEqual(r.noForge, null);
   assert.deepStrictEqual(r.view, { list: '<div class="x-list">abc</div>', count: 7, noNewForm: true }, 'a plugin owns a workspace folder\'s page');
   assert.strictEqual(r.noView, null);
+});
+
+test('a row menu that answers { html, body } is drawn as its button and an empty shell; the body is fetched, through the core, when it opens', async () => {
+  const t = tree();
+  const out = node(`
+    const l = require('./plugin-loader');
+    const vals = () => '';
+    const menus = l.pluginRowMenus({ key: 'dev', project: 'site1', dir: '${t.root}/dev', meta: {}, allowed: new Set(['x-cloud']), vals });
+    const none = l.pluginRowMenus({ key: 'modules', project: 'm', dir: '${t.root}/modules', meta: {}, allowed: new Set(), vals });
+    const bad = l.rowMenuHtml('x-lazy', { html: '<button>x</button>', body: 'https://elsewhere.test/menu' }, { key: 'dev', project: 'site1' });
+    const noCaption = l.rowMenuHtml('x-lazy', { html: '<button>x</button>', body: '/fragments/p/x-cloud/menu/dev/site1' }, { key: 'dev', project: 'site1' });
+    Promise.all([
+      l.pluginRowMenuBody('/fragments/p/x-cloud/menu/dev/site1', { headers: {} }),
+      l.pluginRowMenuBody('/fragments/p/nobody/menu/dev/site1', { headers: {} }),
+    ]).then(([body, missing]) => {
+      console.log(JSON.stringify({ lazy: menus['x-lazy'], inline: menus['x-cloud'], none: none['x-lazy'], bad, noCaption, body, missing,
+        slot: l.pluginRowMenuSlot('x-lazy'), noSlot: l.pluginRowMenuSlot('x-other'), capability: l.loadedPlugins.length > 0 }));
+    });`, env(t));
+  const r = JSON.parse(out);
+  const lazy = r.lazy;
+  assert.ok(lazy.startsWith('<span class="act-with-status"><div class="uk-inline act-menu act-menu-x-lazy act-menu-hosting x-family">'), 'the wrapper the row layout expects, with the slot and the plugin\'s classes');
+  assert.ok(lazy.includes('<button class="x-lazy-button">X LAZY</button>'), 'the button as the plugin drew it');
+  assert.ok(lazy.includes('hx-get="/fragments/row-menu/x-lazy/dev/site1?body=%2Ffragments%2Fp%2Fx-cloud%2Fmenu%2Fdev%2Fsite1"'), 'the shell asks the core for the body, naming the plugin\'s URL');
+  assert.ok(lazy.includes('hx-trigger="menu-opened" hx-target="this" hx-swap="innerHTML"'), 'fetched when the menu opens, into the dropdown');
+  assert.ok(lazy.includes('<div uk-dropdown="mode: click; pos: bottom-right" class="act-menu-lazy"'), 'an ordinary UIkit dropdown shell');
+  assert.ok(lazy.endsWith('<span class="act-status uk-text-meta">not linked</span></span>'), 'the caption beside the button');
+  assert.ok(!lazy.includes('Menu for') && !lazy.includes('x-lazy-item'), 'the page carries no menu body');
+  assert.strictEqual(r.inline, '<div class="act-menu-x-cloud">dev/site1</div>', 'a string return is drawn inline, as before');
+  assert.strictEqual(r.none, '', 'null is an empty slot, in either form');
+  assert.strictEqual(r.bad, '', 'a body outside /fragments/p/<plugin>/ is not a menu');
+  assert.ok(!r.noCaption.includes('act-status'), 'no caption, no caption span');
+  assert.deepStrictEqual(r.body, { status: 200, html: '<ul class="uk-nav uk-dropdown-nav"><li class="uk-nav-header">Menu for dev/site1</li><li><a href="#" class="x-lazy-item">Deploy</a></li></ul>' }, 'the body is the plugin\'s fragment, answered as a value');
+  assert.strictEqual(r.missing.status, 404, 'a URL no plugin serves is 404');
+  assert.ok(r.slot && !r.noSlot, 'the core knows which slots are plugin menus');
 });
 
 test('a dotted legacy key names a nested settings.yml block, for the reader and the installer', () => {
