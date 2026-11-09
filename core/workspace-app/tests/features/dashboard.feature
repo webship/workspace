@@ -20,8 +20,8 @@ Feature: The workspace dashboard
       And the element ".project-row" should be displayed
       And the element "select" should be displayed
 
-  Scenario: The settings page is reachable and shows the style block
-    Given I am on "/settings"
+  Scenario: The settings file editor is reachable and shows the style block
+    Given I am on "/settings/settings.yml"
      Then I should see "Workspace name"
       And I should see "theme"
 
