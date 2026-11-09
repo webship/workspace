@@ -4,6 +4,7 @@ Feature: Cloning a project
 
   Scenario: The DDEV menu offers the clone
     Given I am on "/dev"
+     When I click on the element ".project-row >> nth=0 >> .act-menu-ddev button"
      Then "[hx-get^='/fragments/projects/clone-form/dev/']" should be attached
 
   Scenario: The form arrives prefilled, with the live check wired

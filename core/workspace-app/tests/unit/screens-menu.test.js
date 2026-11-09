@@ -43,7 +43,12 @@ test('a dropdown that is being typed in or paged stays open', () => {
 });
 
 test('the row polls slowly, and catches up the moment anything happens', () => {
-  const menu = server.match(/hx-get="\/fragments\/projects\/screens\/[^"]+" hx-trigger="([^"]+)"/)[1];
+  // The row's SCREENS is the shared lazy shell (plugin-loader's menuShellHtml): its body is
+  // /fragments/row-menu/screens/<ws>/<project>, fetched on `menu-opened` by the shell itself and, for the
+  // badges that ride on the answer, on the triggers the row adds.
+  const shell = server.match(/menuShellHtml\('screens', \{[\s\S]*?triggers: '([^']+)'/)[1];
+  const loader = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin-loader.js'), 'utf8');
+  const menu = `${loader.match(/const trigger = \['([a-z-]+)'/)[1]}, ${shell}`;
   assert.match(menu, /every 30s/, 'the background poll is the cheap one');
   assert.ok(!/every 15s/.test(menu), 'not twice a minute per row, forever');
   assert.match(menu, /screens-changed from:body/, 'a session starting or stopping reaches it');
@@ -79,6 +84,6 @@ test('a session in the menu says what it is doing', () => {
   assert.match(items, /dead \? '<span class="uk-label">dead<\/span>'/, 'a session whose process is gone opens onto nothing');
   assert.match(items, /isAgent \? iconHtml\('tabler:robot-face'/);
   // The name is `<workspace>--<project>--<what>`, and the first two are the row it is already on.
-  assert.match(items, /s\.session\.startsWith\(`\$\{sm\[1\]\}--\$\{sm\[2\]\}--`\)/);
+  assert.match(items, /s\.session\.startsWith\(`\$\{ws\}--\$\{project\}--`\)/);
   assert.match(items, /title="\$\{esc\(s\.session\)\}/, 'the whole name is still one hover away');
 });

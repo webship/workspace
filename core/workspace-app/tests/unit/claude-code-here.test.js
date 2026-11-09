@@ -6,7 +6,7 @@ const path = require('path');
 const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
 
 test('the SCREENS menu offers Claude Code in the same folder, beside New screen here', () => {
-  assert.match(server, /screen-new-form\?workspace=\$\{encodeURIComponent\(sm\[1\]\)\}&amp;project=\$\{encodeURIComponent\(sm\[2\]\)\}&amp;kind=claude/);
+  assert.match(server, /screen-new-form\?workspace=\$\{encodeURIComponent\(ws\)\}&amp;project=\$\{encodeURIComponent\(project\)\}&amp;kind=claude/);
   assert.match(server, /Claude Code here…/);
 });
 

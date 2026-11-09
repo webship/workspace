@@ -803,7 +803,18 @@ function foldDdevMenus(root) {
   });
 }
 document.addEventListener('DOMContentLoaded', () => foldDdevMenus());
-document.body.addEventListener('htmx:after:swap', (e) => foldDdevMenus(swappedEl(e)));
+document.body.addEventListener('htmx:after:swap', (e) => {
+  const el = swappedEl(e);
+  // A menu whose body just arrived — a row menu loading as it opens, SCREENS on its poll — is the dropdown
+  // itself, which the swap left in place with its fold mark while the folded rows went with the old body.
+  // Marked unfolded again; folded now if it is open, else by `shown` when it opens.
+  if (el && el.matches && el.matches('.act-menu .uk-dropdown')) {
+    delete el.dataset.folded;
+    if (el.classList.contains('uk-open')) foldDdevMenus(el.parentElement);
+    return;
+  }
+  foldDdevMenus(el);
+});
 // A menu that opens upwards near the top would sit under the top bar; the page moves down to show it.
 document.addEventListener('shown', (e) => {
   const d = e.target;
