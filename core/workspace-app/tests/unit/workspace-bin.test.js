@@ -18,7 +18,7 @@ test('init makes an empty workspace: the core, the lean settings, nothing else',
   const r = run(['init', dir]);
   assert.strictEqual(r.status, 0, r.stderr);
   assert.match(r.stdout, /settings\.yml written \(empty/);
-  for (const f of ['core/scripts/plugins.sh', 'core/scripts/bootstrap.sh', 'core/workspace-app/server.js', 'core/workspace-app/plugin-loader.js', 'core/workspace-app/package.json', 'core/config/settings.yml', 'README.md']) {
+  for (const f of ['core/scripts/plugins.sh', 'core/scripts/bootstrap.sh', 'core/workspace-app/server.js', 'core/workspace-app/plugin-loader.js', 'core/workspace-app/package.json', 'core/workspace-app/.app-version', 'core/config/settings.yml', 'README.md']) {
     assert.ok(fs.existsSync(path.join(dir, f)), `${f} is there`);
   }
   assert.ok(!fs.existsSync(path.join(dir, 'core', 'workspace-app', 'node_modules')), 'no node_modules copied');

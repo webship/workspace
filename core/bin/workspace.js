@@ -56,6 +56,8 @@ function copyCore(dest) {
     }
   };
   walk(CORE_SRC, 'core');
+  // The dashboard's version chip reads this file, never package.json (an installation is not the package).
+  fs.writeFileSync(path.join(dest, 'core', 'workspace-app', '.app-version'), require(path.join(PKG_ROOT, 'package.json')).version + '\n');
   for (const f of ['README.md', 'LICENSE']) if (fs.existsSync(path.join(PKG_ROOT, f)) && !fs.existsSync(path.join(dest, f))) fs.copyFileSync(path.join(PKG_ROOT, f), path.join(dest, f));
 }
 
