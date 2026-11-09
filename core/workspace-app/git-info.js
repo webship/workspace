@@ -38,7 +38,23 @@ function hasOwnGit(dir) {
  * Deliberately the same questions fun-git-worktrees.sh asks, so the dashboard and
  * the command cannot disagree about what is safe.
  */
+// Memoised for a few seconds per folder: a page of a hundred repositories asks this for every row,
+// and the IDE plugin asks again for its caption — five git processes each time. A render reads one
+// answer per row; the git actions that change a checkout invalidate it.
+let _worktreeMemo = new Map();
+let _worktreeMemoAt = 0;
+const WORKTREE_TTL_MS = 5000;
 function gitWorktreeInfo(dir) {
+  const now = Date.now();
+  if (now - _worktreeMemoAt > WORKTREE_TTL_MS) { _worktreeMemo = new Map(); _worktreeMemoAt = now; }
+  if (_worktreeMemo.has(dir)) return _worktreeMemo.get(dir);
+  const out = gitWorktreeInfoNow(dir);
+  _worktreeMemo.set(dir, out);
+  return out;
+}
+function gitWorktreeInfoForget(dir) { if (dir) _worktreeMemo.delete(dir); else _worktreeMemo = new Map(); }
+
+function gitWorktreeInfoNow(dir) {
   const out = {
     role: 'none', branch: '', others: [], primary: '', unpushed: 0, dirty: 0,
   };
@@ -78,4 +94,4 @@ function gitBranchOf(dir) {
   } catch (_) { return ''; }
 }
 
-module.exports = { projectHasGit, hasOwnGit, gitWorktreeInfo, gitBranchOf };
+module.exports = { projectHasGit, hasOwnGit, gitWorktreeInfo, gitWorktreeInfoNow, gitWorktreeInfoForget, gitBranchOf };
