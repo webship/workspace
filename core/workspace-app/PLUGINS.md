@@ -205,7 +205,7 @@ it alike), so a lazy menu behaves like an inline one once open. A string return 
 menu, inline. A plugin that must also run on a dashboard older than this form checks
 `api.capabilities && api.capabilities.has('row-menu-body')` and falls back to the string.
 
-The core's own menus take the same road: DDEV, COMPOSER, Tests and SCREENS are drawn as this shell and
+The core's own menus take the same road: DDEV, COMPOSER, Tests, SCREENS, NODE and More are drawn as this shell and
 answer at `/fragments/row-menu/<slot>/<ws>/<project>` with no `body` parameter, their items computed for
 that one project when the menu opens (a page of fifty rows is a third of what it was). A plugin's
 `body` must still name one of its own fragments; the core slots are not open to one.

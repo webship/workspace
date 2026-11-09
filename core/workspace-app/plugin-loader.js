@@ -414,7 +414,7 @@ function rowMenuHtml(slot, result, ctx = {}) {
 
 /**
  * The shell of a row menu whose body loads when it opens — the one markup for a plugin's lazy menu and for
- * the core's own (DDEV, COMPOSER, Tests, SCREENS): `<span class="act-with-status">` around the
+ * the core's own (DDEV, COMPOSER, Tests, SCREENS, NODE, More): `<span class="act-with-status">` around the
  * `.uk-inline.act-menu.act-menu-<slot>` wrapper, the button (`html`), an empty `uk-dropdown` shell and the
  * caption. The shell fetches `/fragments/row-menu/<slot>/<ws>/<project><query>` on `menu-opened` (the relay
  * of UIkit's `beforeshow` in public/ui.js) and swaps the answer in as its inner HTML; `triggers` adds more
