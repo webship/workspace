@@ -136,4 +136,33 @@ Before({ tags: '@needs-running-project' }, function () {
   return undefined;
 });
 
-module.exports = { settingValue, APP };
+/** A scalar out of a plugin's own settings file (core/config/plugin.<name>.settings.yml), or ''. */
+function pluginSettingValue(plugin, key) {
+  try {
+    const yml = fs.readFileSync(path.join(ROOT, 'core', 'config', `plugin.${plugin}.settings.yml`), 'utf8');
+    const m = yml.match(new RegExp(`^\\s*${key}:\\s*(.+)$`, 'm'));
+    return m ? m[1].trim().replace(/^["']|["']$/g, '').replace(/\s+#.*$/, '') : '';
+  } catch (_) { return ''; }
+}
+
+// A plugin ships features into this suite but no hooks, so it states a precondition in its tag:
+// `@needs-setting-<plugin>-<key>` skips the scenario, with the reason, while that key has no value in
+// the plugin's settings file. The plugin name ends at the first hyphen that is followed by the key,
+// so a plugin named with hyphens tags `@needs-setting-google-drive-folder_id` and the key is the part
+// after the last plugin-name hyphen: the key itself never contains a hyphen (settings keys are snake_case).
+const NEEDS_SETTING = /^@needs-setting-(.+)-([a-z0-9_]+)$/;
+Before(function (scenario) {
+  for (const t of scenario.pickle.tags || []) {
+    const m = NEEDS_SETTING.exec(t.name);
+    if (!m) continue;
+    const [, plugin, key] = m;
+    if (!pluginSettingValue(plugin, key)) {
+      this.attach(`SKIPPED: core/config/plugin.${plugin}.settings.yml has no ${key} on this machine; `
+        + `set it and this becomes a real test again.`);
+      return 'skipped';
+    }
+  }
+  return undefined;
+});
+
+module.exports = { settingValue, pluginSettingValue, APP };
