@@ -153,7 +153,11 @@ test('the row shows NODE right after COMPOSER, only where there is a package.jso
   assert.strictEqual(DEFAULT_LINES[1][DEFAULT_LINES[1].indexOf('composer') + 1], 'node', 'NODE must come right after COMPOSER by default');
   assert.strictEqual((src.match(/\bnode: nodeMenu\b/g) || []).length, 1, 'handed to the layout once per row');
   const fn = src.slice(src.indexOf('function nodeMenuHtml'), src.indexOf('function openWithMenuHtml'));
-  assert.match(fn, /if \(!hasPackageJson\(projectPath\)\) return '';/, 'no package.json, no button');
+  assert.match(fn, /if \(!hasPackageJson\(projectPath\)\) return null;/, 'no package.json, no button');
+  // The row carries the button and the caption; the tabs arrive when the menu opens (#111).
+  assert.match(fn, /return menuShellHtml\('node', \{/, 'the row draws the lazy shell');
+  assert.match(src, /const CORE_ROW_MENUS = new Set\(\[[^\]]*'node'[^\]]*\]\);/, 'the core serves the NODE body itself');
+  assert.match(src, /if \(slot === 'node'\) \{\s*const body = nodeMenuBody\(key, project, projectPath, isDdev\);/, 'coreRowMenuBody answers NODE');
   assert.match(fn, /uk-tab="active: \$\{Math\.max\(0, MANAGERS\.indexOf\(info\.preferred\)\)\}"/, 'opens on the manager the project uses');
   assert.match(fn, /info\.locks\[m\] \? 'lock ✓' : 'no lock'/, 'each tab says whether its lock file is there');
   assert.match(fn, /hx-include="closest \.node-package"/);

@@ -1018,13 +1018,36 @@ function composerMenuBody(key, p, projectPath, isDdev, mode = 'manifest') {
  * left, a package and the package.json scripts on the right. What runs lives in actions/node.js.
  */
 function nodeMenuHtml(key, p, projectPath, isDdev) {
-  const { MANAGERS, NODE_GROUPS, NODE_RUN_ACTIONS, NODE_PACKAGE_ACTIONS, NODE_SCRIPT_ROUTE,
-    hasPackageJson, nodeInfo, nodeArgsFor, nodeScripts } = require('./actions/node');
-  if (!hasPackageJson(projectPath)) return '';
+  const state = nodeMenuState(projectPath);
+  if (!state) return '';
+  // The row carries the button and the caption; the body (nodeMenuBody) arrives from
+  // /fragments/row-menu/node/<ws>/<project> when the menu opens — fifty rows, fifty buttons, no menu (#111).
+  return menuShellHtml('node', {
+    key, project: p, caption: state.caption, dropdownClasses: 'node-dropdown',
+    html: '<button class="uk-button uk-button-default uk-button-small" type="button" title="npm and yarn for this folder"><span uk-icon="icon: nut; ratio: .7"></span> NODE <span uk-icon="icon: chevron-down; ratio: .6"></span></button>',
+  });
+}
+
+/** What the NODE caption says: package.json parsed (or not), and which lock files sit beside it. Null without a package.json. */
+function nodeMenuState(projectPath) {
+  const { hasPackageJson, nodeInfo } = require('./actions/node');
+  if (!hasPackageJson(projectPath)) return null;
   const info = nodeInfo(projectPath);
-  const lockFile = { yarn: 'yarn.lock', npm: 'package-lock.json' };
   const caption = !info.valid ? 'bad json'
     : (info.locks.yarn && info.locks.npm ? '2 locks' : (info.locks.yarn ? 'yarn.lock' : (info.locks.npm ? 'npm lock' : 'no lock')));
+  return { info, caption };
+}
+
+/**
+ * The NODE menu's body — what used to sit inside the dropdown on every row — for one project, served by
+ * /fragments/row-menu/node/<ws>/<project> when the menu opens. '' for a folder without package.json.
+ */
+function nodeMenuBody(key, p, projectPath, isDdev) {
+  const { MANAGERS, NODE_GROUPS, NODE_RUN_ACTIONS, NODE_PACKAGE_ACTIONS, NODE_SCRIPT_ROUTE, nodeArgsFor, nodeScripts } = require('./actions/node');
+  const state = nodeMenuState(projectPath);
+  if (!state) return '';
+  const { info } = state;
+  const lockFile = { yarn: 'yarn.lock', npm: 'package-lock.json' };
   const vals = (m, extra = '') => `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}","manager":"${m}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
   const scripts = info.valid ? nodeScripts(info.pkg) : [];
   const panel = (m) => {
@@ -1063,17 +1086,12 @@ function nodeMenuHtml(key, p, projectPath, isDdev) {
     </div></li>`;
   };
   const tabs = MANAGERS.map((m) => `<li><a href="#">${m} <span class="uk-text-meta">· ${info.locks[m] ? 'lock ✓' : 'no lock'}</span></a></li>`).join('');
-  return `<span class="act-with-status"><div class="uk-inline act-menu act-menu-node">
-    <button class="uk-button uk-button-default uk-button-small" type="button" title="npm and yarn for this folder"><span uk-icon="icon: nut; ratio: .7"></span> NODE <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-    <div uk-dropdown="mode: click; pos: bottom-right" class="node-dropdown">
-      <ul class="uk-nav uk-dropdown-nav">
+  return `<ul class="uk-nav uk-dropdown-nav">
         <li class="uk-nav-header">Node · ${esc((info.pkg && typeof info.pkg.name === 'string' && info.pkg.name) || p)}</li>
         <li data-entry="how it runs"><span class="uk-text-meta">${isDdev ? 'Runs as ddev npm / ddev yarn in this project.' : "Not a DDEV project — runs in the dashboard's DDEV container."}${info.pinned ? ` packageManager: ${esc(info.pinned.spec)}.` : ''}${info.nodeModules ? ' node_modules is here.' : ' No node_modules yet.'}${info.valid ? '' : ' package.json is not valid JSON.'}</span></li>
       </ul>
       <ul class="uk-tab node-tabs" data-keep-open uk-tab="active: ${Math.max(0, MANAGERS.indexOf(info.preferred))}">${tabs}</ul>
-      <ul class="uk-switcher">${MANAGERS.map(panel).join('')}</ul>
-    </div>
-  </div><span class="act-status uk-text-meta">${esc(caption)}</span></span>`;
+      <ul class="uk-switcher">${MANAGERS.map(panel).join('')}</ul>`;
 }
 
 
@@ -3285,6 +3303,46 @@ function ddevMenuItemsHtml({ key, p, meta, projectPath, gates, ddev }) {
  * workspace's type must WANT the action (policy — `type:` in its settings file). Read once per page by
  * the rows, and once per request by a menu body served on its own.
  */
+/**
+ * The More menu's items for one project — the changelog, the recordings, the backups and the remove —
+ * before the Buttons settings arrange them. The row builds them to count what the caption says
+ * ("3 actions") and /fragments/row-menu/more/<ws>/<project> builds them again when the menu opens (#111).
+ * Both verbs of the teardown also live in the DDEV menu, where a DDEV project's teardown belongs. They
+ * stay here too: More is where someone looks for them, and a folder DDEV does not manage has no other home.
+ */
+function moreMenuItemsHtml({ key, p, gates }) {
+  const { canBackup, canRemove } = gates;
+  const items = [];
+  // What this product shipped, read from the CHANGELOG it already keeps. It belongs to the
+  // row rather than to the rail: a changelog is a fact about one product, and the question
+  // people ask is "what went into 1.0.3 of THIS", standing in front of it in its folder.
+  // The latest version is in the label, so the menu answers the common case unopened.
+  const cl = changelog.changelogFor(key, p);
+  if (cl) {
+    const latest = (changelog.changelogIndex().find((r) => r.workspace === key && r.item === p) || {}).latest || '';
+    items.push(`<li><a href hx-get="/fragments/changelog/${encodeURIComponent(key)}/${encodeURIComponent(p)}"
+      hx-target="#editor-modal-body" hx-swap="innerHTML" uk-toggle="target: #editor-modal"
+      title="Releases, newest first, from ${esc(cl.file)}"><span uk-icon="icon: history; ratio: .7"></span> Changelog${latest ? ` <span class="uk-text-meta">${esc(latest)}</span>` : ''}</a></li>`);
+  }
+  // Recordings about this project: a video, or audio, started from a set of pre-prompts.
+  if (projectMake.WORKSPACES.includes(key)) {
+    const makeLink = (kind, icon, label, hint) => `<li data-entry="${esc(label.toLowerCase())}"><a href hx-get="/fragments/projects/make-form/${encodeURIComponent(key)}/${encodeURIComponent(p)}?kind=${kind}"
+      hx-target="#editor-modal-body" hx-swap="innerHTML" hx-on::after:request="UIkit.modal('#editor-modal').show()"
+      title="${esc(hint)}"><span uk-icon="icon: ${icon}; ratio: .7"></span> ${esc(label)}…</a></li>`;
+    items.push(makeLink('video', 'play-circle', 'Create a video', 'A narrated video about this project, from a set of pre-prompts'));
+    items.push(makeLink('audio', 'microphone', 'Create audio', 'A spoken recording about this project, from a set of pre-prompts'));
+    items.push('<li class="uk-nav-divider"></li>');
+  }
+  if (canBackup) items.push(`<li><a href="${wsUrl(key, '/backups')}"><span uk-icon="icon: album; ratio: .7"></span> Backups for this workspace</a></li>`);
+  if (canRemove) {
+    items.push('<li class="uk-nav-divider"></li>');
+    items.push(`<li><a href class="uk-text-danger" hx-get="/fragments/projects/remove-form/${encodeURIComponent(key)}/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
+      hx-on::after:request="UIkit.modal('#editor-modal').show()"
+      title="Asks about a backup, then confirms, then removes"><span uk-icon="icon: trash; ratio: .7"></span> Remove the project…</a></li>`);
+  }
+  return items.join('');
+}
+
 function rowGates(dir, meta) {
   const allowed = meta.typeActions;
   return {
@@ -3462,7 +3520,8 @@ async function screensMenuBody(ws, project) {
 
 // The row menus the core draws itself whose bodies load when they open — the slots
 // /fragments/row-menu/<slot>/<ws>/<project> answers with no `body` parameter (coreRowMenuBody).
-const CORE_ROW_MENUS = new Set(['ddev', 'composer', 'tests', 'screens']);
+// NODE and More joined in #111: a row carries their buttons and captions, not their dropdowns.
+const CORE_ROW_MENUS = new Set(['ddev', 'composer', 'tests', 'screens', 'node', 'more']);
 
 /**
  * The body of one of the core's row menus for one project, as `{ status, html }`: the dropdown's inner
@@ -3498,19 +3557,27 @@ async function coreRowMenuBody(slot, key, project) {
     const { nav, oob } = await screensMenuBody(key, project);
     return { status: 200, html: `<ul class="uk-nav uk-dropdown-nav">${nav}</ul>${oob}` };
   }
+  if (slot === 'node') {
+    const body = nodeMenuBody(key, project, projectPath, isDdev);
+    return body ? { status: 200, html: body } : none('No package.json here.');
+  }
+  if (slot === 'more') {
+    const items = moreMenuItemsHtml({ key, p: project, gates });
+    return items ? { status: 200, html: `<ul class="uk-nav uk-dropdown-nav">${items}</ul>` } : none('Nothing more to offer here.');
+  }
   return none('No such menu.');
 }
 
 /**
  * The Buttons settings page lists what each menu has been seen to hold (row-layout's seen record). A
  * menu whose body loads when it opens (coreRowMenuBody) is recorded when one opens, so on a dashboard
- * where nobody has opened COMPOSER or Tests yet the page would list nothing for them: before it is drawn,
+ * where nobody has opened COMPOSER, Tests or NODE yet the page would list nothing for them: before it is drawn,
  * each such menu with nothing on record is built once, for the first project that carries it, and
  * arranged — which is what records it. DDEV is counted on every row, so it is on record already, and
  * SCREENS lists whatever sessions happen to run, which is nothing to learn from.
  */
 async function learnCoreMenus() {
-  for (const slot of ['composer', 'tests']) {
+  for (const slot of ['composer', 'tests', 'node']) {
     if (Object.keys(rowLayout.seenMenu(slot).groups).length) continue;
     let learned = false;
     for (const [key, meta] of Object.entries(loadWorkspaces())) {
@@ -3727,47 +3794,17 @@ async function projectRowsHtml(key, dir, state) {
             </div><span class="act-status uk-text-meta">${!rag.up ? 'offline' : built ? 'indexed' : 'none'}</span></span>`;
           })() : '';
     const moreMenu = (() => {
-            // Both verbs also live in the DDEV menu, where a DDEV project's
-            // teardown belongs. They stay here too: More is where someone looks
-            // for them, and a folder DDEV does not manage has no other home.
-            const items = [];
-            // What this product shipped, read from the CHANGELOG it already keeps. It belongs to the
-            // row rather than to the rail: a changelog is a fact about one product, and the question
-            // people ask is "what went into 1.0.3 of THIS", standing in front of it in its folder.
-            // The latest version is in the label, so the menu answers the common case unopened.
-            const cl = changelog.changelogFor(key, p);
-            if (cl) {
-              const latest = (changelog.changelogIndex().find((r) => r.workspace === key && r.item === p) || {}).latest || '';
-              items.push(`<li><a href hx-get="/fragments/changelog/${encodeURIComponent(key)}/${encodeURIComponent(p)}"
-                hx-target="#editor-modal-body" hx-swap="innerHTML" uk-toggle="target: #editor-modal"
-                title="Releases, newest first, from ${esc(cl.file)}"><span uk-icon="icon: history; ratio: .7"></span> Changelog${latest ? ` <span class="uk-text-meta">${esc(latest)}</span>` : ''}</a></li>`);
-            }
-            // Recordings about this project: a video, or audio, started from a set of pre-prompts.
-            if (projectMake.WORKSPACES.includes(key)) {
-              const makeLink = (kind, icon, label, hint) => `<li data-entry="${esc(label.toLowerCase())}"><a href hx-get="/fragments/projects/make-form/${encodeURIComponent(key)}/${encodeURIComponent(p)}?kind=${kind}"
-                hx-target="#editor-modal-body" hx-swap="innerHTML" hx-on::after:request="UIkit.modal('#editor-modal').show()"
-                title="${esc(hint)}"><span uk-icon="icon: ${icon}; ratio: .7"></span> ${esc(label)}…</a></li>`;
-              items.push(makeLink('video', 'play-circle', 'Create a video', 'A narrated video about this project, from a set of pre-prompts'));
-              items.push(makeLink('audio', 'microphone', 'Create audio', 'A spoken recording about this project, from a set of pre-prompts'));
-              items.push('<li class="uk-nav-divider"></li>');
-            }
-            if (canBackup) items.push(`<li><a href="${wsUrl(key, '/backups')}"><span uk-icon="icon: album; ratio: .7"></span> Backups for this workspace</a></li>`);
-            if (canRemove) {
-              items.push('<li class="uk-nav-divider"></li>');
-              items.push(`<li><a href class="uk-text-danger" hx-get="/fragments/projects/remove-form/${encodeURIComponent(key)}/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
-                hx-on::after:request="UIkit.modal('#editor-modal').show()"
-                title="Asks about a backup, then confirms, then removes"><span uk-icon="icon: trash; ratio: .7"></span> Remove the project…</a></li>`);
-            }
             // Arranged before it is counted, like DDEV — and whether there is a More at all is decided after,
-            // since hiding can empty it and a custom action can fill it.
-            const arranged = rowLayout.arrangeNavInner('more', items.join(''), rowCtx);
+            // since hiding can empty it and a custom action can fill it. The row carries the button and the
+            // count; the items arrive from /fragments/row-menu/more/<ws>/<project> when the menu opens.
+            const arranged = rowLayout.arrangeNavInner('more', moreMenuItemsHtml({ key, p, gates }), rowCtx);
             if (!/<li\b/.test(arranged)) return '';
             // Dividers are not actions — count only what can be clicked.
             const n = (arranged.match(/<a /g) || []).length;
-            return `<span class="act-with-status"><div class="uk-inline act-menu act-menu-more">
-              <button class="uk-button uk-button-default uk-button-small" type="button" title="More actions"><span uk-icon="icon: more; ratio: .7"></span> More <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-              <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">${arranged}</ul></div>
-            </div><span class="act-status uk-text-meta">${n} action${n === 1 ? '' : 's'}</span></span>`;
+            return menuShellHtml('more', {
+              key, project: p, caption: `${n} action${n === 1 ? '' : 's'}`,
+              html: '<button class="uk-button uk-button-default uk-button-small" type="button" title="More actions"><span uk-icon="icon: more; ratio: .7"></span> More <span uk-icon="icon: chevron-down; ratio: .6"></span></button>',
+            });
           })();
     // SCREENS is drawn beside the running state in the card's head, so the tool strip leaves it out.
     const screensOnTools = '';
@@ -5783,7 +5820,7 @@ const server = http.createServer(async (req, res) => {
       // The body of a plugin's row menu that loads when it opens (plugin-loader's rowMenuHtml): the
       // plugin's own fragment, arranged like an inline menu's items — the Buttons settings hide, order
       // and add to it the same way, and the settings page sees its entries once one has been opened.
-      // The core's own menus (DDEV, COMPOSER, Tests, SCREENS) take the same route with no `body`: their
+      // The core's own menus (DDEV, COMPOSER, Tests, SCREENS, NODE, More) take the same route with no `body`: their
       // bodies come from coreRowMenuBody, computed for this one project when the menu opens.
       if (pathname.startsWith('/fragments/row-menu/')) {
         const m = pathname.match(/^\/fragments\/row-menu\/([a-z0-9-]+)\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);

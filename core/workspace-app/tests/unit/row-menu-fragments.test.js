@@ -47,7 +47,7 @@ before(async () => {
   fs.writeFileSync(path.join(site, 'composer.lock'), '{}');
   fs.writeFileSync(path.join(site, 'package.json'), JSON.stringify({ name: 'site-one', scripts: { 'lint:js': 'eslint .' } }));
   fs.mkdirSync(path.join(root, 'dev/plain-folder'), { recursive: true });
-  for (const f of ['cmd-tools-testing.sh', 'cmd-tools-checks.sh', 'cmd-tools-add-users.sh']) fs.writeFileSync(path.join(root, 'dev', f), '#!/usr/bin/env bash\n');
+  for (const f of ['cmd-tools-testing.sh', 'cmd-tools-checks.sh', 'cmd-tools-add-users.sh', 'cmd-tools-remove.sh']) fs.writeFileSync(path.join(root, 'dev', f), '#!/usr/bin/env bash\n');
   // A package: no DDEV, a package.json that declares checks.
   const pkg = path.join(root, 'products/pkg-one');
   fs.mkdirSync(pkg, { recursive: true });
@@ -90,7 +90,7 @@ test('a project row carries the button, the caption and an empty shell for each 
   const { status, html } = await text('/dev');
   assert.strictEqual(status, 200);
   const row = rowOf(html, 'site-one');
-  for (const slot of ['ddev', 'composer', 'tests', 'screens']) {
+  for (const slot of ['ddev', 'composer', 'tests', 'screens', 'node', 'more']) {
     const menu = menuOf(row, slot);
     assert.ok(menu, `${slot}: the row has the menu`);
     assert.match(menu, new RegExp(`hx-get="/fragments/row-menu/${slot}/dev/site-one"`), `${slot}: the shell asks the core route for its body`);
@@ -108,8 +108,12 @@ test('a project row carries the button, the caption and an empty shell for each 
   assert.match(menuOf(row, 'tests'), /uk-button-secondary/, 'the Tests button as it was');
   assert.match(menuOf(row, 'screens'), /hx-trigger="menu-opened, load, every 30s, screens-changed from:body"/, 'SCREENS still polls: the hand and the agent badge ride on its answer');
   assert.match(menuOf(row, 'screens'), /<span class="act-status uk-text-meta">none<\/span>/);
+  // NODE says which lock files are there; More counts what it holds (#111).
+  assert.match(menuOf(row, 'node'), /<span class="act-status uk-text-meta">no lock<\/span>/);
+  assert.match(menuOf(row, 'node'), /class="act-menu-lazy node-dropdown"/, 'the NODE width class rides on the shell');
+  assert.match(menuOf(row, 'more'), /<span class="act-status uk-text-meta">\d+ actions?<\/span>/, 'the More caption counts the actions the body will hold');
   // Nothing of the bodies is on the page.
-  for (const inner of ['/actions/ddev-restart', '/actions/ddev-describe', '/actions/composer-install', '/actions/testing-configure', '/actions/checks-plan', 'composer-package', 'checks-sub', 'ddev-nav-columns']) {
+  for (const inner of ['/actions/ddev-restart', '/actions/ddev-describe', '/actions/composer-install', '/actions/testing-configure', '/actions/checks-plan', 'composer-package', 'checks-sub', 'ddev-nav-columns', 'node-tabs', 'node-col-commands', 'Scripts in package.json', '/fragments/projects/remove-form/dev/site-one', 'Remove the project']) {
     assert.ok(!row.includes(inner), `${inner} is not on the page before a menu opens`);
   }
   // A folder with no DDEV config has the Configure DDEV button and no DDEV menu; no composer.json, no COMPOSER.
@@ -174,7 +178,8 @@ test('the Tests body for a package is the checks alone, and a plain folder in a 
   assert.match(pkg.html, /<span class="checks-alias">css<\/span>/);
   assert.ok(!pkg.html.includes('/actions/testing-configure') && !pkg.html.includes('/actions/add-users'), 'a packages workspace has no suite and no test users');
   const page = (await text('/products')).html;
-  assert.match(menuOf(rowOf(page, 'pkg-one'), 'tests'), /<span class="act-status uk-text-meta">(2 declared|deps missing)<\/span>/, 'the caption says what the package declares');
+  // Nothing on a package row posts with its name any more (NODE's body is served, #111): found by its Tests shell.
+  assert.match(menuOf(rowOf(page, 'pkg-one', '/fragments/row-menu/tests/products/pkg-one'), 'tests'), /<span class="act-status uk-text-meta">(2 declared|deps missing)<\/span>/, 'the caption says what the package declares');
   const plain = await text('/fragments/row-menu/tests/dev/plain-folder');
   assert.strictEqual(plain.status, 200);
   assert.match(plain.html, /hx-post="\/actions\/testing-configure"/);
@@ -197,13 +202,40 @@ test('the SCREENS body lists the sessions (none here), the ways to start one, an
   assert.match(legacy.html, /^\s*<li class="uk-nav-header">No screens in this project<\/li>/);
 });
 
+test('the NODE body for a site is the header, the yarn and npm tabs and the scripts of package.json (#111)', async () => {
+  const { status, html } = await text('/fragments/row-menu/node/dev/site-one');
+  assert.strictEqual(status, 200);
+  assert.match(html, /^<ul class="uk-nav uk-dropdown-nav">/);
+  assert.match(html, /Node · site-one/);
+  assert.match(html, /Runs as ddev npm \/ ddev yarn in this project\./);
+  assert.match(html, /<ul class="uk-tab node-tabs" data-keep-open uk-tab="active: \d+">/, 'the tabs keep the menu open');
+  assert.match(html, /<ul class="uk-switcher">/);
+  assert.match(html, /yarn\.lock is not here/);
+  assert.match(html, /package-lock\.json is not here/);
+  assert.match(html, /hx-include="closest \.node-package"/);
+  assert.match(html, /Scripts in package\.json/);
+  assert.match(html, /"script":"lint:js"/, 'the script from package.json is offered');
+  assert.match(html, /hx-vals='\{"workspace":"dev","projectName":"site-one","manager":"npm"\}'/, 'the items post for this project');
+});
+
+test('the More body for a site holds the remove, arranged, and the row counted it (#111)', async () => {
+  const { status, html } = await text('/fragments/row-menu/more/dev/site-one');
+  assert.strictEqual(status, 200);
+  assert.match(html, /^<ul class="uk-nav uk-dropdown-nav">/);
+  assert.match(html, /hx-get="\/fragments\/projects\/remove-form\/dev\/site-one"/);
+  assert.match(html, /Remove the project…/);
+  const page = (await text('/dev')).html;
+  const count = Number(/(\d+) actions?/.exec(menuOf(rowOf(page, 'site-one'), 'more'))[1]);
+  assert.strictEqual((html.match(/<a /g) || []).length, count, 'the row counts the actions the body holds');
+});
+
 test('a project that is not there, a menu the row would not draw, and a slot that is not a menu are 404', async () => {
   for (const [p, why] of [
     ['/fragments/row-menu/ddev/dev/no-such-project', 'no such project'],
     ['/fragments/row-menu/ddev/dev/plain-folder', 'not a DDEV project'],
     ['/fragments/row-menu/composer/dev/plain-folder', 'no composer.json'],
     ['/fragments/row-menu/ddev/products/pkg-one', 'a packages workspace has no DDEV'],
-    ['/fragments/row-menu/more/dev/site-one', 'More is drawn inline, not served'],
+    ['/fragments/row-menu/node/dev/plain-folder', 'no package.json'],
     ['/fragments/row-menu/ddev/nope/site-one', 'no such workspace'],
     ['/fragments/row-menu/ddev/dev/site-one?body=/fragments/p/x/menu', 'a core slot takes no plugin body'],
     ['/fragments/row-menu/x-plugin/dev/site-one', 'a plugin slot nobody registered'],
@@ -226,4 +258,6 @@ test('the Buttons settings page learns the lazy menus\' entries without anyone o
   assert.ok(seen.composer && Object.keys(seen.composer.groups).length > 0, 'COMPOSER has groups on record');
   assert.ok(seen.tests && Object.keys(seen.tests.groups).length > 0, 'Tests has groups on record');
   assert.ok(seen.ddev && Object.keys(seen.ddev.groups).length > 0, 'DDEV is on record from the rows themselves');
+  assert.ok(seen.node && Object.keys(seen.node.groups).length > 0, 'NODE has groups on record (learned, #111)');
+  assert.ok(seen.more && Object.keys(seen.more.groups).length > 0, 'More is on record from the rows themselves');
 });
