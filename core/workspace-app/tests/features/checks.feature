@@ -31,6 +31,7 @@ Feature: The checks a project already declares
 
   # A site gets the same nested list: its package.json declares the same vocabulary, and its
   # ddev-dev-tools add-on adds the PHP and Twig checks on top.
+  @needs-testing-stack
   Scenario: A site keeps its testing verbs and gains the checks beside them
     Given I am on "/dev"
      Then the element ".project-row .act-menu-tests" should be displayed

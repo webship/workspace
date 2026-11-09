@@ -15,6 +15,7 @@ Feature: What a project row can actually do
 
   # These two are the whole testing feature as far as the interface is concerned: one sets the
   # environment up, the other runs the suite. Both post to their own action.
+  @needs-testing-stack
   Scenario: The Tests menu offers setting the environment up and running the suite
     Given I am on "/dev"
      Then "[hx-post='/actions/testing-configure']" should be attached
@@ -34,7 +35,7 @@ Feature: What a project row can actually do
       And I should see "Describe (URLs, services)"
 
   # Launch belongs with the hostname it opens, not in the row of things you DO to a project.
-  Scenario: A running project offers its own URL beside the Launch button
+  @needs-running-project
+  Scenario: A running project shows its own host on its card
     Given I am on "/dev"
-     Then the element ".proj-launch-line" should be displayed
-      And the element ".proj-launch-line .proj-alias" should be displayed
+     Then ".project-row .pcard-host-name" should be attached

@@ -97,4 +97,43 @@ Before({ tags: '@needs-check-aliases' }, function () {
   return undefined;
 });
 
+Before({ tags: '@needs-testing-stack' }, function () {
+  // A row offers "Run the tests" only when the project has a testing stack (a webship-js project,
+  // or the init-full-automated-testing command); the Tests menu of a bare site has nothing to run.
+  let any = false;
+  try {
+    const { testingStackOf } = require(path.join(APP, 'test-reports'));
+    const { loadWorkspaces } = require(path.join(APP, 'workspaces'));
+    const dir = loadWorkspaces().dev.dir;
+    any = fs.readdirSync(dir).some((p) => {
+      try { return fs.statSync(path.join(dir, p)).isDirectory() && testingStackOf(dir, p) !== 'none'; } catch (_) { return false; }
+    });
+  } catch (_) { any = false; }
+  if (!any) {
+    this.attach('SKIPPED: no project in dev/ has a testing stack (a cucumber.js, tests/step-definitions, '
+      + 'or the init-full-automated-testing command), so no row offers "Run the tests". Set one up and '
+      + 'this becomes a real test again.');
+    return 'skipped';
+  }
+  return undefined;
+});
+
+Before({ tags: '@needs-running-project' }, function () {
+  // The card shows a project's host only while DDEV reports it running.
+  let any = false;
+  try {
+    const { execFileSync } = require('child_process');
+    const { loadWorkspaces } = require(path.join(APP, 'workspaces'));
+    const dir = fs.realpathSync(loadWorkspaces().dev.dir);
+    const out = JSON.parse(execFileSync('ddev', ['list', '--json-output'], { encoding: 'utf8', timeout: 60000 }));
+    any = (out.raw || []).some((p) => p.status === 'running' && String(p.approot || '').startsWith(dir + path.sep));
+  } catch (_) { any = false; }
+  if (!any) {
+    this.attach('SKIPPED: no project in dev/ is running (ddev list), so no card shows a host. Start one '
+      + 'and this becomes a real test again.');
+    return 'skipped';
+  }
+  return undefined;
+});
+
 module.exports = { settingValue, APP };

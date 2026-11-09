@@ -39,12 +39,17 @@ Then(/^the assistant should offer voice input$/, async function () {
 });
 
 Then(/^the assistant should read its replies aloud$/, async function () {
-  const cfg = await speechConfig(this.page);
+  // The replies are read by the panel's own narrator, not by deep-chat (whose textToSpeech the panel
+  // sets to false on purpose: it would speak the HTML). What must hold is that the panel was handed
+  // narration that is switched on and resolved: a voice with a rate.
+  const cfg = await this.page.evaluate(() => {
+    const el = document.querySelector('deep-chat');
+    if (!el) return null;
+    try { return JSON.parse(el.dataset.settings || '{}'); } catch (_) { return {}; }
+  });
   assert.ok(cfg, 'there is no deep-chat element on this page');
-  assert.notStrictEqual(cfg.textToSpeech, 'unset', 'deep-chat was never given a textToSpeech config');
-  assert.notStrictEqual(cfg.textToSpeech, false, 'voice output is switched off');
-  // Its presence IS the read-aloud behaviour; there is no separate switch to check.
-  assert.ok(Number.isFinite(cfg.textToSpeech.rate), 'no speech rate, so the config is not the resolved one');
+  assert.notStrictEqual(cfg.voiceOutput, false, 'voice output is switched off');
+  assert.ok(cfg.narration && Number.isFinite(cfg.narration.rate), 'no narration voice with a speech rate, so the config is not the resolved one');
 });
 
 /**

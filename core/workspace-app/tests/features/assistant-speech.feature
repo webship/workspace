@@ -57,7 +57,7 @@ Feature: Talking to the assistant
   # A browser with no synthesis voices accepts speak(), fires error: synthesis-failed, and is silent.
   # Nothing reported it, so "read replies aloud" looked switched on and did nothing at all — the worst
   # state a setting can be in.
-  Scenario: The settings page says which voices this browser actually has
-    Given I am on "/settings"
+  Scenario: The settings file editor says which voices this browser actually has
+    Given I am on "/settings/settings.yml"
      Then "[data-voice-name]" should be attached
       And the voice list should report what this browser has
