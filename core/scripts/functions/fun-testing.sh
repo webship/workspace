@@ -62,12 +62,16 @@ function testing_write_browser_libs_build() {
 # they survive `ddev restart` — installed by the workspace testing tooling.
 # Playwright resolves the package names for this Debian release itself; the apt
 # list is the fallback for a build with no network access to npm.
-RUN npx --yes playwright@1.56 install-deps chromium || \
+# The third-party PHP repository of the web image is set aside while apt runs: an expired key
+# there would fail the whole image build, and chromium's libraries are Debian's own.
+RUN mkdir -p /tmp/apt-off && (mv /etc/apt/sources.list.d/php.list /tmp/apt-off/ 2>/dev/null || true) && \
+    (npx --yes playwright@1.56 install-deps chromium || \
     (apt-get update && apt-get install -y --no-install-recommends \
       libnspr4 libnss3 libdbus-1-3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 \
       libdrm2 libatspi2.0-0t64 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
-      libgbm1 libxkbcommon0 libasound2t64 libpango-1.0-0 libcairo2 fonts-liberation \
-      && rm -rf /var/lib/apt/lists/*)
+      libgbm1 libxkbcommon0 libasound2t64 libpango-1.0-0 libcairo2 fonts-liberation)) ; \
+    status=$? ; (mv /tmp/apt-off/php.list /etc/apt/sources.list.d/ 2>/dev/null || true) ; \
+    rm -rf /var/lib/apt/lists/* ; exit $status
 DOCKERFILE
 }
 
@@ -179,7 +183,6 @@ function testing_configure() {
     echo "";
     echo "Installing the JS dependencies and the chromium browser.";
     ddev ${runner} install || true ;
-    testing_write_browser_libs_build "${project_path}" ;
     testing_ensure_browser_libs "${project_path}" || true ;
     testing_install_browsers || true ;
   fi
