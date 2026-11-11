@@ -6,8 +6,8 @@
 # Webships installer, and one API site template.
 # https://www.drupal.org/project/webships
 #
-#   bash cmd-webships3-0-x-project.sh myapi --install
-#   bash cmd-webships3-0-x-project.sh myapi --install --template webapi_starter --add-users
+#   bash cmd-webships3-0-x-project.sh myapi
+#   bash cmd-webships3-0-x-project.sh myapi --template webapi_starter --add-users
 #
 # The installer profile is on 3.0.x while the project template is on 1.0.x: the two
 # lines are deliberately not in lockstep, so `site_version` below is the version of
