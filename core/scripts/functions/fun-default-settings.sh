@@ -14,7 +14,8 @@ function set_default_settings() {
 
   if [ -f "${settings_file}" ]; then
     # Fixed, not a setting: it has to match the config/sync created above.
-    if ! grep -q "config_sync_directory" "${settings_file}" ; then
+    # An active assignment only: default.settings.php carries the same line commented out.
+    if ! grep -qE "^[[:space:]]*\\\$settings\['config_sync_directory'\]" "${settings_file}" ; then
       # Defaulted here rather than asked for in the settings: ../config/sync is the Drupal
       # convention and the folder created just above. Setting config_sync_directory in
       # settings.yml still overrides it.
