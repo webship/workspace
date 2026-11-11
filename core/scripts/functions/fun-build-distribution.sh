@@ -117,15 +117,6 @@ function build_distribution() {
     fi
   fi
 
-  # A failed create-project (an upstream patch that no longer applies, a yanked tag) has to stop
-  # the build here. Every step below assumes a real vendor/autoload.php, so carrying on used to
-  # mean "installing" nothing and then announcing success.
-  if ! ddev composer create-project ${distribution_project_template}:${site_version} . --no-interaction ; then
-    echo "composer create-project failed for ${distribution_project_template}:${site_version} — aborting, nothing was installed." ;
-    cd ${WORKSPACE_ROOT}/${doc_name};
-    return 1 ;
-  fi
-
   # Some project templates ship their own .ddev config that
   # changes the docroot/database/webimage packages after our initial ddev
   # config. Re-align: keep the database type we already provisioned, drop
