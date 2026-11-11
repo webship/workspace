@@ -323,10 +323,10 @@ function testing_run() {
 function testing_command() {
   # --configure is the default, so it is only meaningful as a word — except together with --run,
   # where "set it up and then run it" is a real thing to ask for and used to lose the setup half.
-  if [ "${CONFIGURE}" == 'yes' ] || [ ! "${RUN}" == 'yes' ] ; then
+  if [ "${CONFIGURE}" == 'yes' ] || { [ ! "${RUN}" == 'yes' ] && [ ! "${DRY_RUN}" == 'yes' ] ; } ; then
     testing_configure || return 1 ;
   fi
-  if [ "${RUN}" == 'yes' ] ; then
+  if [ "${RUN}" == 'yes' ] || [ "${DRY_RUN}" == 'yes' ] ; then
     testing_run ;
   fi
 }
