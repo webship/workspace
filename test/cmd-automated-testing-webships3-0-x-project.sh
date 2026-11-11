@@ -87,15 +87,19 @@ else
   failures=$((failures+1)) ;
 fi
 
-# Both theme slots use the Drupal core administration theme.
+# Both theme slots are set and the themes are installed (the template ships UIkit Admin and
+# UI Suite UIkit; an older template used the core administration theme for both).
 admin_theme=$(ddev drush config:get system.theme admin --format=string 2>/dev/null) ;
 default_theme=$(ddev drush config:get system.theme default --format=string 2>/dev/null) ;
+enabled_themes=$(ddev drush pm:list --type=theme --status=enabled --format=list 2>/dev/null) ;
 echo "system.theme admin          : ${admin_theme:-<unset>}" ;
 echo "system.theme default        : ${default_theme:-<unset>}" ;
-if [ "${admin_theme}" != "default_admin" ] || [ "${default_theme}" != "default_admin" ]; then
-  echo "  FAIL: the core administration theme is not set for both slots." ;
-  failures=$((failures+1)) ;
-fi
+for slot_theme in "${admin_theme}" "${default_theme}" ; do
+  if [ -z "${slot_theme}" ] || ! printf '%s\n' "${enabled_themes}" | grep -qx "${slot_theme}" ; then
+    echo "  FAIL: theme '${slot_theme:-<unset>}' is not set or not installed." ;
+    failures=$((failures+1)) ;
+  fi
+done
 
 # The API answers from /api, and the entry point needs no authentication.
 api_status=$(ddev exec curl -s -o /dev/null -w "%{http_code}" http://localhost/api 2>/dev/null) ;
