@@ -258,6 +258,7 @@ function testing_run() {
   [ "${HEADED}" == 'yes' ] && env_prefix="${env_prefix} HEADLESS=false";
   local cucumber="node ./node_modules/@cucumber/cucumber/bin/cucumber.js --config cucumber.js";
   local filter="";
+  local run_log; run_log=$(mktemp);
   # Narrowing to one feature is an ENV var here, not a positional argument: these projects'
   # cucumber.js sets `paths: [process.env.FEATURES || 'tests/features/**/*.feature']`, and a config
   # `paths` wins over the path you type — passing it positionally silently ran all 275 scenarios.
@@ -265,7 +266,7 @@ function testing_run() {
   if [ ! "${TESTING_PATH}" == '_none_' ] ; then
     local features="${TESTING_PATH}";
     case "${features}" in
-      *.feature|*'*'*) : ;;
+      *.feature|*.feature:[0-9]*|*'*'*) : ;;
       *) features="${features%/}/**/*.feature" ;;
     esac
     env_prefix="${env_prefix} FEATURES=\"${features}\"";
@@ -280,8 +281,14 @@ function testing_run() {
 
   if [ -n "${filter}" ] ; then
     echo "  ddev exec ${env_prefix} ${cucumber} ${filter}";
-    ddev exec "${env_prefix} ${cucumber} ${filter}" ;
-    status=$? ;
+    ddev exec "${env_prefix} ${cucumber} ${filter}" 2>&1 | tee "${run_log}" ;
+    status=${PIPESTATUS[0]} ;
+    # A run that matched nothing exits 0 too: a wrong --path or tag expression must not read as green.
+    if grep -qE '^0 scenarios' "${run_log}" ; then
+      echo "  No scenario ran: check the --path or --tags you gave." ;
+      status=3 ;
+    fi
+    rm -f "${run_log}" ;
   else
     script="test:${BROWSER}";
     echo "  ddev ${runner} run ${script}";
