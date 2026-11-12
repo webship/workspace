@@ -47,10 +47,6 @@ function website_create_project() {
   # version this build asked for, and restart on them.
   ddev config --php-version=${PHP_VERSION:-${website_php_version}} --nodejs-version=$(ddev_nodejs_version) ;
   ddev restart ;
-
-  # Keep the site templates as recipes, like drupal/website does: unpacking them
-  # into the root composer.json fails on aliased dev branches (the pending fixes).
-  ddev composer config --json --merge extra.drupal-recipe-unpack.ignore '["drupal/website_starter", "drupal/webship_starter", "drupal/webship_portal"]' ;
 }
 
 # -----------------------------------------------------------------------------
@@ -184,6 +180,13 @@ function build_website_site_template() {
   website_create_project "drupal/recommended-project:${website_core_version}" || return 1 ;
 
   website_add_pending_fixes $(website_pending_fixes_for ${site_template_name}) ;
+
+  # Keep the site templates as recipes, like drupal/website does: unpacking them into the root
+  # composer.json fails on aliased dev branches (the pending fixes). Only here: the recommended
+  # project has no such list, and this runs before the require that writes the lock file.
+  # drupal/website carries its own list; merging into it after its lock file was written left
+  # duplicates and a lock file that `composer validate --check-lock` calls out of date.
+  ddev composer config --json --merge extra.drupal-recipe-unpack.ignore '["drupal/website_starter", "drupal/webship_starter", "drupal/webship_portal"]' ;
 
   if ! ddev composer require -W --no-interaction "drush/drush:^13" "${site_template_package}:${site_version}" ; then
     echo "composer require ${site_template_package}:${site_version} failed — aborting before the install." ;

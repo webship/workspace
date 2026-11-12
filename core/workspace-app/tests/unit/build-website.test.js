@@ -86,3 +86,18 @@ test('the Node.js and PHP of the build are set again after create-project, where
   const declared = build({ declare: 'site_nodejs_version=22' });
   for (const c of declared.calls.filter((x) => x.startsWith('config '))) assert.ok(c.includes('--nodejs-version=22') && c.includes('--php-version=8.4'), c);
 });
+
+test('the Website project keeps the recipe-unpack ignore list its template ships, and a site template build sets one before the lock file', () => {
+  const project = build();
+  assert.strictEqual(project.code, 0);
+  assert.ok(index(project.calls, 'drupal-recipe-unpack') < 0, 'composer.json is not changed after the lock file was written');
+
+  const { calls, code } = build({
+    declare: 'site_template_name=website_starter; site_template_title="Website Starter"; site_template_package=drupal/website_starter; site_version=1.0.x-dev',
+    run: 'build_website_site_template',
+  });
+  assert.strictEqual(code, 0);
+  const ignore = index(calls, 'drupal-recipe-unpack');
+  assert.ok(ignore > 0 && calls[ignore].includes('"drupal/website_starter"'), calls[ignore]);
+  assert.ok(ignore < index(calls, 'composer require -W'), 'before the require that writes the lock file');
+});
