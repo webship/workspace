@@ -399,7 +399,7 @@ Claude ends the way it would if you typed it, and the conversation is kept. When
 project or folder that has one, the same menu offers **Resume Claude Code**, which resumes the last conversation
 with `claude --resume` in that folder.
 
-![The SCREENS menu on a card: its sessions, Resume Claude Code, New screen here and Claude Code here](screenshots/screens-menu.png)
+![The SCREENS menu on a card: its session, New screen here, Claude Code here and All screens](screenshots/screens-menu.png)
 
 ### Watch something long
 
@@ -459,7 +459,7 @@ Pick the **Provider** first: OpenAI, Google Gemini, xAI, Stability AI or Claude 
 quality fields change with it. A provider with no key on this machine is listed but greyed out, with the key
 to set (`ai_providers.<provider>.api_key` in `core/config/settings.yml`).
 
-![The provider select: the ones without a key say which key to set](screenshots/images/providers.png)
+![Generate with AI: the form, with Claude Code CLI as the provider](screenshots/images/providers.png)
 
 **Claude Code** needs no key: it uses your own Claude Code login, so there is no API charge. It cannot paint
 a photo, so it draws a flat illustration as an SVG, and the dashboard turns it into a PNG as well; you keep
