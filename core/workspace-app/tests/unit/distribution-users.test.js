@@ -60,3 +60,50 @@ for (const distribution of distributions) {
     assert.strictEqual(new Set(mails).size, mails.length, `two accounts share a mail: ${mails.join(', ')}`);
   });
 }
+
+/** The ddev calls of add_users for one distribution, with ddev stubbed. */
+function addUsers(distribution, { enableFails = false } = {}) {
+  const os = require('os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-users-'));
+  const log = path.join(dir, 'ddev.log');
+  fs.mkdirSync(path.join(dir, 'ws', 'p1', 'web'), { recursive: true });
+  const script = `
+WORKSPACE_SCRIPTS=${SCRIPTS}; WORKSPACE_ROOT=${dir}; doc_name=ws; PROJECT_NAME=p1; distribution_name=${distribution}; distribution_webroot=web
+ddev() { printf '%s\\n' "$*" >> ${log}; if [ "${enableFails ? 'yes' : 'no'}" = yes ] && [ "$1 $2" = 'drush pm:enable' ]; then return 1; fi; return 0; }
+source ${FUNCTIONS}/fun-users.sh
+add_drush() { :; }
+add_users p1 ${distribution} > /dev/null; echo "exit=$?"
+`;
+  const run = spawnSync('bash', ['-c', script], { encoding: 'utf8' });
+  const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n') : [];
+  return { calls, code: Number((run.stdout.match(/exit=(\d+)/) || [])[1]) };
+}
+
+test('cucumber: the role modules are enabled before the first account, and every role given exists then', () => {
+  const { calls, code } = addUsers('cucumber');
+  assert.strictEqual(code, 0);
+  const enable = calls.findIndex((c) => c.startsWith('drush pm:enable'));
+  const firstUser = calls.findIndex((c) => c.startsWith('drush user:create'));
+  assert.ok(enable >= 0 && enable < firstUser, calls.join(' | '));
+  // The roles of the profile itself, and the ones the enabled role modules bring.
+  const roles = new Set(['admin', 'super_admin', ...[...calls[enable].matchAll(/cucumber_user_role_([a-z_]+)/g)].map((m) => m[1])]);
+  const given = calls.filter((c) => c.startsWith('drush user:role:add')).map((c) => c.split(' ')[2]);
+  assert.deepStrictEqual(given, ['developer', 'tester', 'analyst', 'designer', 'coordinator', 'product_owner', 'admin']);
+  for (const role of given) assert.ok(roles.has(role), `nothing provides the "${role}" role`);
+  assert.ok(!given.includes('administrator'), 'Cucumber has no administrator role');
+  assert.strictEqual(calls.filter((c) => c.startsWith('drush user:create')).length, 8);
+});
+
+test('cucumber: when the role modules cannot be enabled no account is created', () => {
+  const { calls, code } = addUsers('cucumber', { enableFails: true });
+  assert.strictEqual(code, 1);
+  assert.ok(!calls.some((c) => c.startsWith('drush user:create')), calls.join(' | '));
+});
+
+test('a distribution with nothing to prepare adds its users as before', () => {
+  const { calls, code } = addUsers('website');
+  assert.strictEqual(code, 0);
+  assert.ok(!calls.some((c) => c.includes('pm:enable')));
+  assert.deepStrictEqual(calls.filter((c) => c.startsWith('drush user:create')).map((c) => c.split(' --mail')[0]),
+    ['drush user:create Authenticated user', 'drush user:create Content editor', 'drush user:create Administrator']);
+});

@@ -32,6 +32,17 @@ function add_users () {
 
   cd ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/${distribution_webroot}/;
 
+  # A distribution whose roles only exist once something is switched on (Cucumber's work roles
+  # come from their role modules) declares prepare_<distribution>_users next to its list. It runs
+  # here, so the accounts get their roles on a fresh build and from cmd-tools-add-users.sh alike.
+  if declare -f prepare_${distribution_name}_users > /dev/null ; then
+    if ! prepare_${distribution_name}_users ; then
+      echo "The roles of the default users could not be prepared — no user was added." ;
+      cd ${WORKSPACE_ROOT}/${doc_name};
+      return 1 ;
+    fi
+  fi
+
   for user in ${users[@]}
   do
     user_name="user_${user}_name";
