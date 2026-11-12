@@ -1,6 +1,6 @@
 {
   "name": "@webship.co/workspace",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Webship Workspace: a container-based development workspace with a web dashboard. The core ships empty; workspace folders, hosting providers, git forges, container runtimes and features are @webship.co/workspace-<name> plugins you add one at a time.",
   "license": "GPL-2.0-or-later",
   "repository": {
