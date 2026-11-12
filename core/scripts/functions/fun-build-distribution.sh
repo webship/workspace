@@ -126,9 +126,12 @@ function build_distribution() {
   # Some project templates ship their own .ddev config that
   # changes the docroot/database/webimage packages after our initial ddev
   # config. Re-align: keep the database type we already provisioned, drop
-  # optional apt extras (avoids third-party repo key failures), keep our Node.js, and restart
-  # so the webserver serves the template's real docroot.
-  ddev config --database=mariadb:${provisioned_db_type} --webimage-extra-packages="" --nodejs-version=$(ddev_nodejs_version) ;
+  # optional apt extras (avoids third-party repo key failures), keep our Node.js and the PHP
+  # this build asked for (--php-version or the builder's site_php_version: composer resolved the
+  # codebase on it, so the template's own php_version would stop drush on the platform check),
+  # and restart so the webserver serves the template's real docroot.
+  ddev config --database=mariadb:${provisioned_db_type} --webimage-extra-packages="" \
+    ${php_version:+--php-version=${php_version}} --nodejs-version=$(ddev_nodejs_version) ;
   ddev_telemetry_off ;
   ddev_up restart ;
 

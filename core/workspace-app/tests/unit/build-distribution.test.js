@@ -59,6 +59,50 @@ test('every ddev config of a build pins Node.js 24, and the first one still gets
   assert.ok(!configs[0].includes('ddev_telemetry_off'), configs[0]);
 });
 
+test('the PHP version of the build is set again after create-project, where the template brings its own DDEV config', () => {
+  // The template's .ddev/config.yaml replaces the builder's: composer resolved on 8.4, the project ran the
+  // template's 8.3, and drush site:install stopped on "Your Composer dependencies require a PHP version".
+  for (const declare of ['PHP_VERSION=8.4', 'site_php_version=8.4', 'PHP_VERSION=8.4; site_php_version=8.5']) {
+    const { calls, code } = build({ declare });
+    assert.strictEqual(code, 0);
+    const configs = calls.filter((c) => c.startsWith('config '));
+    assert.strictEqual(configs.length, 2, configs.join('\n'));
+    for (const c of configs) assert.ok(c.includes('--php-version=8.4'), `${declare}: ${c}`);
+    assert.ok(index(calls, 'composer create-project') < calls.indexOf(configs[1]), 'the second one follows create-project');
+    assert.ok(configs[1].includes('--database=mariadb:11.8') && configs[1].includes('--nodejs-version=24'), configs[1]);
+  }
+  // Nobody asked for a version: DDEV's default before, the template's own after, as it was.
+  const plain = build();
+  for (const c of plain.calls.filter((x) => x.startsWith('config '))) assert.ok(!c.includes('--php-version'), c);
+});
+
+test('the Webships builder sets its PHP version again after create-project too', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-webships-'));
+  const log = path.join(dir, 'ddev.log');
+  fs.mkdirSync(path.join(dir, 'ws'));
+  const WEBSHIPS = path.join(path.dirname(FUNCTION), 'fun-build-webships.sh');
+  const run = (declare) => {
+    fs.rmSync(log, { force: true });
+    const script = `
+WORKSPACE_ROOT=${dir}; doc_name=ws; PROJECT_NAME=p1; distribution_webroot=web; ${declare}
+ddev() { printf '%s\\n' "$*" >> ${log}; return 0; }
+drop_database() { :; }
+source ${NODEJS}; source ${WEBSHIPS}
+webships_create_project drupal/stub:1.0.x-dev; echo "exit=$?"
+`;
+    const out = spawnSync('bash', ['-c', script], { cwd: dir, encoding: 'utf8' }).stdout;
+    assert.match(out, /exit=0/);
+    return fs.readFileSync(log, 'utf8').trim().split('\n');
+  };
+  for (const [declare, version] of [['PHP_VERSION=8.5', '8.5'], ['', '8.4']]) {
+    const calls = run(declare);
+    const configs = calls.filter((c) => c.startsWith('config '));
+    assert.strictEqual(configs.length, 2, configs.join('\n'));
+    for (const c of configs) assert.ok(c.includes(`--php-version=${version}`) && c.includes('--nodejs-version=24'), c);
+    assert.ok(index(calls, 'composer create-project') < calls.indexOf(configs[1]));
+  }
+});
+
 test('a builder that declares site_nodejs_version gets that version instead', () => {
   const { calls } = build({ declare: 'site_nodejs_version=22' });
   const configs = calls.filter((c) => c.startsWith('config '));
