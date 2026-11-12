@@ -101,3 +101,16 @@ test('the Website project keeps the recipe-unpack ignore list its template ships
   assert.ok(ignore > 0 && calls[ignore].includes('"drupal/website_starter"'), calls[ignore]);
   assert.ok(ignore < index(calls, 'composer require -W'), 'before the require that writes the lock file');
 });
+
+test('--template offers the five site templates the Website project ships, and each one reaches the installer', () => {
+  const args = fs.readFileSync(path.join(FUNCTIONS, '..', 'args', 'arg-website.sh'), 'utf8');
+  const choices = args.match(/'--template',[\s\S]*?choices=\[([^\]]*)\]/)[1].split(',').map((c) => c.trim().replace(/'/g, ''));
+  assert.deepStrictEqual(choices, ['website_starter', 'webship_starter', 'webship_portal', 'webapi_starter', 'webships_starter']);
+  for (const template of choices) {
+    const { calls, code } = build({ declare: `TEMPLATE=${template}` });
+    assert.strictEqual(code, 0);
+    assert.ok(calls.find((c) => c.startsWith('drush site:install')).includes(`installer_site_template_form.add_ons=${template}`), template);
+    // No composer.json in the stub project: the builder adds what the template does not require, all five.
+    assert.ok(calls.find((c) => c.startsWith('composer require')).includes(`drupal/${template}:`), template);
+  }
+});

@@ -126,11 +126,11 @@ function build_website_project() {
 
   website_create_project "${distribution_project_template}:${site_version}" || return 1 ;
 
-  # The Website project requires the Webship installer and the three site
+  # The Website project requires the Webship installer and its five site
   # templates. Add whatever the published template does not require yet.
   local require_block missing=() ;
   require_block=$(sed -n '/"require": {/,/}/p' composer.json) ;
-  for package in "drupal/webship:12.0.x-dev" "drupal/website_starter:1.0.x-dev" "drupal/webship_starter:1.0.x-dev" "drupal/webship_portal:1.0.x-dev" ; do
+  for package in "drupal/webship:12.0.x-dev" "drupal/website_starter:1.0.x-dev" "drupal/webship_starter:1.0.x-dev" "drupal/webship_portal:1.0.x-dev" "drupal/webapi_starter:2.0.x-dev" "drupal/webships_starter:2.0.x-dev" ; do
     # The installer is drupal/webship or webship/webship; the pending fixes pin the latter.
     if [ "${package%%:*}" == "drupal/webship" ] && { [ "${WITH_PENDING_FIXES}" == 'yes' ] || echo "${require_block}" | grep -q '"webship/webship"' ; } ; then
       continue ;
@@ -141,7 +141,7 @@ function build_website_project() {
     fi
   done
 
-  # The codebase carries all three site templates, so it needs every pending fix.
+  # The codebase carries every site template, so it needs every pending fix.
   website_add_pending_fixes webship $(website_pending_fixes_for webship_portal) ;
 
   # Stage everything, then one full update, so no pin is held back by the lock file.

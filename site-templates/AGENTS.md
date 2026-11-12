@@ -66,7 +66,7 @@ The Webship site templates on Drupal 11.4 and PHP 8.4, all at their 1.0.x-dev br
 
 ```bash
 bash cmd-website-1-0-x-project.sh mysite                              # drupal/website + the Webship installer
-bash cmd-website-1-0-x-project.sh mysite --template webship_portal    # website_starter | webship_starter | webship_portal
+bash cmd-website-1-0-x-project.sh mysite --template webship_portal    # website_starter | webship_starter | webship_portal | webapi_starter | webships_starter
 bash cmd-website_starter-1-0-x-project.sh mysite                      # the recipe on drupal/recommended-project 11.4.x
 bash cmd-webship_starter-1-0-x-project.sh mysite
 bash cmd-webship_portal-1-0-x-project.sh mysite
