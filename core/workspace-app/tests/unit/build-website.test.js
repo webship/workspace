@@ -71,3 +71,18 @@ test('a site template build on the recommended project takes the same declaratio
   assert.ok(create.startsWith('composer create-project drupal/recommended-project:') && create.includes('--no-install'), create);
   assert.ok(index(calls, 'extra.patches-ignore') > 0);
 });
+
+test('the Node.js and PHP of the build are set again after create-project, where the template brings its own DDEV config', () => {
+  const { calls, code } = build({ declare: 'PHP_VERSION=8.5' });
+  assert.strictEqual(code, 0);
+  const create = index(calls, 'composer create-project');
+  const configs = calls.map((c, i) => [c, i]).filter(([c]) => c.startsWith('config '));
+  assert.strictEqual(configs.length, 2, configs.map(([c]) => c).join('\n'));
+  assert.ok(configs[0][1] < create && configs[1][1] > create, 'one before create-project, one after');
+  for (const [c] of configs) assert.ok(c.includes('--nodejs-version=24') && c.includes('--php-version=8.5'), c);
+  assert.ok(index(calls, 'restart') > configs[1][1], 'and the project restarts on them');
+  assert.ok(index(calls, 'restart') < index(calls, 'drush site:install'));
+
+  const declared = build({ declare: 'site_nodejs_version=22' });
+  for (const c of declared.calls.filter((x) => x.startsWith('config '))) assert.ok(c.includes('--nodejs-version=22') && c.includes('--php-version=8.4'), c);
+});
