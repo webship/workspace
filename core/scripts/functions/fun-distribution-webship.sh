@@ -21,8 +21,10 @@ function set_webship_users() {
   user_content_editor_mail="test.content_editor@webship.org";
   user_content_editor_password="dD.123123ddd";
   user_content_editor_role="content_editor";
-  user_administrator_name="Webmaster";
-  user_administrator_mail="test.Webmaster@webship.org";
+  # Not "Webmaster": the installer's own account is `webmaster` (account.name in settings.yml), and
+  # user names are case-insensitive, so that account could never be created.
+  user_administrator_name="Administrator";
+  user_administrator_mail="test.administrator@webship.org";
   user_administrator_password="dD.123123ddd";
   user_administrator_role="administrator";
 }
