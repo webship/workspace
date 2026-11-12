@@ -7875,7 +7875,7 @@ Summarise what you changed and how to verify it`,
           // An SVG is a document that can carry script; shown on its own it runs none.
           ...(type === 'image/svg+xml' ? { 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox" } : {}),
         });
-        return fs.createReadStream(file).pipe(res);
+        return fs.createReadStream(real).pipe(res);
       }
       const argsMatch = pathname.match(/^\/fragments\/([a-z0-9_-]+)\/builder-args$/);
       if (argsMatch && isValidWorkspace(argsMatch[1])) {
