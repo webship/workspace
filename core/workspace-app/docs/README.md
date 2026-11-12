@@ -247,6 +247,7 @@ Some releases change the container image; the notes say so, and then
 | the hard rules and the operational traps | `docs/workspace-tips-and-rules.md` |
 | what changed, dated | `worklogs/` |
 
-Every picture in `screenshots/` is used by one of these guides or the top `README.md`, and all of them
-were taken on 22 October 2026 at 1920×1080, in light mode (the README's dark copies aside). A pull
-request carries its own pictures on its branch.
+The pictures in `screenshots/` are used by these guides; `assistant/` and `readme/` hold spare ones of
+the assistant's avatar and of the pages in light and dark. All of them were taken on 13 November 2026
+on a Webship Workspace with demo content, at 1920×1080 (the home page is taller, to show every card),
+in light mode unless the name says dark. A pull request carries its own pictures on its branch.
