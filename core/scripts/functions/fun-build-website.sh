@@ -42,6 +42,12 @@ function website_create_project() {
   ddev composer config minimum-stability dev ;
   ddev composer config prefer-stable true ;
 
+  # The project template ships its own .ddev/config.yaml, which replaces the one written above and
+  # pins an older Node.js: re-align to the workspace's Node.js (24, like Drupal core) and to the PHP
+  # version this build asked for, and restart on them.
+  ddev config --php-version=${PHP_VERSION:-${website_php_version}} --nodejs-version=$(ddev_nodejs_version) ;
+  ddev restart ;
+
   # Keep the site templates as recipes, like drupal/website does: unpacking them
   # into the root composer.json fails on aliased dev branches (the pending fixes).
   ddev composer config --json --merge extra.drupal-recipe-unpack.ignore '["drupal/website_starter", "drupal/webship_starter", "drupal/webship_portal"]' ;
