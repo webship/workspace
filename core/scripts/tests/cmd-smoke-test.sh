@@ -8,7 +8,9 @@
 #                          prints usage and exits before any real work),
 #                          which exercises bootstrap.sh, parse_yaml, the
 #                          workspace + distribution configs and arg-*.sh
-#  3. workspace-name     — builder scripts must carry the "# workspace-name:"
+#  3. the last call      — the function a script ends by calling exists, and a builder that
+#                          ends with build_distribution has its install function
+#  4. workspace-name     — builder scripts must carry the "# workspace-name:"
 #                          header the dashboard shows in Build dropdowns
 #
 # Exit code: number of failing scripts (0 = all green).
@@ -76,6 +78,18 @@ for ws in "${workspaces[@]}" commands core/scripts; do
           break
         fi
       done
+    fi
+
+    # 3b. A builder that ends with build_distribution is installed by install_<distribution>_with_drush,
+    #     which build_distribution calls by name. A builder copied from another family can keep that last
+    #     line while its own family has no such function (the Website family installs in
+    #     build_website_project): build_distribution exists, so check 3 passes, and the build stops at the install.
+    if [ -z "$err" ] && grep -qE '^build_distribution ;$' "$f"; then
+      dist=$(grep -oE '^distribution_name="[a-z0-9_]+"' "$f" | head -1 | cut -d'"' -f2)
+      if [ -n "$dist" ] && ! grep -qE "^(function )?install_${dist}_with_drush ?\(\)" \
+           "${WORKSPACE_SCRIPTS}/functions/fun-distribution-${dist}.sh" 2>/dev/null; then
+        err="ends with build_distribution, but install_${dist}_with_drush() is not in fun-distribution-${dist}.sh"
+      fi
     fi
 
     # 4. Builder scripts must have the human-readable name header.

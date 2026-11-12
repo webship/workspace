@@ -25,5 +25,5 @@ source ${WORKSPACE_SCRIPTS}/args/arg-${distribution_name}.sh || exit 1 ;
 
 shift $#;
 
-# Build the distribution.
-build_distribution ;
+# Build the Website project: the Webship installer installs it with --template.
+build_website_project ;
