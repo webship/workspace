@@ -8,6 +8,44 @@ function composer_install_retry() {
   ddev composer install --no-interaction ;
 }
 
+# composer create-project in the current (empty) project folder, for every build family:
+#   composer_create_project <template>:<version> [more create-project options]
+#
+# A release line may need two things before its first install, or composer cannot resolve it at all:
+#   site_composer_requires  root requirements, e.g. an alias. a Drupal 10 line may ask for a package
+#                           that moved to Drupal 11, so the line aliases the last Drupal 10 release.
+#   site_patches_ignore     "<package> <patch-url>" pairs that webship/patches declares and the release
+#                           already contains, so applying the patch fails (patches-ignore, added to composer.json).
+# Both are declared by the builder as bash arrays. A builder that declares neither installs in one step as before.
+# Returns 1 when the codebase could not be installed; the caller says which build stops and where.
+function composer_create_project() {
+  local project_template="$1" ; shift ;
+  site_requires=("${site_composer_requires[@]}") ;
+  site_ignores=("${site_patches_ignore[@]}") ;
+  if [ -n "${site_requires[0]:-}${site_ignores[0]:-}" ] ; then
+    ddev composer create-project ${project_template} . --no-interaction --no-install --no-scripts "$@" || return 1 ;
+    if [ -n "${site_requires[0]:-}" ] ; then
+      ddev composer require "${site_requires[@]}" --no-update --no-interaction || return 1 ;
+    fi
+    if [ -n "${site_ignores[0]:-}" ] ; then
+      patches_ignore_json=$(python3 -c 'import sys, json; d = {}; [d.setdefault("webship/patches", {}).setdefault(a.split(" ", 1)[0], []).append(a.split(" ", 1)[1]) for a in sys.argv[1:]]; print(json.dumps(d))' "${site_ignores[@]}") ;
+      ddev composer config --json extra.patches-ignore "${patches_ignore_json}" || return 1 ;
+    fi
+    if ! composer_install_retry || ! ddev composer run-script post-create-project-cmd ; then
+      echo "composer could not install ${project_template}." ;
+      return 1 ;
+    fi
+  elif ! ddev composer create-project ${project_template} . --no-interaction "$@" ; then
+    # When the project reached the install step, composer.json is already in place: install once more.
+    if [ -f composer.json ] && composer_install_retry && ddev composer run-script post-create-project-cmd ; then
+      echo "composer create-project needed a second install, which worked." ;
+    else
+      return 1 ;
+    fi
+  fi
+  return 0 ;
+}
+
 function build_distribution() {
   # Include distribution functions.
   source ${WORKSPACE_SCRIPTS}/functions/fun-distribution-${distribution_name}.sh || exit 1 ;
@@ -79,42 +117,10 @@ function build_distribution() {
 
   # A failed create-project (e.g. an upstream patch no longer applying) must stop the
   # build here — every step after this assumes a real vendor/autoload.php exists.
-  #
-  # A release line may need two things before its first install, or composer cannot resolve it at all:
-  #   site_composer_requires  root requirements, e.g. an alias. a Drupal 10 line may ask for a package
-  #                           that moved to Drupal 11, so the line aliases the last Drupal 10 release.
-  #   site_patches_ignore     "<package> <patch-url>" pairs that webship/patches declares and the release
-  #                           already contains, so applying the patch fails (patches-ignore, added to composer.json).
-  # Both are declared by the builder as bash arrays. A builder that declares neither installs in one step as before.
-  site_requires=("${site_composer_requires[@]}") ;
-  site_ignores=("${site_patches_ignore[@]}") ;
-  if [ -n "${site_requires[0]:-}${site_ignores[0]:-}" ] ; then
-    if ! ddev composer create-project ${distribution_project_template}:${site_version} . --no-interaction --no-install --no-scripts ${dev_stability:-} ; then
-      echo "composer create-project failed for ${distribution_project_template}:${site_version} — aborting, not installing." ;
-      cd ${WORKSPACE_ROOT}/${doc_name};
-      return 1 ;
-    fi
-    if [ -n "${site_requires[0]:-}" ] ; then
-      ddev composer require "${site_requires[@]}" --no-update --no-interaction || { cd ${WORKSPACE_ROOT}/${doc_name}; return 1 ; } ;
-    fi
-    if [ -n "${site_ignores[0]:-}" ] ; then
-      patches_ignore_json=$(python3 -c 'import sys, json; d = {}; [d.setdefault("webship/patches", {}).setdefault(a.split(" ", 1)[0], []).append(a.split(" ", 1)[1]) for a in sys.argv[1:]]; print(json.dumps(d))' "${site_ignores[@]}") ;
-      ddev composer config --json extra.patches-ignore "${patches_ignore_json}" || { cd ${WORKSPACE_ROOT}/${doc_name}; return 1 ; } ;
-    fi
-    if ! composer_install_retry || ! ddev composer run-script post-create-project-cmd ; then
-      echo "composer could not install ${distribution_project_template}:${site_version} — aborting, not installing." ;
-      cd ${WORKSPACE_ROOT}/${doc_name};
-      return 1 ;
-    fi
-  elif ! ddev composer create-project ${distribution_project_template}:${site_version} . --no-interaction ${dev_stability:-} ; then
-    # When the project reached the install step, composer.json is already in place: install once more.
-    if [ -f composer.json ] && composer_install_retry && ddev composer run-script post-create-project-cmd ; then
-      echo "composer create-project needed a second install, which worked." ;
-    else
-      echo "composer create-project failed for ${distribution_project_template}:${site_version} — aborting, not installing." ;
-      cd ${WORKSPACE_ROOT}/${doc_name};
-      return 1 ;
-    fi
+  if ! composer_create_project ${distribution_project_template}:${site_version} ${dev_stability:-} ; then
+    echo "composer create-project failed for ${distribution_project_template}:${site_version} — aborting, not installing." ;
+    cd ${WORKSPACE_ROOT}/${doc_name};
+    return 1 ;
   fi
 
   # Some project templates ship their own .ddev config that

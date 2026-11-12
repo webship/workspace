@@ -29,7 +29,10 @@ function website_create_project() {
   ddev config --project-type=drupal --docroot=${distribution_webroot} --php-version=${PHP_VERSION:-${website_php_version}} --nodejs-version=$(ddev_nodejs_version) --project-name=${PROJECT_NAME} --auto ;
   ddev start -y ;
 
-  if ! ddev composer create-project "$1" . --no-interaction ; then
+  # composer_create_project (fun-build-distribution.sh) honours the builder's site_composer_requires
+  # and site_patches_ignore, so a requirement or a patch of the template that no longer resolves or
+  # applies can be worked around from the builder, as in build_distribution.
+  if ! composer_create_project "$1" ; then
     echo "composer create-project failed for $1 — aborting, nothing was installed." ;
     cd ${WORKSPACE_ROOT}/${doc_name};
     return 1 ;
