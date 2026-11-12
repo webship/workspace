@@ -34,7 +34,7 @@ Workspace dashboard and modernized the tooling. Companion docs:
 | 17:21–17:30 | `7057e31`–`d319da5` the upstream distribution 11 automated-testing script (webship-js) with legacy --run options; build form takes args |
 | 17:49–18:02 | `d386c09`–`412b306` **structured Arguments group** (collapsed, HTMX-swapped, read from the cmd- script's real argparse schema); Build echoes the final command |
 | ~17:00–18:30 | the upstream distribution verification round: 11.0.x in dev(test/demos/sandboxes) + 9.2.x + 10.1.x — all files-ok; 584 webship-js steps passed against live v11t1 before a cleanup-timing mistake cut the suite; `--profile=minimal` args proof |
-| 18:24 | `69fe650` **workspace + project subdomains** (`dev.workspace.ddev.site`, `varbase11demo.dev.workspace.ddev.site`) — DNS any-depth, wildcard certs, nginx tier to ddev-router |
+| 18:24 | `69fe650` **workspace + project subdomains** (`dev.workspace.ddev.site`, `webship11demo.dev.workspace.ddev.site`) — DNS any-depth, wildcard certs, nginx tier to ddev-router |
 | 18:37–18:41 | `9f9a4e2`+`b34e7f8` (PR #2, awaiting review): hierarchical domains as default for all navigation + Launch; `hub_domain` setting marking the **remote workspace hub on a public domain** direction; TTL perf caches |
 | ~18:45 | Branch mistake (commit landed on 1.0.x) caught and fixed: force-restored 1.0.x, cherry-picked to the feature branch |
 | ~20:00 | This timeline saved |
