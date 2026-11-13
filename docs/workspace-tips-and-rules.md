@@ -5,7 +5,7 @@ and the repo github.com/webship/workspace (branch `1.0.x`).
 
 ## Hard rules
 
-1. **DDEV-only.** Never raw `composer`/`drush`/`mysql` on the host — always
+1. **Containers only (DDEV by default).** Never raw `composer`/`drush`/`mysql` on the host — always
    `ddev composer`, `ddev drush`, `ddev delete -y -O`, `ddev export-db`.
 2. **DDEV owns the database connection.** Never write a `$databases` block
    into `settings.php` — DDEV's `settings.ddev.php` include handles it.

@@ -2,7 +2,7 @@
 
 Reusable prompts, run as slash commands.
 
-This folder is part of the **Webship Workspace** (`~/workspace`), a DDEV-only harness. Everything
+This folder is part of the **Webship Workspace** (`~/workspace`), a container-based harness (DDEV by default). Everything
 here is driven by the `cmd-*.sh` scripts in this folder — run them from here, never from the
 git clone in `products/workspace`, which ships the tooling but builds nothing.
 
@@ -24,7 +24,7 @@ bash cmd-tools-ai-items.sh --help
 
 ## Hard rules
 
-- **DDEV only** — `ddev composer`, `ddev drush`, `ddev delete -y -O`, `ddev export-db`. Never raw
+- **Containers only (DDEV by default)** — `ddev composer`, `ddev drush`, `ddev delete -y -O`, `ddev export-db`. Never raw
   composer, drush or mysql on the host.
 - **Never write a `$databases` block into `settings.php`** — DDEV's `settings.ddev.php` owns it.
 - `ddev start` accepts `-y`; **`ddev stop` does not**.

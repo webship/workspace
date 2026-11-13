@@ -25,7 +25,7 @@ norms:
     `AGENTS.md` are the documentation.
 
 safeguards:
-  - DDEV only. `ddev composer`, `ddev drush`, `ddev delete -y -O`, `ddev export-db`. Never raw
+  - Containers only (DDEV by default). `ddev composer`, `ddev drush`, `ddev delete -y -O`, `ddev export-db`. Never raw
     composer, drush or mysql on the host.
   - Never write a `$databases` block into `settings.php` — DDEV's `settings.ddev.php` owns it.
   - Never run `git commit` locally, and never push to a branch. Fork or issue-fork, then a

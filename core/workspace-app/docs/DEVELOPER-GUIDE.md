@@ -40,7 +40,7 @@ These are not style preferences. Each one has cost somebody a rebuild or an outa
 
 | | |
 | --- | --- |
-| **DDEV only** | `ddev composer`, `ddev drush`, `ddev delete -y -O`, `ddev export-db`. Never host composer, drush or mysql |
+| **Containers only (DDEV by default)** | `ddev composer`, `ddev drush`, `ddev delete -y -O`, `ddev export-db`. Never host composer, drush or mysql |
 | **Never write a `$databases` block into `settings.php`** | DDEV's `settings.ddev.php` owns it. `set_default_settings` only ensures the config sync directory |
 | **`ddev start` takes `-y`; `ddev stop` does not** | |
 | **Every `cmd-*-project.sh` carries `# workspace-name: <Human Name>`** | the smoke test enforces it and the Build dropdown shows it |

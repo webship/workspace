@@ -3,7 +3,7 @@
 AI skill definitions — a directory per skill, each holding `SKILL.md`. Installable into
 `~/.claude/skills`.
 
-Part of the **Webship Workspace** (`~/workspace`), a DDEV-only harness. The rules in the root
+Part of the **Webship Workspace** (`~/workspace`), a container-based harness (DDEV by default). The rules in the root
 `CLAUDE.md` apply here too; what follows is what is specific to this folder.
 
 ## What an item is here

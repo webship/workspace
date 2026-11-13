@@ -225,7 +225,7 @@ async function assistantReply(message, ctx, thread = null, { voice = false, avat
     // folder states its hard rules, and a project's CLAUDE.md is written by graphify.
     (() => {
       const lines = ['THE WORK DOCUMENTS — read the ones that cover what you are asked, before acting:',
-        `- ${ROOT}/CLAUDE.md — how the whole tooling fits together, and the hard rules (DDEV only, and the rest).`,
+        `- ${ROOT}/CLAUDE.md — how the whole tooling fits together, and the hard rules (containers only, and the rest).`,
         `- ${ROOT}/<workspace>/AGENTS.md — that folder explained to an agent: its commands, its rules, which`,
         '  agents and skills apply there. README.md beside it is the same folder for a person.',
         `- ${ROOT}/docs/ — the shared documents workspace (guides, datasheets, decks, PDFs).`,

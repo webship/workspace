@@ -2,7 +2,7 @@
 
 Images, screenshots and generated pictures: what a doc, a deck, an article or a site needs.
 
-This folder is part of the **Webship Workspace** (`~/workspace`), a DDEV-only harness.
+This folder is part of the **Webship Workspace** (`~/workspace`), a container-based harness (DDEV by default).
 
 ## Agent
 
@@ -35,4 +35,4 @@ The full architecture is in `products/workspace/CLAUDE.md`.
   it; never delete unasked.
 - **Never put a key, token or password in a file here**, and nothing personal in a picture that is
   shared: no emails, no passwords, no client names unless the work is for that client.
-- **DDEV only** for anything that runs a site; images here are files, not projects.
+- **Containers only (DDEV by default)** for anything that runs a site; images here are files, not projects.

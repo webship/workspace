@@ -2,7 +2,7 @@
 
 Talking AI characters, each a DDEV project built from the avatar app (a Node app, no database).
 
-This folder is part of the **Webship Workspace** (`~/workspace`), a DDEV-only harness. Run its `cmd-*.sh`
+This folder is part of the **Webship Workspace** (`~/workspace`), a container-based harness (DDEV by default). Run its `cmd-*.sh`
 from here.
 
 ## Agent
@@ -31,7 +31,7 @@ bash cmd-tools-screen.sh --help
 
 ## Hard rules
 
-- **DDEV only.** The app runs in its web container; never run `node` or `npm` for it on the host.
+- **Containers only (DDEV by default).** The app runs in its web container; never run `node` or `npm` for it on the host.
 - **A hostname belongs to one project.** A new avatar project drops any extra hostname the avatar app
   repository declares (`cmd-avatar-project.sh` does), so two avatars never answer on one address.
 - **ElevenLabs spends money.** Never link a key or design a voice without the person asking.

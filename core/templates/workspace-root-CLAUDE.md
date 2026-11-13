@@ -30,7 +30,7 @@ is no installer and nothing in `~/.bashrc`.
 
 ## Hard rules
 
-- **DDEV only** — `ddev composer`, `ddev drush`, `ddev delete -y -O`, `ddev export-db`. Never raw
+- **Containers only (DDEV by default)** — `ddev composer`, `ddev drush`, `ddev delete -y -O`, `ddev export-db`. Never raw
   composer/drush/mysql on the host.
 - **Never write a `$databases` block into `settings.php`** — DDEV's `settings.ddev.php` owns it.
 - `ddev start` accepts `-y`; **`ddev stop` does not**.
@@ -103,4 +103,4 @@ Before doing anything in this tree, place yourself:
 
 These rules hold at any depth. Being inside
 `dev/myproject/web/modules/custom/thing` does not make you outside the `dev`
-workspace, and DDEV-only still applies.
+workspace, and containers-only still applies.

@@ -3,7 +3,7 @@
 Testing builds, including the automated-testing stacks. A project here exists to be run
 against, not to be kept.
 
-Part of the **Webship Workspace** (`~/workspace`), a DDEV-only harness. The rules in the root
+Part of the **Webship Workspace** (`~/workspace`), a container-based harness (DDEV by default). The rules in the root
 `CLAUDE.md` apply here too; what follows is what is specific to this folder.
 
 ## The rule that matters here

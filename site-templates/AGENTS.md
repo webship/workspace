@@ -3,7 +3,7 @@
 Drupal CMS sites built from a **site template** — a `Site` recipe that decides what the site is
 before you have written anything: its content types, its editorial workflow, its front end.
 
-Part of the **Webship Workspace** (`~/workspace`), a DDEV-only harness. The rules in the root
+Part of the **Webship Workspace** (`~/workspace`), a container-based harness (DDEV by default). The rules in the root
 `CLAUDE.md` apply here too; what follows is what is specific to this folder.
 
 ## What a build does

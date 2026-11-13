@@ -274,7 +274,7 @@ Verify: the human reviews and merges. Then, and only then, sync to the live tree
 - **No release, tag or publish.** This change ships no version and touches no tag.
 - **`core/config/settings.yml` holds real credentials.** It is never synced, never committed, never echoed into a job log or a command line. Op 8 reads its `workspaces:` block by eye in the editor; it is not `cat`-ed into a transcript, not pasted into the PR, and not printed by any verification step. The grouping design deliberately keeps this file out of the change's edits (only drags write it, through `writeListBlock`, as they already did).
 - **Destructive actions confirm first and say what will be lost.** Op 4 removes a `group:` line temporarily and restores it in the same operation; that is the only removal, it is one line in a synced settings file, and it is stated before it is done.
-- **DDEV only.** Everything runs in the existing `ddev-workspace-web` container. No raw composer/drush/mysql on the host, no `$databases` block written anywhere.
+- **Containers only (DDEV by default).** Everything runs in the existing `ddev-workspace-web` container. No raw composer/drush/mysql on the host, no `$databases` block written anywhere.
 - **CI stays `allow_failure: false`; never mask a failing check.** Op 12 reports `cmd-smoke-test.sh`'s exit code as it is, and states explicitly what that smoke test does not cover rather than letting a green exit imply the dashboard was tested.
 
 **Specific to this change:**
