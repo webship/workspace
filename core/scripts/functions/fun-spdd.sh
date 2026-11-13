@@ -278,7 +278,7 @@ function spdd_analysis() {
 
   SPDD_QUERY="$(spdd_field "${spec}" topic)";
   {
-    echo "You are analysing a proposed change to the Webship Workspace, a DDEV-only Drupal";
+    echo "You are analysing a proposed change to the Webship Workspace, a container-based Drupal";
     echo "development harness. Produce ONLY a markdown analysis document — no preamble, no code.";
     echo "";
     echo "Write these sections, and nothing else:";

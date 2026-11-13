@@ -1319,7 +1319,7 @@ ${(() => {
 })()}
 ${body}
 <footer class="uk-section uk-section-xsmall uk-text-center uk-text-meta">
-  webship/workspace · DDEV-only tooling · <a href="/">workspace.ddev.site</a>
+  webship/workspace · container-based tooling · <a href="/">workspace.ddev.site</a>
 </footer>
 </div>
 </body>
@@ -7766,7 +7766,7 @@ Summarise what you changed and how to verify it`,
                   hx-on::after:request="window.UIkit && UIkit.modal('#editor-modal').hide()">
               <input type="hidden" name="workspace" value="${esc(key)}">
               <input class="uk-input uk-margin-small-bottom" name="name" placeholder="${esc(meta.noun)}-name" required pattern="[a-zA-Z0-9_\\-]+">
-              <textarea class="uk-textarea" name="description" rows="4" placeholder="Describe what this ${esc(meta.noun)} should do — e.g. 'reviews cmd-*.sh scripts for DDEV-only compliance and reports violations'" required></textarea>
+              <textarea class="uk-textarea" name="description" rows="4" placeholder="Describe what this ${esc(meta.noun)} should do — e.g. 'reviews cmd-*.sh scripts for containers-only compliance and reports violations'" required></textarea>
               <div class="uk-margin-small-top">
                 <button type="submit" class="uk-button uk-button-primary"><span uk-icon="icon: bolt; ratio: .8"></span> Generate</button>
               </div>

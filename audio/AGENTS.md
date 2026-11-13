@@ -2,7 +2,7 @@
 
 Voices and sounds — voiceovers, voice samples, narration takes, effects and music.
 
-This folder is part of the **Webship Workspace** (`~/workspace`), a DDEV-only harness.
+This folder is part of the **Webship Workspace** (`~/workspace`), a container-based harness (DDEV by default).
 
 ## Agent
 

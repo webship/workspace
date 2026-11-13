@@ -60,7 +60,7 @@ project → make default → all navigation links · save worklog/tips/rules · 
 
 ## Rules (see workspace-tips-and-rules.md for the full list)
 
-DDEV-only; DDEV owns settings.php DB config; `stop` has no `-y`; close stdin on spawned
+Containers only (DDEV by default); DDEV owns settings.php DB config; `stop` has no `-y`; close stdin on spawned
 ddev calls; no app restarts during jobs; `# workspace-name:` headers; only projects are
 "projects"; sanitized team configs; two-step confirms + audit log; smoke test before PRs;
 test with natural human phrasing; hierarchical hub domains are the default navigation.

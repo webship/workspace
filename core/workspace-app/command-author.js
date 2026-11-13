@@ -4,7 +4,7 @@
  * A workspace command is not a free-form script. It has a fixed shape — locate the tooling from its
  * own path, source the bootstrap, parse the workspace's settings file, declare its arguments through
  * the argparse heredoc, then call one function — and a set of rules that are not negotiable, because
- * breaking them breaks the machine rather than the script: DDEV only, no `$databases` block, no
+ * breaking them breaks the machine rather than the script: containers only, no `$databases` block, no
  * masked failures. An agent that has not been told these writes plausible bash that this workspace
  * cannot use.
  *
@@ -46,7 +46,7 @@ flags default to the string \`_none_\` and are tested \`[ ! "\${FLAG}" == '_none
 arrays back as a scalar and the extra values are lost silently.
 
 HARD RULES — these are not style:
-  * DDEV only. \`ddev composer\`, \`ddev drush\`, \`ddev exec\`, \`ddev export-db\`. Never raw composer,
+  * Containers only (DDEV by default). \`ddev composer\`, \`ddev drush\`, \`ddev exec\`, \`ddev export-db\`. Never raw composer,
     drush, npm or mysql on the host.
   * Never write a \`$databases\` block into settings.php — DDEV's settings.ddev.php owns it.
   * \`ddev start\` accepts \`-y\`; \`ddev stop\` does NOT.
@@ -73,7 +73,7 @@ arg file when one matches, so the same flags mean the same things across the wor
 
 /** Writing a new command's body into the scaffold that already exists. */
 function commandAuthorPrompt({ workspace, file, purpose, scaffoldPath }) {
-  return `You are writing a command for the Webship Workspace, a DDEV-only harness rooted at ${ROOT}.
+  return `You are writing a command for the Webship Workspace, a container-based harness (DDEV by default) rooted at ${ROOT}.
 
 The file ${scaffoldPath} has just been scaffolded and already carries the correct bootstrap chain.
 Read it first. Rewrite it so it does what is asked below, keeping every line of the bootstrap exactly
@@ -97,7 +97,7 @@ Output ONLY the complete contents of ${file}. No commentary, no code fences, no 
 
 /** Changing a command that already exists, to an instruction. */
 function commandEditPrompt({ workspace, file, instruction, fullPath }) {
-  return `You are changing a command in the Webship Workspace, a DDEV-only harness rooted at ${ROOT}.
+  return `You are changing a command in the Webship Workspace, a container-based harness (DDEV by default) rooted at ${ROOT}.
 
 The command is ${fullPath}. Read it first, and read the commands beside it.
 
