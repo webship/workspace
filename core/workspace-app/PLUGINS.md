@@ -40,7 +40,8 @@ the same shape, which is how one is developed before it gets a repository.
   "ddev": { "compose": ["ddev/docker-compose.upsun-cli.yaml"], "hostMounts": ["~/.upsun-cli"] },
   "themes": ["config/theme.upsun.yml"],
   "css": ["public/upsun.css"],
-  "features": ["features/upsun.feature"]              // webship-js scenarios, run by the dashboard's own suite
+  "features": ["features/upsun.feature"],             // webship-js scenarios, run by the dashboard's own suite
+  "ai": { "agents": ["agents/upsun-deployer.md"] }    // AI items: agents, skills, commands, prompts
 }
 ```
 
@@ -51,6 +52,14 @@ manifest names (or every one of its types), with `__WORKSPACE__` replaced by the
 compose files as `core/workspace-app/.ddev/docker-compose.plugin-<name>-<file>`; host mounts in a
 `host-mounts.txt` that `host-mounts.sh` reads; themes in `core/config/`. `hostInstall` runs with
 `--check` after an install and in full from `install.sh`.
+
+AI items land in the workspace folder of their kind, where the dashboard lists them like any other
+item and installs them into `~/.claude` from there: `ai.agents` (one `.md` each) in `ai-agents/`,
+`ai.skills` (one folder each, with its `SKILL.md`) in `ai-skills/`, `ai.commands` in `ai-commands/`,
+`ai.prompts` in `ai-prompts/`. A kind whose folder is not in this workspace is skipped, and the install
+says so. They are files a person edits in place, so the record keeps the hash of what was placed: a
+file that still is the plugin's copy is updated by the next `--install` and removed by `--uninstall`;
+one that was edited here, or that was already there under that name, is kept by both.
 
 Features land in `core/workspace-app/tests/features/plugins/<name>/`, so `ddev test-dashboard browser`
 runs them with the core's. A scenario that only holds when one of the plugin's settings is set says
@@ -269,6 +278,24 @@ move it in Settings → Workspaces); `--deactivate` takes it off, and the folder
 settings stay. `--uninstall` removes the commands and keeps the settings file and the docs. The bash
 functions the commands call still live in `core/scripts/functions` (and in `scripts.functions` of
 the plugin, placed under `core/scripts/plugins/<name>/functions/`).
+
+## A platform as a plugin
+
+A plugin for one platform (WordPress, Odoo, …) is a feature plugin whose pieces are all in the
+manifest: its builder and tools in `commands` (placed into the `sites` folders), their functions and
+argparse in `scripts`, its agents in `ai.agents`. Three names in its functions file are what the
+core's own tools look for, so the row menus of a project of that platform work like any other's:
+
+| Function | Called by | What it does |
+| --- | --- | --- |
+| `set_<name>_users` | `cmd-tools-add-users.sh <project> <name>` | Declares the default accounts (`users`, `user_<key>_name`, `_mail`, `_password`, `_role`). |
+| `add_<name>_users`, `cancel_<name>_users` | the same tools | Create and remove those accounts with the platform's own CLI; without them the Drupal way (drush) is used. |
+| `testing_configure_<name>` | `cmd-tools-testing.sh <project>` | Runs in the project once the testing stack is scaffolded: adds the platform's step pack to `package.json` and `cucumber.js`. Returns 0 and changes nothing for a project that is not its own. |
+
+`<name>` is the DDEV project type (`wordpress`, `typo3`, `magento2`, …): the Users menu of a project
+row reads it from the project's `.ddev/config.yaml`. A builder that carries the name of an example a
+workspace folder ships replaces it while the plugin is installed; `--uninstall` puts the folder's
+copy back. `@webship.co/workspace-wordpress` is the shape to copy.
 
 ## Hooks a feature plugin reaches for
 
