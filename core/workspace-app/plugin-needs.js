@@ -162,18 +162,18 @@ function dependents(name, st = state()) {
 
 const groupText = (anyOf) => (anyOf.length > 1 ? `one of ${anyOf.join(', ')}` : anyOf[0]);
 
-/** One need, as a person reads it. */
-function needText(n) {
-  if (n.metBy) return `${groupText(n.anyOf)} (met by ${n.metBy})`;
-  return `${groupText(n.anyOf)} (not here${n.anyOf.length > 1 ? `; ${n.pick} is the one added` : ''})`;
+/** One need, as a person reads it. A suggestion is never added, so it does not say which one would be. */
+function needText(n, kind = 'needs') {
+  if (n.metBy) return `${groupText(n.anyOf)} (${kind === 'needs' ? 'met by' : 'here:'} ${n.metBy})`;
+  return `${groupText(n.anyOf)} (not here${kind === 'needs' && n.anyOf.length > 1 ? `; ${n.pick} is the one added` : ''})`;
 }
 
 /** The `needs: … · suggests: …` line of a list or a card, or '' for a plugin that declares neither. */
 function summary(c) {
   if (!c) return '';
   const parts = [];
-  if (c.needs.length) parts.push(`needs: ${c.needs.map(needText).join(' · ')}`);
-  if (c.suggests.length) parts.push(`suggests: ${c.suggests.map(needText).join(' · ')}`);
+  if (c.needs.length) parts.push(`needs: ${c.needs.map((n) => needText(n)).join(' · ')}`);
+  if (c.suggests.length) parts.push(`suggests: ${c.suggests.map((n) => needText(n, 'suggests')).join(' · ')}`);
   if (c.problems.length) parts.push(`problem: ${c.problems.join('; ')}`);
   return parts.join('   ');
 }
@@ -196,7 +196,7 @@ if (require.main === module) {
     const c = check(name, st);
     if (!c) process.exit(1);
     for (const n of c.needs) process.stdout.write(`  ${name} needs ${needText(n)}\n`);
-    for (const n of c.suggests) process.stdout.write(`  ${name} suggests ${needText(n)}\n`);
+    for (const n of c.suggests) process.stdout.write(`  ${name} suggests ${needText(n, 'suggests')}\n`);
     for (const p of c.problems) process.stdout.write(`  ${name}: ${p}\n`);
   } else if (verb === 'dependents' && name) {
     for (const d of dependents(name, st)) process.stdout.write(`${d.name}\t${groupText(d.anyOf)}\n`);
