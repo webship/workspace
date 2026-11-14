@@ -34,6 +34,27 @@ function run(cmd, args, cwd, env = {}) {
   return r.status === 0;
 }
 
+const APP_PACKAGE = path.join('core', 'workspace-app', 'package.json');
+
+/**
+ * The dashboard's package.json after an update: the package's own, plus every dependency the
+ * workspace's copy has that the package's does not (the plugins required here, whatever their source:
+ * an npm range, github:owner/repo, a path). A dependency the core itself names takes the core's version.
+ */
+function mergeAppPackage(from, to) {
+  const next = JSON.parse(fs.readFileSync(from, 'utf8'));
+  let mine = {};
+  try { mine = JSON.parse(fs.readFileSync(to, 'utf8')); } catch (_) { return `${JSON.stringify(next, null, 2)}\n`; }
+  const named = new Set([...Object.keys(next.dependencies || {}), ...Object.keys(next.devDependencies || {})]);
+  for (const field of ['dependencies', 'devDependencies']) {
+    for (const [name, spec] of Object.entries(mine[field] || {})) {
+      if (named.has(name)) continue;
+      next[field] = { ...(next[field] || {}), [name]: spec };
+    }
+  }
+  return `${JSON.stringify(next, null, 2)}\n`;
+}
+
 /** Copy core/ into the workspace, skipping what belongs to a running install, never overwriting a settings file. */
 function copyCore(dest) {
   const SKIP = new Set(['node_modules', 'actions.log', 'package-lock.json']);
@@ -51,6 +72,9 @@ function copyCore(dest) {
       if (NEVER.test(relPath)) continue;
       if (KEEP_IF_PRESENT.test(relPath) && fs.existsSync(to)) continue;
       fs.mkdirSync(path.dirname(to), { recursive: true });
+      // The dashboard's package.json is the core's AND this machine's: `plugin require` wrote the
+      // plugins a person added into it. An update takes the core's file and keeps what was added.
+      if (relPath === APP_PACKAGE && fs.existsSync(to)) { fs.writeFileSync(to, mergeAppPackage(from, to)); continue; }
       fs.copyFileSync(from, to);
       fs.chmodSync(to, fs.statSync(from).mode & 0o777);
     }

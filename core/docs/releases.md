@@ -29,4 +29,4 @@ webship-workspace update ~/workspace
 cd ~/workspace/core/workspace-app && npm update
 ```
 
-`update` refreshes the core and keeps every settings file; `npm update` moves the installed plugins to their newest versions within the ranges in `package.json`.
+`update` refreshes the core, keeps every settings file and keeps the plugins you required in `core/workspace-app/package.json`; `npm update` moves the installed plugins to their newest versions within the ranges in `package.json`.
