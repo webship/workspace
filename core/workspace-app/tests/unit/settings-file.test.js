@@ -154,6 +154,39 @@ test('upsertSettingsValue rewrites a key in place and creates what a file lacks,
   assert.ok(require('js-yaml').load(text).google_drive.sources.test === 'test-reports', 'and it still parses');
 });
 
+test('upsertSettingsValue opens an empty flow map instead of writing the key a second time', () => {
+  const { upsertSettingsValue, upsertSettingsList } = require('../../settings-file');
+  const yaml = require('js-yaml');
+  const file = path.join(TMP, 'settings.yml');
+  // The lean template a new workspace starts from: no workspaces, no plugins.
+  fs.writeFileSync(file, fs.readFileSync(path.join(__dirname, '..', '..', '..', 'config', 'settings.template.yml'), 'utf8'));
+  assert.match(fs.readFileSync(file, 'utf8'), /^plugins: \{\}$/m, 'the template ships plugins as an empty map');
+  // What `plugins.sh --activate` writes for two plugins, one after the other.
+  for (const name of ['dev', 'wordpress']) {
+    upsertSettingsValue('settings.yml', `plugins.${name}.enabled`, true);
+    upsertSettingsValue('settings.yml', `plugins.${name}.module`, `@webship.co/workspace-${name}`);
+    upsertSettingsList('settings.yml', 'workspaces', [...(yaml.load(fs.readFileSync(file, 'utf8')).workspaces || []), name]);
+  }
+  const text = fs.readFileSync(file, 'utf8');
+  assert.strictEqual((text.match(/^plugins:/gm) || []).length, 1, 'one plugins block');
+  const settings = yaml.load(text);
+  assert.deepStrictEqual(Object.keys(settings.plugins).sort(), ['dev', 'wordpress']);
+  assert.strictEqual(settings.plugins.wordpress.enabled, true);
+  assert.strictEqual(settings.plugins.dev.module, '@webship.co/workspace-dev');
+  assert.deepStrictEqual(settings.workspaces, ['dev', 'wordpress'], 'the second activation still read the first');
+  // The bash tooling reads the same list (the smoke test walks it): a folder name is written bare, since
+  // parse_yaml keeps the quotes of a quoted item.
+  assert.match(text, /^workspaces:\n  - dev\n  - wordpress$/m);
+  const bash = require('child_process').spawnSync('bash', ['-c', `source ${path.join(__dirname, '..', '..', '..', 'scripts', 'libs', 'bash-yaml.sh')} ; eval $(parse_yaml ${file}) ; printf '%s,' "\${workspaces[@]}"`], { encoding: 'utf8' });
+  assert.strictEqual(bash.stdout, 'dev,wordpress,');
+  upsertSettingsList('settings.yml', 'odd', ['*.md', 'true', '12', 'two words', 'plain-word']);
+  assert.match(fs.readFileSync(file, 'utf8'), /odd:\n  - "\*\.md"\n  - "true"\n  - "12"\n  - "two words"\n  - plain-word\n/);
+  assert.deepStrictEqual(yaml.load(fs.readFileSync(file, 'utf8')).odd, ['*.md', 'true', '12', 'two words', 'plain-word']);
+  fs.writeFileSync(file, 'a: 1\nplugins: {}   # none yet\n');
+  upsertSettingsValue('settings.yml', 'plugins.x.enabled', true);
+  assert.strictEqual(fs.readFileSync(file, 'utf8'), 'a: 1\nplugins:   # none yet\n  x:\n    enabled: true\n', 'the comment on the line stays');
+});
+
 test('upsertSettingsList replaces a list in place, creates one that is missing, and quotes what YAML would misread', () => {
   const { upsertSettingsList } = require('../../settings-file');
   const file = path.join(TMP, 'settings.yml');

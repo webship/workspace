@@ -344,7 +344,12 @@ function upsertSettingsValue(file, dotted, value) {
       const m = lines[i].match(/^(\s*)(\S.*)$/);
       if (!m || m[2].startsWith('#')) continue;
       if (m[1].length < indent) break;                        // left the parent's block
-      if (m[1].length === indent && m[2].replace(/\s+#.*$/, '').trim() === `${parts[depth]}:`) { found = i; break; }
+      const bare = m[2].replace(/\s+#.*$/, '').trim();
+      if (m[1].length !== indent) continue;
+      if (bare === `${parts[depth]}:`) { found = i; break; }
+      // An empty map in flow style (`plugins: {}`, the way the lean template ships it) is the parent too:
+      // open it, or the key would be written again as a second block and the file would no longer parse.
+      if (bare === `${parts[depth]}: {}`) { lines[i] = lines[i].replace(/:\s*\{\}/, ':'); found = i; break; }
     }
     if (found < 0) break;
     parentLine = found;
@@ -362,8 +367,8 @@ function upsertSettingsValue(file, dotted, value) {
 
 /**
  * Set a dotted key to a LIST, in place: the existing items under it are replaced and the rest of the file is
- * left alone; a key (or the path to it) the file lacks is created. Items are always quoted, since a bare *
- * starts a YAML alias.
+ * left alone; a key (or the path to it) the file lacks is created. An item is quoted unless it is a plain
+ * word, since a bare * starts a YAML alias and a bare `true` is not a string.
  */
 function upsertSettingsList(file, dotted, items) {
   const full = path.join(CONFIG_DIR, file);
@@ -383,7 +388,10 @@ function upsertSettingsList(file, dotted, items) {
     if (found < 0) break;
     parentLine = found;
   }
-  const quote = (v) => JSON.stringify(String(v));
+  // A plain word (a folder name: dev, ai-agents) is written bare: the bash tooling reads this file too
+  // (parse_yaml), and it keeps the quotes of a quoted item, so `- "dev"` is a folder named "dev" there.
+  // Anything YAML could read as something else (a glob, a number, true, a word with a space) is quoted.
+  const quote = (v) => (/^[A-Za-z_][A-Za-z0-9_.\/-]*$/.test(String(v)) && !/^(true|false|null|yes|no|on|off)$/i.test(String(v)) ? String(v) : JSON.stringify(String(v)));
   if (depth === parts.length) {
     // The key exists: drop its old items (the dash lines straight after it) and write the new ones.
     const keyIndent = (lines[parentLine].match(/^\s*/) || [''])[0].length;
