@@ -2973,6 +2973,8 @@ function emptyWorkspaceHtml() {
       <pre class="uk-background-muted uk-padding-small">webship-workspace plugin require dev
 webship-workspace plugin activate dev
 webship-workspace plugin install dev</pre>
+      <p class="uk-text-meta">A plugin that needs another one says so when you require it (a builder needs a sites folder, its agents the AI Agents folder):
+        <code>webship-workspace plugin activate wordpress --with-needs</code> adds what is missing first, and the Activate button asks.</p>
       <ul class="uk-list uk-list-collapse">${families}</ul>
       <p class="uk-text-meta"><a href="/settings/plugins">Open the catalogue</a> · the full list: <code>webship-workspace catalog</code></p>
     </div>`;

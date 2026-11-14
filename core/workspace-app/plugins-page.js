@@ -112,7 +112,8 @@ function pluginsPageHtml() {
 function needsHtml(p) {
   const w = p.wants;
   if (!w) return '';
-  const item = (n) => `<span class="plugin-need ${n.metBy ? 'is-met' : 'is-unmet'}">${esc(needs.groupText(n.anyOf))} <span class="${n.metBy ? 'uk-text-success' : 'uk-text-warning'}">${n.metBy ? `✓ ${esc(n.metBy)}` : 'not here'}</span></span>`;
+  // One name: a tick is enough. Several: the tick names the one that is here.
+  const item = (n) => `<span class="plugin-need ${n.metBy ? 'is-met' : 'is-unmet'}">${esc(needs.groupText(n.anyOf))} <span class="${n.metBy ? 'uk-text-success' : 'uk-text-warning'}">${n.metBy ? `✓${n.anyOf.length > 1 ? ` ${esc(n.metBy)}` : ''}` : 'not here'}</span></span>`;
   const lines = [];
   if (w.needs.length) lines.push(`<p class="uk-text-small uk-margin-remove plugin-needs"><strong>Needs:</strong> ${w.needs.map(item).join(' · ')}</p>`);
   if (w.suggests.length) lines.push(`<p class="uk-text-small uk-margin-remove plugin-suggests"><strong>Suggests:</strong> ${w.suggests.map(item).join(' · ')}</p>`);
