@@ -118,6 +118,26 @@ function testing_stack() {
   printf 'none';
 }
 
+# The testing stack is the same for every project; what is tested is not. A plugin that knows a
+# platform (WordPress, Odoo, …) declares testing_configure_<plugin> in its functions file, and
+# testing_configure calls every one of them, in the project folder, once the stack is scaffolded:
+#
+#   function testing_configure_wordpress() {
+#     local project_path="$1";
+#     [ -f "${project_path}/wp-config.php" ] || return 0 ;   # not mine: say nothing, change nothing
+#     …add the step pack to package.json and cucumber.js…
+#   }
+#
+# A hook answers for the projects it recognises and returns 0 for every other one. One that fails
+# is reported and the setup goes on: the stack itself is in place either way.
+function testing_configure_plugins() {
+  local project_path="$1" hook;
+  for hook in $(compgen -A function testing_configure_ | grep -v '^testing_configure_plugins$' | LC_ALL=C sort) ; do
+    ( cd "${project_path}" && "${hook}" "${project_path}" ) \
+      || echo "  ${hook} could not finish — the testing stack is set up without it." ;
+  done
+}
+
 # npm or yarn, decided by what the project actually carries rather than by preference: running
 # `npm run` in a yarn workspace re-resolves the tree and can leave it unbuildable.
 function testing_package_runner() {
@@ -177,6 +197,10 @@ function testing_configure() {
       ddev restart || return 1 ;
       ;;
   esac
+
+  # What a platform adds to the stack: its step pack in package.json and cucumber.js, its accounts in
+  # the users registry. Before the dependencies are installed, so one install brings everything.
+  testing_configure_plugins "${project_path}" ;
 
   runner="$(testing_package_runner "${project_path}")";
   if [ -f "${project_path}/package.json" ] ; then

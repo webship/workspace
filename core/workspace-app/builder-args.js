@@ -20,7 +20,8 @@
  *
  * So the order is the order the script itself runs: an inline heredoc if it has
  * one, otherwise the first `source ${WORKSPACE_SCRIPTS}/args/…` line — a literal
- * file name, or `arg-${distribution_name}.sh` resolved from the script.
+ * file name, or `arg-${distribution_name}.sh` resolved from the script. A plugin's
+ * builder sources `${WORKSPACE_SCRIPTS}/plugins/<plugin>/args/…`, read the same way.
  */
 
 const fs = require('fs');
@@ -75,15 +76,18 @@ function parseArgparseText(argSrc) {
  */
 function argSourceOf(src, root) {
   if (/argparse "\$@"/.test(src) && src.includes('parser.add_argument(')) return { kind: 'inline' };
-  const m = src.match(/^[ \t]*source[ \t]+\$\{?WORKSPACE_SCRIPTS\}?\/args\/(arg-[A-Za-z0-9_${}.-]+\.sh)/m);
+  // A plugin's command sources its args from where the installer put them:
+  // ${WORKSPACE_SCRIPTS}/plugins/<plugin>/args/arg-<name>.sh.
+  const m = src.match(/^[ \t]*source[ \t]+\$\{?WORKSPACE_SCRIPTS\}?\/((?:plugins\/[a-z0-9-]+\/)?)args\/(arg-[A-Za-z0-9_${}.-]+\.sh)/m);
   if (!m) return null;
-  let name = m[1];
+  const from = m[1];
+  let name = m[2];
   if (name.includes('$')) {
     const vars = scriptAssignments(src);
     name = expandDefaults(name, vars);
     if (name.includes('$') || /arg-\.sh$/.test(name)) return null;
   }
-  return { kind: 'file', file: path.join(root, 'core', 'scripts', 'args', name) };
+  return { kind: 'file', file: path.join(root, 'core', 'scripts', from, 'args', name) };
 }
 
 /**

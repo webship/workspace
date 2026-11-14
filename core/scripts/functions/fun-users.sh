@@ -25,6 +25,14 @@ function load_distribution_users () {
 # Add users to a project.
 function add_users () {
 
+  # A platform that is not Drupal creates its accounts with its own CLI: add_<distribution>_users,
+  # from the plugin of that platform, next to its set_<distribution>_users list.
+  if declare -f add_${distribution_name}_users > /dev/null ; then
+    load_distribution_users ;
+    add_${distribution_name}_users ;
+    return $? ;
+  fi
+
   # Add Drush if it was not in the system.
   add_drush ;
 
@@ -73,6 +81,13 @@ function add_users () {
 
 # Cancle users from a project and delete their content.
 function cancel_users () {
+
+  # The same door for a platform that is not Drupal: cancel_<distribution>_users, from its plugin.
+  if declare -f cancel_${distribution_name}_users > /dev/null ; then
+    load_distribution_users ;
+    cancel_${distribution_name}_users ;
+    return $? ;
+  fi
 
   # Add Drush if it was not in the system.
   add_drush ;
