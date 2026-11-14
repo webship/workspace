@@ -90,7 +90,8 @@ test('needs and suggests are one shape: a name, or a list of names when any one 
   assert.deepStrictEqual(normalize(undefined), { groups: [], problems: [] });
   assert.deepStrictEqual(normalize([['dev', 'test', 'dev'], 'ai-agents']).groups, [['dev', 'test'], ['ai-agents']]);
   assert.strictEqual(normalize('dev').problems.length, 1, 'a bare string is not a list');
-  assert.strictEqual(normalize({ plugins: ['dev'] }).problems.length, 1, 'an object is not a list');
+  assert.deepStrictEqual(normalize({ plugins: ['dev'] }), { groups: [['dev']], problems: [] }, 'an object holds the plugins under plugins (and commands beside them)');
+  assert.strictEqual(normalize({ plugin: ['dev'] }).problems.length, 1, 'a key that is not a kind of need is said');
   const bad = normalize(['Dev!', [], ['ok', 7], 'self'], 'self');
   assert.deepStrictEqual(bad.groups, []);
   assert.strictEqual(bad.problems.length, 4);

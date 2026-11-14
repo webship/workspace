@@ -20,6 +20,7 @@ const path = require('path');
 const { esc } = require('./html');
 const { installedPlugins, needsInstall } = require('./plugin-manifest');
 const needs = require('./plugin-needs');
+const commandCheck = require('./command-check');
 const { status, RECORD } = require('./plugin-install');
 const { pluginConfigs, loadedPlugins } = require('./plugin-loader');
 const { ROOT, CONFIG_DIR } = require('./workspaces');
@@ -53,7 +54,7 @@ function rows() {
     const step = stepOf(p, configs[p.name], placed[p.name]);
     const wants = needs.check(p.name, st);
     return { ...p, step, loaded: loaded.has(p.name), placed: placed[p.name] || {}, config: configs[p.name] || {},
-      wants, needsLine: needs.summary(wants), neededBy: [...new Set(needs.dependents(p.name, st).map((d) => d.name))] };
+      wants, commands: commandCheck.checkOwner(p.name, p.manifest).rows, needsLine: needs.summary(wants), neededBy: [...new Set(needs.dependents(p.name, st).map((d) => d.name))] };
   });
 }
 
@@ -85,7 +86,7 @@ function pluginsPageHtml() {
           <span class="plugin-steps">${steps}</span>
         </div>
         <p class="uk-text-meta uk-margin-small">${esc(p.description || '')}</p>
-        ${needsHtml(p)}
+        ${needsHtml(p)}${commandsLineHtml(p.commands)}
         ${p.step === 1 && !p.loaded ? '<p class="uk-text-warning uk-text-small">Activated, but not loaded yet: the dashboard loads plugins when it starts. Install restarts it.</p>' : ''}
         ${p.placed.missing && p.placed.missing.length ? `<p class="uk-text-warning uk-text-small">${p.placed.missing.length} placed file(s) are missing — Reinstall puts them back.</p>` : ''}
         <div class="uk-margin-small-top plugin-buttons">${next} ${more}</div>
@@ -105,6 +106,7 @@ function pluginsPageHtml() {
       <div class="plugin-cards">${cards || '<p class="uk-text-meta">No plugin packages yet. Pick one from the catalogue below, or require one above.</p>'}</div>
       <p class="uk-text-meta uk-margin-small-top">What each install placed is recorded in <code>${esc(path.relative(ROOT, RECORD))}</code>.</p>
     </section>
+    ${commandsSectionHtml()}
     ${catalogHtml(new Set(list.map((p) => p.module)), new Map(list.filter((p) => p.needsLine).map((p) => [p.module, p.needsLine])))}`;
 }
 
@@ -120,6 +122,40 @@ function needsHtml(p) {
   if (w.problems.length) lines.push(`<p class="uk-text-danger uk-text-small uk-margin-remove plugin-needs-problem">${esc(w.problems.join('; '))}</p>`);
   if ((p.neededBy || []).length) lines.push(`<p class="uk-text-small uk-margin-remove plugin-needed-by"><strong>Needed by:</strong> ${esc(p.neededBy.join(', '))} — it cannot be deactivated or uninstalled while they are in use.</p>`);
   return lines.join('');
+}
+
+const commandLabel = (r) => `${r.anyOf.length > 1 ? `one of ${r.anyOf.join(', ')}` : r.anyOf[0]}${r.where === 'host' ? '' : ` (${r.where})`}`;
+
+/** One command as the card and the table show it: found with its version, missing with how to install it, or not checked from here. */
+function commandStateHtml(r) {
+  if (r.state === 'found') return `<span class="uk-text-success" title="${esc(r.path)}">✓${r.version ? ` ${esc(r.version)}` : ''}</span>`;
+  if (r.state === 'unchecked') return `<span class="uk-text-meta" title="${esc(r.why)}">not checked</span>`;
+  return `<span class="${r.kind === 'needs' ? 'uk-text-danger' : 'uk-text-warning'}" title="${esc(r.hint)}">missing</span>`;
+}
+
+/** The commands a plugin declares, on its card: one line, and how to install what is missing. */
+function commandsLineHtml(rows = []) {
+  if (!rows.length) return '';
+  const missing = rows.filter((r) => r.state === 'missing');
+  return `<p class="uk-text-small uk-margin-remove plugin-commands"><strong>Commands:</strong> ${rows.map((r) => `<span class="plugin-command is-${r.state}">${esc(commandLabel(r))} ${commandStateHtml(r)}</span>`).join(' · ')}</p>${
+    missing.map((r) => `<p class="uk-text-small uk-margin-remove plugin-command-hint ${r.kind === 'needs' ? 'uk-text-danger' : 'uk-text-warning'}">${esc(r.anyOf[0])} is not on this machine${r.kind === 'needs' ? '' : ' (a part of the plugin uses it)'}. Install it yourself — ${esc(r.hint)}.</p>`).join('')}`;
+}
+
+/** The commands the core needs on this machine: what `webship-workspace doctor` prints, as a table. Nothing here installs anything. */
+function commandsSectionHtml() {
+  const core = commandCheck.checkCore();
+  const row = (r) => `<tr class="command-row is-${r.state}"><td><code>${esc(commandLabel(r))}</code></td><td>${r.kind === 'needs' ? 'needed' : 'a part uses it'}</td><td>${commandStateHtml(r)}</td><td class="uk-text-meta">${r.state === 'missing' ? `Install it yourself — ${esc(r.hint)}` : esc(r.state === 'unchecked' ? r.why : r.for)}</td></tr>`;
+  const missing = core.rows.filter((r) => r.state === 'missing');
+  return `
+    <section class="settings-group plugin-commands-section">
+      <h2 class="settings-group-head">Commands on this machine</h2>
+      <p class="uk-text-meta">What the core calls, and whether it is here: the same as <code>webship-workspace doctor</code> (or <code>bash core/scripts/plugins.sh --check</code>), which also covers the host when the dashboard runs in its container. A plugin's own commands are on its card above. Nothing is installed for you.</p>
+      ${missing.length ? `<p class="${missing.some((r) => r.kind === 'needs') ? 'uk-text-danger' : 'uk-text-warning'} uk-text-small plugin-commands-missing">Missing: ${esc(missing.map(commandLabel).join(', '))}.</p>` : ''}
+      <table class="uk-table uk-table-small uk-table-divider plugin-commands-table">
+        <thead><tr><th>Command</th><th></th><th>Here</th><th>Used for</th></tr></thead>
+        <tbody>${core.rows.map(row).join('')}</tbody>
+      </table>
+    </section>`;
 }
 
 /** The catalogue: every plugin a person can add, by family; what is already required is marked, with what it needs. */
@@ -146,4 +182,4 @@ function catalogHtml(have = new Set(), wants = new Map()) {
     </section>`;
 }
 
-module.exports = { pluginsPageHtml, catalogHtml, needsHtml, rows, stepOf, needsInstall, STEPS };
+module.exports = { pluginsPageHtml, catalogHtml, needsHtml, commandsLineHtml, commandsSectionHtml, rows, stepOf, needsInstall, STEPS };

@@ -4,10 +4,12 @@
  *
  *   webship-workspace init [dir]              make a workspace at dir (default ~/workspace): the core, an
  *                                             empty settings file, the dashboard installed and started
- *   webship-workspace plugin <verb> <name>    require | activate | install | configure | deactivate | uninstall | list
+ *   webship-workspace plugin <verb> <name>    require | activate | install | configure | deactivate | uninstall | list | check
  *                                             add --with-needs to require, activate or install and the plugins
  *                                             it needs are added first, in the same run
  *   webship-workspace catalog                 the plugins you can add, by family
+ *   webship-workspace doctor [dir]            the commands the core and the plugins need on this machine: found,
+ *                                             with the version, or missing, with how to install it (it installs nothing)
  *   webship-workspace update [dir]            refresh the core of an existing workspace from this package
  *
  * The core ships empty: no workspace folders, no plugins. Everything is added later, one npm package
@@ -110,10 +112,30 @@ function catalogText() {
   return lines.join('\n');
 }
 
+/**
+ * The commands the core needs on this machine (core/scripts/needs.json), and those of the plugins of the
+ * workspace at `root` when its dashboard is installed. Reports; installs nothing. True when nothing needed is missing.
+ */
+function doctor(root, { only = 'all', quiet = false } = {}) {
+  const here = root && fs.existsSync(path.join(root, 'core', 'workspace-app', 'command-check.js'));
+  const check = require(here ? path.join(root, 'core', 'workspace-app', 'command-check.js') : path.join(CORE_SRC, 'workspace-app', 'command-check.js'));
+  const reports = [check.checkCore()];
+  if (only === 'all' && here) { try { reports.push(...check.checkPlugins()); } catch (_) { /* the dashboard is not installed yet: the core alone */ } }
+  if (quiet) {
+    const text = check.missingText(reports);
+    if (text) { say('  commands this machine does not have (nothing is installed for you; `webship-workspace doctor` lists them all):'); say(text.split('\n').map((l) => `  ${l}`).join('\n')); }
+  } else {
+    say(check.reportText(reports));
+  }
+  return check.missingNeeded(reports).length === 0;
+}
+
 function init(dirArg, { update = false } = {}) {
   const dest = path.resolve(dirArg || process.env.WEBSHIP_WORKSPACE_DIR || path.join(os.homedir(), 'workspace'));
   fs.mkdirSync(dest, { recursive: true });
   say(`${update ? 'Updating' : 'Making'} the Webship Workspace at ${dest}`);
+  // Said before anything starts: what the core calls and this machine does not have.
+  doctor(null, { only: 'core', quiet: true });
   copyCore(dest);
   const wroteSettings = writeSettings(dest);
   say(wroteSettings ? '  core/config/settings.yml written (empty: no workspaces, no plugins yet)' : '  core/config/settings.yml kept as it is');
@@ -138,7 +160,7 @@ function init(dirArg, { update = false } = {}) {
 }
 
 function plugin(verb, name, flags = []) {
-  const verbs = ['require', 'activate', 'install', 'configure', 'deactivate', 'uninstall', 'list', 'restart'];
+  const verbs = ['require', 'activate', 'install', 'configure', 'deactivate', 'uninstall', 'list', 'check', 'restart'];
   if (!verbs.includes(verb)) fail(`plugin <${verbs.join('|')}> [name]`);
   const root = process.env.WORKSPACE_ROOT || path.resolve(process.env.WEBSHIP_WORKSPACE_DIR || path.join(os.homedir(), 'workspace'));
   const script = path.join(root, 'core', 'scripts', 'plugins.sh');
@@ -158,7 +180,8 @@ switch (cmd) {
   case 'update': init(rest[0], { update: true }); break;
   case 'plugin': plugin(rest[0], rest.slice(1).find((a) => !a.startsWith('--')), rest.slice(1).filter((a) => a.startsWith('--'))); break;
   case 'catalog': say(catalogText()); break;
+  case 'doctor': process.exit(doctor(path.resolve(rest[0] || process.env.WORKSPACE_ROOT || process.env.WEBSHIP_WORKSPACE_DIR || path.join(os.homedir(), 'workspace'))) ? 0 : 1); break;
   default:
-    say(fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 16).map((l) => l.replace(/^ \* ?/, '')).join('\n'));
+    say(fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 18).map((l) => l.replace(/^ \* ?/, '')).join('\n'));
     process.exit(cmd ? 1 : 0);
 }

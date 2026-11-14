@@ -25,6 +25,8 @@ webship-workspace plugin activate wordpress --with-needs   # dev and ai-agents a
 webship-workspace plugin install wordpress
 ```
 
+A plugin can also need commands on the machine (a provider's CLI, `curl`). `webship-workspace doctor` lists what the core and every plugin call, each one found with its version or missing with how to install it; `webship-workspace plugin check <name>` does it for one plugin. It reports only: nothing is installed for you.
+
 Without `--with-needs` a terminal asks first, and a no changes nothing and prints the commands to run yourself. On **Settings → Plugins** the Activate button asks the same question. A plugin another one needs cannot be deactivated or uninstalled until that one is; `bash core/scripts/plugins.sh --list` shows `needs:` and `needed by:` for each.
  `deactivate` turns one off and keeps its files; `uninstall` removes what install placed. `bash core/scripts/plugins.sh --list` says the step each plugin is at.
 

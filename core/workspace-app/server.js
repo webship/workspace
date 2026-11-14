@@ -8168,6 +8168,15 @@ process.on('uncaughtExceptionMonitor', (err) => {
 });
 
 server.listen(PORT, () => {
+  // What the core and the activated plugins call and this machine does not have: said once, at the start.
+  setImmediate(() => {
+    try {
+      const check = require('./command-check');
+      check.setLocalOnly(true);
+      const text = check.missingText([check.checkCore(), ...check.checkPlugins()]);
+      if (text) console.warn(`Commands this machine does not have (Settings → Plugins lists them; nothing is installed for you):\n${text}`);
+    } catch (err) { console.warn('command check skipped:', err.message); }
+  });
   console.log(`workspace-dashboard (node:http + HTMX) listening on :${PORT}`);
   eventLog.logEvent('info', 'app.started', { version: appVersion(), pid: process.pid, port: PORT });
   // Ask once at boot, so the FIRST page render already knows whether the Web IDE is up.
