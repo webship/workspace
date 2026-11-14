@@ -59,8 +59,9 @@ AI items land in the workspace folder of their kind, where the dashboard lists t
 item and installs them into `~/.claude` from there (a plugin that ships agents says `"needs": ["ai-agents"]`,
 so the folder is there): `ai.agents` (one `.md` each) in `ai-agents/`,
 `ai.skills` (one folder each, with its `SKILL.md`) in `ai-skills/`, `ai.commands` in `ai-commands/`,
-`ai.prompts` in `ai-prompts/`. A kind whose folder is not in this workspace is skipped, and the install
-says so. They are files a person edits in place, so the record keeps the hash of what was placed: a
+`ai.prompts` in `ai-prompts/`. A kind whose folder is not a workspace here (not on `workspaces:`) is
+skipped, and the install says so; the items are placed when that folder is installed or activated, with
+no second step for the plugin. They are files a person edits in place, so the record keeps the hash of what was placed: a
 file that still is the plugin's copy is updated by the next `--install` and removed by `--uninstall`;
 one that was edited here, or that was already there under that name, is kept by both.
 
@@ -146,8 +147,12 @@ configured — it is said, each time, until it is there. From the host the dashb
 asked through `docker exec`; from inside the container the host cannot be looked at, and the row says
 to run `webship-workspace doctor` there.
 
-Installing a workspace folder also places, into it, the commands and AI items of the plugins already
-installed that go there, so the order plugins were added in does not matter. Declare only what is
+What a plugin places into workspace folders — its `cmd-*.sh` and its AI items — goes only into folders
+that are active here (on `workspaces:`), and follows that list: installing or activating a folder
+places, into it, what the plugins already installed put there, so the order plugins were added in
+does not matter; deactivating or uninstalling a folder takes those files out of it (the folder and
+its own content stay). `--uninstall` of the plugin removes them all and its record in
+`core/config/plugins.installed.yml`; an AI item a person edited stays. Declare only what is
 true: a need is something the plugin cannot do its job without.
 
 Everything stays HTMX + UIKit: a plugin serves server-rendered fragments and wires them with

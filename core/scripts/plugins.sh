@@ -236,6 +236,8 @@ case "${verb}" in
     set_plugin_setting "${name}" enabled true ;
     [ -n "${module}" ] && set_plugin_setting "${name}" module "${module}" ;
     set_workspaces_list add "$(plugin_workspace_key "${name}")" ;
+    # A folder that is a workspace from now on gets what the installed plugins place in folders.
+    [ -n "$(plugin_workspace_key "${name}")" ] && ( cd "${APP}" && node plugin-install.js reach "${name}" 2>/dev/null ) ;
     echo "Activated: plugins.${name} in core/config/settings.yml. Next: --install ${name}." ;
     # What was added on the way is code the dashboard has not loaded yet.
     [ -n "${added_needs}" ] && restart_app ;
@@ -246,6 +248,8 @@ case "${verb}" in
     refuse_if_needed deactivated || exit 1 ;
     set_plugin_setting "${name}" enabled false ;
     set_workspaces_list remove "$(plugin_workspace_key "${name}")" ;
+    # A folder that is no longer a workspace here keeps its content, not the other plugins' commands and items.
+    [ -n "$(plugin_workspace_key "${name}")" ] && ( cd "${APP}" && node plugin-install.js reach "${name}" 2>/dev/null ) ;
     echo "Deactivated: plugins.${name}.enabled: false. Its files stay; --uninstall removes them." ;
     restart_app ;;
 
@@ -273,10 +277,13 @@ case "${verb}" in
   --uninstall)
     [ -n "${name}" ] || { echo "Which plugin?" ; exit 1 ; } ;
     refuse_if_needed uninstalled || exit 1 ;
-    out="$( cd "${APP}" && node plugin-install.js uninstall "${name}" 2>&1 )" || { echo "${out}" ; exit 1 ; } ;
+    # Off the list first, so nothing another plugin places is put back into a folder that is going.
+    key="$(plugin_workspace_key "${name}")" ;
+    set_workspaces_list remove "${key}" ;
+    out="$( cd "${APP}" && node plugin-install.js uninstall "${name}" 2>&1 )" || { echo "${out}" ; set_workspaces_list add "${key}" > /dev/null ; exit 1 ; } ;
     echo "${out}" | grep -v '^RESTART_' ;
     set_plugin_setting "${name}" enabled false ;
-    set_workspaces_list remove "$(plugin_workspace_key "${name}")" ;
+    [ -n "${key}" ] && ( cd "${APP}" && node plugin-install.js reach "${name}" 2>/dev/null ) ;
     echo "Uninstalled and deactivated. The package stays in node_modules: npm uninstall <module> in core/workspace-app removes it." ;
     restart_app ;;
 
