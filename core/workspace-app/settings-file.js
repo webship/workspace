@@ -344,7 +344,12 @@ function upsertSettingsValue(file, dotted, value) {
       const m = lines[i].match(/^(\s*)(\S.*)$/);
       if (!m || m[2].startsWith('#')) continue;
       if (m[1].length < indent) break;                        // left the parent's block
-      if (m[1].length === indent && m[2].replace(/\s+#.*$/, '').trim() === `${parts[depth]}:`) { found = i; break; }
+      const bare = m[2].replace(/\s+#.*$/, '').trim();
+      if (m[1].length !== indent) continue;
+      if (bare === `${parts[depth]}:`) { found = i; break; }
+      // An empty map in flow style (`plugins: {}`, the way the lean template ships it) is the parent too:
+      // open it, or the key would be written again as a second block and the file would no longer parse.
+      if (bare === `${parts[depth]}: {}`) { lines[i] = lines[i].replace(/:\s*\{\}/, ':'); found = i; break; }
     }
     if (found < 0) break;
     parentLine = found;
