@@ -25,6 +25,11 @@
  *   features            -> core/workspace-app/tests/features/plugins/<name>/  (webship-js runs them)
  *   ai.agents|skills|   -> ai-agents/ | ai-skills/ | ai-commands/ | ai-prompts/, when that workspace folder is
  *   commands|prompts       there. A file a person edited (or already had) is kept, at install and at uninstall.
+ *
+ * What a plugin `needs` from another plugin (plugin-needs.js) is checked first: an install whose needs are
+ * not met places nothing, and an uninstall another installed plugin relies on removes nothing. A plugin
+ * that is a workspace folder arriving later is reached too: the commands and AI items of the plugins
+ * already installed are placed into it.
  */
 
 const fs = require('fs');
@@ -33,6 +38,7 @@ const crypto = require('crypto');
 const yaml = require('js-yaml');
 
 const { pluginByName, installedPlugins } = require('./plugin-manifest');
+const needs = require('./plugin-needs');
 // The workspace root as the dashboard knows it — NOT __dirname's parents: inside the container the
 // app runs at /var/www/html while the tree is bind-mounted at its own absolute path, and the record
 // written from one side must be the one read from the other.
@@ -191,10 +197,20 @@ function placeSettings(plugin, placed) {
   return { restart: false };
 }
 
-function install(name) {
+/** The refusal of an install whose needs are not met: what is missing, and the one command that adds it. */
+function unmetError(c) {
+  const lines = [...c.problems.map((p) => `${c.name}: ${p}`), ...c.unmet.map((n) => `${c.name} needs ${needs.needText(n)}`)];
+  const err = new Error(`${lines.join('\n')}\nNothing was placed. Add what it needs first, or all at once:\n  bash core/scripts/plugins.sh --install ${c.name} --with-needs`);
+  err.unmet = c.unmet;
+  return err;
+}
+
+function install(name, { nested = false } = {}) {
   const plugin = pluginByName(name);
   if (!plugin) throw new Error(`no plugin named '${name}' is installed in core/workspace-app (npm install it first)`);
   const m = plugin.manifest;
+  const wants = needs.check(name);
+  if (wants.unmet.length || wants.problems.length) throw unmetError(wants);
   const record = readRecord();
   const before = new Set((record[name] && record[name].placed) || []);
   const placed = [];
@@ -269,14 +285,39 @@ function install(name) {
   for (const old of before) if (!placed.includes(old)) removePlaced(old, (record[name] && record[name].hashes) || {});
   record[name] = { module: plugin.module, version: plugin.version, installed: new Date().toISOString(), placed };
   if (Object.keys(hashes).length) record[name].hashes = hashes;
+  // What it needed and which plugin met each need, so an uninstall can still tell who relies on whom
+  // when this package is gone from node_modules.
+  if (wants.needs.length) { record[name].needs = wants.needs.map((n) => n.anyOf); record[name].metBy = wants.needs.map((n) => n.metBy); }
   writeRecord(record);
   updateGitignore(record);
+  // A workspace folder that arrives after the plugins that place things into folders: their commands
+  // and AI items are placed into it now, so the order plugins were added in does not matter.
+  if (!nested && ws && ws.key) {
+    for (const other of Object.keys(record)) {
+      if (other === name) continue;
+      const p = pluginByName(other);
+      if (!p || !(((p.manifest.commands || {}).files || []).length || Object.values(p.manifest.ai || {}).some((l) => (l || []).length))) continue;
+      const had = new Set(record[other].placed || []);
+      try {
+        const again = install(other, { nested: true });
+        const fresh = again.placed.filter((f) => !had.has(f));
+        if (fresh.length) notes.push(`  ${other}: placed ${fresh.length} more file(s) now that ${ws.key}/ is here (${fresh.slice(0, 3).join(', ')}${fresh.length > 3 ? ', …' : ''})`);
+      } catch (_) { /* its own needs are not met yet: its --install places them */ }
+    }
+  }
   return { name, placed, notes, restart: restart || (ddev.hostMounts || []).length > 0 && !before.size };
 }
 
 function uninstall(name) {
   const record = readRecord();
   const entry = record[name];
+  // Another plugin in use that needs this one, with no alternative here, keeps it.
+  const relying = needs.dependents(name);
+  if (relying.length) {
+    const err = new Error(`${name} is needed by ${relying.map((d) => `${d.name} (${needs.groupText(d.anyOf)})`).join(', ')}.\nNothing was removed. Uninstall ${relying.length > 1 ? 'those' : 'that one'} first:\n${[...new Set(relying.map((d) => d.name))].map((d) => `  bash core/scripts/plugins.sh --uninstall ${d}`).join('\n')}`);
+    err.dependents = relying;
+    throw err;
+  }
   if (!entry) return { name, removed: [] };
   const removed = [];
   const notes = [];
@@ -296,7 +337,7 @@ function uninstall(name) {
   for (const [other, e] of Object.entries(record)) {
     const shared = (e.placed || []).filter((p) => removed.includes(p));
     if (!shared.length || !pluginByName(other)) continue;
-    try { install(other); for (const p of shared) notes.push(`  restored ${p} (${other} places it too)`); } catch (_) { /* that plugin's --install puts it back */ }
+    try { install(other, { nested: true }); for (const p of shared) notes.push(`  restored ${p} (${other} places it too)`); } catch (_) { /* that plugin's --install puts it back */ }
   }
   return { name, removed, notes, restart: removed.some((p) => p.includes('/.ddev/')) };
 }

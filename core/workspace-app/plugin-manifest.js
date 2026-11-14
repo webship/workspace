@@ -67,7 +67,21 @@ function pluginByName(name) {
   return installedPlugins().find((p) => p.name === name) || null;
 }
 
-module.exports = { installedPlugins, pluginByName, packageDir, APP_DIR, PLUGINS_DIR };
+/** Whether the manifest names anything an install has to place. */
+function needsInstall(m = {}) {
+  const s = m.scripts || {};
+  return !!((s.functions || []).length || (s.args || []).length || (s.machine || []).length || s.hostInstall
+    || ((m.ddev || {}).compose || []).length || ((m.ddev || {}).hostMounts || []).length
+    || ((m.commands || {}).files || []).length || (m.themes || []).length || (m.features || []).length || m.settingsTemplate
+    || Object.values(m.ai || {}).some((list) => (list || []).length));
+}
+
+/** The same, counting the workspace folder a plugin is: what has to be installed before another plugin can rely on it. */
+function placesSomething(m = {}) {
+  return needsInstall(m) || !!(m.workspace && m.workspace.key);
+}
+
+module.exports = { installedPlugins, pluginByName, packageDir, needsInstall, placesSomething, APP_DIR, PLUGINS_DIR };
 
 if (require.main === module) {
   const args = process.argv.slice(2);

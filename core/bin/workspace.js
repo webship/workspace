@@ -5,6 +5,8 @@
  *   webship-workspace init [dir]              make a workspace at dir (default ~/workspace): the core, an
  *                                             empty settings file, the dashboard installed and started
  *   webship-workspace plugin <verb> <name>    require | activate | install | configure | deactivate | uninstall | list
+ *                                             add --with-needs to require, activate or install and the plugins
+ *                                             it needs are added first, in the same run
  *   webship-workspace catalog                 the plugins you can add, by family
  *   webship-workspace update [dir]            refresh the core of an existing workspace from this package
  *
@@ -134,7 +136,7 @@ function init(dirArg, { update = false } = {}) {
   say(catalogText());
 }
 
-function plugin(verb, name) {
+function plugin(verb, name, flags = []) {
   const verbs = ['require', 'activate', 'install', 'configure', 'deactivate', 'uninstall', 'list', 'restart'];
   if (!verbs.includes(verb)) fail(`plugin <${verbs.join('|')}> [name]`);
   const root = process.env.WORKSPACE_ROOT || path.resolve(process.env.WEBSHIP_WORKSPACE_DIR || path.join(os.homedir(), 'workspace'));
@@ -144,6 +146,8 @@ function plugin(verb, name) {
   const spec = verb === 'require' && name && !/[@:/]/.test(name) ? `@webship.co/workspace-${name}` : name;
   const args = [script, `--${verb}`];
   if (spec) args.push(spec);
+  // The flags plugins.sh knows, passed as they are (--with-needs).
+  args.push(...flags.filter((f) => f === '--with-needs'));
   process.exit(run('bash', args, root) ? 0 : 1);
 }
 
@@ -151,9 +155,9 @@ const [cmd, ...rest] = process.argv.slice(2);
 switch (cmd) {
   case 'init': init(rest[0]); break;
   case 'update': init(rest[0], { update: true }); break;
-  case 'plugin': plugin(rest[0], rest[1]); break;
+  case 'plugin': plugin(rest[0], rest.slice(1).find((a) => !a.startsWith('--')), rest.slice(1).filter((a) => a.startsWith('--'))); break;
   case 'catalog': say(catalogText()); break;
   default:
-    say(fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 14).map((l) => l.replace(/^ \* ?/, '')).join('\n'));
+    say(fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 16).map((l) => l.replace(/^ \* ?/, '')).join('\n'));
     process.exit(cmd ? 1 : 0);
 }

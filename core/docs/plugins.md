@@ -11,7 +11,22 @@ Everything optional is a plugin: an npm package `@webship.co/workspace-<name>`, 
 | install | `webship-workspace plugin install <name>` | places what the manifest names: bash functions, commands, compose files, themes, a workspace folder, a settings template, AI agents; recorded in `core/config/plugins.installed.yml` |
 | configure | `webship-workspace plugin configure <name>` | its own `core/config/plugin.<name>.settings.yml` |
 
-The same four are buttons on **Settings → Plugins**, below the catalogue. `deactivate` turns one off and keeps its files; `uninstall` removes what install placed. `bash core/scripts/plugins.sh --list` says the step each plugin is at.
+The same four are buttons on **Settings → Plugins**, below the catalogue.
+
+## When a plugin needs another plugin
+
+The workspace starts empty, so a plugin says what else it needs: a platform plugin needs a sites folder for its builder and the AI Agents folder for its agents. `require` tells you; `activate` and `install` stop until the workspace has it, and add it for you when you say so:
+
+```bash
+webship-workspace plugin require wordpress
+#   wordpress needs one of dev, test, sandboxes, demos (not here; dev is the one added)
+#   wordpress needs ai-agents (not here)
+webship-workspace plugin activate wordpress --with-needs   # dev and ai-agents are required, activated and installed first
+webship-workspace plugin install wordpress
+```
+
+Without `--with-needs` a terminal asks first, and a no changes nothing and prints the commands to run yourself. On **Settings → Plugins** the Activate button asks the same question. A plugin another one needs cannot be deactivated or uninstalled until that one is; `bash core/scripts/plugins.sh --list` shows `needs:` and `needed by:` for each.
+ `deactivate` turns one off and keeps its files; `uninstall` removes what install placed. `bash core/scripts/plugins.sh --list` says the step each plugin is at.
 
 ## Families
 
