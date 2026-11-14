@@ -22,6 +22,7 @@ const FAMILIES = [
     ['git', 'The GIT menu on every project row'], ['ide', 'The Web IDE (VS Code in the browser) and the IDE menu'],
     ['jira', 'Jira work items, through the Teamwork Graph CLI'], ['google-drive', 'Sync a workspace folder to Google Drive, and its MCP server'],
     ['testing', 'The Tests menu and the test reports'], ['webship-js', 'Browser tests with webship-js'],
+    ['screens', 'Screen sessions, terminals and container shells for every command, switched on and off by settings'],
   ] },
   { id: 'hosting', label: 'Hosting providers', about: 'Link a project to its host: environments and live URLs, get the database and files, deploy, logs.', plugins: [
     ['upsun', 'Upsun'], ['acquia', 'Acquia Cloud'], ['digitalocean', 'DigitalOcean App Platform'], ['cpanel', 'cPanel'], ['aws', 'AWS Elastic Beanstalk'], ['azure', 'Azure App Service'], ['godaddy', 'GoDaddy'],
