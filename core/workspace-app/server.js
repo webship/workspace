@@ -3969,7 +3969,7 @@ async function projectRowsHtml(key, dir, state) {
 const builderArgs = require('./builder-args');
 // The name the Build form proposes for a new project — see project-name.js
 const { suggestProjectName } = require('./project-name');
-const { platformOfProject } = require('./project-platform');
+const { platformOfProject, drupalBaseOfProject } = require('./project-platform');
 const parseBuilderArgs = (dir, script) => builderArgs.parseBuilderArgs(dir, script, ROOT);
 
 // The collapsed Arguments group for one builder script.
@@ -5653,6 +5653,9 @@ async function handleAction(pathname, form, res, req = null) {
     // A project of another platform (WordPress, TYPO3, …) says so in its DDEV project type, and the
     // plugin of that platform carries its user list under that name.
     if (!distribution) distribution = platformOfProject(path.join(dir, projectName));
+    // A Drupal project with no distribution profile is a Drupal core site or a Drupal CMS site:
+    // each has its own list, which is not the Webship distribution's.
+    if (!distribution) distribution = drupalBaseOfProject(path.join(dir, projectName));
     if (!distribution) distribution = 'webship';
     return screenAction(send, { workspace, project: projectName, projectDir: dir,
       ownerDir: path.join(dir, projectName), verb: act.verb,
