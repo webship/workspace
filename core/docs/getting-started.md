@@ -37,6 +37,7 @@ Every build goes through DDEV; the site answers at `https://mysite.ddev.site`.
 ## Then
 
 - **Settings → Plugins** shows the catalogue. Add the GIT menu (`git`), the Web IDE (`ide`), a hosting provider (`upsun`, `acquia`, …), a git forge (`github`, `gitlab`, `bitbucket`), or more workspace folders (`test`, `drupal-modules`, `docs`, `ai-agents`, …).
+- A plugin can need another one: a platform plugin (`wordpress`, `drupal`, …) needs a sites folder for its builder and the AI Agents folder for its agents. `webship-workspace plugin activate wordpress --with-needs` adds what is missing first, and the Activate button asks; see [Plugins](plugins.md).
 - Each plugin with settings gets its own file, `core/config/plugin.<name>.settings.yml`, edited from Settings. Secrets live there, never in `settings.yml`.
 - `webship-workspace update ~/workspace` refreshes the core from a newer package without touching your settings files or the plugins you required.
 

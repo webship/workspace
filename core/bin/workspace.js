@@ -106,6 +106,7 @@ function catalogText() {
     lines.push('');
   }
   lines.push('Add one:  webship-workspace plugin require <name>   then activate, install, configure — or Settings → Plugins in the dashboard.');
+  lines.push('A plugin that needs another one says so when you require it; add --with-needs to activate and what it needs is added first.');
   return lines.join('\n');
 }
 

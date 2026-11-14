@@ -399,6 +399,7 @@ test('--list and the Plugins page say what each plugin needs, whether it is met,
   assert.match(list, /dev .*ready\n\s+needed by: wp/);
   html = page();
   assert.match(card(html, 'WP'), /is-met">one of dev, test <span class="uk-text-success">✓ dev<\/span>/);
+  assert.match(card(html, 'WP'), /is-met">ai-agents <span class="uk-text-success">✓<\/span>/, 'one name: the tick alone');
   assert.doesNotMatch(card(html, 'WP'), /hx-confirm/, 'met: no question');
   assert.match(card(html, 'dev'), /<strong>Needed by:<\/strong> wp — it cannot be deactivated or uninstalled while they are in use/);
 });
@@ -420,4 +421,13 @@ test('webship-workspace plugin passes --with-needs on to plugins.sh, and nothing
   assert.strictEqual(run('require', '--with-needs', 'wordpress'), 'ARGS: --require @webship.co/workspace-wordpress --with-needs');
   assert.strictEqual(run('install', 'wordpress', '--anything'), 'ARGS: --install wordpress');
   assert.strictEqual(run('activate', 'wordpress'), 'ARGS: --activate wordpress');
+});
+
+test('the first words a new workspace reads say that a plugin can need another one, and how to add it', () => {
+  const bin = path.join(APP, '..', 'bin', 'workspace.js');
+  const r = spawnSync(process.execPath, [bin, 'catalog'], { encoding: 'utf8' });
+  assert.match(r.stdout, /A plugin that needs another one says so when you require it; add --with-needs to activate/);
+  const server = fs.readFileSync(path.join(APP, 'server.js'), 'utf8');
+  const empty = server.slice(server.indexOf('function emptyWorkspaceHtml'), server.indexOf('function emptyWorkspaceHtml') + 1800);
+  assert.match(empty, /plugin activate wordpress --with-needs<\/code> adds what is missing first, and the Activate button asks/);
 });
