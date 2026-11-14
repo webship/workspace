@@ -7,13 +7,19 @@
  *   activate   plugins.<name>.enabled: true in settings.yml
  *   install    place what the manifest names: bash functions, commands, compose files, a theme
  *   configure  the plugin's own core/config/plugin.<name>.settings.yml
+ *
+ * A card also says what the plugin needs from another plugin and whether the workspace has it
+ * (plugin-needs.js). While a need is not met, Activate and Install ask first — "add them too?" — and
+ * run the script with --with-needs; a card another plugin relies on says who needs it, and the script
+ * refuses its Deactivate and Uninstall with the list.
  */
 
 const fs = require('fs');
 const path = require('path');
 
 const { esc } = require('./html');
-const { installedPlugins } = require('./plugin-manifest');
+const { installedPlugins, needsInstall } = require('./plugin-manifest');
+const needs = require('./plugin-needs');
 const { status, RECORD } = require('./plugin-install');
 const { pluginConfigs, loadedPlugins } = require('./plugin-loader');
 const { ROOT, CONFIG_DIR } = require('./workspaces');
@@ -22,15 +28,6 @@ const { FAMILIES, SCOPE } = require('./plugin-catalog');
 const STEPS = ['required', 'activated', 'installed', 'configured'];
 
 /** Where a plugin is on the way to ready. */
-/** Whether the manifest names anything an install has to place. */
-function needsInstall(m = {}) {
-  const s = m.scripts || {};
-  return !!((s.functions || []).length || (s.args || []).length || (s.machine || []).length || s.hostInstall
-    || ((m.ddev || {}).compose || []).length || ((m.ddev || {}).hostMounts || []).length
-    || ((m.commands || {}).files || []).length || (m.themes || []).length || (m.features || []).length || m.settingsTemplate
-    || Object.values(m.ai || {}).some((list) => (list || []).length));
-}
-
 function stepOf(plugin, config, placed) {
   const active = config && (config.enabled === true || String(config.enabled) === 'true');
   if (!active) return 0;
@@ -51,25 +48,32 @@ function rows() {
   const configs = pluginConfigs();
   const placed = Object.fromEntries(status().map((s) => [s.name, s]));
   const loaded = new Set(loadedPlugins.map((l) => l.name));
+  const st = needs.state();
   return installedPlugins().map((p) => {
     const step = stepOf(p, configs[p.name], placed[p.name]);
-    return { ...p, step, loaded: loaded.has(p.name), placed: placed[p.name] || {}, config: configs[p.name] || {} };
+    const wants = needs.check(p.name, st);
+    return { ...p, step, loaded: loaded.has(p.name), placed: placed[p.name] || {}, config: configs[p.name] || {},
+      wants, needsLine: needs.summary(wants), neededBy: [...new Set(needs.dependents(p.name, st).map((d) => d.name))] };
   });
 }
 
 function pluginsPageHtml() {
   const list = rows();
-  const btn = (verb, name, label, primary, title = '') => `<button class="uk-button uk-button-${primary ? 'primary' : 'default'} uk-button-small"
-      hx-post="/actions/plugins" hx-vals='{"verb":"${esc(verb)}","name":"${esc(name)}"}' hx-target="#webship-workspace-output" hx-swap="innerHTML"
-      title="${esc(title || `bash core/scripts/plugins.sh --${verb} ${name}`)}">${esc(label)}</button>`;
+  // `ask` is what an unmet need turns the button into: a question first, and --with-needs when the answer is yes.
+  const btn = (verb, name, label, primary, title = '', ask = '') => `<button class="uk-button uk-button-${primary ? 'primary' : 'default'} uk-button-small"
+      hx-post="/actions/plugins" hx-vals='{"verb":"${esc(verb)}","name":"${esc(name)}"${ask ? ',"withNeeds":"1"' : ''}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"${ask ? `
+      hx-confirm="${esc(ask)}"` : ''}
+      title="${esc(title || `bash core/scripts/plugins.sh --${verb} ${name}${ask ? ' --with-needs' : ''}`)}">${esc(label)}</button>`;
   const cards = list.map((p) => {
-    const next = p.step === 0 ? btn('activate', p.name, 'Activate', true)
-      : p.step === 1 ? btn('install', p.name, 'Install', true)
+    const unmet = (p.wants && !p.wants.problems.length) ? p.wants.unmet : [];
+    const ask = unmet.length ? `${p.manifest.label || p.name} needs ${unmet.map((n) => needs.groupText(n.anyOf)).join(' and ')}, which this workspace does not have yet. Add ${unmet.map((n) => n.pick).join(' and ')} too (require, activate, install)? Cancel changes nothing.` : '';
+    const next = p.step === 0 ? btn('activate', p.name, 'Activate', true, '', ask)
+      : p.step === 1 ? btn('install', p.name, 'Install', true, '', ask)
         : p.step === 2 ? `<a class="uk-button uk-button-primary uk-button-small" href="/settings/${esc(p.manifest.settingsFile)}">Configure</a>`
           : '';
     const steps = STEPS.map((s, i) => `<span class="plugin-step${i <= p.step ? ' is-done' : ''}">${esc(s)}</span>`).join('<span class="plugin-step-sep">›</span>');
     const more = [
-      p.step >= 1 && needsInstall(p.manifest) ? btn('install', p.name, p.step >= 2 ? 'Reinstall' : 'Install', false, 'Place the plugin\'s files again; safe to repeat') : '',
+      p.step >= 1 && needsInstall(p.manifest) ? btn('install', p.name, p.step >= 2 ? 'Reinstall' : 'Install', false, 'Place the plugin\'s files again; safe to repeat', ask) : '',
       p.step >= 1 ? btn('deactivate', p.name, 'Deactivate', false) : '',
       p.placed.installed ? btn('uninstall', p.name, 'Uninstall', false, 'Remove what Install placed, and deactivate') : '',
       p.manifest.settingsFile && p.step >= 2 ? `<a class="uk-button uk-button-default uk-button-small" href="/settings/${esc(p.manifest.settingsFile)}">Settings</a>` : '',
@@ -81,6 +85,7 @@ function pluginsPageHtml() {
           <span class="plugin-steps">${steps}</span>
         </div>
         <p class="uk-text-meta uk-margin-small">${esc(p.description || '')}</p>
+        ${needsHtml(p)}
         ${p.step === 1 && !p.loaded ? '<p class="uk-text-warning uk-text-small">Activated, but not loaded yet: the dashboard loads plugins when it starts. Install restarts it.</p>' : ''}
         ${p.placed.missing && p.placed.missing.length ? `<p class="uk-text-warning uk-text-small">${p.placed.missing.length} placed file(s) are missing — Reinstall puts them back.</p>` : ''}
         <div class="uk-margin-small-top plugin-buttons">${next} ${more}</div>
@@ -100,11 +105,24 @@ function pluginsPageHtml() {
       <div class="plugin-cards">${cards || '<p class="uk-text-meta">No plugin packages yet. Pick one from the catalogue below, or require one above.</p>'}</div>
       <p class="uk-text-meta uk-margin-small-top">What each install placed is recorded in <code>${esc(path.relative(ROOT, RECORD))}</code>.</p>
     </section>
-    ${catalogHtml(new Set(list.map((p) => p.module)))}`;
+    ${catalogHtml(new Set(list.map((p) => p.module)), new Map(list.filter((p) => p.needsLine).map((p) => [p.module, p.needsLine])))}`;
 }
 
-/** The catalogue: every plugin a person can add, by family; what is already required is marked. */
-function catalogHtml(have = new Set()) {
+/** What a card says about needs: each need and suggestion with whether it is met, and who needs this plugin. */
+function needsHtml(p) {
+  const w = p.wants;
+  if (!w) return '';
+  const item = (n) => `<span class="plugin-need ${n.metBy ? 'is-met' : 'is-unmet'}">${esc(needs.groupText(n.anyOf))} <span class="${n.metBy ? 'uk-text-success' : 'uk-text-warning'}">${n.metBy ? `✓ ${esc(n.metBy)}` : 'not here'}</span></span>`;
+  const lines = [];
+  if (w.needs.length) lines.push(`<p class="uk-text-small uk-margin-remove plugin-needs"><strong>Needs:</strong> ${w.needs.map(item).join(' · ')}</p>`);
+  if (w.suggests.length) lines.push(`<p class="uk-text-small uk-margin-remove plugin-suggests"><strong>Suggests:</strong> ${w.suggests.map(item).join(' · ')}</p>`);
+  if (w.problems.length) lines.push(`<p class="uk-text-danger uk-text-small uk-margin-remove plugin-needs-problem">${esc(w.problems.join('; '))}</p>`);
+  if ((p.neededBy || []).length) lines.push(`<p class="uk-text-small uk-margin-remove plugin-needed-by"><strong>Needed by:</strong> ${esc(p.neededBy.join(', '))} — it cannot be deactivated or uninstalled while they are in use.</p>`);
+  return lines.join('');
+}
+
+/** The catalogue: every plugin a person can add, by family; what is already required is marked, with what it needs. */
+function catalogHtml(have = new Set(), wants = new Map()) {
   const families = FAMILIES.map((f) => `
       <div class="plugin-family">
         <h3 class="uk-margin-small-bottom">${esc(f.label)} <span class="uk-text-meta">${esc(f.about)}</span></h3>
@@ -113,7 +131,7 @@ function catalogHtml(have = new Set()) {
     const module = `${SCOPE}/workspace-${name}`;
     const present = have.has(module);
     return `<li class="uk-flex uk-flex-between uk-flex-middle">
-              <span><strong>${esc(label)}</strong> <code class="uk-text-meta">${esc(module)}</code></span>
+              <span><strong>${esc(label)}</strong> <code class="uk-text-meta">${esc(module)}</code>${wants.get(module) ? ` <span class="uk-text-meta plugin-catalog-needs">${esc(wants.get(module))}</span>` : ''}</span>
               ${present ? '<span class="uk-label">required</span>' : `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/plugins" hx-vals='{"verb":"require","spec":"${esc(module)}"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" title="npm install ${esc(module)} into core/workspace-app">Require</button>`}
             </li>`;
   }).join('')}
@@ -122,9 +140,9 @@ function catalogHtml(have = new Set()) {
   return `
     <section class="settings-group plugin-catalog-section">
       <h2 class="settings-group-head">Catalogue</h2>
-      <p class="uk-text-meta">The core ships empty. Add what you need, one package at a time: <strong>Require</strong> installs it with npm into <code>core/workspace-app/package.json</code>, then Activate, Install and Configure above. Nothing is added until you ask for it.</p>
+      <p class="uk-text-meta">The core ships empty. Add what you need, one package at a time: <strong>Require</strong> installs it with npm into <code>core/workspace-app/package.json</code>, then Activate, Install and Configure above. Nothing is added until you ask for it. What a plugin needs from another one is in its package, so it is shown once the package is required.</p>
       ${families}
     </section>`;
 }
 
-module.exports = { pluginsPageHtml, catalogHtml, rows, stepOf, needsInstall, STEPS };
+module.exports = { pluginsPageHtml, catalogHtml, needsHtml, rows, stepOf, needsInstall, STEPS };

@@ -41,7 +41,9 @@ the same shape, which is how one is developed before it gets a repository.
   "themes": ["config/theme.upsun.yml"],
   "css": ["public/upsun.css"],
   "features": ["features/upsun.feature"],             // webship-js scenarios, run by the dashboard's own suite
-  "ai": { "agents": ["agents/upsun-deployer.md"] }    // AI items: agents, skills, commands, prompts
+  "ai": { "agents": ["agents/upsun-deployer.md"] },   // AI items: agents, skills, commands, prompts
+  "needs": [["dev", "test", "demos", "sandboxes", "projects"], "ai-agents"],   // other plugins it cannot work without
+  "suggests": ["github"]                              // other plugins that go well with it: said, never added
 }
 ```
 
@@ -54,7 +56,8 @@ compose files as `core/workspace-app/.ddev/docker-compose.plugin-<name>-<file>`;
 `--check` after an install and in full from `install.sh`.
 
 AI items land in the workspace folder of their kind, where the dashboard lists them like any other
-item and installs them into `~/.claude` from there: `ai.agents` (one `.md` each) in `ai-agents/`,
+item and installs them into `~/.claude` from there (a plugin that ships agents says `"needs": ["ai-agents"]`,
+so the folder is there): `ai.agents` (one `.md` each) in `ai-agents/`,
 `ai.skills` (one folder each, with its `SKILL.md`) in `ai-skills/`, `ai.commands` in `ai-commands/`,
 `ai.prompts` in `ai-prompts/`. A kind whose folder is not in this workspace is skipped, and the install
 says so. They are files a person edits in place, so the record keeps the hash of what was placed: a
@@ -67,6 +70,51 @@ so in a tag: `@needs-setting-<plugin>-<key>` skips it, with the reason, while
 `core/config/plugin.<plugin>.settings.yml` has no value for `<key>` (the Jira feature tags its menu
 scenario `@needs-setting-jira-default_project`). A plugin ships no step definitions: webship-js's
 own steps and the core's are what a feature can use.
+
+## What a plugin needs from another plugin
+
+The core ships empty, so a plugin cannot count on anything but the core. When it needs another
+plugin to do its job — a builder needs a sites folder to be placed in, agents need the AI Agents
+folder — its manifest says so, and the workspace adds it or says what is missing:
+
+```json
+"needs":    [["dev", "test", "sandboxes", "demos"], "ai-agents"],
+"suggests": ["graph"]
+```
+
+Both keys have one shape: a list whose entries are a plugin's name (its manifest `name`, which is also
+its package: `@webship.co/workspace-<name>`), or a list of names when any one of them will do. In a
+list of alternatives the order matters only when none is here: the first is the one added.
+
+- **A need is about the workspace, not about `node_modules`.** It is met when that plugin is activated
+  and installed here. For a plugin that is a workspace folder it is also met when a folder of that key
+  is already on `workspaces:` (a workspace made before folders were plugins). A package's own
+  dependencies (a provider's family base) stay npm's business.
+- **`--require`** says what the package needs and whether the workspace has it. With `--with-needs` the
+  packages it needs are fetched too; nothing is activated by a require.
+- **`--activate` and `--install`** stop while a need is not met: in a terminal they ask
+  (`Add dev, ai-agents now? [y/N]`); anywhere else, or on a no, they change nothing and print the exact
+  commands. With `--with-needs` each missing plugin is required (from the same source as the plugin
+  that needs it: the npm scope, the `github:owner/…` repository beside it, or the folder beside a
+  path), activated and installed first — its own needs before it — and then the step goes on. A need
+  that cannot be added stops the run before the plugin itself is touched; what was added before the
+  stop is a whole plugin, never half of one.
+- **`--deactivate` and `--uninstall`** refuse, with the list of who needs it, while a plugin in use
+  (activated or installed) needs this one and no alternative is here. There is no force: take the
+  plugin that needs it off first.
+- **`suggests`** is only said: it never stops a step and never adds anything.
+- **`--list`**, the cards of Settings → Plugins and the catalogue rows of the packages that are
+  required show `needs: …` with `met by <name>` or `not here`, and `needed by: …`. On the page, Activate
+  and Install ask first when a need is not met ("add them too?") and run the script with
+  `--with-needs`; Cancel changes nothing.
+- A cycle (`a` needs `b` needs `a`), a name that is not a plugin name and a need no package answers
+  to are reported and nothing is changed.
+- The install records what was needed and what met it (`needs`, `metBy` in
+  `core/config/plugins.installed.yml`), so a plugin whose package was removed still keeps what it needs.
+
+Installing a workspace folder also places, into it, the commands and AI items of the plugins already
+installed that go there, so the order plugins were added in does not matter. Declare only what is
+true: a need is something the plugin cannot do its job without.
 
 Everything stays HTMX + UIKit: a plugin serves server-rendered fragments and wires them with
 `hx-get`/`hx-post`; no client frameworks.
@@ -295,7 +343,10 @@ core's own tools look for, so the row menus of a project of that platform work l
 `<name>` is the DDEV project type (`wordpress`, `typo3`, `magento2`, …): the Users menu of a project
 row reads it from the project's `.ddev/config.yaml`. A Drupal project is named by what it holds: the
 install profile under `profiles/contrib` when there is one, else `drupal_cms` when its
-`composer.json` carries the Drupal CMS packages, else `drupal`. A builder that carries the name of an example a
+`composer.json` carries the Drupal CMS packages, else `drupal`. A platform plugin says what it needs
+to land somewhere — `"needs": [["dev", "test", "sandboxes", "demos"], "ai-agents"]`: one sites folder for
+its builder (the folder also carries `cmd-tools-testing.sh` and the Users tools its hooks answer to)
+and the AI Agents folder for its agents — so it works on a workspace that had nothing. A builder that carries the name of an example a
 workspace folder ships replaces it while the plugin is installed; `--uninstall` puts the folder's
 copy back. `@webship.co/workspace-wordpress` is the shape to copy.
 
