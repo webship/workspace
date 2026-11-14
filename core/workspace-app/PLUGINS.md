@@ -247,7 +247,7 @@ module.exports.register = (api) => {
 | `api.addPageActions(fn)` | `fn({ view, key, meta })` returns a rail group `{ label, items: [html] }` or null. Runs on every page render. |
 | `api.addProjectActions(fn)` | `fn({ key, project, dir, meta })` returns HTML appended to that project row's actions (or null). Runs per row on `projects`-kind pages. |
 | `api.addRowMenu(slot, { label, row }, fn)` | A named menu on every project row, in a slot the Buttons settings arrange like a built-in one. `fn({ key, project, dir, meta, allowed, vals })` returns the menu's HTML, or null for a row it has nothing for — or `{ html, body }`, a menu whose body loads when it opens (below). |
-| `api.capabilities` | What this dashboard can do that an older one could not, as a `Set` of names; a package that serves several dashboards checks it before using a newer form of an answer. So far: `row-menu-body`. |
+| `api.capabilities` | What this dashboard can do that an older one could not, as a `Set` of names; a package that serves several dashboards checks it before using a newer form of an answer. So far: `row-menu-body`, `runner`, `screens-panel`. |
 | `api.addPage(re, handler)` | A whole page: GET requests whose path matches `re`. `handler({ req, res, match, send })` writes the response itself. |
 | `api.addProjectChip(fn)` | A chip in the project card's meta line. `fn({ key, project, dir, meta })` returns HTML or null. |
 | `api.addFolderSetup({ html, steps, prompt, problem })` | A section of the New-folder form (`html(ws, { allowed })`), the shell steps it adds (`steps(ws, name, form, ctx)` → array), the lines it adds to the Claude Code prompt (`prompt(…)` → array) and its validation (`problem(ws, form, ctx)` → '' or why). |
@@ -261,6 +261,8 @@ module.exports.register = (api) => {
 | `api.addWorkPrompt(fn)` | The prompt a screen started for a work item begins with: `fn({ key, workspace, project })` returns it, or null for the dashboard's own. |
 | `api.addSessionLog(fn)` | Where a session's log lives when the dashboard does not know: `fn(session, dirs)` returns a file in one of `dirs`, or ''. |
 | `api.addAssistantContext(fn)` | A paragraph of the assistant's system context: what this plugin lets it reach, and the rules. |
+| `api.addRunner(fn)` | The runner of the commands the dashboard starts (a build, a row menu's verb, a tool). `fn({ session, workspace, project, projectDir, ownerDir, verb, cmdLine, label })` starts the command its own way and returns `{ ok, session, already, why, html }` (`html` is the answer shown), or null to leave it to the dashboard. Needs `capabilities.has('runner')`. |
+| `api.addScreensPanel(fn)` | A panel at the top of the Screens page: `fn()` returns its HTML, or '' for none. Needs `capabilities.has('screens-panel')`. |
 
 ### A row menu whose body loads when it opens
 
@@ -320,6 +322,29 @@ and run compiled (`npm test`); `@webship.co/workspace-upsun` is the shape to cop
 
 Namespacing is the safety model: a plugin's routes all live under its own name, so it can never
 shadow a built-in, and disabling it removes its whole surface at once.
+
+## Who runs a command
+
+Every command the dashboard starts (a build, a row menu's verb, a tool, a plugin's `screenAction`)
+is offered to three runners, in this order, and the first that takes it answers the request:
+
+1. **A plugin's runner** (`api.addRunner`). It starts the command its own way and returns the
+   result, or returns null to decline. A runner that throws is skipped.
+2. **The host runner** (`core/workspace-app/scripts/screen-host.sh --start`): the dashboard's own
+   screen sessions on the machine. It is the fallback while no plugin runs the command.
+3. **The page**: the command as a job toast with live output. It ends when the dashboard restarts,
+   and it means a command is never refused because the machine has no runner.
+
+```js
+api.addRunner(async ({ session, workspace, project, projectDir, cmdLine, label }) => {
+  if (!mine(workspace)) return null;                        // leave it to the dashboard
+  await start(session, cmdLine, projectDir);                // the plugin's own way
+  return { ok: true, session, html: `<div class="msg assistant flash-now">${label} runs as ${session}</div>` };
+});
+```
+
+A caller whose answer is about the session itself (a progress view that follows it) passes
+`page: false` to `startInScreen`, and is told the runner is missing instead of being run in the page.
 
 ## Useful targets
 

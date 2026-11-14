@@ -21,7 +21,7 @@ const { esc } = require('./html');
 const { humanSize, humanTime, cliError } = require('./format');
 const { ROOT, CONFIG_DIR, loadSettings, loadWorkspaces, workspaceDir, isValidWorkspace } = require('./workspaces');
 const {
-  run, startJob, jobFragment, runningJobKey, listProjects, screenAction, startInScreen, screenStartedHtml,
+  run, startJob, jobFragment, runningJobKey, listProjects, screenAction, startInScreen, screenStartedHtml, addRunner,
 } = require('./jobs');
 const { NAME_RE } = require('./validate');
 const { wsUrl } = require('./urls');
@@ -101,6 +101,7 @@ const forges = {};           // '<host>' -> { name, label, env(), auth() }: who 
 const openWithFns = [];      // (abs, { label, caption, git }) -> html | null: the Open-with menu for a folder (the IDE plugin)
 const workspaceViews = {};   // '<key>' -> { name, listHtml(state), count(), noFilesActions, noNewForm }: a plugin that owns a workspace folder's page
 const folderLinkFns = [];    // (abs) -> { href, label, icon?, title? } | null: a link to open a folder elsewhere (the Web IDE)
+const screensPanelFns = []; // () -> html | '': a panel at the top of the Screens page
 
 let _screens = { at: 0, rows: [], running: false };
 function screensCached() {
@@ -136,7 +137,9 @@ function appliesTo(config, workspaceKey) {
 // What this dashboard can do that an older one could not, for a package that serves several
 // dashboards: a plugin checks `api.capabilities.has(…)` before it uses a newer form of an answer.
 //   row-menu-body  a row-menu function may return `{ html, body }`: the body loads when the menu opens.
-const CAPABILITIES = Object.freeze(new Set(['row-menu-body']));
+//   runner         api.addRunner: a plugin can be the runner of the commands the dashboard starts.
+//   screens-panel  api.addScreensPanel: a plugin can draw a panel at the top of the Screens page.
+const CAPABILITIES = Object.freeze(new Set(['row-menu-body', 'runner', 'screens-panel']));
 
 function makeApi(name, config) {
   return {
@@ -246,6 +249,18 @@ function makeApi(name, config) {
     addFolderLink(fn) {
       folderLinkFns.push(fn);
     },
+    // The runner of the commands the dashboard starts (a build, a row menu's verb, a tool): `fn` is
+    // given `{ session, workspace, project, projectDir, ownerDir, verb, cmdLine, label }` and answers
+    // `{ ok, session, already, why, html }` once it has started the command its own way, or null to
+    // leave it to the dashboard (its host runner, else the page). `html` is the answer shown.
+    addRunner(fn) {
+      addRunner(fn);
+    },
+    // A panel at the top of the Screens page: `fn()` returns its HTML, or '' for none. Keep it light:
+    // a shell whose content loads itself (hx-get to one of the plugin's fragments).
+    addScreensPanel(fn) {
+      screensPanelFns.push(fn);
+    },
     // A plugin that owns a workspace folder's page (the graphs workspace): its list section
     // (`listHtml(state)`), the count on the home card (`count()`), and whether the files-page
     // actions and the New-folder form stay away from it.
@@ -310,6 +325,13 @@ function loadPlugins() {
       console.error(`plugin '${name}' failed to load: ${err.message}`);
     }
   }
+}
+
+/** What the plugins draw at the top of the Screens page. A panel that throws is left out. */
+function pluginScreensPanelsHtml() {
+  let html = '';
+  for (const fn of screensPanelFns) { try { html += fn() || ''; } catch (_) { /* one plugin's panel must not blank the page */ } }
+  return html;
 }
 
 /** Handle a GET /fragments/p/<plugin>/<rest> request. Returns true when handled. */
@@ -543,5 +565,6 @@ module.exports = {
   pluginActions: actions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
   pluginRowMenus, rowMenuHtml, menuShellHtml, pluginRowMenuSlot, pluginRowMenuBody, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginLabels,
   pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext, pluginForge, pluginForges, pluginOpenWith, pluginFolderLinks, pluginWorkspaceView,
+  pluginScreensPanelsHtml,
   loadedPlugins: loaded, pluginConfigs,
 };

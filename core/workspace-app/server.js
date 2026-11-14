@@ -2737,6 +2737,7 @@ async function settingsPage(section, state, options = {}) {
 
   const body = isScreens
     ? `<div hx-get="/fragments/jobs/inline" hx-trigger="load, every 5s" hx-swap="innerHTML"></div>
+    ${require('./plugin-loader').pluginScreensPanelsHtml()}
     <div id="webship-workspace-projects" hx-get="/fragments/screens-grid" hx-trigger="refresh-projects from:body, screens-changed from:body, every 20s">
       ${await screensGridHtml()}
     </div>`
