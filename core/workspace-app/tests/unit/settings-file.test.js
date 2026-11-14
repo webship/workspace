@@ -174,6 +174,14 @@ test('upsertSettingsValue opens an empty flow map instead of writing the key a s
   assert.strictEqual(settings.plugins.wordpress.enabled, true);
   assert.strictEqual(settings.plugins.dev.module, '@webship.co/workspace-dev');
   assert.deepStrictEqual(settings.workspaces, ['dev', 'wordpress'], 'the second activation still read the first');
+  // The bash tooling reads the same list (the smoke test walks it): a folder name is written bare, since
+  // parse_yaml keeps the quotes of a quoted item.
+  assert.match(text, /^workspaces:\n  - dev\n  - wordpress$/m);
+  const bash = require('child_process').spawnSync('bash', ['-c', `source ${path.join(__dirname, '..', '..', '..', 'scripts', 'libs', 'bash-yaml.sh')} ; eval $(parse_yaml ${file}) ; printf '%s,' "\${workspaces[@]}"`], { encoding: 'utf8' });
+  assert.strictEqual(bash.stdout, 'dev,wordpress,');
+  upsertSettingsList('settings.yml', 'odd', ['*.md', 'true', '12', 'two words', 'plain-word']);
+  assert.match(fs.readFileSync(file, 'utf8'), /odd:\n  - "\*\.md"\n  - "true"\n  - "12"\n  - "two words"\n  - plain-word\n/);
+  assert.deepStrictEqual(yaml.load(fs.readFileSync(file, 'utf8')).odd, ['*.md', 'true', '12', 'two words', 'plain-word']);
   fs.writeFileSync(file, 'a: 1\nplugins: {}   # none yet\n');
   upsertSettingsValue('settings.yml', 'plugins.x.enabled', true);
   assert.strictEqual(fs.readFileSync(file, 'utf8'), 'a: 1\nplugins:   # none yet\n  x:\n    enabled: true\n', 'the comment on the line stays');
