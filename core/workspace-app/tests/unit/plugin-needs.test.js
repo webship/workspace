@@ -357,7 +357,13 @@ test('suggests is only said: it never stops a step and never adds anything', () 
   assert.doesNotMatch(a.stdout, /requiring/);
   ok(sh(t, '--install', 'git'));
   assert.ok(!fs.existsSync(path.join(t.root, 'npm.log')));
-  assert.match(sh(t, '--list').stdout, /git .*\n\s+suggests: one of dev, test \(not here; dev is the one added\)/);
+  // Said without "is the one added": a suggestion is never added.
+  assert.match(sh(t, '--list').stdout, /git .*\n\s+suggests: one of dev, test \(not here\)\n/);
+  // Once one of them is in the workspace, the line says which.
+  folder(t.plugins, 'test');
+  ok(sh(t, '--activate', 'test'));
+  ok(sh(t, '--install', 'test'));
+  assert.match(sh(t, '--list').stdout, /suggests: one of dev, test \(here: test\)/);
   assert.ok(!record(t).git.needs, 'nothing to record');
 });
 
