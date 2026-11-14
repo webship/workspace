@@ -4783,6 +4783,9 @@ function logRejected(pathname, form, workspace, status, html) {
   eventLog.logEvent('warn', 'action.rejected', fields);
 }
 
+/** Actions that belong to no workspace folder, so they answer on a workspace that has none yet. */
+const DASHBOARD_ACTIONS = new Set(['/actions/plugins', '/actions/job-stop']);
+
 async function handleAction(pathname, form, res, req = null) {
   // Not guessed: a form that names no workspace belongs to the one the page it came from is in.
   const workspace = form.workspace || hostWorkspaceOf(req) || 'dev';
@@ -4795,7 +4798,10 @@ async function handleAction(pathname, form, res, req = null) {
 
   // New screen can start in the workspace root, which is a place to run and not a workspace.
   const isRootScreen = pathname === '/actions/screen-new' && workspace === 'root';
-  if (pathname !== '/actions/chat' && pathname !== '/actions/status' && !isRootScreen && !isValidWorkspace(workspace)) {
+  // The Plugins page and a job's Stop button are about the dashboard, not about a workspace folder:
+  // on a fresh workspace there is no folder yet, and requiring the first plugin is how one arrives.
+  const isDashboardAction = DASHBOARD_ACTIONS.has(pathname);
+  if (pathname !== '/actions/chat' && pathname !== '/actions/status' && !isDashboardAction && !isRootScreen && !isValidWorkspace(workspace)) {
     return send('<div class="msg error">Unknown workspace.</div>', 400);
   }
 
