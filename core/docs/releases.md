@@ -1,6 +1,6 @@
 # Releases
 
-Every package is versioned together: `@webship.co/workspace` (the core) and every `@webship.co/workspace-<name>`. Versions so far: 1.0.0-alpha1 (the first publish), 1.0.0-beta1, 1.0.0-beta2, 1.0.0-rc1, 1.0.0, 1.0.1 (the core and the git, ide and graph plugins only), 1.0.2, 1.0.3, 1.0.4, 1.0.5 and 1.0.6 (the core only).
+Every package is versioned together: `@webship.co/workspace` (the core) and every `@webship.co/workspace-<name>`. Versions so far: 1.0.0-alpha1 (the first publish), 1.0.0-beta1, 1.0.0-beta2, 1.0.0-rc1, 1.0.0, 1.0.1 (the core and the git, ide and graph plugins only), 1.0.2, 1.0.3, 1.0.4, 1.0.5 and 1.0.6 (the core only), 1.0.7 (the core, the plugin types and the first platform plugin, WordPress).
 
 ## How a change lands
 
