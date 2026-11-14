@@ -8,6 +8,9 @@
  *   "needs":    [["dev", "test", "sandboxes", "demos"], "ai-agents"]
  *   "suggests": ["graph"]
  *
+ * Either key may also be an object, when the plugin needs commands on the machine too (command-check.js
+ * reads those): `"needs": { "plugins": [["dev", "test"]], "commands": ["upsun"] }`. A list is the plugins.
+ *
  * A need is about the WORKSPACE, not about node_modules: it is met when that plugin is activated and
  * installed here — or, for a plugin that is a workspace folder, when a folder of that key is already
  * on the workspaces list (a workspace made before folders were plugins). npm resolves a package's own
@@ -27,16 +30,20 @@ const yaml = require('js-yaml');
 const { installedPlugins, placesSomething, APP_DIR } = require('./plugin-manifest');
 const { ROOT, CONFIG_DIR, loadSettings } = require('./workspaces');
 const { SCOPE } = require('./plugin-catalog');
+const { split, commandEntries } = require('./command-check');
 
 const NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 const KINDS = ['needs', 'suggests'];
 
 /** A manifest's `needs` or `suggests` as groups of alternatives, and what is wrong with it. */
-function normalize(value, self = '') {
+function normalize(given, self = '') {
   const groups = [];
-  const problems = [];
+  // An object holds the plugins under `plugins` (and commands, which command-check.js reads); a list is the plugins.
+  const parts = split(given);
+  const value = parts.plugins;
+  const problems = [...parts.problems, ...commandEntries(parts.commands).problems];
   if (value == null) return { groups, problems };
-  if (!Array.isArray(value)) return { groups, problems: ['must be a list of plugin names (a list inside it means any one of them)'] };
+  if (!Array.isArray(value)) return { groups, problems: [...problems, 'must be a list of plugin names (a list inside it means any one of them), or { plugins, commands }'] };
   for (const entry of value) {
     const names = Array.isArray(entry) ? entry : [entry];
     const bad = names.filter((n) => typeof n !== 'string' || !NAME_RE.test(n));

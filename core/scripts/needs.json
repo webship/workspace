@@ -1,0 +1,127 @@
+{
+  "about": "The commands the core of Webship Workspace calls, in the shape a plugin's manifest uses (needs.commands, suggests.commands). `webship-workspace doctor` reads this file and reports each one as found, with its version, or missing, with how to install it. Nothing here installs anything. `for` names a file that calls it.",
+  "needs": {
+    "commands": [
+      {
+        "command": "bash",
+        "for": "every core/scripts/*.sh and cmd-*.sh"
+      },
+      {
+        "command": "git",
+        "for": "core/scripts/functions/fun-clone-project.sh, fun-ai-items.sh, fun-release.sh"
+      },
+      {
+        "command": "grep",
+        "for": "core/scripts/plugins.sh, the functions"
+      },
+      {
+        "command": "sed",
+        "for": "core/scripts/plugins.sh, the functions"
+      },
+      {
+        "command": "awk",
+        "for": "core/scripts/plugins.sh, the functions"
+      },
+      {
+        "command": "node",
+        "for": "core/bin/workspace.js, core/scripts/plugins.sh"
+      },
+      {
+        "command": "npm",
+        "for": "core/bin/workspace.js (init), core/scripts/plugins.sh --require"
+      },
+      {
+        "command": "python",
+        "for": "core/scripts/libs/argparse.sh: the arguments of every cmd-*.sh that takes flags (the builders)",
+        "hint": "Debian/Ubuntu: the package python-is-python3 · Fedora: python3 provides it with python-unversioned-command · macOS (Homebrew): python"
+      },
+      {
+        "command": "docker",
+        "for": "core/scripts/functions/fun-remove-project.sh, fun-reclaim.sh; the dashboard's container",
+        "hint": "https://docs.docker.com/engine/install/"
+      },
+      {
+        "command": "ddev",
+        "for": "every builder (core/scripts/functions/fun-build-*.sh), the dashboard's own project",
+        "hint": "https://ddev.readthedocs.io/en/stable/users/install/ddev-installation/"
+      },
+      {
+        "command": "container:bash",
+        "for": "core/workspace-app/jobs.js: every job the dashboard starts"
+      },
+      {
+        "command": "container:git",
+        "for": "core/workspace-app/git-info.js"
+      },
+      {
+        "command": "container:ddev",
+        "for": "core/workspace-app/server.js: the DDEV menus"
+      },
+      {
+        "command": "container:screen",
+        "for": "core/workspace-app/screens.js, jobs.js: the screen sessions"
+      }
+    ]
+  },
+  "suggests": {
+    "commands": [
+      {
+        "command": "python3",
+        "for": "core/scripts/functions/fun-ai-items-lock.sh, fun-build-distribution.sh"
+      },
+      {
+        "command": "curl",
+        "for": "core/scripts/trust-https.sh, fun-penpot.sh, fun-avatar.sh"
+      },
+      {
+        "command": "rsync",
+        "for": "core/scripts/sync-tooling.sh, fun-clone-project.sh, fun-ai-items.sh"
+      },
+      {
+        "command": "tar",
+        "for": "core/scripts/functions/fun-backup-item.sh, fun-ai-items.sh"
+      },
+      {
+        "command": "jq",
+        "for": "core/scripts/autostart-run.sh, autostart-stop.sh, fun-autostart.sh"
+      },
+      {
+        "command": "screen",
+        "for": "core/scripts/functions/fun-screen.sh (cmd-tools-screen.sh)"
+      },
+      {
+        "command": "gh",
+        "for": "core/scripts/plugins.sh --require (a github: source), fun-ai-items.sh",
+        "hint": "https://cli.github.com"
+      },
+      {
+        "command": "mkcert",
+        "for": "core/scripts/trust-https.sh",
+        "hint": "https://github.com/FiloSottile/mkcert#installation"
+      },
+      {
+        "command": "wget",
+        "for": "core/scripts/install.sh"
+      },
+      {
+        "command": "claude",
+        "for": "core/scripts/functions/fun-ai-items.sh; the assistant",
+        "hint": "https://claude.com/claude-code"
+      },
+      {
+        "command": "container:claude",
+        "for": "core/workspace-app/assistant.js: the Workspace AI Assistant",
+        "hint": "https://claude.com/claude-code"
+      },
+      {
+        "command": "container:pandoc",
+        "for": "core/workspace-app/assistant.js, server.js: documents and reports"
+      },
+      {
+        "command": "container:gh",
+        "for": "core/workspace-app/github-auth.js",
+        "hint": "https://cli.github.com"
+      }
+    ]
+  }
+}

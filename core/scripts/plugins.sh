@@ -9,6 +9,9 @@
 ##   bash core/scripts/plugins.sh --configure <name>           its own settings file, created from the template
 ##   bash core/scripts/plugins.sh --deactivate <name>          enabled: false (the files stay)
 ##   bash core/scripts/plugins.sh --uninstall <name>           remove what --install placed
+##   bash core/scripts/plugins.sh --check [<name>]             the commands the core and the plugins need on this
+##                                                             machine: found, with the version, or missing, with
+##                                                             how to install it (nothing is installed for you)
 ##   bash core/scripts/plugins.sh --restart                    restart the dashboard app, so it loads the change
 ##
 ## A plugin may need another plugin (its manifest's `needs`: a sites folder for a builder, the AI Agents
@@ -142,6 +145,16 @@ resolve_needs() {
   return 0 ;
 }
 
+# The commands ${name} needs on this machine that are missing, said before a step starts. It never
+# stops the step: a command is installed outside the workspace, and the plugin's files can be placed first.
+say_missing_commands() {
+  local missing ;
+  missing="$( cd "${APP}" && node command-check.js "${name}" --missing 2>/dev/null )" ;
+  [ -n "${missing}" ] || return 0 ;
+  echo "Commands ${name} uses that are not on this machine (nothing is installed for you):" ;
+  echo "${missing}" ;
+}
+
 # Who needs ${name} and would be left without: the refusal of a deactivate or an uninstall.
 refuse_if_needed() {
   local doing="$1" who ;
@@ -177,6 +190,10 @@ case "${verb}" in
       }
     ' ) ;;
 
+  --check)
+    # Everything (the core and every plugin package), or one plugin. Exit 1 when a needed command is missing.
+    ( cd "${APP}" && node command-check.js "${name:-all}" ) ; exit $? ;;
+
   --require)
     [ -n "${name}" ] || { echo "Which package? e.g. --require github:webship/workspace-upsun" ; exit 1 ; } ;
     echo "→ npm install ${name} (core/workspace-app)" ;
@@ -192,8 +209,8 @@ case "${verb}" in
     spec_given="${name}" ;
     for name in ${fresh} ; do
       lines="$(needs_lines "${name}")" ;
-      [ -n "${lines}" ] || continue ;
-      echo "${name} declares:" ; needs_say "${name}" ;
+      [ -n "${lines}" ] || { say_missing_commands ; continue ; } ;
+      echo "${name} declares:" ; needs_say "${name}" ; say_missing_commands ;
       # With --with-needs the packages it needs are fetched too (from the same source); they are
       # activated and installed when this plugin is: --activate ${name} --with-needs.
       if [ -n "${with_needs}" ] ; then
@@ -236,6 +253,7 @@ case "${verb}" in
     [ -n "${name}" ] || { echo "Which plugin? --list shows them." ; exit 1 ; } ;
     plugin_known "${name}" || { echo "No plugin named '${name}' is installed in the dashboard. --require it first." ; exit 1 ; } ;
     resolve_needs install installed || exit 1 ;
+    say_missing_commands ;
     out="$( cd "${APP}" && node plugin-install.js install "${name}" 2>&1 )" || { echo "${out}" ; exit 1 ; } ;
     echo "${out}" | grep -v '^RESTART_' ;
     host="${WORKSPACE_SCRIPTS}/plugins/${name}/host-install.sh" ;

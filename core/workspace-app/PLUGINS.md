@@ -112,6 +112,40 @@ list of alternatives the order matters only when none is here: the first is the 
 - The install records what was needed and what met it (`needs`, `metBy` in
   `core/config/plugins.installed.yml`), so a plugin whose package was removed still keeps what it needs.
 
+### Commands on the machine
+
+A plugin may also need commands: a provider needs its CLI, a tool needs `curl`. The same two keys take
+them, as an object — a list alone stays the plugins:
+
+```json
+"needs":    { "plugins": [["dev", "test", "demos", "sandboxes", "projects"]], "commands": [{ "command": "upsun", "hint": "https://docs.upsun.com/administration/cli.html" }] },
+"suggests": { "commands": ["container:pandoc", ["curl", "wget"]] }
+```
+
+An entry is a command's name, a list of names when any one will do, or `{ command | anyOf, where, hint,
+for }`. `where` — or a `where:` prefix on the name — says which machine: `host` (the default: where the
+`cmd-*.sh` run), `container` (the dashboard's container) or `project` (the project's own container,
+listed and not checked: it exists once a project is built). `needs.commands` is what the plugin cannot
+work without; `suggests.commands` is what a part of it uses. `hint` is how to install it, a sentence
+or a link; without one the package of that name on Debian/Ubuntu, Fedora and macOS is said. List only
+what the plugin's own scripts and code really call.
+
+The core says its own the same way, in `core/scripts/needs.json`, each with the file that calls it.
+
+```bash
+webship-workspace doctor                       # the core and every plugin package: found (version, path) or missing (how to install)
+bash core/scripts/plugins.sh --check upsun     # one plugin; exit 1 when a needed command is missing
+```
+
+The check reports and nothing more: it never installs, never uses sudo. `init` says what the core is
+missing before it starts, `--require` and `--install` say what the plugin is missing before they go
+on, the dashboard says it in its log when it starts, and Settings → Plugins shows a plugin's commands
+on its card and the core's in "Commands on this machine". A missing command never stops a step — it
+is installed outside the workspace, and the plugin's settings file is often where its CLI is
+configured — it is said, each time, until it is there. From the host the dashboard's container is
+asked through `docker exec`; from inside the container the host cannot be looked at, and the row says
+to run `webship-workspace doctor` there.
+
 Installing a workspace folder also places, into it, the commands and AI items of the plugins already
 installed that go there, so the order plugins were added in does not matter. Declare only what is
 true: a need is something the plugin cannot do its job without.
