@@ -26,4 +26,24 @@ function platformOfProject(projectDir) {
   return NOT_A_PLATFORM.test(type) ? '' : type.replace(/-/g, '_');
 }
 
-module.exports = { platformOfProject };
+/**
+ * The user list of a Drupal project that has no install profile of a distribution under
+ * `profiles/contrib`: `drupal_cms` when its composer.json carries the Drupal CMS packages,
+ * `drupal` otherwise. '' for a project whose DDEV project type is not Drupal's.
+ *
+ * Without this the Users menu handed such a project the list of the Webship distribution, and the
+ * lists of Drupal core and Drupal CMS (the tooling's, or a platform plugin's) were never reached.
+ */
+function drupalBaseOfProject(projectDir) {
+  let type = '';
+  try {
+    const config = fs.readFileSync(path.join(projectDir, '.ddev', 'config.yaml'), 'utf8');
+    type = (config.match(/^type:\s*["']?([a-z0-9_-]+)["']?\s*$/m) || [])[1] || '';
+  } catch (_) { return ''; }
+  if (!/^drupal\d*$/.test(type)) return '';
+  let composer = '';
+  try { composer = fs.readFileSync(path.join(projectDir, 'composer.json'), 'utf8'); } catch (_) { /* a project with no composer.json is a plain one */ }
+  return /"drupal\/(cms|drupal_cms_[a-z0-9_]+)"/.test(composer) ? 'drupal_cms' : 'drupal';
+}
+
+module.exports = { platformOfProject, drupalBaseOfProject };

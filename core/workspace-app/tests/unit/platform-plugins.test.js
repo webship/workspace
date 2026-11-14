@@ -170,6 +170,28 @@ test('the platform of a project is its DDEV project type, and Drupal or bare PHP
   assert.strictEqual(platformOfProject(path.join(dir, 'missing')), '');
 });
 
+test('a Drupal project with no distribution profile gets the list of Drupal core or of Drupal CMS, never another one', () => {
+  const { drupalBaseOfProject } = require('../../project-platform');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-base-'));
+  fs.mkdirSync(path.join(dir, '.ddev'));
+  const project = (type, composer) => {
+    fs.writeFileSync(path.join(dir, '.ddev', 'config.yaml'), `name: site1\n${type}\ndocroot: web\n`);
+    if (composer) fs.writeFileSync(path.join(dir, 'composer.json'), JSON.stringify(composer)); else fs.rmSync(path.join(dir, 'composer.json'), { force: true });
+    return drupalBaseOfProject(dir);
+  };
+  assert.strictEqual(project('type: drupal11', { require: { 'drupal/core-recommended': '^11' } }), 'drupal');
+  assert.strictEqual(project('type: drupal', null), 'drupal');
+  assert.strictEqual(project('type: drupal11', { name: 'drupal/cms', require: { 'drupal/core-recommended': '^11' } }), 'drupal_cms');
+  assert.strictEqual(project('type: "drupal11"', { require: { 'drupal/drupal_cms_starter': '^2' } }), 'drupal_cms');
+  for (const t of ['type: wordpress', 'type: php', '']) assert.strictEqual(project(t, { require: { 'drupal/drupal_cms_starter': '^2' } }), '', t);
+  assert.strictEqual(drupalBaseOfProject(path.join(dir, 'missing')), '');
+  // Both lists exist in the tooling, so the name the menu hands over is one the tools can load.
+  for (const name of ['drupal', 'drupal_cms']) {
+    assert.match(fs.readFileSync(path.join(SCRIPTS, 'functions', `fun-distribution-${name}.sh`), 'utf8'), new RegExp(`^function set_${name}_users\\(\\)`, 'm'));
+  }
+  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8'), /distribution = drupalBaseOfProject\(path\.join\(dir, projectName\)\);\n\s+if \(!distribution\) distribution = 'webship';/);
+});
+
 test('the Build form reads a plugin builder\'s arguments from the args file the installer placed', () => {
   const { parseBuilderArgs } = require('../../builder-args');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-args-'));

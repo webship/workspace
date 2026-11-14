@@ -293,7 +293,9 @@ core's own tools look for, so the row menus of a project of that platform work l
 | `testing_configure_<name>` | `cmd-tools-testing.sh <project>` | Runs in the project once the testing stack is scaffolded: adds the platform's step pack to `package.json` and `cucumber.js`. Returns 0 and changes nothing for a project that is not its own. |
 
 `<name>` is the DDEV project type (`wordpress`, `typo3`, `magento2`, …): the Users menu of a project
-row reads it from the project's `.ddev/config.yaml`. A builder that carries the name of an example a
+row reads it from the project's `.ddev/config.yaml`. A Drupal project is named by what it holds: the
+install profile under `profiles/contrib` when there is one, else `drupal_cms` when its
+`composer.json` carries the Drupal CMS packages, else `drupal`. A builder that carries the name of an example a
 workspace folder ships replaces it while the plugin is installed; `--uninstall` puts the folder's
 copy back. `@webship.co/workspace-wordpress` is the shape to copy.
 
