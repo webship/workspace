@@ -46,3 +46,30 @@ test('the catalogue names every family with its npm packages, and plugin refuses
   assert.strictEqual(none.status, 1);
   assert.match(none.stderr, /webship-workspace init/);
 });
+
+test('update keeps the plugins a person required in the dashboard\'s package.json, and takes the core\'s own lines', () => {
+  const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ws-update-')), 'workspace');
+  assert.strictEqual(run(['init', dir]).status, 0);
+  const file = path.join(dir, 'core', 'workspace-app', 'package.json');
+  const shipped = JSON.parse(fs.readFileSync(file, 'utf8'));
+  // What `plugin require` leaves: one from npm, one from a repository, one from a path; and a core line someone changed.
+  const mine = JSON.parse(JSON.stringify(shipped));
+  mine.dependencies['@webship.co/workspace-wordpress'] = '^1.0.7';
+  mine.dependencies['@webship.co/workspace-dev'] = 'github:webship/workspace-dev';
+  mine.devDependencies = { ...(mine.devDependencies || {}), '@webship.co/workspace-x-local': 'file:../../plugins/x-local' };
+  mine.dependencies['js-yaml'] = '^0.0.1';
+  mine.version = '0.0.1';
+  fs.writeFileSync(file, JSON.stringify(mine, null, 2));
+  const r = run(['update', dir]);
+  assert.strictEqual(r.status, 0, r.stderr);
+  const after = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.strictEqual(after.dependencies['@webship.co/workspace-wordpress'], '^1.0.7', 'a plugin from npm stays');
+  assert.strictEqual(after.dependencies['@webship.co/workspace-dev'], 'github:webship/workspace-dev', 'a plugin from a repository stays');
+  assert.strictEqual(after.devDependencies['@webship.co/workspace-x-local'], 'file:../../plugins/x-local', 'a plugin from a path stays');
+  assert.strictEqual(after.dependencies['js-yaml'], shipped.dependencies['js-yaml'], 'a dependency of the core is the core\'s');
+  assert.strictEqual(after.version, shipped.version, 'the rest of the file is the core\'s');
+  assert.deepStrictEqual(Object.keys(after.dependencies).filter((k) => !k.startsWith('@webship.co/workspace-')), Object.keys(shipped.dependencies), 'nothing else is added');
+  // A second update changes nothing more.
+  assert.strictEqual(run(['update', dir]).status, 0);
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(file, 'utf8')), after);
+});
