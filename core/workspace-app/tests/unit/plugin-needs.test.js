@@ -432,3 +432,59 @@ test('the first words a new workspace reads say that a plugin can need another o
   const empty = server.slice(server.indexOf('function emptyWorkspaceHtml'), server.indexOf('function emptyWorkspaceHtml') + 1800);
   assert.match(empty, /plugin activate wordpress --with-needs<\/code> adds what is missing first, and the Activate button asks/);
 });
+
+test('a plugin\'s commands and its agents, skills, commands and prompts land in the folders that are active here, follow the workspaces list, and go with the plugin', () => {
+  const t = tree();
+  // A plugin with a builder for dev and test, and one AI item of each kind.
+  const dir = platform(t.plugins, 'wp', { needs: [['dev', 'test']], ai: { agents: ['agents/wp-builder.md'], skills: ['skills/wp-skill'], commands: ['aicommands/wp-command.md'], prompts: ['prompts/wp-prompt.md'] } });
+  fs.mkdirSync(path.join(dir, 'skills', 'wp-skill'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'skills', 'wp-skill', 'SKILL.md'), '# skill\n');
+  for (const [d, f] of [['aicommands', 'wp-command.md'], ['prompts', 'wp-prompt.md']]) { fs.mkdirSync(path.join(dir, d)); fs.writeFileSync(path.join(dir, d, f), `# ${f}\n`); }
+  for (const n of ['dev', 'test']) folder(t.plugins, n);
+  for (const n of ['ai-agents', 'ai-skills', 'ai-commands', 'ai-prompts']) folder(t.plugins, n, 'ai-items');
+  const has = (f) => fs.existsSync(path.join(t.root, f));
+  const items = ['ai-agents/wp-builder.md', 'ai-skills/wp-skill/SKILL.md', 'ai-commands/wp-command.md', 'ai-prompts/wp-prompt.md'];
+  // dev and the agents folder are active; a test/ and an ai-skills/ folder lie on disk, off the list.
+  for (const n of ['dev', 'ai-agents']) { ok(sh(t, '--activate', n)); ok(sh(t, '--install', n)); }
+  fs.mkdirSync(path.join(t.root, 'test'));
+  fs.mkdirSync(path.join(t.root, 'ai-skills'));
+  ok(sh(t, '--activate', 'wp'));
+  const i = ok(sh(t, '--install', 'wp'));
+  assert.ok(has('dev/cmd-wp-project.sh') && has(items[0]), 'in the folders that are workspaces here');
+  assert.ok(!has('test/cmd-wp-project.sh') && !has(items[1]), 'not in a folder that is only on disk');
+  for (const kind of ['skills', 'commands', 'prompts']) assert.match(i.stdout, new RegExp(`skipped 1 ${kind}: there is no ai-${kind}/ workspace here \\(add the ai-${kind} workspace: they are placed when it is installed\\)`));
+  // The folders arrive later, activated then installed or installed then activated: the items appear with no second step for the plugin.
+  // ai-skills/ is on disk already: listing it is what makes it a workspace, and the skill arrives then.
+  const s = ok(sh(t, '--activate', 'ai-skills'));
+  assert.match(s.stdout, /wp: placed 1 more file\(s\) \(ai-skills\/wp-skill\/SKILL\.md\)/);
+  ok(sh(t, '--install', 'ai-skills'));
+  ok(sh(t, '--install', 'ai-commands'));
+  assert.ok(!has(items[2]), 'installed but not activated: not a workspace yet');
+  const a = ok(sh(t, '--activate', 'ai-commands'));
+  assert.match(a.stdout, /wp: placed 1 more file\(s\) \(ai-commands\/wp-command\.md\)/);
+  // A folder that is not on disk yet: activated, then installed, which is when the items arrive.
+  ok(sh(t, '--activate', 'ai-prompts'));
+  assert.match(ok(sh(t, '--install', 'ai-prompts')).stdout, /wp: placed 1 more file\(s\) now that ai-prompts\/ is here \(ai-prompts\/wp-prompt\.md\)/);
+  ok(sh(t, '--activate', 'test'));
+  ok(sh(t, '--install', 'test'));
+  for (const f of [...items, 'dev/cmd-wp-project.sh', 'test/cmd-wp-project.sh']) assert.ok(has(f), `${f} is there`);
+  for (const f of [...items, 'dev/cmd-wp-project.sh', 'test/cmd-wp-project.sh']) assert.ok(record(t).wp.placed.includes(f), `${f} is recorded`);
+  // A folder taken off the list keeps its own content and loses what other plugins placed in it; back on the list, it gets it back.
+  const d = ok(sh(t, '--deactivate', 'dev'));
+  assert.match(d.stdout, /wp: took 1 file\(s\) out of a folder that is no longer a workspace here \(dev\/cmd-wp-project\.sh\)/);
+  assert.ok(!has('dev/cmd-wp-project.sh') && has('dev/cmd-tools-dev.sh') && has('test/cmd-wp-project.sh'));
+  ok(sh(t, '--activate', 'dev'));
+  assert.ok(has('dev/cmd-wp-project.sh'));
+  // Uninstalling a folder: nothing of another plugin is left behind in it.
+  ok(sh(t, '--uninstall', 'dev'));
+  assert.ok(!has('dev/cmd-wp-project.sh') && !record(t).wp.placed.includes('dev/cmd-wp-project.sh'));
+  // Uninstalling the plugin removes every item and its record; the folders and what a person edited stay.
+  fs.writeFileSync(path.join(t.root, items[3]), '# mine now\n');
+  const u = ok(sh(t, '--uninstall', 'wp'));
+  for (const f of [items[0], items[1], items[2], 'test/cmd-wp-project.sh']) assert.ok(!has(f), `${f} is gone`);
+  assert.ok(has(items[3]), 'the prompt a person edited stays');
+  assert.match(u.stdout, /kept ai-prompts\/wp-prompt\.md \(edited here, so it stays\)/);
+  assert.ok(!record(t).wp, 'the record is gone');
+  assert.ok(!enabled(t, 'wp'));
+  assert.ok(has('ai-agents/cmd-tools-ai-agents.sh') && has('test/cmd-tools-test.sh'), 'the folders keep their own');
+});

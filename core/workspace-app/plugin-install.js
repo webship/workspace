@@ -4,6 +4,8 @@
  *   node plugin-install.js install <name>     place everything, idempotently
  *   node plugin-install.js uninstall <name>   remove exactly what install placed
  *   node plugin-install.js status [<name>]    what is placed, what is not, as JSON
+ *   node plugin-install.js reach              after the workspaces list changed: the installed plugins' commands and
+ *                                             AI items go into the folders that are workspaces now, and out of the rest
  *
  * A package in node_modules is code the dashboard can require; the workspace is a tree of bash
  * scripts, DDEV config and settings files that know nothing about node_modules. This is the
@@ -17,7 +19,8 @@
  *   scripts.machine     -> core/scripts/plugins/<name>/
  *   scripts.hostInstall -> core/scripts/plugins/<name>/host-install.sh
  *   ddev.hostMounts     -> core/scripts/plugins/<name>/host-mounts.txt (host-mounts.sh reads it)
- *   commands.files      -> <workspace>/ for every workspace of commands.types (__WORKSPACE__ filled in)
+ *   commands.files      -> <workspace>/ for every named workspace that is active here (on the workspaces list),
+ *                          else every active one of commands.types (__WORKSPACE__ filled in)
  *   ddev.compose        -> core/workspace-app/.ddev/docker-compose.plugin-<name>-<file>
  *   themes              -> core/config/
  *   settingsTemplate    -> core/config/plugin.<name>.settings.yml, only when absent, carrying the
@@ -58,6 +61,12 @@ function readRecord() {
 }
 function writeRecord(data) {
   fs.writeFileSync(RECORD, `# Written by core/scripts/plugins.sh: what each installed plugin placed in this tree.\n${yaml.dump(data)}`);
+}
+
+/** Whether a folder is a workspace of this dashboard: on settings.yml's workspaces list, and on disk. A folder that was taken off the list is not one. */
+function isActiveWorkspace(key) {
+  const { loadSettings } = require('./workspaces');
+  return ((loadSettings().workspaces) || []).map(String).includes(String(key)) && fs.existsSync(path.join(ROOT, key));
 }
 
 /** Workspaces of the given types, from settings.yml and each workspace.<key>.settings.yml. */
@@ -108,8 +117,8 @@ function placeAiItems(plugin, entry, placed, hashes, notes) {
     const list = ((plugin.manifest.ai || {})[kind]) || [];
     if (!list.length) continue;
     const folder = path.join(ROOT, key);
-    if (!fs.existsSync(folder)) {
-      notes.push(`  skipped ${list.length} ${kind}: there is no ${key}/ workspace here (add the ${key} workspace, then --install ${plugin.name} again)`);
+    if (!isActiveWorkspace(key)) {
+      notes.push(`  skipped ${list.length} ${kind}: there is no ${key}/ workspace here (add the ${key} workspace: they are placed when it is installed)`);
       continue;
     }
     for (const f of list) {
@@ -240,7 +249,7 @@ function install(name, { nested = false } = {}) {
   const commands = m.commands || {};
   if ((commands.files || []).length) {
     // Named workspaces when the manifest lists them (only those that exist), else every one of the types.
-    const named = (commands.workspaces || []).filter((ws) => /^[a-z0-9_-]+$/.test(ws) && fs.existsSync(path.join(ROOT, ws)));
+    const named = (commands.workspaces || []).filter((ws) => /^[a-z0-9_-]+$/.test(ws) && isActiveWorkspace(ws));
     for (const ws of named.length ? named : workspacesOfTypes(commands.types || ['sites'])) {
       for (const f of commands.files) {
         const d = path.join(ROOT, ws, path.basename(f));
@@ -292,20 +301,33 @@ function install(name, { nested = false } = {}) {
   updateGitignore(record);
   // A workspace folder that arrives after the plugins that place things into folders: their commands
   // and AI items are placed into it now, so the order plugins were added in does not matter.
-  if (!nested && ws && ws.key) {
-    for (const other of Object.keys(record)) {
-      if (other === name) continue;
-      const p = pluginByName(other);
-      if (!p || !(((p.manifest.commands || {}).files || []).length || Object.values(p.manifest.ai || {}).some((l) => (l || []).length))) continue;
-      const had = new Set(record[other].placed || []);
-      try {
-        const again = install(other, { nested: true });
-        const fresh = again.placed.filter((f) => !had.has(f));
-        if (fresh.length) notes.push(`  ${other}: placed ${fresh.length} more file(s) now that ${ws.key}/ is here (${fresh.slice(0, 3).join(', ')}${fresh.length > 3 ? ', …' : ''})`);
-      } catch (_) { /* its own needs are not met yet: its --install places them */ }
-    }
-  }
+  if (!nested && ws && ws.key) for (const line of reach(name, `now that ${ws.key}/ is here`)) notes.push(line);
   return { name, placed, notes, restart: restart || (ddev.hostMounts || []).length > 0 && !before.size };
+}
+
+/**
+ * Place again what the installed plugins put into workspace folders (their commands, their AI items), after
+ * the set of active folders changed: a folder that was added or listed gets them, one that was taken off the
+ * list loses them. Returns what to say. `except` is the plugin whose own step this is.
+ */
+function reach(except = '', why = '') {
+  const lines = [];
+  const record = readRecord();
+  for (const other of Object.keys(record)) {
+    if (other === except) continue;
+    const p = pluginByName(other);
+    if (!p || !(((p.manifest.commands || {}).files || []).length || Object.values(p.manifest.ai || {}).some((l) => (l || []).length))) continue;
+    const had = new Set(record[other].placed || []);
+    try {
+      const again = install(other, { nested: true });
+      const fresh = again.placed.filter((f) => !had.has(f));
+      const gone = [...had].filter((f) => !again.placed.includes(f));
+      const some = (list) => `${list.slice(0, 3).join(', ')}${list.length > 3 ? ', …' : ''}`;
+      if (fresh.length) lines.push(`  ${other}: placed ${fresh.length} more file(s)${why ? ` ${why}` : ''} (${some(fresh)})`);
+      if (gone.length) lines.push(`  ${other}: took ${gone.length} file(s) out of a folder that is no longer a workspace here (${some(gone)})`);
+    } catch (_) { /* its own needs are not met: its --install places them */ }
+  }
+  return lines;
 }
 
 function uninstall(name) {
@@ -337,7 +359,7 @@ function uninstall(name) {
   for (const [other, e] of Object.entries(record)) {
     const shared = (e.placed || []).filter((p) => removed.includes(p));
     if (!shared.length || !pluginByName(other)) continue;
-    try { install(other, { nested: true }); for (const p of shared) notes.push(`  restored ${p} (${other} places it too)`); } catch (_) { /* that plugin's --install puts it back */ }
+    try { install(other, { nested: true }); for (const p of shared) if (fs.existsSync(path.join(ROOT, p))) notes.push(`  restored ${p} (${other} places it too)`); } catch (_) { /* that plugin's --install puts it back */ }
   }
   return { name, removed, notes, restart: removed.some((p) => p.includes('/.ddev/')) };
 }
@@ -353,7 +375,7 @@ function status(name) {
   });
 }
 
-module.exports = { install, uninstall, status, RECORD };
+module.exports = { install, uninstall, status, reach, isActiveWorkspace, RECORD };
 
 if (require.main === module) {
   const [verb, name] = process.argv.slice(2);
@@ -368,6 +390,8 @@ if (require.main === module) {
       for (const p of r.removed) console.log(`  removed ${p}`);
       for (const n of r.notes || []) console.log(n);
       console.log(r.restart ? 'RESTART_NEEDED' : 'RESTART_NOT_NEEDED');
+    } else if (verb === 'reach') {
+      for (const line of reach(name || '')) console.log(line);
     } else if (verb === 'status') {
       console.log(JSON.stringify(status(name), null, 2));
     } else {
