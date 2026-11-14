@@ -25,7 +25,7 @@ async function generate_voice({ form, res, send, workspace }) {
   // A script chosen from docs/ is read where it is; pasted text goes through a private temporary file.
   const textFile = p.scriptPath ? null : voice.writeText(p.kind === 'video' ? p.script : p.text);
   const opts = { workspace, project: path.basename(p.file, `.${p.ext}`), projectDir: workspaceDir('audio'),
-    verb: 'voice', cmdLine: voice.commandLine(p, textFile, true), label: `${p.engine} ${p.kind === 'video' ? 'voiceover' : 'voice'} ${p.file}` };
+    verb: 'voice', cmdLine: voice.commandLine(p, textFile, true), label: `${p.engine} ${p.kind === 'video' ? 'voiceover' : 'voice'} ${p.file}`, page: false };
   const started = await startInScreen(opts);
   // The command removes the text itself once it has run; when nothing started, nothing will.
   if (!started.ok) {

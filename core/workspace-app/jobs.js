@@ -140,7 +140,8 @@ function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000, echoLine 
   // "Job not found (expired)" and the live output stopped — while the run carried on invisibly,
   // with nothing left in the interface to say whether it passed. Anything long enough to want a
   // progress toast is long enough to outlive a timer started at launch.
-  const forget = () => setTimeout(() => jobs.delete(id), 30 * 60 * 1000);
+  // unref: a timer that only forgets a finished job must not keep a process alive (a test that ran one).
+  const forget = () => setTimeout(() => jobs.delete(id), 30 * 60 * 1000).unref();
   child.on('close', (code) => { clearTimeout(timer); job.done = true; job.ok = code === 0; forget(); });
   child.on('error', (err) => { clearTimeout(timer); job.buf += `\n${err.message}`; job.done = true; job.ok = false; forget(); });
   return id;
@@ -329,9 +330,47 @@ function screenSessionName(project, verb, workspace) {
   return `${name.slice(0, 53).replace(/[-.]+$/, '')}-${hash}`;
 }
 
-async function startInScreen({ project, projectDir, ownerDir, verb, cmdLine, label, workspace }) {
+// --------------------------------------------------- who runs a command --
+// A command the dashboard starts is offered, in this order, to:
+//   1. a plugin that registered as a runner (api.addRunner): it runs the command its own way and
+//      answers with the result, or declines with null;
+//   2. the host runner below (the dashboard's own screen sessions on the machine) — the fallback
+//      while no plugin runs it;
+//   3. the page: a job toast with live output, which ends with the dashboard. A command never
+//      goes unrun because the machine has no runner.
+const runners = [];        // async (opts + session) -> result | null
+
+/** Register a plugin as a runner of the dashboard's commands (what api.addRunner does). */
+function addRunner(fn) {
+  if (typeof fn === 'function') runners.push(fn);
+}
+
+async function pluginRun(opts, session) {
+  for (const fn of runners) {
+    try {
+      const answer = await fn({ ...opts, session });
+      if (answer && typeof answer === 'object') return { session, ...answer };
+    } catch (err) {
+      // A runner that throws must not lose the run: the next one, or the dashboard, takes it.
+      console.error(`a plugin's runner failed on ${session}: ${err.message}`);
+    }
+  }
+  return null;
+}
+
+/** The run in the page: the command as a job toast. `job` is its id; screenStartedHtml draws it. */
+function startInPage({ project, projectDir, cmdLine, label }, session) {
+  const id = startJob(`${esc(label)} on <strong>${esc(project)}</strong> <span class="uk-text-meta">(in the page: no runner is up)</span>`,
+    'bash', ['-lc', require('./linger').withoutLingerWait(cmdLine)], projectDir, { timeoutMs: 3 * 60 * 60 * 1000, echoLine: cmdLine });
+  return { ok: true, session, label, where: 'page', job: id };
+}
+
+async function startInScreen(opts) {
+  const { project, projectDir, ownerDir, verb, cmdLine, label, workspace } = opts;
   const { ROOT } = require('./workspaces');
   const session = screenSessionName(project, verb, workspace);
+  const taken = await pluginRun({ project, projectDir, ownerDir, verb, cmdLine, label, workspace }, session);
+  if (taken) return taken;
   const logDir = path.join(ROOT, '.screens');
   try { fs.mkdirSync(logDir, { recursive: true }); } catch (_) { /* exists */ }
   const logFile = path.join(logDir, `${session}.log`);
@@ -344,8 +383,10 @@ async function startInScreen({ project, projectDir, ownerDir, verb, cmdLine, lab
   // Sessions belong on the machine: that is where the display, the browser an
   // agent drives, and the user's own terminal are — `screen -r <name>` should
   // just work, without `ddev ssh` first.
+  // `page: false` is for a caller whose answer is about the session itself (a progress view that
+  // follows it, a restart of it): it is told the runner is missing, as before.
   if (!(await hostRunnerUp())) {
-    return { ok: false, session, needsRunner: true };
+    return opts.page === false ? { ok: false, session, needsRunner: true } : startInPage(opts, session);
   }
   const answer = await hostRunnerRequest('start',
     { session, dir: projectDir, owner: ownerDir || projectDir, cmd: cmdLine });
@@ -395,6 +436,9 @@ async function screenAction(send, opts) {
  *  the modal stayed open holding a sentence about a session that had already started. */
 function screenStartedHtml(result, label, project) {
   const { esc } = require('./html');
+  // A plugin's runner answers in its own words; a run in the page is its job toast.
+  if (result.html) return result.html;
+  if (result.job) return jobFragment(result.job).html;
   if (result.needsRunner) {
     return `<div class="msg error flash-now">Sessions run on your machine, not in the dashboard's container — and its runner is not up, so <code>${esc(label)}</code> was not started.
       <br>Start it once with:
@@ -422,7 +466,7 @@ module.exports = {
   SCREENRC, screenCmd,
   screenWrap,
   run, jobs, runningJobKey, startJob, stopJob, jobFragment,
-  startInScreen, startInContainerScreen, screenStartedHtml, screenSessionName, screenAction,
+  startInScreen, startInContainerScreen, screenStartedHtml, screenSessionName, screenAction, addRunner,
   hostRunner, hostRunnerCall, hostRunnerUp, hostRunnerRequest, hostSessionsFile,
   // Not job machinery, but they travelled inside the same span of server.js and every
   // caller of them also calls the runner. They move properly in the next split.

@@ -13,9 +13,17 @@ const LINGER_SECONDS = 900;
 const LINGER_MARK = 'Press Enter to close this session';
 
 /** The end of a lingering session's line: say it finished, then wait for Enter or 15 minutes. Shared with COMPOSER. */
+// The wait itself: Enter, or the time. Only a session has a terminal to press Enter in.
+const LINGER_WAIT = `timeout --foreground ${LINGER_SECONDS} bash -c 'while :; do read -r _ && exit 0; sleep 1; done' || true`;
+
 function lingerTail(label) {
   return `echo; echo "${label} finished. ${LINGER_MARK}, or leave it: it closes by itself in 15 minutes."; `
-    + `timeout --foreground ${LINGER_SECONDS} bash -c 'while :; do read -r _ && exit 0; sleep 1; done' || true`;
+    + LINGER_WAIT;
 }
 
-module.exports = { LINGER_SECONDS, LINGER_MARK, lingerTail };
+/** The same line for a run in the page: there is no terminal to press Enter in, so it does not wait. */
+function withoutLingerWait(cmdLine) {
+  return String(cmdLine).split(LINGER_WAIT).join('true');
+}
+
+module.exports = { LINGER_SECONDS, LINGER_MARK, lingerTail, withoutLingerWait };
