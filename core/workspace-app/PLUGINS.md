@@ -430,7 +430,10 @@ credential the dashboard uses for a git host: `github-auth.js` asks it first), `
 Open-with menu for a folder: project rows, the files pages, the images gallery) and `addFolderLink(fn)`
 (a link that opens a folder elsewhere, inside the COMPOSER menu). `api.lib` also hands a plugin what
 git says about a folder (`hasOwnGit`, `gitWorktreeInfo`, `projectHasGit`, `gitBranchOf`), the
-lingering-session tail (`lingerTail`, `LINGER_MARK`), `tildePath` and `hostRunnerRequest`.
+lingering-session tail (`lingerTail`, `LINGER_MARK`), `tildePath` and `hostRunnerRequest`. For sites,
+`api.lib.localSite(urlOrHost)` answers the project of this workspace a host name belongs to
+(`{ workspace, project, dir, host }`, or null), and `api.lib.readerAllowed(url)` answers `''` when the
+reading window may open a URL and the reason when it may not.
 
 ## A plugin's script and the assistant
 

@@ -9,7 +9,9 @@
  *
  * The fetch happens inside the dashboard's container, which can reach the Docker network and every
  * DDEV project, so an address is only fetched when it is https, a name rather than an IP, and every
- * address it resolves to is public; each redirect is checked the same way. A page that answers a
+ * address it resolves to is public; each redirect is checked the same way. The one exception is a site
+ * the person built here: a host name of a project of this workspace (local-sites.js) is read too, by a
+ * GET with no cookie, and said to be a local site. A page that answers a
  * program with a bot check (drupal.org does) is said so plainly, with the link to open in a tab:
  * the reader never tries to get past one.
  */
@@ -30,12 +32,16 @@ function privateIp(ip) {
   return v === '::1' || v === '::' || v.startsWith('fc') || v.startsWith('fd') || v.startsWith('fe80') || v.startsWith('::ffff:');
 }
 
-/** Whether a URL may be fetched: https, a public name, every address it resolves to public. */
-async function allowed(u, lookup = dns.lookup) {
+/**
+ * Whether a URL may be fetched: https, a public name, every address it resolves to public. `local(host)`,
+ * when given, says a host name is a project of this workspace: that one is allowed as it is.
+ */
+async function allowed(u, lookup = dns.lookup, { local = null } = {}) {
   if (u.protocol !== 'https:') return 'only https pages can be opened';
   if (u.port && u.port !== '443') return 'only the standard https port';
   const host = u.hostname.toLowerCase();
   if (net.isIP(host) || !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(host)) return 'only website names, not addresses';
+  if (local && local(host)) return '';
   if (/(^|\.)(ddev\.site|localhost|local|internal|lan)$/.test(host)) return 'local sites open in their own tab';
   try {
     const addrs = await lookup(host, { all: true });
@@ -95,7 +101,7 @@ code { background: #f5f6f8; padding: 0 .2rem; border-radius: .2rem; } pre code {
 }
 
 /** GET /fragments/reader?u=… */
-async function serveReader(res, raw, { fetchImpl = fetch, lookup = dns.lookup } = {}) {
+async function serveReader(res, raw, { fetchImpl = fetch, lookup = dns.lookup, local = require('./local-sites').localSite, fetchLocal = require('./local-sites').fetchLocalSite } = {}) {
   const out = (status, html) => {
     res.writeHead(status, {
       'Content-Type': 'text/html; charset=utf-8',
@@ -110,15 +116,17 @@ async function serveReader(res, raw, { fetchImpl = fetch, lookup = dns.lookup } 
   const refuse = (why, status = 403) => out(status, page(u.hostname, `<h1>${esc(u.hostname)}</h1><p class="hint">${esc(why)}.</p><p class="hint">${esc(u.href)}</p>`));
   try {
     for (let hop = 0; hop < 6; hop++) {
-      const why = await allowed(u, lookup);
+      const why = await allowed(u, lookup, { local });
       if (why) return refuse(why);
-      const r = await fetchImpl(u.href, { redirect: 'manual', signal: AbortSignal.timeout(12000),
+      // A site of this workspace is asked of DDEV's router; any other page of the web, as before.
+      const mine = local ? local(u.hostname) : null;
+      const r = mine ? await fetchLocal(u) : await fetchImpl(u.href, { redirect: 'manual', signal: AbortSignal.timeout(12000),
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Webship Workspace reader)', Accept: 'text/html,text/plain;q=0.9' } });
       if (r.status >= 300 && r.status < 400 && r.headers.get('location')) { u = new URL(r.headers.get('location'), u); continue; }
       if (!r.ok) return refuse(`that page answered ${r.status}`, r.status === 404 ? 404 : 502);
       const type = String(r.headers.get('content-type') || '');
       const body = (await r.text()).slice(0, MAX_BYTES);
-      const crumb = `<p class="hint">${esc(u.hostname)}${esc(u.pathname.length > 1 ? u.pathname.slice(0, 90) : '')}</p>`;
+      const crumb = `<p class="hint"${mine ? ` data-local-site="${esc(`${mine.workspace}/${mine.project}`)}"` : ''}>${esc(u.hostname)}${esc(u.pathname.length > 1 ? u.pathname.slice(0, 90) : '')}${mine ? ` · a local site of this workspace (${esc(mine.workspace)}/${esc(mine.project)}), read without signing in` : ''}</p>`;
       if (/text\/plain/.test(type)) return out(200, page(u.pathname.split('/').pop() || u.hostname, `${crumb}<pre>${esc(body.slice(0, 200000))}</pre>`));
       if (!/text\/html|application\/xhtml/.test(type)) return refuse('that is not a page the reader can show', 415);
       if (isChallenge(body)) return refuse(`${u.hostname} only opens in a real browser tab`);
