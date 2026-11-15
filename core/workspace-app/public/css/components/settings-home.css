@@ -150,3 +150,5 @@
   .plugin-step-do .uk-button, .plugin-buttons .uk-button { min-height: 2.5rem; }
   .settings-back { flex-wrap: wrap; }
 }
+/* A path or a command inside a plugin's page breaks rather than running off a narrow screen. */
+.plugin-page code, .settings-home .settings-family-about code { white-space: normal; overflow-wrap: anywhere; }

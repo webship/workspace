@@ -2147,7 +2147,10 @@ async function settingsFormHtml(file, message) {
   const rows = readSettingsRows(file);
   if (!rows) return '<div class="msg error">Could not read that settings file.</div>';
   const modes = settingsModesHtml(file, false);
-  const ws = file === 'settings.yml' ? null : file.replace(/^workspace\.|\.settings\.yml$/g, '');
+  // Only a workspace's file is "for a workspace": a plugin's file and a style's file say what they are.
+  const ws = (file.match(/^workspace\.(.+)\.settings\.yml$/) || [])[1] || null;
+  const ownerPlugin = (file.match(/^plugin\.(.+)\.settings\.yml$/) || [])[1] || '';
+  const ownerLabel = ownerPlugin ? ((require('./plugin-manifest').pluginByName(ownerPlugin) || { manifest: {} }).manifest.label || ownerPlugin) : '';
 
   // A plugin may offer live options for a field of its settings file (what a CLI can see, rather than a
   // hand-typed key). Asked here because the field renderer is synchronous; null means a plain input.
@@ -2232,7 +2235,7 @@ async function settingsFormHtml(file, message) {
                value="${esc(String(r.value).trim())}"
                min="${numeric.min}" max="${numeric.max}" step="${numeric.step}"
                inputmode="decimal">
-        <span class="uk-text-meta settings-unit">${esc(numeric.unit)}</span>
+        ${numeric.unit ? `<span class="uk-text-meta settings-unit">${esc(numeric.unit)}</span>` : ''}
         <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
       </div>`;
     }
@@ -2308,7 +2311,8 @@ async function settingsFormHtml(file, message) {
       <h3 class="uk-margin-small-bottom">${fname(file)}</h3>
       <p class="uk-text-meta">${ws
         ? `Settings for the <strong>${esc(ws)}</strong> workspace.`
-        : 'Hub settings: paths, the account used by installs, contributor identity and API keys.'}
+        : file === 'settings.yml' ? 'Hub settings: paths, the account used by installs, contributor identity and API keys.'
+          : `${esc(require('./settings-model').fileHint(file, { pluginLabel: ownerLabel }))}.`}
         Secrets are never sent to this page — a blank secret field keeps the value already on disk.
         Comments and formatting in the file are preserved; only the lines you change are rewritten.</p>
       ${message || ''}
