@@ -126,6 +126,14 @@ test('a step the page must hear the end of leaves a watcher, and the watcher kno
   assert.match(server, /if \(done\) res\.setHeader\('HX-Trigger', 'refresh-projects'\);/);
 });
 
+test('the session a notice linked to is the first thing on the Screens page, above a plugin\'s panel', () => {
+  const ui = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'ui.js'), 'utf8');
+  assert.match(ui, /box\.id = 'screen-asked';\n[^\n]*\n\s+list\.parentElement\.prepend\(box\);/);
+  assert.doesNotMatch(ui, /list\.before\(box\)/);
+  // The page draws the plugins' panels before the list, inside the same card.
+  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8'), /pluginScreensPanelsHtml\(\)\}\s+<div id="webship-workspace-projects"/);
+});
+
 test('the line for a terminal of your own drops only the linger tail', () => {
   assert.strictEqual(withoutLinger(`git status; ${lingerTail('git status')}`), 'git status');
   assert.strictEqual(withoutLinger('bash cmd-x.sh; echo done'), 'bash cmd-x.sh; echo done');
