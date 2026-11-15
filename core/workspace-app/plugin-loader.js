@@ -144,7 +144,8 @@ function appliesTo(config, workspaceKey) {
 //   scripts        api.addScript and the manifest's `js`: a plugin's browser scripts are loaded on every page.
 //   uploads        api.addUpload: a plugin action that takes a binary body (an utterance, a picture).
 //   assistant-answer  the page's `ws-assistant-answer` event, `wsAssistantSend` and `wsAssistantHooks`.
-const CAPABILITIES = Object.freeze(new Set(['row-menu-body', 'runner', 'screens-panel', 'scripts', 'uploads', 'assistant-answer']));
+//   assistant-ear  `window.wsAssistantEar`: a plugin's script answers the dock's talk buttons and the Space bar.
+const CAPABILITIES = Object.freeze(new Set(['row-menu-body', 'runner', 'screens-panel', 'scripts', 'uploads', 'assistant-answer', 'assistant-ear']));
 
 const SCRIPT_NAME_RE = /^[a-z0-9][a-z0-9._-]{0,80}\.js$/;
 const UPLOAD_MAX = 32 * 1024 * 1024;

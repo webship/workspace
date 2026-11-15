@@ -438,6 +438,11 @@ when `capabilities.has('assistant-answer')`:
   voice speaks it: `e.detail` is `{ html, spoken, directive }`. A listener that speaks the answer itself
   calls `e.preventDefault()`, and the summary voice stays silent for that answer.
 
+A plugin that listens its own way (a local model, voice activity) sets `window.wsAssistantEar =
+{ hold(on), keep(on), keeping() }`: the dock's Hold to talk button, the Space bar and the Keep listening
+button then call it in place of the browser's recogniser (`capabilities.has('assistant-ear')`). It sends
+the turn itself, and shows the two buttons when the browser has no recogniser of its own.
+
 The events the page already sends are there too: `ws-assistant-working` (`{ on, failed }`),
 `ws-assistant-reply` and `ws-assistant-speech` (`{ type: 'start' | 'word' | 'end', word }`, which the
 avatar's mouth follows: a plugin that speaks dispatches it).

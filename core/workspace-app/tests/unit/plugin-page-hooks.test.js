@@ -94,7 +94,16 @@ test('the page offers the assistant to a plugin\'s script: send a turn, add to i
   assert.match(ui, /new CustomEvent\('ws-assistant-answer', \{ cancelable: true/);
   assert.match(ui, /const speakHere = document\.dispatchEvent\(answer\);\s+setWorking\(false\);\s+if \(response && response\.html\) \{ if \(speakHere\) narrator\.narrate/);
   const loader = fs.readFileSync(path.join(APP, 'plugin-loader.js'), 'utf8');
-  assert.match(loader, /'scripts', 'uploads', 'assistant-answer'\]\)/);
+  assert.match(loader, /'scripts', 'uploads', 'assistant-answer', 'assistant-ear'\]\)/);
   const doc = fs.readFileSync(path.join(APP, 'PLUGINS.md'), 'utf8');
   for (const s of ['`api.addScript(file)`', '`api.addUpload(name, handler, { maxBytes })`', 'ws-assistant-answer', 'wsAssistantSend', '"js": [']) assert.ok(doc.includes(s), `PLUGINS.md says ${s}`);
+});
+
+test('the dock\'s talk buttons and the Space bar go to a plugin\'s ear when one is set, and to the browser\'s recogniser otherwise', () => {
+  const src = fs.readFileSync(path.join(APP, 'public', 'assistant-avatar-ui.js'), 'utf8');
+  assert.match(src, /const ear = \(\) => \{ const e = window\.wsAssistantEar;/);
+  assert.match(src, /function listen\(on\) \{\n    if \(ear\(\)\) \{ ear\(\)\.hold\(Boolean\(on\)\); return; \}\n    if \(!Recognition \|\| keep\) return;/);
+  assert.match(src, /function keepListening\(on\) \{\n    if \(ear\(\)\) \{ ear\(\)\.keep\(Boolean\(on\)\); return; \}/);
+  assert.match(src, /keepListening\(ear\(\) \? !earKeeps\(\) : !keep\)/);
+  assert.ok(fs.readFileSync(path.join(APP, 'PLUGINS.md'), 'utf8').includes('window.wsAssistantEar'));
 });

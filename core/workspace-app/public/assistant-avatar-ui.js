@@ -993,6 +993,12 @@
   // you finish it, until you press it again. The browser's speech recognition, in the assistant's own
   // language setting; the buttons go when the browser has none.
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  // A plugin's ear answers the two buttons and the Space bar in place of the browser's recogniser, when a
+  // plugin's script has set one: window.wsAssistantEar = { hold(on), keep(on), keeping() }. It listens
+  // its own way (a local model, voice activity) and sends the turn itself; it shows the buttons again
+  // when the browser has no recogniser.
+  const ear = () => { const e = window.wsAssistantEar; return e && typeof e.hold === 'function' && typeof e.keep === 'function' ? e : null; };
+  const earKeeps = () => { const e = ear(); return Boolean(e && typeof e.keeping === 'function' && e.keeping()); };
   if (!Recognition) { micBtn.hidden = true; keepBtn.hidden = true; }
   const lang = () => (window.WS_SPEECH && window.WS_SPEECH.speechToText && window.WS_SPEECH.speechToText.webSpeech && window.WS_SPEECH.speechToText.webSpeech.language) || 'en-US';
   let rec = null; let heard = ''; let keep = false;
@@ -1001,6 +1007,7 @@
     micBtn.classList.toggle('is-held', on && !keep);
   };
   function listen(on) {
+    if (ear()) { ear().hold(Boolean(on)); return; }
     if (!Recognition || keep) return;
     if (on && !rec) {
       heard = '';
@@ -1027,6 +1034,7 @@
   // Keep listening: every final sentence is sent; recognition restarts when the browser ends it.
   let keepRec = null;
   function keepListening(on) {
+    if (ear()) { ear().keep(Boolean(on)); return; }
     keep = on;
     keepBtn.setAttribute('aria-pressed', String(on));
     keepBtn.classList.toggle('is-listening', on);
@@ -1053,7 +1061,7 @@
     };
     start();
   }
-  keepBtn.addEventListener('click', () => keepListening(!keep));
+  keepBtn.addEventListener('click', () => keepListening(ear() ? !earKeeps() : !keep));
   micBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); listen(true); });
   ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => micBtn.addEventListener(ev, () => listen(false)));
   micBtn.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); listen(true); } });
@@ -1061,11 +1069,11 @@
   // The Space bar anywhere on the page, unless you are typing or pressing a button with it.
   const typing = (el) => el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(el.tagName) || el.tagName === 'DEEP-CHAT' || el.closest?.('.avatar-note, [contenteditable="true"]'));
   document.addEventListener('keydown', (e) => {
-    if (e.code !== 'Space' || e.repeat || keep || root.classList.contains('assistant-closed') || typing(document.activeElement)) return;
+    if (e.code !== 'Space' || e.repeat || keep || earKeeps() || root.classList.contains('assistant-closed') || typing(document.activeElement)) return;
     e.preventDefault();
     listen(true);
   });
-  document.addEventListener('keyup', (e) => { if (e.code === 'Space' && rec) { e.preventDefault(); listen(false); } });
+  document.addEventListener('keyup', (e) => { if (e.code === 'Space' && (rec || (ear() && !earKeeps() && !typing(document.activeElement)))) { e.preventDefault(); listen(false); } });
 
   // ---- Quick replies: answer in one click ------------------------------------------------------
   function send(text) {
