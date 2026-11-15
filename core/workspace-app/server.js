@@ -7955,6 +7955,9 @@ Summarise what you changed and how to verify it`,
       // An avatar settings.yml names, read from the avatars workspace where its model lives (assistant-cast.js).
       const avatarModel = pathname.match(/^\/avatar\/model\/([a-z0-9][a-z0-9_-]{0,62})\.vrm$/);
       if (avatarModel) return require('./assistant-cast').serveAvatarModel(res, avatarModel[1], loadSettings(), ROOT);
+      // The moves an offered avatar's own project brings, checked before they are served (assistant-cast.js).
+      const avatarMoves = pathname.match(/^\/avatar\/moves\/([a-z0-9][a-z0-9_-]{0,62})\.js$/);
+      if (avatarMoves) return require('./assistant-cast').serveAvatarMoves(res, avatarMoves[1], loadSettings(), ROOT);
       // The ElevenLabs voices the avatar can speak in, once the account is connected; listing them is free.
       if (pathname === '/fragments/assistant/voices') {
         let out;

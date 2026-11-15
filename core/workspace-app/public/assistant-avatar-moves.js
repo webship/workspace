@@ -1,11 +1,10 @@
 // Moves of particular avatars, by set: an avatar whose set is named here does these instead of the
 // shared ones in assistant-avatar.js where the names meet, and has the rest as well.
 //
-// labiba: Labiba's own moves, from her avatar app (github.com/Natshah/labiba-meme-avatar, public/avatar.js),
+// guide: for a small floating character whose arms start beside its head (locks of hair, ribbons, ears),
 // chosen for work: greetings, agreeing and disagreeing, a bow, thinking, explaining, drawing on the board,
-// presenting, reading, a magnifier, a globe, a launch. Her arms are locks of hair that start beside her
-// cheeks, so these angles are hers; the props she holds in her own app (chalk, a book) are not drawn here.
-// Left out on purpose: the headscarf, and the moves meant for children (kisses, hugs, a dab, peekaboo…).
+// presenting, reading, a magnifier, a globe, a launch. The angles suit that build; an avatar is given the
+// set by its character file (`"moves": "guide"`) or by settings.yml `assistant.avatar_moves`.
 //
 // clock: the Druplicon's, a clock-faced character with a steady bearing: its body is its head, so it tilts, leans and bounces as one, and its hands race round the dial when it is pleased (`o.clockSpin`, in
 // turns, which the page adds to the hands).
@@ -218,7 +217,7 @@ export const MOVE_SETS = {
       },
     },
   },
-  labiba: {
+  guide: {
     wave: {
       duration: 2.4,
       pose(t, p) {

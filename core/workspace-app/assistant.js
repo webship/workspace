@@ -116,7 +116,7 @@ const AVATAR_MOVE_SETS = {
     bounce: 'a bounce, pleased', spinhands: 'its hands race round the dial, delighted', tada: 'arms up, hands spinning: good news',
     tick: 'ticking side to side while it waits', glance: 'a look over the shoulder', alert: 'a finger straight up: attention',
   },
-  labiba: {
+  guide: {
     bow: 'a polite bow, to thank or welcome', shake: 'no', listen: 'while you take in a question', read: 'reading something through',
     magnify: 'looking closely, reviewing', draw: 'drawing on the board', drawbig: 'a big diagram on the board', holdup: 'showing something',
     proud: 'proud of a result', laugh: 'a light laugh', surprised: 'surprise', confused: 'puzzled', hips: 'ready, waiting',
@@ -135,7 +135,9 @@ const AVATAR_SIZES = ['small', 'medium', 'large', 'xl', 'huge', 'bigger', 'small
 
 async function assistantReply(message, ctx, thread = null, { voice = false, avatar = false, avatarName = '', avatarId = '', page = null } = {}) {
   const cast = require('./assistant-cast');
-  const moveSet = AVATAR_MOVE_SETS[cast.moveSetOf(avatarId)] || {};
+  // The avatar's own moves: the set it is given (settings.yml, or its character file) and the moves its project brings.
+  const mind = avatar ? cast.avatarMind(loadSettings(), ROOT, String(avatarId || '')) : { moves: '', ownMoves: {}, agent: '' };
+  const moveSet = { ...mind.ownMoves, ...(AVATAR_MOVE_SETS[mind.moves] || {}) };
   const moves = [...AVATAR_GESTURES, ...Object.keys(AVATAR_BIG_MOVES), ...Object.keys(moveSet).filter((m) => !AVATAR_GESTURES.includes(m))];
   // The avatar picked in the panel: a display name, nothing more, so it is cut down to letters and spaces.
   const shownAs = String(avatarName || '').replace(/[^\p{L}\p{N} .'-]/gu, '').trim().slice(0, 40) || 'Druplicon';
@@ -380,7 +382,7 @@ async function assistantReply(message, ctx, thread = null, { voice = false, avat
   // The agent it runs as (settings.yml assistant.agent, `webship-workspace` by default): that agent's rules
   // and skills, on top of everything above. Only when the agent is installed for this user.
   // An avatar may bring an agent of its own (settings.yml assistant.avatar_agents), while it is shown.
-  const agentName = (avatar && cast.agentOf(loadSettings(), String(avatarId || ''))) || require('./speech').assistantSettings(loadSettings()).agent;
+  const agentName = (avatar && mind.agent) || require('./speech').assistantSettings(loadSettings()).agent;
   if (agentName && fs.existsSync(path.join(process.env.HOME || '', '.claude', 'agents', `${agentName}.md`))) baseArgs.push('--agent', agentName);
   const withSession = (id, resume) => [...baseArgs, ...(resume ? ['--resume', id] : ['--session-id', id])];
 

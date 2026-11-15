@@ -294,9 +294,25 @@ const VOWELS = { a: 'aa', e: 'ee', i: 'ih', o: 'oh', u: 'ou', y: 'ih' };
 // the canvas then covers the whole window and the figure is drawn in that rectangle, so its moves reach
 // anywhere on the page with no edge to cut them. Without it the figure fills the canvas.
 // `look`: '2d' (flat: no perspective and an even light, a cartoon drawing, the default) or '3d' (perspective, lit).
-export async function mountAvatar(canvas, { model = '/avatar/druplicon.vrm', moves = '', hair = '', box: boxOf = null, look: lookAs = '2d' } = {}) {
+export async function mountAvatar(canvas, { model = '/avatar/druplicon.vrm', moves = '', ownMoves = '', hair = '', box: boxOf = null, look: lookAs = '2d' } = {}) {
   // The shared moves, and this avatar's own where it has a set: its own win where the names meet.
   const gestures = { ...GESTURES, ...(MOVE_SETS[moves] || {}) };
+  // The moves the avatar's own project brings (its public/custom-moves.js, served once the dashboard has
+  // checked it): added under their own names, never in place of a move that is already there.
+  if (ownMoves) {
+    try {
+      const helpers = { ease, envelope, reach: () => {} };
+      const brought = (await import(ownMoves)).default || {};
+      for (const [name, def] of Object.entries(brought)) {
+        if (!/^[a-z]{2,24}$/.test(name) || gestures[name] || !def || typeof def.pose !== 'function') continue;
+        gestures[name] = {
+          duration: Math.max(0.5, Math.min(10, Number(def.duration) || 2)),
+          pose: (t, p, o) => def.pose(t, p, o, helpers),
+          ...(typeof def.face === 'function' ? { face: (t) => def.face(t) } : {}),
+        };
+      }
+    } catch (_) { /* the avatar keeps the shared moves */ }
+  }
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
