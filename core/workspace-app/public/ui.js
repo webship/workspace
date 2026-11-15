@@ -853,6 +853,77 @@ document.addEventListener('shown', (e) => {
   });
 })();
 
+// Settings home and the catalogue: one filter over the base tiles and every plugin row. Words narrow
+// by text, the chips by state. The box is drawn hidden and shown here, so a page with no script
+// offers no filter that does nothing. It is applied again when the plugins are drawn again.
+function settingsSearchApply(root) {
+  const box = root.querySelector('.settings-search');
+  if (!box) return;
+  box.hidden = false;
+  const input = box.querySelector('input[type="search"]');
+  const pressed = box.querySelector('.settings-chip[aria-pressed="true"]');
+  const show = pressed ? pressed.dataset.show : 'all';
+  const words = (input ? input.value : '').toLowerCase().split(/\s+/).filter(Boolean);
+  const matches = (el) => words.every((w) => (el.dataset.find || el.textContent.toLowerCase()).includes(w));
+  let rows = 0;
+  let total = 0;
+  root.querySelectorAll('.plugin-row').forEach((row) => {
+    total += 1;
+    const inState = show === 'all' || (show === 'attention' && row.dataset.attention === '1')
+      || (show === 'active' && row.dataset.active === '1') || (show === 'inactive' && row.dataset.active === '0');
+    row.hidden = !(inState && matches(row));
+    if (!row.hidden) rows += 1;
+  });
+  root.querySelectorAll('.settings-family').forEach((f) => {
+    const shown = [...f.querySelectorAll('.plugin-row')].filter((r) => !r.hidden);
+    f.hidden = !shown.length;
+    f.querySelectorAll('.plugin-row.is-first-shown').forEach((r) => r.classList.remove('is-first-shown'));
+    if (shown.length) shown[0].classList.add('is-first-shown');
+    const count = f.querySelector('.settings-family-count');
+    if (count) count.textContent = String(shown.length);
+  });
+  let tiles = 0;
+  root.querySelectorAll('.settings-tile[data-find]').forEach((t) => {
+    t.hidden = show !== 'all' || !matches(t);
+    if (!t.hidden) tiles += 1;
+  });
+  root.querySelectorAll('.settings-base, .settings-loose').forEach((g) => { g.hidden = ![...g.querySelectorAll('.settings-tile')].some((t) => !t.hidden); });
+  const plugins = root.querySelector('.settings-plugins');
+  if (plugins) {
+    // The chips count what is on the page now, after a step has run.
+    box.querySelectorAll('[data-count]').forEach((c) => { const v = plugins.dataset[`count${c.dataset.count[0].toUpperCase()}${c.dataset.count.slice(1)}`]; if (v !== undefined) c.textContent = v; });
+    plugins.hidden = total > 0 && rows === 0;
+  }
+  const filtering = words.length > 0 || show !== 'all';
+  const none = root.querySelector('.settings-none');
+  if (none) none.hidden = !filtering || rows + tiles > 0;
+  const status = box.querySelector('.settings-search-status');
+  if (status) {
+    const said = !filtering ? '' : rows + tiles === 0 ? 'Nothing matches.'
+      : `${rows} plugin${rows === 1 ? '' : 's'}${tiles ? ` and ${tiles} base setting${tiles === 1 ? '' : 's'}` : ''} shown.`;
+    if (status.textContent !== said) status.textContent = said;
+  }
+}
+function settingsSearchInit() { document.querySelectorAll('.settings-home').forEach(settingsSearchApply); }
+document.addEventListener('input', (e) => {
+  const root = e.target.closest && e.target.closest('.settings-search') && e.target.closest('.settings-home');
+  if (root) settingsSearchApply(root);
+});
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest && e.target.closest('.settings-chip');
+  if (!chip) return;
+  chip.closest('.settings-chips').querySelectorAll('.settings-chip').forEach((c) => c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'));
+  settingsSearchApply(chip.closest('.settings-home'));
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || !e.target.matches || !e.target.matches('.settings-search input[type="search"]') || !e.target.value) return;
+  e.target.value = '';
+  settingsSearchApply(e.target.closest('.settings-home'));
+});
+settingsSearchInit();
+document.body.addEventListener('htmx:after:swap', settingsSearchInit);
+document.body.addEventListener('htmx:after:settle', settingsSearchInit);
+
 // A settings file: find a key, see a switch say what it is, and know when there is something unsaved.
 document.addEventListener('input', (e) => {
   const box = e.target.closest && e.target.closest('.settings-find');

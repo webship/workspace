@@ -26,6 +26,7 @@ const page = read('navigation-page.js');
 const actions = read('actions/navigation.js');
 const ui = read('public/ui.js');
 const server = read('server.js');
+const home = read('settings-home.js');
 const tabs = read('commands-page.js');
 
 test('the Add form shares no field name with the arrangement it posts with it', () => {
@@ -92,8 +93,8 @@ test('the navigation is a SETTING, and both the tabs it used to be land on it', 
   assert.match(server, /pathname === '\/commands\/rail' \|\| pathname === '\/commands\/navigation'[\s\S]{0,240}Location: `\/settings\/navigation/);
   assert.match(server, /pathname === '\/settings\/navigation'/);
   assert.match(server, /settingsPage\('navigation', readPageState\(req\), \{ scope, fragment: isFragment\(req\) \}\)/);
-  assert.match(server, /card\('\/settings\/navigation', 'tabler:layout-sidebar-right', 'Navigation',/,
-    'and it is one of the cards there, in The dashboard group rather than among the workspaces');
+  assert.match(home, /href: '\/settings\/navigation', icon: 'tabler:layout-sidebar-right', title: 'Navigation'/,
+    'and it is one of the entries of the base there, not among the plugins');
   assert.ok(!tabs.includes('/commands/navigation'), 'and no longer one of the Commands tabs');
   assert.match(page, /href="\/settings\/navigation\?scope=/, 'the scope tabs stay inside Settings');
 });
@@ -180,22 +181,23 @@ test("a plugin's group is given ids, so what a plugin adds can be arranged like 
 test('Settings is grouped and shown as a grid, not 26 identical pills', () => {
   // The hub's own settings, an editor that is not a file at all, and twenty-four workspaces were all
   // weighted the same and wrapped onto three lines.
-  assert.match(server, /<h2 class="settings-group-head">The dashboard<\/h2>/);
-  assert.match(server, /<h2 class="settings-group-head">Workspace settings<\/h2>/);
+  // The base first, then the plugins by family: the home is settings-home.js's now.
+  assert.match(home, /<h2 class="settings-group-head" id="settings-base-head">Workspace base<\/h2>/);
+  assert.match(home, /<h2 class="settings-group-head" id="settings-plugins-head">Plugins<\/h2>/);
   // Every editor that is not a settings FILE has to be excluded here, or choosing it would fall
   // through to the index. Matched loosely on purpose: the list grows (Command order joined it), and a
   // test that pins the exact expression fails on the addition rather than on the behaviour.
   assert.match(server, /const isIndex = !isScreens && !isNavigation && !isButtons &&[^;]*!current;/,
     'with nothing chosen the page IS the index, rather than defaulting into one file');
-  assert.match(server, /class="settings-grid"/);
+  assert.match(home, /class="settings-grid"/);
   // Not `settings-card`: that is already the class of the settings FORM wrapper, and a grid rule on it
   // squeezed that form's description into a 71px ribbon down the right of the page.
-  assert.match(server, /class="settings-tile\$\{active \? ' is-current' : ''\}"/);
+  assert.match(home, /<a class="settings-tile" href=/);
 });
 
 test('a workspace card carries that workspace own icon and name', () => {
-  assert.match(server, /const m = meta\[key\] \|\| \{\};/);
-  assert.match(server, /m\.icon \|\| 'tabler:folder',\s*\n?\s*m\.label \|\| key/);
+  assert.match(home, /const m = folders\[key\] \|\| \{\};/);
+  assert.match(home, /icon: m\.icon \|\| 'tabler:folder', title: m\.label \|\| key/);
 });
 
 test('opening one gives it the width, with a line back rather than the whole list again', () => {

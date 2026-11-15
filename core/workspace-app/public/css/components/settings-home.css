@@ -1,0 +1,92 @@
+/* Settings home and a plugin's own page: the base as a few tiles, then the plugins as rows by family.
+   Rows, not cards: with dozens of plugins a card each is a wall, and a row keeps the name, the state
+   and the one action on a line the eye can run down. Only the dashboard's own tokens are used. */
+
+.settings-search { margin: 0 0 1.25rem; }
+.settings-search[hidden] { display: none; }
+.settings-search-label { display: block; font-weight: 600; font-size: 0.875rem; margin: 0 0 0.35rem; }
+.settings-search-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.settings-search-row .uk-input { flex: 1 1 16rem; min-width: 0; max-width: 28rem; }
+.settings-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.settings-chip {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  min-height: 2rem; padding: 0.2rem 0.7rem;
+  border: 1px solid var(--line-strong, var(--line)); border-radius: 999px;
+  background: var(--surface-card); color: var(--text-default);
+  font: inherit; font-size: 0.8125rem; cursor: pointer;
+}
+.settings-chip:hover { border-color: var(--brand-primary); }
+.settings-chip[aria-pressed="true"] { background: var(--subtle-brand); border-color: var(--brand-primary); font-weight: 600; }
+.settings-chip-count { color: var(--text-subtle); font-variant-numeric: tabular-nums; }
+.settings-search-status { margin: 0.4rem 0 0; min-height: 1.2em; font-size: 0.8125rem; color: var(--text-subtle); }
+
+.settings-group-bar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; margin: 0 0 0.75rem; }
+.settings-group-bar .settings-group-head { margin: 0; }
+.settings-group-summary { font-size: 0.8125rem; color: var(--text-subtle); flex: 1 1 auto; }
+.settings-add { display: inline-flex; align-items: center; gap: 0.3rem; }
+.settings-base .settings-tile-meta { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.settings-base .settings-grid, .settings-loose .settings-grid { grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); }
+.settings-tile[hidden] { display: none; }
+
+.settings-family { margin: 0 0 1.25rem; }
+.settings-family[hidden] { display: none; }
+.settings-family-head {
+  display: flex; align-items: center; gap: 0.45rem;
+  margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-default);
+}
+.settings-family-head .tabler-icon, .settings-family-head [uk-icon] { color: var(--brand-primary); }
+.settings-family-count {
+  font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums;
+  padding: 0 0.45rem; border-radius: 999px; background: var(--surface-muted); color: var(--text-subtle);
+}
+.settings-family-about { margin: 0.1rem 0 0.5rem; font-size: 0.8125rem; color: var(--text-subtle); }
+
+.plugin-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-card); }
+.plugin-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(7.5rem, auto);
+  align-items: center; gap: 0.25rem 1rem;
+  padding: 0.55rem 0.85rem;
+  border-top: 1px solid var(--line);
+}
+.plugin-row:first-child, .plugin-row.is-first-shown { border-top: 0; }
+.plugin-row[hidden] { display: none; }
+.plugin-row-main { display: grid; gap: 0.05rem; min-width: 0; color: var(--text-default); text-decoration: none; padding: 0.15rem 0; }
+/* The row is the shape of the link (a name in bold at the start of a list row), so it is not underlined
+   at rest the way a link in prose is; hover and focus underline the name. */
+.plugin-rows .plugin-row-main, .plugin-rows .plugin-row-main:hover { color: var(--text-default); text-decoration: none; }
+.plugin-rows .plugin-row-main:hover .plugin-row-name, .plugin-rows .plugin-row-main:focus-visible .plugin-row-name { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+.plugin-row-name { font-weight: 600; font-size: 0.9375rem; }
+.plugin-row-summary { font-size: 0.8125rem; line-height: 1.35; color: var(--text-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plugin-row-state { display: flex; flex-wrap: wrap; gap: 0.3rem; justify-content: flex-end; }
+.plugin-row-action { display: flex; justify-content: flex-end; }
+.plugin-row-action .uk-button { white-space: nowrap; }
+
+/* A state: an icon and words on a soft tint. The words carry it; the tint only groups. */
+.plugin-state {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.1rem 0.55rem 0.1rem 0.4rem; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 600; line-height: 1.5; white-space: nowrap;
+  background: var(--surface-muted); color: var(--text-default);
+}
+.plugin-state.is-ok { background: var(--ok-soft); color: var(--ok-ink); }
+.plugin-state.is-warning { background: var(--warning-soft); color: var(--warning-ink); }
+.plugin-state.is-danger { background: var(--danger-soft); color: var(--danger-ink); }
+.plugin-state.is-info { background: var(--subtle-brand); color: var(--text-default); }
+.plugin-state.is-muted { background: transparent; color: var(--text-subtle); box-shadow: inset 0 0 0 1px var(--line-strong, var(--line)); }
+
+.settings-empty { padding: 1rem 1.1rem; border: 1px dashed var(--line-strong, var(--line)); border-radius: 12px; color: var(--text-default); }
+.settings-empty[hidden] { display: none; }
+.settings-empty p { margin: 0 0 0.5rem; }
+.settings-empty p:last-child { margin-bottom: 0; }
+
+/* Phone: the state and the action drop under the name, the action takes the row's width. */
+@media (max-width: 40em) {
+  .plugin-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .plugin-row-main { grid-column: 1 / -1; }
+  .plugin-row-summary { white-space: normal; }
+  .plugin-row-state { justify-content: flex-start; }
+  .plugin-row-action .uk-button { min-height: 2.5rem; }
+  .settings-search-row .uk-input { max-width: none; flex-basis: 100%; }
+  .settings-chip { min-height: 2.5rem; }
+  .settings-base .settings-grid, .settings-loose .settings-grid { grid-template-columns: 1fr; }
+}

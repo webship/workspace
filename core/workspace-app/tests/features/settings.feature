@@ -38,9 +38,19 @@ Feature: The settings editor
      Then the element ".icon-filter" should be displayed
       And the element ".icon-grid" should be displayed
 
-  Scenario: The settings hub groups what can be configured and leads to the files
+  Scenario: The settings home shows the base first, then the plugins by family
     Given I am on "/settings"
-     Then I should see "The dashboard"
-      And I should see "Workspace settings"
-      And I should see "Styles"
+     Then I should see "Workspace base"
+      And I should see "Plugins"
       And "a[href='/settings/settings.yml']" should be attached
+      And "a[href='/settings/styles']" should be attached
+      And the element "a" with the attribute "href" and the value "/settings/theme.default.yml" should not exist
+      And "a[href='/settings/plugins']" should be attached
+
+  # The filter is drawn hidden and shown by the page's script: a page whose script did not run offers
+  # no box that does nothing.
+  Scenario: The settings home has one filter over the base and the plugins
+    Given I am on "/settings"
+     Then the element "#settings-search-input" should be displayed
+      And the element ".settings-chip[data-show='attention']" should be displayed
+
