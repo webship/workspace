@@ -2692,7 +2692,7 @@ function settingsTabGroups(wanted = '') {
   const fileTab = (f, label, icon) => ({ id: f, label, icon, url: url(f), hint: settingsModel.fileHint(f, { folderSubtitle: (data.folders[(f.match(/^workspace\.(.+)\.settings\.yml$/) || [])[1]] || {}).subtitle }) });
   const groups = [
     { id: 'base', label: 'Workspace base', tabs: [
-      { id: 'overview', label: 'Overview', icon: 'tabler:list-search', url: '/settings?fragment=1', hint: 'The base, and every plugin with its state: one filter over all of it' },
+      { id: 'overview', label: 'Overview', icon: 'tabler:list-search', url: '/settings?fragment=1', hint: 'What is waiting: the plugins that need something, and the newer versions on npm' },
       ...sorted.general.map((f) => fileTab(f, 'General', 'tabler:settings')),
       { id: 'navigation', label: 'Navigation', icon: 'tabler:layout-sidebar-right', url: '/settings/navigation?fragment=1', hint: 'The sidebar and the top bar: what they show, where, and what you added' },
       { id: 'buttons', label: 'Buttons', icon: 'tabler:layout-grid', url: '/settings/buttons?fragment=1', hint: 'The buttons of every project row, what is inside them, and the actions on them' },

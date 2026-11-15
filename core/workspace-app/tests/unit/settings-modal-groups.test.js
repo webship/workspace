@@ -62,3 +62,8 @@ test('modal tabs: the panel is not a live region, a tab says its badge and its g
   assert.match(groups, /badgeTone: p\.state\.attention \? 'warning' : ''/);
   assert.match(groups, /hint: p\.summary \|\| '',/, 'the line under the pane heading is what the plugin is, not its package a second time');
 });
+
+test('the overview tab says what it now is, and a long tab name wraps instead of being cut', () => {
+  assert.match(groups, /id: 'overview'[^\n]*hint: 'What is waiting: the plugins that need something, and the newer versions on npm'/);
+  assert.match(read('public/css/components/tab-modal.css'), /\.tabmodal-tab \.tabmodal-tab-label \{ white-space: normal;/);
+});
