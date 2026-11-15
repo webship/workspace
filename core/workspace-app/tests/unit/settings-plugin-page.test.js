@@ -91,7 +91,7 @@ test('removing a plugin another one needs is refused in words, with no button to
 test('the state part is drawn again when a step has run; the form beside it is not; an unknown plugin is a 404 that says where to add it', () => {
   const p = make('jira', { label: 'Jira' }, 0);
   const html = page.pluginPageHtml(p, { files: [], known: new Set() });
-  assert.match(html, /id="plugin-status" hx-get="\/fragments\/settings\/plugin\/jira" hx-trigger="refresh-projects from:body" hx-swap="outerHTML"/);
+  assert.match(html, /id="plugin-status" hx-get="\/fragments\/settings\/plugin\/jira\?part=status" hx-trigger="refresh-projects from:body" hx-swap="outerHTML"/);
   const status = html.slice(html.indexOf('id="plugin-status"'), html.indexOf('id="settings"'));
   assert.ok(status.includes('plugin-step-list') && status.includes('id="needs"'));
   for (const id of ['needs', 'settings', 'ships', 'remove']) assert.ok(html.includes(`id="${id}"`), `#${id}`);
@@ -114,4 +114,18 @@ test('saving the form on a plugin page draws its state again: "Needs settings" d
   assert.match(ui, /if \(ok && form\.closest\('\.plugin-page'\)\) document\.body\.dispatchEvent\(new CustomEvent\('refresh-projects'\)\);/);
   const html = page.pluginPageHtml(make('jira', { label: 'Jira' }, 2), { files: [], known: new Set() });
   assert.ok(html.indexOf('id="plugin-status"') < html.indexOf('id="settings"'), 'the state is outside the form, so the form is not redrawn under the person');
+});
+
+test('what it ships and the removal follow a step; the settings section follows one only while it has no form', () => {
+  const p = make('jira', { label: 'Jira', settingsFile: 'plugin.jira.settings.yml', settingsTemplate: 'config/x.yml' }, 1);
+  const files = [{ file: 'plugin.jira.settings.yml', kind: 'plugin', exists: false }];
+  const early = page.pluginPageHtml(p, { files, known: new Set() });
+  assert.match(early, /id="plugin-after" hx-get="\/fragments\/settings\/plugin\/jira\?part=after" hx-trigger="refresh-projects from:body" hx-swap="outerHTML"/);
+  assert.match(early, /id="settings" aria-labelledby="plugin-settings-head"\s+hx-get="\/fragments\/settings\/plugin\/jira\?part=settings" hx-trigger="refresh-projects from:body"/, 'no form yet: it is asked for when Install has run');
+  const withForm = page.settingsSectionHtml(p, { files: [{ ...files[0], exists: true }], chosen: { ...files[0], exists: true }, formHtml: '<form id="f"></form>' });
+  assert.ok(!withForm.includes('hx-get='), 'a form that is there is never replaced under the person typing in it');
+  assert.match(withForm, /<form id="f">/);
+  const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
+  assert.match(server, /part === 'after' \? pluginPage\.afterHtml\(data\.plugin, data\)/);
+  assert.match(server, /settingsPluginData\(ps\[1\], '', \{ form: part === 'settings' \}\)/);
 });

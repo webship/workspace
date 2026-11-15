@@ -210,7 +210,7 @@ function removeHtml(p) {
 function statusHtml(p, { known = new Set() } = {}) {
   const f = model.familyById(p.family);
   return `
-  <div class="plugin-status" id="plugin-status" hx-get="/fragments/settings/plugin/${esc(encodeURIComponent(p.name))}" hx-trigger="refresh-projects from:body" hx-swap="outerHTML">
+  <div class="plugin-status" id="plugin-status" hx-get="${esc(fragmentUrl(p, 'status'))}" hx-trigger="refresh-projects from:body" hx-swap="outerHTML">
     <header class="plugin-head">
       <div class="plugin-head-title">
         <h2 class="plugin-head-name">${esc(p.manifest.label || p.name)}</h2>
@@ -232,24 +232,46 @@ function statusHtml(p, { known = new Set() } = {}) {
   </div>`;
 }
 
+const fragmentUrl = (p, part) => `/fragments/settings/plugin/${encodeURIComponent(p.name)}?part=${part}`;
+
+/**
+ * The settings section. While there is no form in it (the file is written by Install), it is drawn
+ * again when a step has run, so the form appears without a reload; once a form is there it is left
+ * alone, whatever runs: what a person is typing is never replaced under them.
+ */
+function settingsSectionHtml(p, ctx = {}) {
+  const hasForm = !!ctx.formHtml;
+  return `
+    <section class="plugin-section" id="settings" aria-labelledby="plugin-settings-head"${hasForm ? '' : `
+             hx-get="${esc(fragmentUrl(p, 'settings'))}" hx-trigger="refresh-projects from:body" hx-swap="outerHTML"`}>
+      <h3 class="plugin-section-head" id="plugin-settings-head">Settings</h3>
+      ${settingsHtml(p, ctx)}
+    </section>`;
+}
+
+/** What it ships and how to remove it: both change with a step, so both are drawn again after one. */
+function afterHtml(p, ctx = {}) {
+  return `
+    <div class="plugin-after" id="plugin-after" hx-get="${esc(fragmentUrl(p, 'after'))}" hx-trigger="refresh-projects from:body" hx-swap="outerHTML">
+    <section class="plugin-section" id="ships" aria-labelledby="plugin-ships-head">
+      <h3 class="plugin-section-head" id="plugin-ships-head">What it ships</h3>
+      ${shipsHtml(p, ctx)}
+    </section>
+    <section class="plugin-section" id="remove" aria-labelledby="plugin-remove-head" data-refocus="remove-${esc(p.name)}">
+      <h3 class="plugin-section-head" id="plugin-remove-head">Reinstall or remove</h3>
+      ${removeHtml(p)}
+    </section>
+    </div>`;
+}
+
 /** The whole page body. `ctx`: `{ known, files, chosen, formHtml, record, workspaces }`. */
 function pluginPageHtml(p, ctx = {}) {
   return `
   <article class="plugin-page" data-plugin="${esc(p.name)}">
     <div hx-get="/fragments/settings/updates?plugin=${esc(encodeURIComponent(p.name))}" hx-trigger="load" hx-swap="none" hidden></div>
     ${statusHtml(p, ctx)}
-    <section class="plugin-section" id="settings" aria-labelledby="plugin-settings-head">
-      <h3 class="plugin-section-head" id="plugin-settings-head">Settings</h3>
-      ${settingsHtml(p, ctx)}
-    </section>
-    <section class="plugin-section" id="ships" aria-labelledby="plugin-ships-head">
-      <h3 class="plugin-section-head" id="plugin-ships-head">What it ships</h3>
-      ${shipsHtml(p, ctx)}
-    </section>
-    <section class="plugin-section" id="remove" aria-labelledby="plugin-remove-head">
-      <h3 class="plugin-section-head" id="plugin-remove-head">Reinstall or remove</h3>
-      ${removeHtml(p)}
-    </section>
+    ${settingsSectionHtml(p, ctx)}
+    ${afterHtml(p, ctx)}
   </article>`;
 }
 
@@ -262,4 +284,4 @@ function missingHtml(name) {
     </div>`;
 }
 
-module.exports = { pluginPageHtml, statusHtml, updateHtml, steps, stepsHtml, needsHtml, settingsHtml, shipsHtml, removeHtml, missingHtml };
+module.exports = { pluginPageHtml, statusHtml, settingsSectionHtml, afterHtml, updateHtml, steps, stepsHtml, needsHtml, settingsHtml, shipsHtml, removeHtml, missingHtml };

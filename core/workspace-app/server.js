@@ -6132,9 +6132,14 @@ const server = http.createServer(async (req, res) => {
       // The part of that page that changes when a step has run; the settings form beside it is left alone.
       { const ps = pathname.match(/^\/fragments\/settings\/plugin\/([a-z0-9-]+)$/);
         if (ps) {
-          const data = await settingsPluginData(ps[1], '', { form: false });
+          // status: the state, the steps, the needs. after: what it ships and the removal. settings: the
+          // section while it has no form yet (it asks only then, so a form being typed in is never replaced).
+          const part = new URL(req.url, 'http://localhost').searchParams.get('part') || 'status';
+          const data = await settingsPluginData(ps[1], '', { form: part === 'settings' });
+          const pluginPage = require('./settings-plugin-page');
           res.writeHead(data ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' });
-          return res.end(data ? require('./settings-plugin-page').statusHtml(data.plugin, data) : '');
+          return res.end(!data ? '' : part === 'after' ? pluginPage.afterHtml(data.plugin, data)
+            : part === 'settings' ? pluginPage.settingsSectionHtml(data.plugin, data) : pluginPage.statusHtml(data.plugin, data));
         } }
       if (pathname === '/settings/plugins') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
