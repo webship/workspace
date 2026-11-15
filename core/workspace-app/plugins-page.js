@@ -28,6 +28,18 @@ const { FAMILIES, SCOPE } = require('./plugin-catalog');
 
 const STEPS = ['required', 'activated', 'installed', 'configured'];
 
+/**
+ * Whether a settings file still holds a placeholder: CHANGE_ME in the value of a key, bare, quoted or
+ * inside a longer value ("https://CHANGE_ME.atlassian.net"). A comment that mentions it does not count.
+ */
+function hasPlaceholder(text) {
+  return String(text || '').split('\n').some((line) => {
+    if (/^\s*#/.test(line)) return false;
+    const m = line.match(/^\s*(?:-\s+)?[A-Za-z0-9_.-]+\s*:\s*(.*)$/);
+    return !!m && /CHANGE_ME/.test(m[1].replace(/\s+#.*$/, ''));
+  });
+}
+
 /** Where a plugin is on the way to ready. */
 function stepOf(plugin, config, placed) {
   const active = config && (config.enabled === true || String(config.enabled) === 'true');
@@ -39,7 +51,7 @@ function stepOf(plugin, config, placed) {
   if (file) {
     try {
       const text = fs.readFileSync(path.join(CONFIG_DIR, file), 'utf8');
-      if (/:\s*CHANGE_ME\s*$/m.test(text)) return 2;
+      if (hasPlaceholder(text)) return 2;
     } catch (_) { return 2; }
   }
   return 3;
@@ -171,4 +183,4 @@ function catalogHtml(have = new Set(), wants = new Map()) {
     </section>`;
 }
 
-module.exports = { pluginsPageHtml, catalogHtml, commandsSectionHtml, rows, stepOf, needsInstall, STEPS };
+module.exports = { pluginsPageHtml, catalogHtml, commandsSectionHtml, rows, stepOf, hasPlaceholder, needsInstall, STEPS };
