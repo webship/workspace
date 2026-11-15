@@ -2639,6 +2639,24 @@ function settingsHomeData() {
     styles: { count: listThemes().length, wearing: themeLabel(styleSettings().theme) } };
 }
 
+/**
+ * What a plugin's own page draws from: the plugin with its family and state, its settings files and
+ * the form of the one shown, what its install recorded, and the folders this workspace has. Null when
+ * no such plugin is added here.
+ */
+async function settingsPluginData(name, want = '', { form = true } = {}) {
+  const settingsModel = require('./settings-model');
+  const home = settingsHomeData();
+  const all = home.groups.flatMap((g) => g.plugins);
+  const plugin = all.find((p) => p.name === name);
+  if (!plugin) return null;
+  const files = settingsModel.filesOf(plugin).map((f) => ({ ...f, exists: home.files.includes(f.file) }));
+  const chosen = files.find((f) => f.exists && f.kind === want) || files.find((f) => f.exists) || null;
+  const formHtml = form && chosen ? await settingsFormHtml(chosen.file) : '';
+  const st = require('./plugin-needs').state();
+  return { plugin, known: new Set(all.map((p) => p.name)), files, chosen, formHtml, record: st.record[name] || null, workspaces: st.workspaces };
+}
+
 /** The settings, as the tabs of the settings modal: the dashboard's own, then files, styles, workspaces. */
 function settingsTabGroups() {
   const files = listSettingsFiles();
@@ -2678,8 +2696,10 @@ async function settingsPage(section, state, options = {}) {
   const isStyles = section === 'styles';
   // Plugins are configuration of a kind: which optional features this machine has, and the four steps each is at.
   const isPlugins = section === 'plugins';
-  const current = isScreens || isNavigation || isButtons || isBuildOrder || isStyles || isPlugins ? '' : (files.includes(section) ? section : '');
-  const isIndex = !isScreens && !isNavigation && !isButtons && !isBuildOrder && !isStyles && !isPlugins && !current;
+  // One plugin's own page: the caller has drawn it (it reads a settings form, which is async).
+  const isPlugin = section === 'plugin';
+  const current = isScreens || isNavigation || isButtons || isBuildOrder || isStyles || isPlugins || isPlugin ? '' : (files.includes(section) ? section : '');
+  const isIndex = !isScreens && !isNavigation && !isButtons && !isBuildOrder && !isStyles && !isPlugins && !isPlugin && !current;
 
   const workspaceKey = (f) => (f.match(/^workspace\.(.+)\.settings\.yml$/) || [])[1] || '';
   const meta = loadWorkspaces();
@@ -2687,15 +2707,19 @@ async function settingsPage(section, state, options = {}) {
   const index = isIndex ? require('./settings-home').homeHtml(settingsHomeData()) : '';
 
   // A chosen one gets the width to itself: the way back is a line, not the whole list again.
-  const chosenName = isPlugins ? 'Plugins' : isStyles ? 'Styles'
+  const chosenName = isPlugin ? options.pluginName : isPlugins ? 'Plugins' : isStyles ? 'Styles'
     : isNavigation ? 'Navigation'
     : isBuildOrder ? 'Command order'
       : isButtons ? 'Buttons'
       : current ? (meta[workspaceKey(current)] || {}).label || current : '';
+  // A settings file that is a plugin's own says so, and leads to the page that has the rest of it.
+  const owner = current ? require('./settings-model').sortFiles([current], require('./plugin-manifest').installedPlugins()).owned.get(current) : null;
+  const ownerLabel = owner ? ((require('./plugin-manifest').pluginByName(owner.plugin) || { manifest: {} }).manifest.label || owner.plugin) : '';
   const back = `<p class="settings-back">
       <a class="uk-button uk-button-default uk-button-small" href="/settings">
         <span uk-icon="icon: arrow-left; ratio: .8"></span> All settings</a>
-      <strong>${esc(chosenName)}</strong>
+      <strong>${esc(chosenName)}</strong>${owner ? `
+      <span class="uk-text-meta settings-owner">${owner.kind === 'folder' ? 'the folder of' : 'part of'} the <a href="/settings/plugin/${esc(encodeURIComponent(owner.plugin))}">${esc(ownerLabel)}</a> plugin</span>` : ''}
     </p>`;
 
   const body = isScreens
@@ -2706,7 +2730,7 @@ async function settingsPage(section, state, options = {}) {
     </div>`
     : isIndex
       ? index
-      : `${options.fragment ? '' : back}${isPlugins ? require('./plugins-page').pluginsPageHtml() : isStyles ? stylesPageHtml()
+      : `${options.fragment ? '' : back}${isPlugin ? options.pluginHtml : isPlugins ? require('./plugins-page').pluginsPageHtml() : isStyles ? stylesPageHtml()
         : isNavigation ? navPage.navEditorHtml(options.scope || 'global')
         : isBuildOrder ? buildOrderPage.editorHtml(options.scope || 'global')
           : isButtons ? (await learnCoreMenus(), rowLayout.rowActionsEditorHtml())
@@ -2724,6 +2748,8 @@ async function settingsPage(section, state, options = {}) {
         ? 'What each workspace offers first — the builders in Build a new project, and the tools in Run a tool'
         : isButtons
           ? 'The buttons of every project row, what is inside them, and the actions on them'
+          : isPlugin
+            ? 'A plugin: its state, what it needs, its settings and what it ships'
           : isPlugins
             ? 'optional features: require, activate, install, configure'
           : isStyles
@@ -6049,14 +6075,23 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(require('./settings-home').pluginsSectionHtml(settingsHomeData().groups));
       }
-      // A plugin's own address in Settings. Until it has a page of its own it lands on its settings
-      // file, else on the Plugins page.
+      // A plugin's own page: its state, the four steps, its needs, its settings form, what it ships.
       { const pm = pathname.match(/^\/settings\/plugin\/([a-z0-9-]+)$/);
         if (pm) {
-          const found = require('./plugin-manifest').pluginByName(pm[1]);
-          const file = found && found.manifest.settingsFile;
-          res.writeHead(302, { Location: file && listSettingsFiles().includes(file) ? `/settings/${encodeURIComponent(file)}` : '/settings/plugins' });
-          return res.end();
+          const want = new URL(req.url, 'http://localhost').searchParams.get('file') || '';
+          const data = await settingsPluginData(pm[1], want);
+          const pluginPage = require('./settings-plugin-page');
+          res.writeHead(data ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(await settingsPage('plugin', readPageState(req), { fragment: isFragment(req),
+            pluginName: data ? (data.plugin.manifest.label || data.plugin.name) : pm[1],
+            pluginHtml: data ? pluginPage.pluginPageHtml(data.plugin, data) : pluginPage.missingHtml(pm[1]) }));
+        } }
+      // The part of that page that changes when a step has run; the settings form beside it is left alone.
+      { const ps = pathname.match(/^\/fragments\/settings\/plugin\/([a-z0-9-]+)$/);
+        if (ps) {
+          const data = await settingsPluginData(ps[1], '', { form: false });
+          res.writeHead(data ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(data ? require('./settings-plugin-page').statusHtml(data.plugin, data) : '');
         } }
       if (pathname === '/settings/plugins') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });

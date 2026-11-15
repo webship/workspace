@@ -90,3 +90,63 @@
   .settings-chip { min-height: 2.5rem; }
   .settings-base .settings-grid, .settings-loose .settings-grid { grid-template-columns: 1fr; }
 }
+
+/* A plugin's own page. Sections under plain headings, separated by a line: no card inside the card. */
+.plugin-page { display: grid; gap: 0; }
+.plugin-head-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.plugin-head-name { margin: 0; font-size: 1.5rem; font-weight: 600; }
+.plugin-head-state { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; }
+.plugin-head-meta { margin: 0.25rem 0 0; font-size: 0.8125rem; color: var(--text-subtle); }
+.plugin-head-about { margin: 0.5rem 0 0; max-width: 72ch; }
+.plugin-section { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line); scroll-margin-top: 5rem; }
+.plugin-section-head { margin: 0 0 0.75rem; font-size: 1.0625rem; font-weight: 600; }
+.plugin-sub { display: flex; align-items: center; gap: 0.4rem; margin: 1rem 0 0.35rem; font-size: 0.875rem; font-weight: 600; }
+.plugin-sub:first-child { margin-top: 0; }
+.plugin-quiet { margin: 0.25rem 0; font-size: 0.875rem; color: var(--text-subtle); max-width: 80ch; }
+
+.plugin-step-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; max-width: 56rem; }
+.plugin-step-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 0.75rem; padding: 0.6rem 0.75rem; border-radius: 10px; }
+.plugin-step-item.is-now { background: var(--subtle-brand); box-shadow: inset 0 0 0 1px var(--brand-primary); }
+.plugin-step-mark { display: flex; padding-top: 0.1rem; color: var(--text-subtle); }
+.plugin-step-item.is-done .plugin-step-mark { color: var(--ok-ink); }
+.plugin-step-item.is-now .plugin-step-mark { color: var(--brand-primary); }
+.plugin-step-title { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; }
+.plugin-step-status { font-size: 0.75rem; font-weight: 600; color: var(--text-subtle); }
+.plugin-step-item.is-done .plugin-step-status { color: var(--ok-ink); }
+.plugin-step-item.is-now .plugin-step-status { color: var(--text-default); }
+.plugin-step-item.is-later .plugin-step-title strong { font-weight: 500; }
+.plugin-step-text { margin: 0.1rem 0 0; font-size: 0.875rem; color: var(--text-default); }
+.plugin-step-item.is-later .plugin-step-text { color: var(--text-subtle); }
+.plugin-step-do { margin: 0.6rem 0 0.15rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.plugin-step-command { font-size: 0.8125rem; color: var(--text-subtle); overflow-wrap: anywhere; }
+
+.plugin-alert { display: flex; gap: 0.6rem; align-items: flex-start; margin: 1rem 0 0; padding: 0.7rem 0.85rem; border-radius: 10px; background: var(--warning-soft); color: var(--warning-ink); }
+.plugin-alert.is-danger { background: var(--danger-soft); color: var(--danger-ink); }
+.plugin-alert p { margin: 0 0 0.4rem; }
+.plugin-alert p:last-child { margin: 0; }
+
+.plugin-need-list, .plugin-ship-list, .plugin-placed-list { list-style: none; margin: 0; padding: 0; }
+.plugin-need { display: flex; gap: 0.45rem; align-items: flex-start; padding: 0.2rem 0; font-size: 0.875rem; }
+.plugin-need > .tabler-icon, .plugin-need > [uk-icon] { flex: none; margin-top: 0.15rem; color: var(--text-subtle); }
+.plugin-need.is-met > .tabler-icon { color: var(--ok-ink); }
+.plugin-need.is-unmet > .tabler-icon { color: var(--warning-ink); }
+.plugin-need span { overflow-wrap: anywhere; }
+.plugin-ship-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.75rem; padding: 0.3rem 0; border-top: 1px solid var(--line); font-size: 0.875rem; overflow-wrap: anywhere; }
+.plugin-ship-list li:first-child { border-top: 0; }
+.plugin-ship-list .plugin-quiet { margin: 0; font-size: 0.8125rem; }
+.plugin-placed { margin-top: 0.75rem; font-size: 0.875rem; }
+.plugin-placed summary { cursor: pointer; color: var(--link); width: fit-content; padding: 0.25rem 0; }
+.plugin-placed-list { margin-top: 0.4rem; columns: 2 22rem; font-size: 0.8125rem; overflow-wrap: anywhere; }
+.plugin-buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 0.5rem; }
+.plugin-file-tabs { margin: 0 0 0.75rem; }
+.settings-owner { margin-left: 0.25rem; }
+/* The form brings its own card; inside a plugin's page it is a section, not a card in a card. */
+.plugin-page .settings-card { border: 0; box-shadow: none; padding: 0; background: transparent; }
+.plugin-page .settings-card > h3:first-child { font-size: 0.9375rem; }
+
+@media (max-width: 40em) {
+  .plugin-head-name { font-size: 1.25rem; }
+  .plugin-step-item { padding: 0.6rem 0.5rem; }
+  .plugin-step-do .uk-button, .plugin-buttons .uk-button { min-height: 2.5rem; }
+  .settings-back { flex-wrap: wrap; }
+}
