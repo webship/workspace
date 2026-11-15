@@ -1275,14 +1275,11 @@ ${actionsHtml || ''}
      rows and an item list can be longer, so editing inline meant scrolling to the
      bottom and losing sight of what you were editing. The confirm dialog below stacks
      over it, so an action armed inside the editor is still asked about. -->
-<!-- Running commands collect here rather than in the page area they were launched from: a
-     build takes minutes and you should be able to keep working, or move to another workspace,
-     without losing sight of it. -->
+<!-- A command that starts says so here, with a link to its session on the Screens page. No
+     terminal is drawn at the bottom of the page: a command runs in a screen session. -->
 <!-- Short results — saved, deleted, installed — surface here and fade. They used to appear
      inline wherever the form happened to be, which on a long settings page is off-screen. -->
 <div id="flash-toasts" class="flash-toasts" aria-live="polite"></div>
-<div id="job-toasts" class="job-toasts" aria-live="polite"
-     hx-get="/fragments/jobs/running" hx-trigger="load" hx-swap="innerHTML"></div>
 <!-- Every important action asks here first. It stacks, because it is often opened from inside the editor modal:
      a run that asks before it runs, a delete in a form. No backtick in this comment: the shell is a template literal. -->
 <div id="confirm-modal" class="uk-flex-top" uk-modal="bg-close: false; esc-close: true; stack: true">
@@ -5465,9 +5462,14 @@ async function handleAction(pathname, form, res, req = null) {
       if (!/^[a-zA-Z0-9 ._@^~:/=,\-]*$/.test(rawArgs)) return send('<div class="msg error">Arguments may hold letters, numbers, and ._@^~:/=,- only.</div>', 400);
       const argv = rawArgs ? rawArgs.split(/\s+/) : [];
       res.setHeader('HX-Trigger', 'refresh-projects');
-      return screenAction(send, { workspace: target, project: script.replace(/^cmd-|\.sh$/g, ''),
-        projectDir: dir, verb: 'run', cmdLine: `bash ${script}${rawArgs ? ` ${rawArgs}` : ''}`,
-        label: `run ${script}${rawArgs ? ` ${rawArgs}` : ''}` });
+      // A tool can be done in a second (--help, a list): its session stays open to be read, and the
+      // next run replaces it once it has finished.
+      const label = `run ${script}${rawArgs ? ` ${rawArgs}` : ''}`;
+      const project = script.replace(/^cmd-|\.sh$/g, '');
+      const started = await require('./actions/composer').startUnlessRunning({ workspace: target, project,
+        projectDir: dir, verb: 'run', cmdLine: `bash ${script}${rawArgs ? ` ${rawArgs}` : ''}; ${require('./linger').lingerTail(label)}`, label });
+      const answer = started.stillRunning ? { ...started, already: true } : started;
+      return send(screenStartedHtml(answer, label, project), answer.ok ? 200 : (answer.already ? 409 : 500));
     }
     if (pathname === '/actions/command-new') {
       let name = String(form.newName || '').trim();
@@ -6709,7 +6711,7 @@ const server = http.createServer(async (req, res) => {
       // The images public/ actually holds, as tiles. A settings value has to match a file
       // exactly, so this shows what is there rather than asking you to remember a filename.
       if (pathname === '/fragments/jobs/inline') {
-        const rows = [...jobs.entries()].filter(([, j]) => !j.done && j.inline).map(([id, j]) => `
+        const rows = [...jobs.entries()].filter(([, j]) => !j.done).map(([id, j]) => `
           <div class="uk-flex uk-flex-middle uk-flex-between uk-margin-small-bottom">
             <span>${j.title}</span>
             <span>
@@ -6725,19 +6727,12 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(rows ? `<div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small">
           <div class="uk-text-bold uk-margin-small-bottom">Running in a window</div>${rows}
-          <div class="uk-text-meta">Jobs opened in a modal — a pull, a watched log. They keep running after the window is closed; Open puts one back on screen.</div>
+          <div class="uk-text-meta">Views opened in a window — a followed log, a plugin's progress. They keep running after the window is closed; Open puts one back on screen.</div>
         </div>` : '');
       }
       // The avatar's browser window: a page read through this server, cleaned and sandboxed (reader.js).
       if (pathname === '/fragments/reader') {
         return require('./reader').serveReader(res, new URL(req.url, 'http://localhost').searchParams.get('u'));
-      }
-      if (pathname === '/fragments/jobs/running') {
-        // Inline jobs live in the modal they were opened in — they never float
-        // over the pages as toasts. Reopen their surface to see them again.
-        const running = [...jobs.entries()].filter(([, j]) => !j.done && !j.inline).map(([id]) => jobFragment(id).html);
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(running.join(''));
       }
       // The conversation so far, as deep-chat's own history shape. The panel asks for this on every
       // page, which is what makes the assistant continuous across the workspace subdomains: the id is
@@ -7567,6 +7562,20 @@ Summarise what you changed and how to verify it`,
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(await screensGridHtml());
       }
+      // Asked by the watcher a step leaves in the page (jobs.js sessionWatchHtml): done, and the page's lists refresh.
+      { const m = pathname.match(/^\/fragments\/session-done\/([a-z0-9][a-zA-Z0-9._-]*)$/);
+        if (m) {
+          const done = await require('./screens').sessionDone(m[1]);
+          if (done) res.setHeader('HX-Trigger', 'refresh-projects');
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+          return res.end(done ? '' : require('./jobs').sessionWatchHtml(m[1]));
+        } }
+      // The session a notice linked to (/screens?session=<name>): running or ended, with the end of its log.
+      { const m = pathname.match(/^\/fragments\/screen-asked\/([a-z0-9][a-zA-Z0-9._-]*)$/);
+        if (m) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+          return res.end(await require('./screens').sessionAskedHtml(m[1]));
+        } }
       { const m = pathname.match(/^\/fragments\/screen-tail\/([a-z0-9][a-zA-Z0-9._-]*)$/);
         if (m) {
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -7688,7 +7697,7 @@ Summarise what you changed and how to verify it`,
         return res.end(`
     <div class="editor-card">
       <h3 class="uk-margin-small-bottom">Run a tool in ${esc(target)}</h3>
-      <p class="uk-text-meta">This workspace's tools, run as a job from its folder with the flags you
+      <p class="uk-text-meta">This workspace's tools, run in a screen session from its folder with the flags you
         give. Builders are not here — <strong>Build a new project</strong> owns those, with its name
         field and defaults — and the everyday per-project actions (backup, remove, graphify…) sit on
         each project's own row. This is for workspace-level tools, and for running any tool with

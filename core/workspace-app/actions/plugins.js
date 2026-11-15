@@ -1,13 +1,16 @@
 /**
- * The Plugins page's buttons: each one is core/scripts/plugins.sh with a verb, run as a job so the
- * output streams to the page and the record of what happened is the same as on the command line.
+ * The Plugins page's buttons: each one is core/scripts/plugins.sh with a verb, started in a screen
+ * session like every other command, so the record of what happened is the same as on the command
+ * line and nothing is drawn as a terminal in the page. The session stays open to be read when the
+ * step is done; a step that restarts the dashboard is not lost with it.
  */
 
 const path = require('path');
 
-const { esc } = require('../html');
 const { ROOT } = require('../workspaces');
-const { jobFragment, runningJobKey, startJob } = require('../jobs');
+const { screenStartedHtml } = require('../jobs');
+const { startUnlessRunning } = require('./composer');
+const { lingerTail } = require('../linger');
 const { pluginByName } = require('../plugin-manifest');
 
 const VERBS = new Set(['require', 'activate', 'install', 'configure', 'deactivate', 'uninstall']);
@@ -32,10 +35,14 @@ module.exports = {
     // Without it the script stops at an unmet need and says the exact commands.
     const withNeeds = WITH_NEEDS.has(verb) && String(form.withNeeds || '') === '1';
     const args = ['core/scripts/plugins.sh', `--${verb}`, arg, ...(withNeeds ? ['--with-needs'] : [])];
-    const key = `plugins:${verb}:${arg}`;
-    if (runningJobKey(key)) return send('<div class="msg error">That is already running.</div>', 409);
-    const id = startJob(`🧩 Plugin <strong>${esc(verb)}</strong> ${esc(arg)}`, 'bash', args, ROOT,
-      { timeoutMs: 10 * 60 * 1000, echoLine: `bash ${args.join(' ')}`, key });
-    return send(jobFragment(id).html);
+    // One session per plugin and step: pressing it twice answers "already running".
+    const what = verb === 'require' ? (arg.match(/workspace-([a-z-]+?)(?:-\d|[@#.]|$)/) || [])[1] || 'package' : arg;
+    const label = `plugin ${verb} ${arg}`;
+    // A session left open from the last time (its step done, waiting to be read) is replaced; one still at work is left alone.
+    const started = await startUnlessRunning({ workspace: 'plugins', project: what, projectDir: ROOT, verb,
+      cmdLine: `bash ${args.map((a) => JSON.stringify(a)).join(' ')}; ${lingerTail(label)}`, label });
+    // The page that asked shows the plugin's state: it is told when the step is done (refresh-projects), not reloaded.
+    const answer = started.stillRunning ? { ...started, already: true } : { ...started, watch: true };
+    return send(screenStartedHtml(answer, label, what), answer.ok ? 200 : (answer.already ? 409 : 500));
   },
 };

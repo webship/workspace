@@ -108,8 +108,8 @@ async function folder_new({ form, send, res }) {
     const label = 'set up the folder';
     const started = await startInScreen({ workspace: ws, project: name, projectDir: workspaceDir(ws), ownerDir: made.dir,
       verb: 'setup', cmdLine: line, label });
-    setup = started.ok && !started.html && !started.job
-      ? `<p>Setting it up in <code>${esc(started.session)}</code>: <a href="/screens">watch it on Screens</a>.</p>`
+    setup = started.ok && !started.html
+      ? `<p>Setting it up in <code>${esc(started.session)}</code>: <a href="/screens?session=${encodeURIComponent(started.session)}">Open in Screens</a>.</p>`
       : screenStartedHtml(started, label, name);
   }
 

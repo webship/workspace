@@ -9,7 +9,6 @@
 const rail = require('../navigation');
 const navPage = require('../navigation-page');
 const cc = require('../commands');
-const { startJob, jobFragment } = require('../jobs');
 
 const ok = (msg) => `<div class="msg assistant">✅ ${msg}</div>`;
 const bad = (msg) => `<div class="msg error">${msg}</div>`;
@@ -164,21 +163,13 @@ async function nav_reset({ form, send }) {
 }
 
 /**
- * Run a command an entry carries. The same runner a row action uses, so there is one history and one
- * screen session per run rather than a second way of doing it.
+ * Run a command an entry carries: handed to the runner of the Commands page, so there is one way a
+ * command starts (a screen session), one history, and one answer for a command that asks for a target.
  */
 async function nav_run({ form, send }) {
   const use = String(form.use || '');
-  const command = cc.loadCatalog().commands.find((c) => c.id === use);
-  if (!command) return send(bad('No such command.'), 400);
-  let line;
-  try {
-    line = cc.commandLine(command, { workspace: command.workspace });
-  } catch (err) {
-    return send(bad(`That command cannot run from the rail: ${err.message}`), 400);
-  }
-  const id = startJob(`rail:${use}`, line, { cwd: command.dir });
-  return send(jobFragment(id).html);
+  if (!cc.findCommand(use)) return send(bad('No such command.'), 400);
+  return require('./commands-center')['/actions/cc-run']({ form: { ...form, id: use }, send });
 }
 
 module.exports = {

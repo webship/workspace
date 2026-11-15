@@ -1,9 +1,12 @@
 /**
- * Running a command, and the registry of the ones still running.
+ * Running a command: in a screen session, always (startInScreen: a plugin's runner, the host
+ * runner, or screen where the dashboard runs). Nothing the dashboard starts is drawn as a
+ * terminal in the page.
  *
- * Every long action in the dashboard — a build, an index, a test suite — is a job: spawned
- * detached, streamed into a buffer, and polled by the page as a fragment. The registry is in
- * memory on purpose, which is why restarting the app while a job runs loses the job.
+ * A job is the smaller thing left beside it: a process followed where it was asked for (the log
+ * of a session in a modal, a plugin's progress view), streamed into a buffer and polled as a
+ * fragment. Its registry is in memory on purpose, so restarting the app loses it — and loses no
+ * command, since those are sessions.
  *
  * Split out of server.js: nothing here knows about routing, and the actions that start jobs can
  * import the runner without importing the server.
@@ -59,9 +62,8 @@ function ddevProjectName(projectDir) {
   return path.basename(projectDir).replace(/[^a-zA-Z0-9._-]/g, '-');
 }
 
-/* Background jobs with live terminal output: long actions run detached while
- * the page polls /fragments/job/<id> every second, streaming the command's
- * real stdout/stderr into a terminal box until it exits. */
+/* Jobs: a process whose output is followed where it was asked for (a modal, a panel), polled at
+ * /fragments/job/<id> every second until it exits. Never a stack at the bottom of the page. */
 const jobs = new Map();
 let jobSeq = 0;
 
@@ -113,12 +115,15 @@ function screenWrap({ session, inner, logFile }) {
   ].join('; ');
 }
 
-function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000, echoLine = '', key = null, phases = null, inline = false, env = null } = {}) {
+// A job is drawn where it was asked for (a modal, a panel) and stays there: there is no stack at the
+// bottom of the page for it to join. Commands do not start here — they start in a screen session
+// (startInScreen). What is left is a view that follows something: the log of a session, a
+// plugin's own progress.
+function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000, echoLine = '', key = null, phases = null, env = null } = {}) {
   const id = `${++jobSeq}-${Math.random().toString(36).slice(2, 8)}`;
   // `phases` — ordered output markers; the fragment counts which have appeared and renders an
-  // honest progress bar. `inline` — the toast stays where it was swapped in (a modal) instead
-  // of being adopted into the corner stack.
-  const job = { title, key, phases, inline, buf: echoLine ? `$ ${echoLine}\n\n` : '', done: false, ok: null };
+  // honest progress bar.
+  const job = { title, key, phases, buf: echoLine ? `$ ${echoLine}\n\n` : '', done: false, ok: null };
   jobs.set(id, job);
   // stdin 'ignore' — see run(): docker exec -i hangs on an open stdin pipe.
   // detached: killing the bash wrapper leaves ddev/composer/graphify children
@@ -136,10 +141,10 @@ function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000, echoLine 
   // Forget the job half an hour after it FINISHES, not half an hour after it starts.
   //
   // Started from the start, the timer fired while the work was still going: a Webship suite is
-  // 275 scenarios and takes about forty minutes, so at minute thirty the toast turned into
+  // 275 scenarios and takes about forty minutes, so at minute thirty the view turned into
   // "Job not found (expired)" and the live output stopped — while the run carried on invisibly,
   // with nothing left in the interface to say whether it passed. Anything long enough to want a
-  // progress toast is long enough to outlive a timer started at launch.
+  // progress view is long enough to outlive a timer started at launch.
   // unref: a timer that only forgets a finished job must not keep a process alive (a test that ran one).
   const forget = () => setTimeout(() => jobs.delete(id), 30 * 60 * 1000).unref();
   child.on('close', (code) => { clearTimeout(timer); job.done = true; job.ok = code === 0; forget(); });
@@ -147,7 +152,7 @@ function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000, echoLine 
   return id;
 }
 
-// Stop a running job for real: the whole process group, then the toast says so.
+// Stop a running job for real: the whole process group, then its view says so.
 function stopJob(id) {
   const job = jobs.get(id);
   if (!job || job.done || !job.child) return false;
@@ -164,10 +169,7 @@ function jobFragment(id) {
   const text = job.buf.replace(/\x1b\[[0-9;]*[mK]/g, '');
   const status = job.done ? (job.stopped ? '🛑 stopped' : job.ok ? '✅ finished' : '❌ failed') : '<span uk-spinner="ratio: .5"></span> running…';
   const poll = job.done ? '' : ` hx-get="/fragments/job/${id}" hx-trigger="every 1s" hx-swap="outerHTML"`;
-  // A job is a toast: it outlives the page area it was launched from, so a build survives
-  // navigating elsewhere, and it can be collapsed while it runs. The element polls ITSELF and
-  // replaces itself, which is what lets ui.js move it into the toast stack once and leave it
-  // there — every later poll lands wherever the element currently is.
+  // The element polls ITSELF and replaces itself, so it stays wherever it was swapped in.
   const state = job.done ? (job.ok ? 'is-done' : 'is-failed') : 'is-running';
   // The honest progress bar: phases are output markers, so the bar can only say what the
   // output already proves — k of n phases reached, and the name of the current one.
@@ -185,21 +187,17 @@ function jobFragment(id) {
       </div>`;
   }
   const html = `
-    <div class="msg ${job.done && !job.ok ? 'error' : 'assistant'} terminal job-toast ${state}${job.inline ? ' job-inline' : ''}" id="job-${id}"${poll}>
-      <div class="job-toast-head">
-        <span class="job-toast-title">${job.title}</span>
-        <span class="job-toast-status">${status}</span>
-        ${job.done ? '' : `<button type="button" class="job-toast-btn" title="Stop this job — the process is killed"
+    <div class="msg ${job.done && !job.ok ? 'error' : 'assistant'} terminal job-view ${state}" id="job-${id}"${poll}>
+      <div class="job-view-head">
+        <span class="job-view-title">${job.title}</span>
+        <span class="job-view-status">${status}</span>
+        ${job.done ? '' : `<button type="button" class="job-view-btn" title="Stop this job — the process is killed"
                 hx-post="/actions/job-stop" hx-vals='{"id":"${id}"}' hx-target="#job-${id}" hx-swap="outerHTML"
                 hx-confirm="Stop this job? The running process is killed."><span uk-icon="icon: ban; ratio: .7"></span></button>`}
-        ${job.inline ? '' : `<button type="button" class="job-toast-btn job-toast-collapse" title="Collapse or expand this job"
-                aria-expanded="true"><span uk-icon="icon: chevron-up; ratio: .7"></span></button>
-        <button type="button" class="job-toast-btn job-toast-close" title="Dismiss${job.done ? '' : ' (the job keeps running)'}"
-                aria-label="Dismiss"><span uk-icon="icon: close; ratio: .7"></span></button>`}
       </div>
       ${progress}
       <pre class="terminal-pre">${esc(text) || '…'}</pre>
-      ${job.inline && job.done ? `<p class="job-done-note">${job.ok ? '✅ Done — the process finished. You can close this window.' : '❌ The process failed — the output above says where.'}</p>` : ''}
+      ${job.done ? `<p class="job-done-note">${job.ok ? '✅ Done — the process finished. You can close this window.' : '❌ The process failed — the output above says where.'}</p>` : ''}
     </div>`;
   return { html, done: job.done };
 }
@@ -227,7 +225,7 @@ function listProjectsDetailed(dir) {
 
 // Every project command runs the same way: detached in a screen session named
 // after the project, logged where the Screens page can find it, and answered
-// with a pointer rather than a toast that follows the user around. The session
+// with a pointer rather than a terminal that follows the user around. The session
 // name always carries the folder, so `screen -ls` and the row's SCREENS group
 // both read as "what is happening to THIS project".
 
@@ -284,6 +282,11 @@ async function hostRunnerUp() {
 
 /** Ask the runner to do something, through the folder both sides can see. */
 async function hostRunnerRequest(action, payload, { timeoutMs = 30000 } = {}) {
+  // Nobody is there to answer: say so at once rather than after the timeout. A stop is still owed
+  // when the session is one of the dashboard's own screen (a lingering session about to be replaced).
+  if (!(await hostRunnerUp())) {
+    return action === 'stop' && payload && payload.session ? stopOwnScreen(payload.session) : null;
+  }
   const { ROOT } = require('./workspaces');
   const store = path.join(ROOT, '.screens');
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -331,13 +334,15 @@ function screenSessionName(project, verb, workspace) {
 }
 
 // --------------------------------------------------- who runs a command --
-// A command the dashboard starts is offered, in this order, to:
+// A command the dashboard starts runs in a screen session, and nowhere else. It is offered, in this
+// order, to:
 //   1. a plugin that registered as a runner (api.addRunner): it runs the command its own way and
 //      answers with the result, or declines with null;
-//   2. the host runner below (the dashboard's own screen sessions on the machine) — the fallback
-//      while no plugin runs it;
-//   3. the page: a job toast with live output, which ends with the dashboard. A command never
-//      goes unrun because the machine has no runner.
+//   2. the host runner below (the dashboard's own screen sessions on the machine);
+//   3. screen where the dashboard itself runs: its container (screen is in the image), or the
+//      machine when the dashboard is run there with node.
+// There is no run in the page. When none of the three can start a session the command is not
+// started, and the answer says what is missing, the step that fixes it, and the line to copy.
 const runners = [];        // async (opts + session) -> result | null
 
 /** Register a plugin as a runner of the dashboard's commands (what api.addRunner does). */
@@ -358,11 +363,10 @@ async function pluginRun(opts, session) {
   return null;
 }
 
-/** The run in the page: the command as a job toast. `job` is its id; screenStartedHtml draws it. */
-function startInPage({ project, projectDir, cmdLine, label }, session) {
-  const id = startJob(`${esc(label)} on <strong>${esc(project)}</strong> <span class="uk-text-meta">(in the page: no runner is up)</span>`,
-    'bash', ['-lc', require('./linger').withoutLingerWait(cmdLine)], projectDir, { timeoutMs: 3 * 60 * 60 * 1000, echoLine: cmdLine });
-  return { ok: true, session, label, where: 'page', job: id };
+/** Is screen installed where the dashboard runs? Asked on every start: installing it needs no restart. */
+async function ownScreenUp() {
+  const out = await run('screen', ['--version'], process.env.HOME || '/', { timeoutMs: 10 * 1000 });
+  return out.code !== -1;
 }
 
 async function startInScreen(opts) {
@@ -380,51 +384,92 @@ async function startInScreen(opts) {
   // folder and takes the project as an argument.
   try { fs.writeFileSync(path.join(logDir, `${session}.cwd`), `${ownerDir || projectDir}\n`); } catch (_) { /* best effort */ }
 
-  // Sessions belong on the machine: that is where the display, the browser an
-  // agent drives, and the user's own terminal are — `screen -r <name>` should
-  // just work, without `ddev ssh` first.
-  // `page: false` is for a caller whose answer is about the session itself (a progress view that
-  // follows it, a restart of it): it is told the runner is missing, as before.
-  if (!(await hostRunnerUp())) {
-    return opts.page === false ? { ok: false, session, needsRunner: true } : startInPage(opts, session);
+  // Sessions belong on the machine when its runner is up: that is where the display, the browser
+  // an agent drives, and the user's own terminal are — `screen -r <name>` just works there.
+  if (await hostRunnerUp()) {
+    const answer = await hostRunnerRequest('start',
+      { session, dir: projectDir, owner: ownerDir || projectDir, cmd: cmdLine });
+    if (answer && answer.already) return { ok: false, session, already: true, where: 'host' };
+    if (answer && answer.ok) return { ok: true, session, label, where: 'host' };
+    if (answer) return { ok: false, session, why: answer.error || 'the host runner refused it', where: 'host' };
+    // No answer in time: the runner's list is fresh and the runner itself is not there. The dashboard's own screen is next.
   }
-  const answer = await hostRunnerRequest('start',
-    { session, dir: projectDir, owner: ownerDir || projectDir, cmd: cmdLine });
-  if (!answer) return { ok: false, session, needsRunner: true };
-  if (answer.already) return { ok: false, session, already: true, where: 'host' };
-  if (answer.ok) return { ok: true, session, label, where: 'host' };
-  return { ok: false, session, why: answer.error || 'the host runner refused it', where: 'host' };
+  if (await ownScreenUp()) return startInOwnScreen({ session, projectDir, cmdLine, label, logFile });
+  // Nothing to run it in. Never the page: the caller is told, with the line to run by hand.
+  return { ok: false, session, noScreen: true, cmdLine, dir: projectDir };
 }
 
-// Everything below stays for the sessions that already exist in the container:
-// they are listed and attachable until they end, but nothing new joins them.
-async function startInContainerScreen({ project, projectDir, ownerDir, verb, cmdLine, label, workspace }) {
-  const { ROOT } = require('./workspaces');
-  const session = screenSessionName(project, verb, workspace);
-  const logDir = path.join(ROOT, '.screens');
-  try { fs.mkdirSync(logDir, { recursive: true }); } catch (_) { /* exists */ }
-  const logFile = path.join(logDir, `${session}.log`);
-  try { fs.writeFileSync(path.join(logDir, `${session}.cwd`), `${ownerDir || projectDir}\n`); } catch (_) { /* best effort */ }
-  const live = await run('screen', ['-ls'], process.env.HOME, { timeoutMs: 10 * 1000 });
-  if (new RegExp(`\\.${session}\\s`).test(String(live.stdout || ''))) {
-    return { ok: false, session, already: true };
+/** The sessions of screen where the dashboard runs: [{ pid, session }]. */
+async function ownScreens() {
+  const live = await run('screen', ['-ls'], process.env.HOME || '/', { timeoutMs: 10 * 1000 });
+  // `screen -ls` prints:  \t<pid>.<name>\t(<date>)\t(<state>)
+  return String(live.stdout || '').split('\n').map((l) => l.match(/^\s+(\d+)\.(\S+)\s/)).filter(Boolean)
+    .map((m) => ({ pid: m[1], session: m[2] }));
+}
+
+/** Stop one of them: the whole name, never one that merely starts alike. */
+async function stopOwnScreen(session) {
+  const row = (await ownScreens()).find((r) => r.session === session);
+  if (!row) return { ok: false, error: 'no such session' };
+  const out = await run('screen', ['-S', `${row.pid}.${session}`, '-X', 'quit'], process.env.HOME || '/', { timeoutMs: 10 * 1000 });
+  return { ok: out.ok };
+}
+
+/** A session where the dashboard itself runs. No shell reads the line on its way: it reaches bash as one argument. */
+async function startInOwnScreen({ session, projectDir, cmdLine, label, logFile }) {
+  // The whole name, never one that merely starts alike.
+  const names = (await ownScreens()).map((r) => r.session);
+  if (names.includes(session)) {
+    return { ok: false, session, already: true, where: 'dashboard' };
   }
+  try { fs.writeFileSync(logFile, ''); } catch (_) { /* tee creates it */ }
   // Braces group the whole line before the pipe, so every part is logged.
   const inner = `{ ${cmdLine} ; } 2>&1 | tee -a ${JSON.stringify(logFile)}`;
-  const out = await run('bash', ['-c',
-    `: > ${JSON.stringify(logFile)} && ${screenCmd()} -dmS ${session} bash -lc ${JSON.stringify(inner)}`],
-  projectDir, { timeoutMs: 30 * 1000 });
-  if (!out.ok) return { ok: false, session, why: String(out.stderr || out.stdout).slice(-200) };
-  return { ok: true, session, logFile, label };
+  const out = await run('screen', ['-c', SCREENRC, '-dmS', session, 'bash', '-lc', inner], projectDir, { timeoutMs: 30 * 1000 });
+  if (!out.ok) return { ok: false, session, why: String(out.stderr || out.stdout).trim().slice(-200) || 'screen refused to start it', where: 'dashboard' };
+  return { ok: true, session, label, where: 'dashboard' };
 }
 
-/** The one shape every action uses: start the command in a screen session on
- *  the machine and answer with where to watch it. Nothing the dashboard runs
- *  is a toast any more — it is a session on the Screens page. */
+/** The one shape every action uses: start the command in a screen session and answer with where
+ *  to watch it. Nothing the dashboard runs is drawn in the page — it is a session on the Screens page. */
 async function screenAction(send, opts) {
   const started = await startInScreen(opts);
   return send(screenStartedHtml(started, opts.label, opts.project || opts.workspace),
     started.ok ? 200 : (started.already ? 409 : 500));
+}
+
+/** Where a session is read: the Screens page, on that session. It also answers for one that has ended. */
+function screensLink(session) {
+  return `/screens?session=${encodeURIComponent(session)}`;
+}
+
+/** A hidden element that asks whether a session is done and, when it is, tells the page its lists
+ *  changed (`refresh-projects`). For a step whose result the page it was pressed on must show: the
+ *  session is detached, so nothing else would tell that page. It stays in the output area while
+ *  the notice beside it goes to the top and fades. */
+function sessionWatchHtml(session) {
+  return `<span hidden class="session-watch" hx-get="/fragments/session-done/${encodeURIComponent(session)}" hx-trigger="every 2s" hx-swap="outerHTML"></span>`;
+}
+
+/** No screen session can be started: what is missing, the step that fixes it, the line to copy.
+ *  `flash-stay` keeps it until it is closed: a command to copy must not fade while it is being read. */
+function noScreenHtml(result, label) {
+  const { tildePath } = require('./format');
+  const { ROOT } = require('./workspaces');
+  const root = tildePath(ROOT);
+  const dir = result.dir ? tildePath(result.dir) : root;
+  const line = `cd ${dir} && ${require('./linger').withoutLinger(result.cmdLine || '')}`;
+  return `<div class="msg error flash-now flash-stay no-screen"><div class="no-screen-body">
+      <strong>${esc(label)}</strong> was not started: a command runs in a screen session, and none can be started here.
+      <br><strong>Missing:</strong> <code>screen</code> is not installed where the dashboard runs, and no runner is up.
+      <br><strong>Fix:</strong> <code>bash ${esc(root)}/core/scripts/install.sh</code> installs it (on Debian or Ubuntu: <code>sudo apt install -y screen</code>). Then press it again: nothing needs a restart.
+      <br><span class="uk-text-meta">For sessions on your own machine while the dashboard is in its container: <code>bash ${esc(root)}/core/workspace-app/scripts/screen-host.sh --start</code>.</span>
+      <div class="uk-margin-small-top">Or run it in your own terminal:</div>
+      <div class="uk-flex uk-flex-middle no-screen-line" style="gap:.5rem">
+        <code style="flex:1">${esc(line)}</code>
+        <button type="button" class="uk-button uk-button-default uk-button-small copy-cmd" data-copy="${esc(line)}"><span uk-icon="icon: copy; ratio: .7"></span> Copy</button>
+      </div>
+    </div></div>`;
 }
 
 /** The standard answer: what started, where to watch it.
@@ -435,38 +480,33 @@ async function screenAction(send, opts) {
  *  leaves anything inside the modal alone, which is right for an editor and wrong here:
  *  the modal stayed open holding a sentence about a session that had already started. */
 function screenStartedHtml(result, label, project) {
-  const { esc } = require('./html');
-  // A plugin's runner answers in its own words; a run in the page is its job toast.
-  if (result.html) return result.html;
-  if (result.job) return jobFragment(result.job).html;
-  if (result.needsRunner) {
-    return `<div class="msg error flash-now">Sessions run on your machine, not in the dashboard's container — and its runner is not up, so <code>${esc(label)}</code> was not started.
-      <br>Start it once with:
-      <br><code>bash ${esc(require('./format').tildePath(require('./workspaces').ROOT))}/core/workspace-app/scripts/screen-host.sh --start</code>
-      <br><span class="uk-text-meta">It needs <code>screen</code> on this machine (<code>bash core/scripts/install.sh</code> installs it). After that <code>screen -r &lt;session&gt;</code> works straight from your own terminal.</span></div>`;
-  }
+  // A plugin's runner answers in its own words.
+  if (result.html) return result.html + (result.watch && result.ok ? sessionWatchHtml(result.session) : '');
+  if (result.noScreen) return noScreenHtml(result, label);
   if (result.already) {
-    return `<div class="msg error flash-now"><code>${esc(label)}</code> is already running on <strong>${esc(project)}</strong> — session <code>${esc(result.session)}</code>, on <a href="/screens">Screens</a>.</div>`;
+    return `<div class="msg error flash-now"><span class="notice-text"><code>${esc(label)}</code> is already running on <strong>${esc(project)}</strong> — <a href="${screensLink(result.session)}">Open in Screens</a></span></div>`;
   }
   if (!result.ok) {
     return `<div class="msg error flash-now">Could not start <code>${esc(label)}</code>: ${esc(result.why || 'unknown error')}</div>`;
   }
-  // A toast is read in a glance, so it says what started, where, and where to look —
+  // A notice is read in a glance, so it says what started, on what, and where to look —
   // and stops. The session id is what `screen -r` needs, and the Screens page prints
   // it beside a live terminal; repeating it here is what turned one sentence into a
   // paragraph, and a paragraph into something that reads as an error.
   // `data-reload-on-close` is why the row for a project you just built appears without
   // anyone pressing anything: the session is detached, so the page that started it has
-  // no idea the list changed. Only on the success path — an error toast reloading the
+  // no idea the list changed. Only on the success path — an error notice reloading the
   // page would take the message away before it could be acted on.
-  return `<div class="msg assistant flash-now" data-reload-on-close="1"><code>${esc(label)}</code> on <strong>${esc(project)}</strong> — <a href="/screens">watch on Screens</a></div>`;
+  // One span, so the sentence wraps as a sentence on a narrow screen instead of losing its link off the edge.
+  // `watch: true`: the page is told when the session is done instead of being reloaded as the notice leaves.
+  return `<div class="msg assistant flash-now"${result.watch ? '' : ' data-reload-on-close="1"'}><span class="notice-text"><code>${esc(label)}</code> started on <strong>${esc(project)}</strong> — <a href="${screensLink(result.session)}">Open in Screens</a></span></div>${result.watch ? sessionWatchHtml(result.session) : ''}`;
 }
 
 module.exports = {
   SCREENRC, screenCmd,
   screenWrap,
   run, jobs, runningJobKey, startJob, stopJob, jobFragment,
-  startInScreen, startInContainerScreen, screenStartedHtml, screenSessionName, screenAction, addRunner,
+  startInScreen, startInOwnScreen, stopOwnScreen, ownScreenUp, screenStartedHtml, screensLink, sessionWatchHtml, screenSessionName, screenAction, addRunner,
   hostRunner, hostRunnerCall, hostRunnerUp, hostRunnerRequest, hostSessionsFile,
   // Not job machinery, but they travelled inside the same span of server.js and every
   // caller of them also calls the runner. They move properly in the next split.

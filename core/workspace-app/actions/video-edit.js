@@ -23,7 +23,7 @@ async function video_edit({ form, send, workspace }) {
   if (p.spends && form.confirm !== 'yes') return send(videoEdit.spendHtml(p));
   const stringsFile = Object.keys(p.strings).length ? videoEdit.writeStrings(p.strings) : null;
   const opts = { workspace, project: path.basename(p.out, '.mp4'), projectDir: workspaceDir('videos'), verb: 'edit',
-    cmdLine: videoEdit.commandLine(p, stringsFile, true), label: `video edit ${p.out}`, page: false };
+    cmdLine: videoEdit.commandLine(p, stringsFile, true), label: `video edit ${p.out}` };
   const started = await startInScreen(opts);
   if (!started.ok) {
     if (stringsFile) fs.rmSync(path.dirname(stringsFile), { recursive: true, force: true });

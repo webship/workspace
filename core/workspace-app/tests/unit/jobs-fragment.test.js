@@ -1,5 +1,5 @@
 /**
- * The job fragment's two newer faces: the phase progress bar and inline mode.
+ * The job fragment: a view drawn where it was asked for, with the phase progress bar.
  *
  * Both are rendered from the job record alone, so they can be tested by seeding
  * the registry directly — no process is spawned. The phase bar's one honesty
@@ -13,7 +13,7 @@ const assert = require('node:assert');
 const { jobs, jobFragment } = require('../../jobs');
 
 function seed(id, job) {
-  jobs.set(id, { title: 'T', key: null, phases: null, inline: false, buf: '', done: false, ok: null, ...job });
+  jobs.set(id, { title: 'T', key: null, phases: null, buf: '', done: false, ok: null, ...job });
   return id;
 }
 
@@ -36,20 +36,21 @@ test('a finished successful job reports the bar full', () => {
   assert.ok(html.includes('Done (2/2)'));
 });
 
-test('inline jobs carry the class that keeps them out of the toast stack, and a done note', () => {
-  const running = jobFragment(seed('t-inline', { inline: true, buf: 'x' })).html;
-  assert.ok(running.includes('job-inline'));
+test('a job is drawn in place: nothing that belongs to a stack at the bottom of the page, and a done note', () => {
+  const running = jobFragment(seed('t-view', { buf: 'x' })).html;
+  assert.match(running, /class="msg assistant terminal job-view is-running" id="job-t-view"/);
+  for (const gone of ['job-toast', 'job-inline', 'collapse', 'Dismiss']) assert.ok(!running.includes(gone), `no ${gone}`);
   assert.ok(!running.includes('job-done-note'), 'no done note while running');
-  const done = jobFragment(seed('t-inline-done', { inline: true, buf: 'x', done: true, ok: true })).html;
+  const done = jobFragment(seed('t-view-done', { buf: 'x', done: true, ok: true })).html;
   assert.ok(done.includes('job-done-note'));
   assert.ok(done.includes('Done — the process finished'));
-  const failed = jobFragment(seed('t-inline-fail', { inline: true, buf: 'x', done: true, ok: false })).html;
+  const failed = jobFragment(seed('t-view-fail', { buf: 'x', done: true, ok: false })).html;
   assert.ok(failed.includes('The process failed'));
 });
 
-test('a non-inline job never renders the done note', () => {
-  const { html } = jobFragment(seed('t-stack-done', { buf: 'x', done: true, ok: true }));
-  assert.ok(!html.includes('job-done-note'));
+test('startJob takes no inline option any more: every job is in place', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'jobs.js'), 'utf8');
+  assert.doesNotMatch(src, /inline/);
 });
 
 const { screenWrap } = require('../../jobs');

@@ -12,12 +12,11 @@
 /* HTMX request-in-flight indicator */
 .htmx-request { opacity: .6; pointer-events: none; }
 
-/* A job toast polls itself every second, so this faded it once a second for the whole run — the
-   toast looked half-transparent and its buttons went dead between polls. A poll is not a click
-   the user is waiting on, so it gets no in-flight styling. Same for the stack it lives in and the
-   flash toasts, which must stay solid and clickable while anything else is loading. */
-.job-toast.htmx-request,
-.job-toasts.htmx-request,
+/* A job view polls itself every second, so this faded it once a second for the whole run and
+   its buttons went dead between polls. A poll is not a click the user is waiting on, so it gets
+   no in-flight styling. Same for the notices, which must stay solid and clickable while anything
+   else is loading. */
+.job-view.htmx-request,
 .flash-toast.htmx-request {
   opacity: 1;
   pointer-events: auto;

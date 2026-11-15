@@ -238,8 +238,8 @@ async function composer_run({ form, send, workspace, pathname }) {
     return send(`<div class="msg error"><code>${esc(label)}</code> is still running on <strong>${esc(projectName)}</strong> — ${terminalLink(started.session, 'open it')}. Left alone.</div>`, 409);
   }
   if (!started.ok) return send(screenStartedHtml(started, label, projectName), started.already ? 409 : 500);
-  // Run by a plugin or in the page: its own answer says where the output is, since no terminal page opens on it.
-  if (started.html || started.job) return send(screenStartedHtml(started, label, projectName));
+  // Run by a plugin: its own answer says where the output is.
+  if (started.html) return send(screenStartedHtml(started, label, projectName));
   // install, update, require and remove change composer.lock: reload as the toast leaves, so the caption is current.
   const reload = /^(install|update|require|remove)$/.test(args[0]) && !args.includes('--dry-run');
   return send(`<div class="msg assistant flash-now"${reload ? ' data-reload-on-close="1"' : ''}><code>${esc(label)}</code> on <strong>${esc(projectName)}</strong> — ${terminalLink(started.session, 'open the output')}</div>`);

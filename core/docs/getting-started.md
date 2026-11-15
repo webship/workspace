@@ -1,6 +1,6 @@
 # Getting started
 
-The Webship Workspace is a folder (`~/workspace` by default) with a web dashboard in it. The dashboard runs in a DDEV container and drives everything else: it builds, starts, stops, backs up and restores real projects through the `cmd-*.sh` scripts in each workspace folder, with live terminal output, and it embeds an AI assistant that knows the page you are on.
+The Webship Workspace is a folder (`~/workspace` by default) with a web dashboard in it. The dashboard runs in a DDEV container and drives everything else: it builds, starts, stops, backs up and restores real projects through the `cmd-*.sh` scripts in each workspace folder, each run in a screen session you read on the **Screens** page, and it embeds an AI assistant that knows the page you are on.
 
 ## What you need
 
@@ -33,6 +33,13 @@ bash cmd-drupal11-recommended-project.sh mysite
 ```
 
 Every build goes through DDEV; the site answers at `https://mysite.ddev.site`.
+
+A command started from the dashboard (a build, a row's menu, a tool, a plugin step) runs in a screen session. The page shows a short notice, what started and **Open in Screens**, and never a terminal at the bottom of it: the output is on the **Screens** page, also after the session has ended. A fresh workspace needs nothing for this: `screen` is in the dashboard's image. Two cases need one step each:
+
+- The dashboard run with node on the machine (no container): `screen` must be installed there (`bash core/scripts/install.sh`, or `sudo apt install -y screen`).
+- Sessions on your own machine, attached with `screen -r <session>` from your own terminal: start the host runner once, `bash core/workspace-app/scripts/screen-host.sh --start`.
+
+When no session can be started the command is not run: the answer says what is missing, the step that fixes it, and the command line to copy into your own terminal.
 
 ## Then
 

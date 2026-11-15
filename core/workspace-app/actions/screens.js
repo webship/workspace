@@ -246,7 +246,7 @@ async function screen_watch_or_stop({ form, send, pathname, res }) {
   const existing = runningJobKey(key);
   if (existing) return send(jobFragment(existing).html);
   const id = startJob(`📺 Watch <strong>${esc(session)}</strong>`, 'bash', ['-c', shellLine], process.env.HOME,
-    { timeoutMs: 12 * 60 * 60 * 1000, inline: true, key });
+    { timeoutMs: 12 * 60 * 60 * 1000, key });
   return send(jobFragment(id).html);
 }
 

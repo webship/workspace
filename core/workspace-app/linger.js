@@ -21,9 +21,11 @@ function lingerTail(label) {
     + LINGER_WAIT;
 }
 
-/** The same line for a run in the page: there is no terminal to press Enter in, so it does not wait. */
-function withoutLingerWait(cmdLine) {
-  return String(cmdLine).split(LINGER_WAIT).join('true');
+/** The same line for a terminal of your own: the command alone, without the notice and the wait a session ends with. */
+function withoutLinger(cmdLine) {
+  const line = String(cmdLine);
+  const at = line.lastIndexOf('; echo; echo "');
+  return at >= 0 && line.endsWith(LINGER_WAIT) && line.slice(at).includes(LINGER_MARK) ? line.slice(0, at) : line;
 }
 
-module.exports = { LINGER_SECONDS, LINGER_MARK, lingerTail, withoutLingerWait };
+module.exports = { LINGER_SECONDS, LINGER_MARK, lingerTail, withoutLinger };

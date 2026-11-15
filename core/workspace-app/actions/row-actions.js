@@ -238,8 +238,8 @@ async function custom_run(args) {
   }
   if (!started.ok) return send(screenStartedHtml(started, entry.label, projectName), started.already ? 409 : 500);
   rowLayout.recordRun({ at: new Date().toISOString(), id: entry.id, label: entry.label, workspace, project: projectName, session: started.session });
-  // Run by a plugin or in the page: its own answer says where the output is, since no terminal page opens on it.
-  if (started.html || started.job) return send(screenStartedHtml(started, entry.label, projectName));
+  // Run by a plugin: its own answer says where the output is.
+  if (started.html) return send(screenStartedHtml(started, entry.label, projectName));
 
   if (entry.open === 'screen') {
     // Its terminal, at once, in the dashboard's one modal — the same terminal the SCREENS menu opens.

@@ -127,7 +127,7 @@ const COMPONENT_ORDER = [
   'mic-on-any-field-that-wants-typing',
   'settings-editor-core-config-yml',
   'responsive-home-and-the-workspace-pages',
-  'running-commands-as-toasts',
+  'job-views',
   'short-results-as-a-toast-at-the-top',
   'reordering-the-workspace-cards',
   // After the card and row components, since it re-lays out what they draw.

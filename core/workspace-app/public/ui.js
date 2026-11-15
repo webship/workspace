@@ -191,7 +191,9 @@ function containEditorModal(open) {
   const modal = document.getElementById('editor-modal');
   if (!modal) return;
   for (const el of Array.from(document.body.children)) {
-    if (el === modal || el.contains(modal) || el.id === 'confirm-modal' || el.tagName === 'SCRIPT'
+    // The notices stay in reach: a form in the modal that answers into the page (Run a tool) gets its
+    // notice over the modal, and its "Open in Screens" link or its Copy button must work there.
+    if (el === modal || el.contains(modal) || el.id === 'confirm-modal' || el.id === 'flash-toasts' || el.tagName === 'SCRIPT'
         || el.classList.contains('uk-notification')) continue;
     if (open) {
       if (!('wasInert' in el.dataset)) el.dataset.wasInert = el.inert ? '1' : '';
@@ -2252,68 +2254,6 @@ document.body.addEventListener('click', (e) => {
   field.focus();
 });
 
-// Running commands live in a toast stack.
-//
-// A job fragment arrives in whatever page area launched it, and polls by replacing ITSELF —
-// so moving it into the stack once is enough: every later poll lands wherever the element now
-// is. That is why this hooks the swap rather than changing the hx-target of the ~40 buttons
-// that start jobs.
-//
-// Which jobs are collapsed is kept on the STACK, not in a JS variable: the stack survives every
-// poll (only its children are replaced), so the state cannot be lost to a re-render or to this
-// file being evaluated twice.
-function collapsedSet() {
-  const stack = document.getElementById('job-toasts');
-  return new Set((stack?.dataset.collapsed || '').split(' ').filter(Boolean));
-}
-
-function saveCollapsed(set) {
-  const stack = document.getElementById('job-toasts');
-  if (stack) stack.dataset.collapsed = [...set].join(' ');
-}
-
-// A dragged size, like the collapsed state, lives on the stack rather than on the toast: the
-// toast element is replaced by its own poll every second, so anything stored on it is gone a
-// second later — which is why a resized job used to snap back to its default width.
-function toastSizes() {
-  const stack = document.getElementById('job-toasts');
-  if (!stack) return {};
-  try { return JSON.parse(stack.dataset.sizes || '{}'); } catch (_) { return {}; }
-}
-function setToastSize(id, w, h) {
-  const stack = document.getElementById('job-toasts');
-  if (!stack) return;
-  const all = toastSizes();
-  all[id] = { w: Math.round(w), h: Math.round(h) };
-  stack.dataset.sizes = JSON.stringify(all);
-}
-
-// CSS `resize` only ever gives ONE handle, at the bottom right. These are the eight grips a
-// resizable panel is expected to have — four corners and four edges — added by hand for that
-// reason. Which edge stays put is fixed by the layout: the stack is bottom-anchored and
-// right-aligned, so a toast always grows leftwards and upwards. Dragging outward from any grip
-// makes it bigger, dragging inward makes it smaller.
-const TOAST_GRIPS = {
-  tl: { x: -1, y: -1, cursor: 'nwse-resize', label: 'top-left corner' },
-  t:  { x:  0, y: -1, cursor: 'ns-resize',   label: 'top edge' },
-  tr: { x:  1, y: -1, cursor: 'nesw-resize', label: 'top-right corner' },
-  r:  { x:  1, y:  0, cursor: 'ew-resize',   label: 'right edge' },
-  br: { x:  1, y:  1, cursor: 'nwse-resize', label: 'bottom-right corner' },
-  b:  { x:  0, y:  1, cursor: 'ns-resize',   label: 'bottom edge' },
-  bl: { x: -1, y:  1, cursor: 'nesw-resize', label: 'bottom-left corner' },
-  l:  { x: -1, y:  0, cursor: 'ew-resize',   label: 'left edge' },
-};
-function addToastGrips(toast) {
-  if (toast.querySelector('.toast-grip')) return;
-  Object.keys(TOAST_GRIPS).forEach((corner) => {
-    const g = document.createElement('span');
-    g.className = `toast-grip toast-grip-${corner}`;
-    g.dataset.grip = corner;
-    g.title = `Resize from the ${TOAST_GRIPS[corner].label}`;
-    toast.appendChild(g);
-  });
-}
-
 // The grip lives inside the card, which is a link: a click that lands on it must not navigate.
 document.addEventListener('click', (e) => {
   const grip = e.target.closest('.ws-card-handle');
@@ -2322,72 +2262,6 @@ document.addEventListener('click', (e) => {
   e.stopPropagation();
 }, true);
 
-document.addEventListener('pointerdown', (e) => {
-  const grip = e.target.closest('.toast-grip');
-  if (!grip) return;
-  const toast = grip.closest('.job-toast');
-  const dir = TOAST_GRIPS[grip.dataset.grip];
-  if (!toast || !dir) return;
-  e.preventDefault();
-  const box = toast.getBoundingClientRect();
-  const startX = e.clientX;
-  const startY = e.clientY;
-  const min = { w: 16 * 16, h: 5 * 16 };            // the CSS min-width / min-height, in px
-  const max = { w: toast.parentElement.clientWidth, h: window.innerHeight - 96 };
-  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  // The toast replaces ITSELF every second while the job runs, so the element under the
-  // pointer is gone within a second of grabbing it. Everything below works from the id and
-  // re-queries the live element, and the size is written to the store on every move — which is
-  // what makes the drag survive a poll landing in the middle of it.
-  const id = toast.id;
-  const move = (ev) => {
-    // An outward drag is positive on every grip: the sign per axis comes from which side of the
-    // toast the grip is on, so the left grips read a leftward drag as growth and the right ones
-    // read a rightward drag the same way. A `0` axis is an edge grip — that dimension is fixed.
-    const w = dir.x ? clamp(box.width + dir.x * (ev.clientX - startX), min.w, max.w) : box.width;
-    const h = dir.y ? clamp(box.height + dir.y * (ev.clientY - startY), min.h, max.h) : box.height;
-    setToastSize(id, w, h);
-    const live = document.getElementById(id);
-    if (live) { live.style.width = `${w}px`; live.style.height = `${h}px`; }
-  };
-  const up = () => {
-    document.removeEventListener('pointermove', move);
-    document.removeEventListener('pointerup', up);
-    document.body.classList.remove('toast-resizing');
-  };
-  document.body.classList.add('toast-resizing');
-  document.addEventListener('pointermove', move);
-  document.addEventListener('pointerup', up);
-});
-
-function adoptJobToasts() {
-  const stack = document.getElementById('job-toasts');
-  if (!stack) return;
-  const collapsed = collapsedSet();
-  const sizes = toastSizes();
-  document.querySelectorAll('.job-toast').forEach((toast) => {
-    // An inline job (a clone running in its modal) stays where it was swapped in.
-    if (toast.classList.contains('job-inline')) return;
-    if (toast.parentElement !== stack) stack.appendChild(toast);
-    addToastGrips(toast);
-    // Re-apply a size the user dragged, for the same reason the collapsed state is re-applied.
-    const size = sizes[toast.id];
-    if (size) { toast.style.width = `${size.w}px`; toast.style.height = `${size.h}px`; }
-    // The server does not know what the user collapsed, and each poll rebuilds the element,
-    // so the choice is re-applied here from the stack that remembers it.
-    const isCollapsed = collapsed.has(toast.id);
-    toast.classList.toggle('is-collapsed', isCollapsed);
-    const btn = toast.querySelector('.job-toast-collapse');
-    if (btn) btn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
-    // Follow the tail while it runs, unless the user has scrolled up to read something.
-    const pre = toast.querySelector('.terminal-pre');
-    if (pre && !isCollapsed && toast.classList.contains('is-running') && !toast.dataset.userScrolled) {
-      pre.scrollTop = pre.scrollHeight;
-    }
-  });
-}
-
-
 document.body.addEventListener('htmx:before:swap', (e) => {
   const el = swappedEl(e);
   if (el && el.id === 'editor-modal-body') {
@@ -2395,51 +2269,58 @@ document.body.addEventListener('htmx:before:swap', (e) => {
   }
 });
 
-document.addEventListener('DOMContentLoaded', adoptJobToasts);
-// Both events: afterSwap puts the element in place, afterSettle runs once htmx has finished
-// with it — re-applying at both points is what makes a collapsed job stay collapsed through
-// a poll.
-document.body.addEventListener('htmx:after:swap', adoptJobToasts);
-document.body.addEventListener('htmx:after:swap', adoptJobToasts);
+// A job view is read in a window, never at the foot of the page. The dashboard's own (the log of a
+// session, followed) are asked for by the modal; a plugin that still answers a page button with
+// one (api.lib.startJob + jobFragment into #webship-workspace-output) has it moved into the
+// modal here. The view replaces ITSELF on every poll, so once moved it stays where it is.
+function jobViewsToWindow() {
+  const body = document.getElementById('editor-modal-body');
+  if (!body) return;
+  document.querySelectorAll('#webship-workspace-output .job-view, #settings-output .job-view').forEach((view) => {
+    body.replaceChildren(view);
+    try { window.UIkit.modal('#editor-modal').show(); } catch (_) { /* no modal on this page: it stays readable in place */ }
+  });
+}
+document.body.addEventListener('htmx:after:swap', jobViewsToWindow);
 
-document.addEventListener('click', (e) => {
-  const collapse = e.target.closest('.job-toast-collapse');
-  if (collapse) {
-    const toast = collapse.closest('.job-toast');
-    const set = collapsedSet();
-    if (set.has(toast.id)) set.delete(toast.id);
-    else set.add(toast.id);
-    saveCollapsed(set);
-    adoptJobToasts();
-    return;
-  }
-  const close = e.target.closest('.job-toast-close');
-  if (close) {
-    const toast = close.closest('.job-toast');
-    const set = collapsedSet();
-    set.delete(toast.id);
-    saveCollapsed(set);
-    // Removing the element stops its polling; the job itself carries on server-side.
-    toast.remove();
-  }
-});
-
-// Reading the output of a long job means scrolling up; do not yank it back to the tail.
-document.addEventListener('scroll', (e) => {
-  const pre = e.target.closest && e.target.closest('.job-toast .terminal-pre');
-  if (!pre) return;
-  const toast = pre.closest('.job-toast');
-  const atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 24;
-  if (atBottom) delete toast.dataset.userScrolled;
-  else toast.dataset.userScrolled = '1';
-}, true);
+// "Open in Screens": the notice a command starts with links to /screens?session=<name>. The Screens
+// page then shows that session first — its state and the end of its log while it runs, and the end
+// of its log when it has already ended — so a short command can be read after it is gone.
+(function showAskedSession() {
+  if (window.location.pathname !== '/screens') return;
+  const name = new URLSearchParams(window.location.search).get('session') || '';
+  if (!/^[a-z0-9][A-Za-z0-9._-]*$/.test(name)) return;
+  const place = () => {
+    const list = document.getElementById('webship-workspace-projects');
+    if (!list) return;
+    const box = document.createElement('div');
+    box.id = 'screen-asked';
+    list.before(box);
+    const load = () => fetch(`/fragments/screen-asked/${encodeURIComponent(name)}`)
+      .then((r) => (r.ok ? r.text() : ''))
+      .then((html) => {
+        if (!html) return;
+        // Somebody reading up the log is not pulled back to its end.
+        const pre = box.querySelector('.terminal-pre');
+        const follow = !pre || pre.scrollHeight - pre.scrollTop - pre.clientHeight < 24;
+        box.innerHTML = html;
+        const now = box.querySelector('.terminal-pre');
+        if (now && follow) now.scrollTop = now.scrollHeight;
+        if (box.querySelector('.is-running')) setTimeout(load, 3000);
+      })
+      .catch(() => { /* the list below still says what runs */ });
+    load();
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', place);
+  else place();
+})();
 
 // Short results become a toast at the top.
 //
 // A one-line "saved" or "deleted" used to render wherever the form was, which on the settings
-// page is below a 60-field form and off-screen — the save looked like it had done nothing. A job
-// keeps its own stack at the bottom: that is something you watch, this is something you read once
-// and forget, so these fade on their own.
+// page is below a 60-field form and off-screen — the save looked like it had done nothing. They
+// are read once and forgotten, so they fade on their own — except one marked `flash-stay` (a
+// command line to copy), which stays until it is closed.
 const FLASH_MS = { assistant: 6000, error: 12000 };   // an error is left long enough to read
 
 function flashResults(root) {
@@ -2479,6 +2360,8 @@ function flashResults(root) {
     // it. So the toast that announced the start also asks for a reload as it leaves: by
     // then the row exists, and the reader has had the six seconds to read the message.
     const done = msg.dataset.reloadOnClose ? () => { msg.remove(); reloadForChanges(); } : () => msg.remove();
+    // Something to act on (a command to copy) is not on a timer: its close button is the way out.
+    if (msg.classList.contains('flash-stay')) { msg.classList.add('is-held'); return; }
     let timer = setTimeout(done, ms);
     // Reading a long message must not race the timer.
     msg.addEventListener('mouseenter', () => { clearTimeout(timer); msg.classList.add('is-held'); });
