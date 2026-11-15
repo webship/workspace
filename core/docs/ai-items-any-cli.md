@@ -127,6 +127,10 @@ Each `ai-*` page has **Sources and AI CLIs** in its rail: a row per source with 
 
 The dashboard runs in a container. It sees a CLI whose command and folder are in there (`~/.claude` is mounted). For another CLI's own folder, use the terminal, or install into a project (`--to`), which is under the workspace.
 
+## Several CLIs on one change
+
+One CLI writes, a different one reviews, a third may give a second opinion, and each answer is kept beside the spec: see [Several AI providers on one spec](ai-collaboration.md).
+
 ## What is fetched is not trusted
 
 - https only, no account in the address; nothing is read through a link in the repository.

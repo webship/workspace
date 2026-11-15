@@ -15,6 +15,11 @@
  *          install [<name>]              --cli <id|all> (default: the default CLI) --to <folder>/<project>
  *          uninstall <name>              --cli <id|all> --to <folder>/<project>
  *
+ *   node ai-anycli-cli.js roles                                   each role of a spec's flow, its CLI, ready or why not
+ *   node ai-anycli-cli.js run --role <author|reviewer|second_opinion> --spec <folder> "<task>"
+ *                                 --cli <id> (another CLI for this run) --agent <name> --evidence <file>
+ *                                 runs that CLI's non-interactive form and keeps the answer beside the spec
+ *
  * Reached through `bash core/scripts/ai-items.sh …` and through the flags of an ai-* folder's
  * `cmd-tools-ai-items.sh`. Nothing fetched is ever run.
  */
@@ -27,7 +32,7 @@ process.stdout.on('error', (e) => { if (e && e.code === 'EPIPE') process.exit(0)
 
 function parseArgs(argv) {
   const pos = []; const opt = {};
-  const VALUE = new Set(['as', 'ref', 'path', 'item', 'to', 'cli']);
+  const VALUE = new Set(['as', 'ref', 'path', 'item', 'to', 'cli', 'role', 'spec', 'agent', 'evidence', 'minutes']);
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (!a.startsWith('--')) { pos.push(a); continue; }
@@ -77,6 +82,19 @@ function printItems(kind, to) {
 function main(argv) {
   const { pos, opt } = parseArgs(argv);
   const [kind, verb, name] = pos;
+  if (pos[0] === 'roles' && !opt.help) {
+    const C = require('./ai-collab');
+    for (const r of C.rolesStatus()) say(`${r.role.padEnd(16)} ${String(r.label || '-').padEnd(20)} ${r.ready ? 'ready' : `skipped: ${r.why}`}`);
+    say('settings: roles in core/config/ai.settings.yml over core/config/ai.defaults.yml');
+    return 0;
+  }
+  if (pos[0] === 'run' && !opt.help) {
+    const C = require('./ai-collab');
+    const minutes = Number(opt.minutes) > 0 ? Number(opt.minutes) : 20;
+    const r = C.runRole({ role: String(opt.role || ''), spec: String(opt.spec || ''), task: pos.slice(1).join(' '), cliId: typeof opt.cli === 'string' ? opt.cli : '',
+      agent: typeof opt.agent === 'string' ? opt.agent : '', evidence: typeof opt.evidence === 'string' ? opt.evidence : '', timeoutMs: minutes * 60000, say });
+    return r.status === 'answered' ? 0 : r.why ? 3 : 1;
+  }
   if (!kind || !verb || opt.help) {
     say(require('fs').readFileSync(__filename, 'utf8').split('\n').filter((l) => l.startsWith(' *')).map((l) => l.replace(/^ \*\/?( |$)/, '')).join('\n'));
     return kind && verb ? 0 : 2;
