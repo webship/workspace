@@ -26,3 +26,14 @@ test('the installer records against the workspace root the dashboard knows, not 
   const { RECORD } = require('../../plugin-install');
   assert.strictEqual(RECORD, path.join(ROOT, 'core', 'config', 'plugins.installed.yml'));
 });
+
+test('a placeholder is found bare, quoted or inside a longer value, and a comment that mentions it is not one', () => {
+  const { hasPlaceholder } = require('../../plugins-page');
+  assert.strictEqual(hasPlaceholder('username: CHANGE_ME\n'), true);
+  assert.strictEqual(hasPlaceholder('default_project: "CHANGE_ME"\n'), true, 'quoted');
+  assert.strictEqual(hasPlaceholder("site: 'https://CHANGE_ME.atlassian.net'\n"), true, 'inside a value');
+  assert.strictEqual(hasPlaceholder('git:\n  github:\n    token: CHANGE_ME  # from the forge\n'), true, 'nested, with a comment after it');
+  assert.strictEqual(hasPlaceholder('# Leave CHANGE_ME to skip it\nhost: github.com\n'), false, 'a comment is not a value');
+  assert.strictEqual(hasPlaceholder('host: github.com  # not CHANGE_ME any more\n'), false);
+  assert.strictEqual(hasPlaceholder(''), false);
+});
