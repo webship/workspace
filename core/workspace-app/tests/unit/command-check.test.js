@@ -242,3 +242,18 @@ test('webship-workspace plugin check passes through to plugins.sh --check', () =
   const r = spawnSync(process.execPath, [BIN, 'plugin', 'check', 'upsun'], { encoding: 'utf8', env: { ...process.env, WORKSPACE_ROOT: root } });
   assert.strictEqual(r.stdout.trim(), 'ARGS: --check upsun');
 });
+
+test('plugins.sh --require takes a bare name as the plugin of that name, never as an npm package called that', () => {
+  const t = tree({});
+  const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-fake-npm-'));
+  fs.writeFileSync(path.join(bin, 'npm'), '#!/bin/sh\necho "NPM: $*"\nexit 1\n', { mode: 0o755 });
+  t.env = { ...t.env, PATH: `${bin}:${t.env.PATH}` };
+  const asked = (spec) => { const r = sh(t, '--require', spec); return (r.stdout.match(/^NPM: .*$/m) || [''])[0]; };
+  assert.match(asked('dev'), / @webship\.co\/workspace-dev$/);
+  assert.match(asked('drupal-cms'), / @webship\.co\/workspace-drupal-cms$/);
+  assert.match(asked('dev@1.0.9'), / @webship\.co\/workspace-dev@1\.0\.9$/);
+  assert.match(asked('dev@latest'), / @webship\.co\/workspace-dev@latest$/);
+  for (const spec of ['@webship.co/workspace-dev', '@webship.co/workspace-dev@1.0.9', 'github:webship/workspace-upsun', './plugins/cloud', 'cloud-1.0.0.tgz']) {
+    assert.ok(asked(spec).endsWith(` ${spec}`), `${spec} is taken as written`);
+  }
+});
