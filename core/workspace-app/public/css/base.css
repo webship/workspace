@@ -182,7 +182,11 @@ h1, h2, h3, h4, h5, h6, .uk-h1, .uk-h2, .uk-h3, .uk-h4, .uk-h5, .uk-h6, .uk-card
   border-color: var(--line);
 }
 
+/* The field keeps its own surface and ink while it has focus: UIKit's focus rule sets a white
+   background and a grey ink, which in the dark style turned the one field being typed in white. */
 .uk-input:focus, .uk-textarea:focus, .uk-select:focus {
+  background-color: var(--surface-input);
+  color: var(--text-default);
   border-color: var(--link);
   box-shadow: 0 0 0 .1875rem var(--focus-ring);
 }

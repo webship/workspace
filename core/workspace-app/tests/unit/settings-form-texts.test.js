@@ -27,3 +27,11 @@ test('the page heading wraps on a phone, and a wide table scrolls inside itself'
   assert.match(phone, /\.page-heading \.width-switcher \{ display: none; \}/);
   assert.match(read('plugins-page.js'), /<div class="uk-overflow-auto" tabindex="0" role="region" aria-label="Commands on this machine">/);
 });
+
+test('a field keeps the surface and the ink of the style while it has focus (it turned white in the dark style)', () => {
+  const css = read('public/css/base.css');
+  const rule = css.slice(css.indexOf('.uk-input:focus, .uk-textarea:focus, .uk-select:focus {'));
+  const body = rule.slice(0, rule.indexOf('}'));
+  assert.match(body, /background-color: var\(--surface-input\);/);
+  assert.match(body, /color: var\(--text-default\);/);
+});
