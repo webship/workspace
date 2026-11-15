@@ -14,6 +14,7 @@
   "files": [
     "core/bin",
     "core/config/settings.template.yml",
+    "core/config/ai.defaults.yml",
     "core/config/style.yml",
     "core/config/settings.labels.yml",
     "core/config/theme.*.yml",

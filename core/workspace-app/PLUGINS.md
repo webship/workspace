@@ -66,6 +66,11 @@ no second step for the plugin. They are files a person edits in place, so the re
 file that still is the plugin's copy is updated by the next `--install` and removed by `--uninstall`;
 one that was edited here, or that was already there under that name, is kept by both.
 
+From the folder an item installs into any AI CLI the settings list (Claude Code by default, Gemini CLI,
+Codex, …), converted to what that CLI reads: `bash cmd-tools-ai-items.sh <name> --install --cli <id>`,
+or the folder's **Sources and AI CLIs** panel. A plugin ships its items once, in the Claude Code shape;
+the CLIs are data in `core/config/ai.defaults.yml` (see `core/docs/ai-items-any-cli.md`).
+
 Features land in `core/workspace-app/tests/features/plugins/<name>/`, so `ddev test-dashboard browser`
 runs them with the core's. A scenario that only holds when one of the plugin's settings is set says
 so in a tag: `@needs-setting-<plugin>-<key>` skips it, with the reason, while

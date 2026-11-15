@@ -10,7 +10,7 @@ A workspace is a folder under the workspace root with a `workspace.<key>.setting
 | `code` | Repositories checked out to work on | backup, remove, the menus that make sense without a site |
 | `files` | Markdown items, edited in place | open, edit |
 | `media` | Recordings and images | play, review |
-| `ai-items` | Agents, skills, commands and prompts | install into `~/.claude`, update from a repository |
+| `ai-items` | Agents, skills, commands and prompts | install into Claude Code or another AI CLI, update from one or more repositories ([how](ai-items-any-cli.md)) |
 
 ## Builders
 
