@@ -216,8 +216,14 @@ test('install places what the manifest names, records it, carries the legacy blo
   assert.match(gi, /managed by core\/scripts\/plugins\.sh/);
   assert.match(gi, /^\/dev\/cmd-tools-x-cloud\.sh$/m);
   assert.match(gi, /^node_modules\/$/m, 'what the file had stays');
-  // Again: idempotent, and nothing doubled.
+  // Again: idempotent, and nothing doubled. The settings file holds what the person configured: a second
+  // install, and a third, keep it as it is.
+  fs.appendFileSync(path.join(t.config, 'plugin.x-cloud.settings.yml'), 'region: us\n');
   assert.strictEqual(run('install').status, 0);
+  assert.match(fs.readFileSync(path.join(t.config, 'plugin.x-cloud.settings.yml'), 'utf8'), /^region: us$/m, 'a second install keeps the settings file');
+  assert.strictEqual(run('install').status, 0);
+  assert.match(fs.readFileSync(path.join(t.config, 'plugin.x-cloud.settings.yml'), 'utf8'), /^region: us$/m, 'and so does a third');
+  assert.match(fs.readFileSync(path.join(t.root, 'core', 'config', 'plugins.installed.yml'), 'utf8'), /plugin\.x-cloud\.settings\.yml/, 'it stays on the record');
   assert.strictEqual((fs.readFileSync(path.join(t.root, '.gitignore'), 'utf8').match(/managed by/g) || []).length, 1);
   const u = run('uninstall');
   assert.strictEqual(u.status, 0, u.stderr);
