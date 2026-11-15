@@ -20,6 +20,15 @@
 ##                                                                            --to dev/site = that project only
 ##   bash core/scripts/ai-items.sh ai-skills uninstall <name> --cli gemini
 ##
+##   bash core/scripts/ai-items.sh roles                                      who writes, who reviews, who gives a second
+##                                                                            opinion on a spec, and whether each can run
+##   bash core/scripts/ai-items.sh run --role author --spec specs/dev/site/001-topic "<task>"
+##   bash core/scripts/ai-items.sh run --role reviewer --spec specs/dev/site/001-topic --evidence <report> "<task>"
+##        --cli <id> another CLI for this run; --agent <name>; --minutes <n> (default 20)
+##        Runs that CLI's own non-interactive form and keeps the answer in <spec>/collaboration/.
+##        A role whose CLI is off, missing, signed out or the author's own is written down as skipped.
+##        Exit: 0 answered, 3 skipped, 1 failed. A person decides: nothing is merged or marked reviewed.
+##
 ## The CLIs are data: core/config/ai.defaults.yml, with this machine's core/config/ai.settings.yml over
 ## it. A CLI or a source added there shows up here and in the dashboard with no code change.
 ## What is fetched is files only: shown, never run. See core/docs/ai-items-any-cli.md.
@@ -34,7 +43,7 @@ APP="$(cd "${WORKSPACE_SCRIPTS}/../workspace-app" && pwd)";
 
 usage() { awk 'NR > 1 && !/^##/ { exit } NR > 1 { sub(/^## ?/, ""); print }' "${BASH_SOURCE[0]}"; }
 
-if [ $# -lt 2 ] || [ "${1:-}" == '--help' ] || [ "${1:-}" == '-h' ] ; then
+if { [ $# -lt 2 ] && [ ! "${1:-}" == 'roles' ] ; } || [ "${1:-}" == '--help' ] || [ "${1:-}" == '-h' ] ; then
   usage ;
   [ $# -ge 1 ] && { [ "$1" == '--help' ] || [ "$1" == '-h' ] ; } && exit 0 ;
   exit 2 ;
