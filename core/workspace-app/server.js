@@ -2723,7 +2723,8 @@ async function settingsPage(section, state, options = {}) {
   const workspaceKey = (f) => (f.match(/^workspace\.(.+)\.settings\.yml$/) || [])[1] || '';
   const meta = loadWorkspaces();
   // The home: the base, then every plugin by family with its state and one action (settings-home.js).
-  const index = isIndex ? require('./settings-home').homeHtml(settingsHomeData()) : '';
+  // In a pane of the settings modal the home is the overview: what is waiting, not the list a second time.
+  const index = isIndex ? require('./settings-home').homeHtml({ ...settingsHomeData(), compact: !!options.fragment }) : '';
 
   // A chosen one gets the width to itself: the way back is a line, not the whole list again.
   const chosenName = isPlugin ? options.pluginName : isPlugins ? 'Plugins' : isStyles ? 'Styles'
@@ -6117,7 +6118,8 @@ const server = http.createServer(async (req, res) => {
       // The plugins of the Settings home, drawn again when a step has run (a job that finished).
       if (pathname === '/fragments/settings/plugins') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(require('./settings-home').pluginsSectionHtml(settingsHomeData().groups));
+        const only = new URL(req.url, 'http://localhost').searchParams.get('only') === 'attention' ? 'attention' : '';
+        return res.end(require('./settings-home').pluginsSectionHtml(settingsHomeData().groups, { only }));
       }
       // A plugin's own page: its state, the four steps, its needs, its settings form, what it ships.
       { const pm = pathname.match(/^\/settings\/plugin\/([a-z0-9-]+)$/);

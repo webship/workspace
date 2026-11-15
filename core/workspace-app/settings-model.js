@@ -26,7 +26,7 @@ const familyById = (id) => FAMILIES.find((f) => f.id === id) || FAMILIES[FAMILIE
 const FROM_CATALOG = { workspaces: 'folders', drives: 'features' };
 const catalogIndex = () => {
   const map = new Map();
-  for (const f of CATALOG) for (const [name, label] of f.plugins) map.set(name, { family: FROM_CATALOG[f.id] || f.id, label });
+  for (const f of CATALOG) for (const [name, label, summary] of f.plugins) map.set(name, { family: FROM_CATALOG[f.id] || f.id, label, summary });
   return map;
 };
 
@@ -56,15 +56,29 @@ const firstSentence = (text) => {
   return (m ? m[1].replace(/[.:]$/, '') : t.slice(0, 140)).trim();
 };
 
-/** One line that says what a plugin is: its own `manifest.summary`, else the catalogue's line, else the start of its description. */
+/**
+ * One line that says what a plugin is: its own `manifest.summary`, else the catalogue's line, else the
+ * start of its description. Never its package name, and never its own name said again: '' when nothing
+ * says what it is (the row then says "No description").
+ */
 function summaryOf(plugin, index = catalogIndex()) {
   const m = (plugin && plugin.manifest) || {};
   if (m.summary) return String(m.summary).replace(/\s+/g, ' ').trim().slice(0, 160);
   const listed = index.get((plugin && plugin.name) || '');
-  if (listed && listed.label && listed.label !== (m.label || '')) return listed.label;
-  // "Drupal for Webship Workspace" says nothing the name beside it has not said.
-  const said = firstSentence(plugin && plugin.description).replace(/\s+for (the )?Webship Workspace$/i, '');
-  return said.toLowerCase() === String(m.label || (plugin && plugin.name) || '').toLowerCase() ? '' : said;
+  if (listed && listed.summary) return listed.summary;
+  // "Drupal for Webship Workspace" says nothing the name beside it has not said; backticks are markup, not words.
+  const said = firstSentence(String((plugin && plugin.description) || '').replace(/`/g, '')).replace(/\s+for (the )?Webship Workspace$/i, '');
+  return said.toLowerCase() === nameOf(plugin, index).toLowerCase() ? '' : said;
+}
+
+/** The name Settings shows for a plugin, the same everywhere: its manifest's label, else the catalogue's name, else its id with capitals. */
+function nameOf(plugin, index = catalogIndex()) {
+  const m = (plugin && plugin.manifest) || {};
+  const id = (plugin && plugin.name) || m.name || '';
+  if (m.label) return String(m.label);
+  const listed = index.get(id);
+  if (listed && listed.label) return listed.label;
+  return id.split('-').filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
 }
 
 /** The settings files that are a plugin's own: its settings file, and its folder's when it is a folder. */
@@ -94,6 +108,7 @@ function stateOf(row, { latest = '', isNewer = () => false } = {}) {
   const withNeeds = unmet.length > 0;
   const added = withNeeds ? ` with ${picksText(unmet)}` : '';
   const update = latest && isNewer(latest, row.version) ? latest : '';
+  // `attention` is a blocker: the plugin will not work until something is done. A newer version is not one.
   const base = { update, active: row.step >= 1 };
   if (wants.problems && wants.problems.length) {
     return { ...base, id: 'problem', label: 'Needs cannot be met', tone: 'danger', icon: 'tabler:alert-triangle', attention: true,
@@ -122,10 +137,10 @@ function stateOf(row, { latest = '', isNewer = () => false } = {}) {
   }
   if (row.step === 2) {
     return { ...base, id: 'needs-settings', label: 'Needs settings', tone: 'warning', icon: 'tabler:adjustments-alt', attention: true,
-      note: 'A value in its settings file is still CHANGE_ME, or the file is not there',
+      note: 'Its settings are not filled in yet',
       action: { kind: 'link', href: `${page}#settings`, label: 'Configure' } };
   }
-  return { ...base, id: 'ready', label: 'Ready', tone: 'ok', icon: 'tabler:circle-check', attention: !!update,
+  return { ...base, id: 'ready', label: 'Ready', tone: 'ok', icon: 'tabler:circle-check', attention: false,
     note: '', action: { kind: 'link', href: page, label: 'Open' } };
 }
 
@@ -136,10 +151,10 @@ function groupByFamily(rows, options = {}) {
   const byId = new Map(FAMILIES.map((f) => [f.id, { ...f, plugins: [] }]));
   for (const row of rows) {
     const family = familyOf(row, index);
-    byId.get(family).plugins.push({ ...row, family, summary: summaryOf(row, index),
+    byId.get(family).plugins.push({ ...row, family, label: nameOf(row, index), summary: summaryOf(row, index),
       state: stateOf(row, { latest: latest[row.module] || '', isNewer: options.isNewer }) });
   }
-  const label = (p) => String((p.manifest && p.manifest.label) || p.name).toLowerCase();
+  const label = (p) => String(p.label || p.name).toLowerCase();
   for (const f of byId.values()) f.plugins.sort((a, b) => label(a).localeCompare(label(b)));
   return [...byId.values()].filter((f) => f.plugins.length);
 }
@@ -149,7 +164,9 @@ function counts(groups) {
   const all = groups.flatMap((g) => g.plugins);
   return { all: all.length, attention: all.filter((p) => p.state.attention).length,
     active: all.filter((p) => p.state.active).length, inactive: all.filter((p) => !p.state.active).length,
-    ready: all.filter((p) => p.state.id === 'ready').length };
+    ready: all.filter((p) => p.state.id === 'ready').length,
+    // Every plugin with a newer version on npm, active or not: its own count, never part of another one.
+    updates: all.filter((p) => p.state.update).length };
 }
 
 const THEME_RE = /^theme\.([a-z0-9_-]+)\.yml$/i;
@@ -189,4 +206,4 @@ function fileHint(file, { folderSubtitle = '', pluginLabel = '' } = {}) {
   return 'A settings file under core/config';
 }
 
-module.exports = { FAMILIES, familyById, familyOf, summaryOf, filesOf, stateOf, groupByFamily, counts, sortFiles, fileHint, catalogIndex };
+module.exports = { FAMILIES, familyById, familyOf, nameOf, summaryOf, filesOf, stateOf, groupByFamily, counts, sortFiles, fileHint, catalogIndex };

@@ -63,7 +63,7 @@ test('a need that cannot be met, files that are gone and a newer version are sai
   assert.deepStrictEqual([gone.id, gone.action.label, gone.note], ['files-missing', 'Reinstall', '1 placed file is gone']);
   const isNewer = (a, b) => a === '1.0.1' && b === '1.0.0';
   const old = model.stateOf({ ...plugin('a'), step: 3, wants: { unmet: [], problems: [] } }, { latest: '1.0.1', isNewer });
-  assert.deepStrictEqual([old.id, old.update, old.attention], ['ready', '1.0.1', true]);
+  assert.deepStrictEqual([old.id, old.update, old.attention], ['ready', '1.0.1', false], 'a newer version is not a blocker');
   const same = model.stateOf({ ...plugin('a'), step: 3, wants: { unmet: [], problems: [] } }, { latest: '1.0.0', isNewer });
   assert.deepStrictEqual([same.update, same.attention], ['', false]);
 });
@@ -79,7 +79,7 @@ test('plugins are grouped by family in the family order, by label inside one, an
   const groups = model.groupByFamily(rows);
   assert.deepStrictEqual(groups.map((g) => g.id), ['platforms', 'ai', 'hosting']);
   assert.deepStrictEqual(groups[0].plugins.map((p) => p.name), ['drupal', 'wordpress']);
-  assert.deepStrictEqual(model.counts(groups), { all: 4, attention: 1, active: 3, inactive: 1, ready: 2 });
+  assert.deepStrictEqual(model.counts(groups), { all: 4, attention: 1, active: 3, inactive: 1, ready: 2, updates: 0 });
 });
 
 test('a settings file belongs to the base, the styles, a plugin, a folder no plugin made, or is said to be unknown', () => {

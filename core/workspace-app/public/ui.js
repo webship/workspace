@@ -871,7 +871,7 @@ function settingsSearchApply(root) {
   let total = 0;
   root.querySelectorAll('.plugin-row').forEach((row) => {
     total += 1;
-    const inState = show === 'all' || (show === 'attention' && row.dataset.attention === '1')
+    const inState = show === 'all' || (show === 'attention' && row.dataset.attention === '1') || (show === 'updates' && row.dataset.update === '1')
       || (show === 'active' && row.dataset.active === '1') || (show === 'inactive' && row.dataset.active === '0');
     row.hidden = !(inState && matches(row));
     if (!row.hidden) rows += 1;
@@ -894,8 +894,12 @@ function settingsSearchApply(root) {
   if (plugins) {
     // The chips count what is on the page now, after a step has run.
     box.querySelectorAll('[data-count]').forEach((c) => { const v = plugins.dataset[`count${c.dataset.count[0].toUpperCase()}${c.dataset.count.slice(1)}`]; if (v !== undefined) c.textContent = v; });
+    // Updates has a chip of its own, shown once npm has answered and there is one: it never changes another count.
+    const updates = box.querySelector('.settings-chip[data-show="updates"]');
+    if (updates && plugins.dataset.countUpdates !== undefined) updates.hidden = plugins.dataset.countUpdates === '0' && updates.getAttribute('aria-pressed') !== 'true';
     plugins.hidden = total > 0 && rows === 0;
   }
+  root.querySelectorAll('.plugin-catalog-section').forEach((g) => { g.hidden = ![...g.querySelectorAll('.plugin-row')].some((r) => !r.hidden); });
   const filtering = words.length > 0 || show !== 'all';
   const none = root.querySelector('.settings-none');
   if (none) none.hidden = !filtering || rows + tiles > 0;
@@ -916,6 +920,15 @@ document.addEventListener('click', (e) => {
   if (!chip) return;
   chip.closest('.settings-chips').querySelectorAll('.settings-chip').forEach((c) => c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'));
   settingsSearchApply(chip.closest('.settings-home'));
+});
+// "4 need attention" in the summary presses the chip of the same name: the number is the way to those plugins.
+document.addEventListener('click', (e) => {
+  const link = e.target.closest && e.target.closest('[data-press-chip]');
+  const home = link && link.closest('.settings-home');
+  const chip = home && home.querySelector(`.settings-chip[data-show="${link.dataset.pressChip}"]`);
+  if (!chip) return;
+  chip.click();
+  chip.focus();
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || !e.target.matches || !e.target.matches('.settings-search input[type="search"]') || !e.target.value) return;
