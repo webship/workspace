@@ -132,6 +132,16 @@ test('two sources of one kind: each is placed, listed with its state, updated an
   assert.match(fs.readFileSync(path.join(ROOT, 'ai-skills', 'beta', 'SKILL.md'), 'utf8'), /More\.\n$/);
   assert.deepStrictEqual(A.sourcesStatus('ai-skills')[1].items.map((i) => `${i.name}:${i.state}`), ['beta:current', 'delta:current', 'gamma:removed upstream']);
 
+  // Changed here while the source did not move: an update says it left it, not that all is up to date.
+  fs.appendFileSync(path.join(ROOT, 'ai-skills', 'delta', 'SKILL.md'), 'mine\n');
+  out = lines();
+  r = A.sourceUpdate('ai-skills', 'two', { say: out });
+  assert.deepStrictEqual([r.updated, r.left], [0, 1]);
+  assert.ok(out.out.some((l) => /left ai-skills\/delta: changed locally/.test(l)));
+  assert.ok(!out.out.some((l) => /up to date/.test(l)));
+  A.sourceUpdate('ai-skills', 'two', { say: lines(), force: true });
+  assert.strictEqual(A.sourcesStatus('ai-skills')[1].items.find((i) => i.name === 'delta').state, 'current');
+
   // Deleted here: said, and put back by an update.
   fs.rmSync(path.join(ROOT, 'ai-skills', 'alpha'), { recursive: true });
   assert.strictEqual(A.sourcesStatus('ai-skills')[0].items[0].state, 'missing here');
