@@ -2298,7 +2298,8 @@ document.body.addEventListener('htmx:after:swap', jobViewsToWindow);
     if (!list) return;
     const box = document.createElement('div');
     box.id = 'screen-asked';
-    list.before(box);
+    // First in the page's card: above the list and above a panel a plugin draws over it.
+    list.parentElement.prepend(box);
     const load = () => fetch(`/fragments/screen-asked/${encodeURIComponent(name)}`)
       .then((r) => (r.ok ? r.text() : ''))
       .then((html) => {
