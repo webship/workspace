@@ -310,6 +310,8 @@
       draggable(w, w.querySelector('.avatar-window-head'));
       document.body.appendChild(w);
       windows[kind] = w;
+      // A plugin's script may add to a window, or keep its own in step with it (window.wsAvatarWindows).
+      setTimeout(() => document.dispatchEvent(new CustomEvent('ws-avatar-window', { detail: { kind, window: w } })), 0);
       // Beside the avatar: to the left of it when it stands on the right, to its right otherwise.
       const a = floatCard.getBoundingClientRect();
       const width = Math.min(560, window.innerWidth - 32);
@@ -823,6 +825,22 @@
       default: break;
     }
   }
+  // What a plugin's script reaches of the avatar's windows: a window of its own (`open`, `close`), the
+  // board with its drawing, lines and notes (`keep(node)` puts what the plugin added under Undo and Clear),
+  // and the reading window. The `ws-avatar-window` event says when a window was made.
+  window.wsAvatarWindows = {
+    open: (kind, title) => (/^[a-z][a-z0-9-]{0,30}$/.test(String(kind)) ? windowFor(String(kind), String(title || kind).slice(0, 80)) : null),
+    close: (kind) => closeWindow(String(kind)),
+    isOpen: (kind) => Boolean(windows[String(kind)]),
+    board: () => { const b = board(); return { ...b, window: windows.board, keep: (node) => { added.push(node); return node; }, clear: () => clearBoard() }; },
+    write: (lines) => write([].concat(lines || []).map((l) => String(l))),
+    draw: (cmds) => draw([].concat(cmds || []).map((c) => String(c))),
+    note: (text) => addNote(board().area, String(text || '')),
+    browse: (url) => browse(String(url)),
+    readerDocument: () => readerDoc(),
+    speak: (text) => { const v = voice(); return Boolean(v && v.speak && v.speak(String(text || ''))); },
+  };
+
   // What the browser shows, for the assistant with each message: so it can read the page and go on.
   window.wsAvatarContext = () => {
     if (!windows.browser || nav.at < 0) return null;

@@ -33,6 +33,8 @@ function tree() {
     const path = require('path');
     module.exports.register = (api) => {
       api.addScript(path.join(__dirname, 'public', 'second.js'));
+      api.addAssistantTurn(async ({ body, message }) => (body.camera ? 'Look at ' + body.camera + ' for: ' + message : ''));
+      api.addAssistantTurn(() => { throw new Error('broken'); });
       api.addUpload('hear', ({ body, searchParams, json }) => json({ bytes: body.length, lang: searchParams.get('lang') }), { maxBytes: 16 });
     };`);
   return { root, config, plugins: path.join(root, 'plugins') };
@@ -94,7 +96,7 @@ test('the page offers the assistant to a plugin\'s script: send a turn, add to i
   assert.match(ui, /new CustomEvent\('ws-assistant-answer', \{ cancelable: true/);
   assert.match(ui, /const speakHere = document\.dispatchEvent\(answer\);\s+setWorking\(false\);\s+if \(response && response\.html\) \{ if \(speakHere\) narrator\.narrate/);
   const loader = fs.readFileSync(path.join(APP, 'plugin-loader.js'), 'utf8');
-  assert.match(loader, /'scripts', 'uploads', 'assistant-answer', 'assistant-ear'\]\)/);
+  assert.match(loader, /'scripts', 'uploads', 'assistant-answer', 'assistant-ear', 'assistant-turn', 'avatar-windows'\]\)/);
   const doc = fs.readFileSync(path.join(APP, 'PLUGINS.md'), 'utf8');
   for (const s of ['`api.addScript(file)`', '`api.addUpload(name, handler, { maxBytes })`', 'ws-assistant-answer', 'wsAssistantSend', '"js": [']) assert.ok(doc.includes(s), `PLUGINS.md says ${s}`);
 });
@@ -106,4 +108,29 @@ test('the dock\'s talk buttons and the Space bar go to a plugin\'s ear when one 
   assert.match(src, /function keepListening\(on\) \{\n    if \(ear\(\)\) \{ ear\(\)\.keep\(Boolean\(on\)\); return; \}/);
   assert.match(src, /keepListening\(ear\(\) \? !earKeeps\(\) : !keep\)/);
   assert.ok(fs.readFileSync(path.join(APP, 'PLUGINS.md'), 'utf8').includes('window.wsAssistantEar'));
+});
+
+test('a plugin adds a paragraph to one turn, from what its script put in the body; a plugin that throws is left out', () => {
+  const t = tree();
+  const r = JSON.parse(node(`
+    const l = require('./plugin-loader');
+    Promise.all([l.pluginAssistantTurn({ camera: 'frame-1' }, 'what is this?'), l.pluginAssistantTurn({}, 'hello'), l.pluginAssistantTurn(null, 'x')])
+      .then((all) => console.log(JSON.stringify(all)));`, t));
+  assert.deepStrictEqual(r, [['Look at frame-1 for: what is this?'], [], []]);
+  const server = fs.readFileSync(path.join(APP, 'server.js'), 'utf8');
+  assert.match(server, /const turn = await require\('\.\/plugin-loader'\)\.pluginAssistantTurn\(parsed, message\);/);
+  const assistant = fs.readFileSync(path.join(APP, 'assistant.js'), 'utf8');
+  assert.match(assistant, /\.\.\.\(Array\.isArray\(turn\) \? turn\.filter\(\(t\) => typeof t === 'string' && t\) : \[\]\),/);
+  assert.ok(fs.readFileSync(path.join(APP, 'PLUGINS.md'), 'utf8').includes('`api.addAssistantTurn(fn)`'));
+});
+
+test('the avatar\'s windows are offered to a plugin\'s script, and a window says when it is made', () => {
+  const src = fs.readFileSync(path.join(APP, 'public', 'assistant-avatar-ui.js'), 'utf8');
+  assert.match(src, /window\.wsAvatarWindows = \{/);
+  for (const call of ['open:', 'close:', 'isOpen:', 'board:', 'write:', 'draw:', 'note:', 'browse:', 'readerDocument:', 'speak:']) assert.ok(src.slice(src.indexOf('window.wsAvatarWindows = {')).slice(0, 1400).includes(call), `wsAvatarWindows has ${call}`);
+  assert.match(src, /keep: \(node\) => \{ added\.push\(node\); return node; \}/, 'what a plugin adds to the board is under Undo and Clear');
+  assert.match(src, /new CustomEvent\('ws-avatar-window', \{ detail: \{ kind, window: w \} \}\)/);
+  assert.match(src, /open: \(kind, title\) => \(\/\^\[a-z\]\[a-z0-9-\]\{0,30\}\$\/\.test/, 'a kind is a plain word');
+  const doc = fs.readFileSync(path.join(APP, 'PLUGINS.md'), 'utf8');
+  for (const s of ['window.wsAvatarWindows', 'ws-avatar-window', "capabilities.has('avatar-windows')"]) assert.ok(doc.includes(s), `PLUGINS.md says ${s}`);
 });
