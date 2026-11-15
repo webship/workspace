@@ -1,17 +1,17 @@
 /**
- * Settings → Plugins: every plugin package the dashboard can see, the step each is at, and the
- * buttons that take it to the next one. The four steps are exactly core/scripts/plugins.sh's
- * verbs — the page runs that script as a job, so the button and the command line cannot disagree.
+ * Settings → Plugins: where a plugin is added, and what every Settings page knows of the plugins.
+ *
+ * `rows()` is every plugin package the dashboard can see with the step it is at, what it needs and
+ * who needs it; the Settings home and a plugin's own page draw from it (settings-home.js,
+ * settings-plugin-page.js). The page itself is the box that requires a package, the catalogue by
+ * family, and the commands the core needs on this machine. The four steps are exactly
+ * core/scripts/plugins.sh's verbs — every button runs that script as a job, so the button and the
+ * command line cannot disagree.
  *
  *   require    npm install <spec> into core/workspace-app (a GitHub repo, a tarball, a path)
  *   activate   plugins.<name>.enabled: true in settings.yml
  *   install    place what the manifest names: bash functions, commands, compose files, a theme
  *   configure  the plugin's own core/config/plugin.<name>.settings.yml
- *
- * A card also says what the plugin needs from another plugin and whether the workspace has it
- * (plugin-needs.js). While a need is not met, Activate and Install ask first — "add them too?" — and
- * run the script with --with-needs; a card another plugin relies on says who needs it, and the script
- * refuses its Deactivate and Uninstall with the list.
  */
 
 const fs = require('fs');
@@ -58,70 +58,51 @@ function rows() {
   });
 }
 
+/**
+ * Settings → Plugins: where a plugin is added. The plugins that are already here live on the Settings
+ * home (one row each, by family) and on their own pages; this page is the box that requires any
+ * package, the catalogue by family under the same filter, and the commands the core needs.
+ */
 function pluginsPageHtml() {
   const list = rows();
-  // `ask` is what an unmet need turns the button into: a question first, and --with-needs when the answer is yes.
-  const btn = (verb, name, label, primary, title = '', ask = '') => `<button class="uk-button uk-button-${primary ? 'primary' : 'default'} uk-button-small"
-      hx-post="/actions/plugins" hx-vals='{"verb":"${esc(verb)}","name":"${esc(name)}"${ask ? ',"withNeeds":"1"' : ''}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"${ask ? `
-      hx-confirm="${esc(ask)}"` : ''}
-      title="${esc(title || `bash core/scripts/plugins.sh --${verb} ${name}${ask ? ' --with-needs' : ''}`)}">${esc(label)}</button>`;
-  const cards = list.map((p) => {
-    const unmet = (p.wants && !p.wants.problems.length) ? p.wants.unmet : [];
-    const ask = unmet.length ? `${p.manifest.label || p.name} needs ${unmet.map((n) => needs.groupText(n.anyOf)).join(' and ')}, which this workspace does not have yet. Add ${unmet.map((n) => n.pick).join(' and ')} too (require, activate, install)? Cancel changes nothing.` : '';
-    const next = p.step === 0 ? btn('activate', p.name, 'Activate', true, '', ask)
-      : p.step === 1 ? btn('install', p.name, 'Install', true, '', ask)
-        : p.step === 2 ? `<a class="uk-button uk-button-primary uk-button-small" href="/settings/${esc(p.manifest.settingsFile)}">Configure</a>`
-          : '';
-    const steps = STEPS.map((s, i) => `<span class="plugin-step${i <= p.step ? ' is-done' : ''}">${esc(s)}</span>`).join('<span class="plugin-step-sep">›</span>');
-    const more = [
-      p.step >= 1 && needsInstall(p.manifest) ? btn('install', p.name, p.step >= 2 ? 'Reinstall' : 'Install', false, 'Place the plugin\'s files again; safe to repeat', ask) : '',
-      p.step >= 1 ? btn('deactivate', p.name, 'Deactivate', false) : '',
-      p.placed.installed ? btn('uninstall', p.name, 'Uninstall', false, 'Remove what Install placed, and deactivate') : '',
-      p.manifest.settingsFile && p.step >= 2 ? `<a class="uk-button uk-button-default uk-button-small" href="/settings/${esc(p.manifest.settingsFile)}">Settings</a>` : '',
-    ].filter(Boolean).join(' ');
-    return `
-      <div class="uk-card uk-card-default uk-card-body uk-card-small plugin-card">
-        <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
-          <h3 class="uk-card-title uk-margin-remove">${esc(p.manifest.label || p.name)} <span class="uk-text-meta">${esc(p.module || p.spec || '')}${p.version ? ` ${esc(p.version)}` : ''}</span></h3>
-          <span class="plugin-steps">${steps}</span>
-        </div>
-        <p class="uk-text-meta uk-margin-small">${esc(p.description || '')}</p>
-        ${needsHtml(p)}${commandsLineHtml(p.commands)}
-        ${p.step === 1 && !p.loaded ? '<p class="uk-text-warning uk-text-small">Activated, but not loaded yet: the dashboard loads plugins when it starts. Install restarts it.</p>' : ''}
-        ${p.placed.missing && p.placed.missing.length ? `<p class="uk-text-warning uk-text-small">${p.placed.missing.length} placed file(s) are missing — Reinstall puts them back.</p>` : ''}
-        <div class="uk-margin-small-top plugin-buttons">${next} ${more}</div>
-      </div>`;
-  }).join('');
+  const have = new Map(list.map((p) => [p.module, p.name]));
+  const chip = (show, label, count, pressed = false) => `<button type="button" class="settings-chip" data-show="${show}" aria-pressed="${pressed ? 'true' : 'false'}">${esc(label)} <span class="settings-chip-count">${count}</span></button>`;
+  const all = FAMILIES.reduce((n, f) => n + f.plugins.length, 0);
+  const added = FAMILIES.reduce((n, f) => n + f.plugins.filter(([name]) => have.has(`${SCOPE}/workspace-${name}`)).length, 0);
   return `
-    <section class="settings-group">
-      <h2 class="settings-group-head">Plugins</h2>
-      <p class="uk-text-meta">Optional features, each a package of its own (github.com/webship/workspace-&lt;name&gt;). Four steps turn one on:
-        <strong>require</strong> it with npm, <strong>activate</strong> it in settings.yml, <strong>install</strong> what it ships into the workspace,
-        <strong>configure</strong> its own settings file. The same as <code>bash core/scripts/plugins.sh</code>.</p>
-      <form class="uk-flex uk-flex-middle uk-margin-small-bottom plugin-require" hx-post="/actions/plugins" hx-target="#webship-workspace-output" hx-swap="innerHTML">
+  <div class="settings-home plugins-add">
+    <section class="settings-group plugin-require-section" aria-labelledby="plugin-require-head">
+      <h2 class="settings-group-head" id="plugin-require-head">Add a plugin</h2>
+      <p class="settings-family-about">The base ships empty. A plugin is a package of its own (<code>${SCOPE}/workspace-&lt;name&gt;</code>), turned on in four steps:
+        <strong>require</strong> it here, then <strong>activate</strong>, <strong>install</strong> and <strong>configure</strong> it on its own page, which opens from
+        <a href="/settings">Settings</a>${list.length ? ` (${list.length} added so far)` : ''}. The same as <code>bash core/scripts/plugins.sh</code>.</p>
+      <form class="plugin-require" hx-post="/actions/plugins" hx-target="#webship-workspace-output" hx-swap="innerHTML">
         <input type="hidden" name="verb" value="require">
-        <input class="uk-input uk-form-small uk-form-width-large" name="spec" placeholder="@webship.co/workspace-jira" aria-label="Package to require" required pattern="[A-Za-z0-9@:\\/._#+~\\-]+">
-        <button class="uk-button uk-button-default uk-button-small uk-margin-small-left" type="submit">Require</button>
+        <label class="settings-search-label" for="plugin-require-spec">Require a package by name</label>
+        <div class="settings-search-row">
+          <input class="uk-input" id="plugin-require-spec" name="spec" placeholder="${SCOPE}/workspace-jira" required pattern="[A-Za-z0-9@:\\/._#+~\\-]+" aria-describedby="plugin-require-help">
+          <button class="uk-button uk-button-default" type="submit">Require</button>
+        </div>
+        <p class="settings-search-status" id="plugin-require-help">An npm name, <code>github:owner/repo</code>, a git URL, a tarball or a path. Nothing else is installed with it.</p>
       </form>
-      <div class="plugin-cards">${cards || '<p class="uk-text-meta">No plugin packages yet. Pick one from the catalogue below, or require one above.</p>'}</div>
-      <p class="uk-text-meta uk-margin-small-top">What each install placed is recorded in <code>${esc(path.relative(ROOT, RECORD))}</code>.</p>
     </section>
+    <div class="settings-search" hidden>
+      <label class="settings-search-label" for="settings-search-input">Find a plugin in the catalogue</label>
+      <div class="settings-search-row">
+        <input type="search" class="uk-input" id="settings-search-input" placeholder="hosting, wordpress, jira" autocomplete="off" aria-describedby="settings-search-status">
+        <div class="settings-chips" role="group" aria-label="Which plugins to show">
+          ${chip('all', 'All', all, true)}${chip('inactive', 'Not added', all - added)}${chip('active', 'Added', added)}
+        </div>
+      </div>
+      <p class="settings-search-status" id="settings-search-status" role="status" aria-live="polite"></p>
+    </div>
+    ${catalogHtml(have, new Map(list.filter((p) => p.needsLine).map((p) => [p.module, p.needsLine])))}
+    <div class="settings-empty settings-none" hidden>
+      <p><strong>Nothing in the catalogue matches.</strong> A package that is not listed can still be required by name, in the box above.</p>
+    </div>
     ${commandsSectionHtml()}
-    ${catalogHtml(new Set(list.map((p) => p.module)), new Map(list.filter((p) => p.needsLine).map((p) => [p.module, p.needsLine])))}`;
-}
-
-/** What a card says about needs: each need and suggestion with whether it is met, and who needs this plugin. */
-function needsHtml(p) {
-  const w = p.wants;
-  if (!w) return '';
-  // One name: a tick is enough. Several: the tick names the one that is here.
-  const item = (n) => `<span class="plugin-need ${n.metBy ? 'is-met' : 'is-unmet'}">${esc(needs.groupText(n.anyOf))} <span class="${n.metBy ? 'uk-text-success' : 'uk-text-warning'}">${n.metBy ? `✓${n.anyOf.length > 1 ? ` ${esc(n.metBy)}` : ''}` : 'not here'}</span></span>`;
-  const lines = [];
-  if (w.needs.length) lines.push(`<p class="uk-text-small uk-margin-remove plugin-needs"><strong>Needs:</strong> ${w.needs.map(item).join(' · ')}</p>`);
-  if (w.suggests.length) lines.push(`<p class="uk-text-small uk-margin-remove plugin-suggests"><strong>Suggests:</strong> ${w.suggests.map(item).join(' · ')}</p>`);
-  if (w.problems.length) lines.push(`<p class="uk-text-danger uk-text-small uk-margin-remove plugin-needs-problem">${esc(w.problems.join('; '))}</p>`);
-  if ((p.neededBy || []).length) lines.push(`<p class="uk-text-small uk-margin-remove plugin-needed-by"><strong>Needed by:</strong> ${esc(p.neededBy.join(', '))} — it cannot be deactivated or uninstalled while they are in use.</p>`);
-  return lines.join('');
+    <p class="uk-text-meta uk-margin-small-top">What each install placed is recorded in <code>${esc(path.relative(ROOT, RECORD))}</code>.</p>
+  </div>`;
 }
 
 const commandLabel = (r) => `${r.anyOf.length > 1 ? `one of ${r.anyOf.join(', ')}` : r.anyOf[0]}${r.where === 'host' ? '' : ` (${r.where})`}`;
@@ -131,14 +112,6 @@ function commandStateHtml(r) {
   if (r.state === 'found') return `<span class="uk-text-success" title="${esc(r.path)}">✓${r.version ? ` ${esc(r.version)}` : ''}</span>`;
   if (r.state === 'unchecked') return `<span class="uk-text-meta" title="${esc(r.why)}">not checked</span>`;
   return `<span class="${r.kind === 'needs' ? 'uk-text-danger' : 'uk-text-warning'}" title="${esc(r.hint)}">missing</span>`;
-}
-
-/** The commands a plugin declares, on its card: one line, and how to install what is missing. */
-function commandsLineHtml(rows = []) {
-  if (!rows.length) return '';
-  const missing = rows.filter((r) => r.state === 'missing');
-  return `<p class="uk-text-small uk-margin-remove plugin-commands"><strong>Commands:</strong> ${rows.map((r) => `<span class="plugin-command is-${r.state}">${esc(commandLabel(r))} ${commandStateHtml(r)}</span>`).join(' · ')}</p>${
-    missing.map((r) => `<p class="uk-text-small uk-margin-remove plugin-command-hint ${r.kind === 'needs' ? 'uk-text-danger' : 'uk-text-warning'}">${esc(r.anyOf[0])} is not on this machine${r.kind === 'needs' ? '' : ' (a part of the plugin uses it)'}. Install it yourself — ${esc(r.hint)}.</p>`).join('')}`;
 }
 
 /** The commands the core needs on this machine: what `webship-workspace doctor` prints, as a table. Nothing here installs anything. */
@@ -158,28 +131,42 @@ function commandsSectionHtml() {
     </section>`;
 }
 
-/** The catalogue: every plugin a person can add, by family; what is already required is marked, with what it needs. */
+/**
+ * The catalogue: every plugin a person can add, by family, one row each. A plugin that is already
+ * here says "Added" and leads to its page; the rest get a Require button with the package to install.
+ * `have` is the packages here (a Set of module names, or a Map of module name to plugin name),
+ * `wants` what each of them needs, said on its row.
+ */
 function catalogHtml(have = new Set(), wants = new Map()) {
+  const { iconHtml } = require('./icons');
+  const nameOf = (module) => (have instanceof Map ? have.get(module) : '');
   const families = FAMILIES.map((f) => `
-      <div class="plugin-family">
-        <h3 class="uk-margin-small-bottom">${esc(f.label)} <span class="uk-text-meta">${esc(f.about)}</span></h3>
-        <ul class="uk-list uk-list-divider plugin-catalog">
+      <section class="settings-family plugin-family" data-family="${esc(f.id)}" aria-labelledby="catalog-family-${esc(f.id)}">
+        <h3 class="settings-family-head" id="catalog-family-${esc(f.id)}"><span>${esc(f.label)}</span> <span class="settings-family-count">${f.plugins.length}</span></h3>
+        <p class="settings-family-about">${esc(f.about)}</p>
+        <ul class="plugin-rows plugin-catalog">
           ${f.plugins.map(([name, label]) => {
     const module = `${SCOPE}/workspace-${name}`;
     const present = have.has(module);
-    return `<li class="uk-flex uk-flex-between uk-flex-middle">
-              <span><strong>${esc(label)}</strong> <code class="uk-text-meta">${esc(module)}</code>${wants.get(module) ? ` <span class="uk-text-meta plugin-catalog-needs">${esc(wants.get(module))}</span>` : ''}</span>
-              ${present ? '<span class="uk-label">required</span>' : `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/plugins" hx-vals='{"verb":"require","spec":"${esc(module)}"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" title="npm install ${esc(module)} into core/workspace-app">Require</button>`}
+    const page = `/settings/plugin/${encodeURIComponent(nameOf(module) || name)}`;
+    const line = `<span class="plugin-row-name">${esc(label)}</span>
+              <span class="plugin-row-summary"><code>${esc(module)}</code>${wants.get(module) ? ` <span class="plugin-catalog-needs">${esc(wants.get(module))}</span>` : ''}</span>`;
+    return `<li class="plugin-row" data-find="${esc(`${label} ${name} ${module} ${f.label}`.toLowerCase())}" data-active="${present ? '1' : '0'}" data-attention="0">
+              ${present ? `<a class="plugin-row-main uk-link-reset" href="${esc(page)}">${line}</a>` : `<span class="plugin-row-main">${line}</span>`}
+              <span class="plugin-row-state">${present ? `<span class="plugin-state is-ok">${iconHtml('tabler:circle-check', 0.8)}<span>Added</span></span>` : ''}</span>
+              <span class="plugin-row-action">${present
+    ? `<a class="uk-button uk-button-default uk-button-small" href="${esc(page)}" aria-label="${esc(`Open ${label}`)}">Open</a>`
+    : `<button type="button" class="uk-button uk-button-default uk-button-small" hx-post="/actions/plugins" hx-vals='{"verb":"require","spec":"${esc(module)}"}' hx-target="#webship-workspace-output" hx-swap="innerHTML" title="bash core/scripts/plugins.sh --require ${esc(module)}" aria-label="${esc(`Require ${label}`)}">Require</button>`}</span>
             </li>`;
   }).join('')}
         </ul>
-      </div>`).join('');
+      </section>`).join('');
   return `
-    <section class="settings-group plugin-catalog-section">
-      <h2 class="settings-group-head">Catalogue</h2>
-      <p class="uk-text-meta">The core ships empty. Add what you need, one package at a time: <strong>Require</strong> installs it with npm into <code>core/workspace-app/package.json</code>, then Activate, Install and Configure above. Nothing is added until you ask for it. What a plugin needs from another one is in its package, so it is shown once the package is required.</p>
+    <section class="settings-group plugin-catalog-section" id="settings-catalog" aria-labelledby="settings-catalog-head"
+             hx-get="/fragments/settings/catalog" hx-trigger="refresh-projects from:body" hx-swap="outerHTML">
+      <h2 class="settings-group-head" id="settings-catalog-head">Catalogue</h2>
       ${families}
     </section>`;
 }
 
-module.exports = { pluginsPageHtml, catalogHtml, needsHtml, commandsLineHtml, commandsSectionHtml, rows, stepOf, needsInstall, STEPS };
+module.exports = { pluginsPageHtml, catalogHtml, commandsSectionHtml, rows, stepOf, needsInstall, STEPS };
