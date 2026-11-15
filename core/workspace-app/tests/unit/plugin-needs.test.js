@@ -391,9 +391,10 @@ test('--list and the Plugins page say what each plugin needs, whether it is met,
   assert.doesNotMatch(card(html, 'dev'), /withNeeds/, 'a plugin with no needs is a plain button');
   assert.match(card(html, 'broken'), /needs: must be a list/);
   assert.doesNotMatch(card(html, 'broken'), /withNeeds/, 'a manifest that is wrong is not offered a fix it cannot have');
-  // The catalogue says it for a package that is here.
+  // The catalogue does not repeat what a plugin needs: its row is its name and what it does, and its page says the rest.
   platform(t.plugins, 'wordpress', { needs: ['dev'] });
-  assert.match(page(), /@webship\.co\/workspace-wordpress<\/code> <span class="plugin-catalog-needs">needs: dev \(not here\)<\/span>/);
+  assert.doesNotMatch(page(), /needs: dev \(not here\)/);
+  assert.match(pages(), /<strong>dev<\/strong>: not here\./);
   fs.rmSync(path.join(t.plugins, 'wordpress'), { recursive: true });
   fs.rmSync(path.join(t.plugins, 'broken'), { recursive: true });
   ok(sh(t, '--install', 'wp', '--with-needs'));

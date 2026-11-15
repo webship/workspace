@@ -226,8 +226,11 @@ test('Settings → Plugins lists the core\'s commands and each plugin\'s, found 
   assert.match(card, /<code>bash<\/code>: found, \d/);
   assert.match(card, /is-unmet">[\s\S]{0,200}<code>cloudctl-not-here<\/code>: not on this machine\. Install: Debian\/Ubuntu: apt install cloudctl-not-here/);
   assert.match(card, /<code>twg \(container\)<\/code>: not checked from here/);
-  assert.match(html, /Commands on this machine<\/h2>/);
-  assert.match(html, /<tr class="command-row is-found"><td><code>bash<\/code><\/td><td>needed<\/td>/);
+  // The base's commands: closed at the end of the page, every column with a heading.
+  assert.match(html, /<details class="plugin-commands-section">\s*<summary><span class="plugin-commands-title">Commands on this machine<\/span>/);
+  assert.match(html, /<th scope="col">Command<\/th><th scope="col">Needed<\/th><th scope="col">Here<\/th><th scope="col">Used for<\/th>/);
+  assert.match(html, /<tr class="command-row is-found"><td><code>bash<\/code><\/td><td>Needed<\/td>/);
+  assert.match(html, /A plugin's own commands are on its page\./);
   assert.match(html, /webship-workspace doctor/);
   assert.match(html, /Nothing is installed for you\./);
 });

@@ -22,17 +22,41 @@ test('every catalogue entry is an @webship.co/workspace-<name> package, named on
   for (const must of ['dev', 'github', 'upsun', 'lando', 'git', 'ide', 'drupal-modules']) assert.ok(names.includes(must), `${must} is in the catalogue`);
 });
 
-test('the catalogue is rows by family: what is here says Added and leads to its page, the rest get a Require button', () => {
+test('the catalogue is rows by family: a name, the line that says what it does and a short id; nothing is cut, and what it needs is not here', () => {
   const { catalogHtml } = require('../../plugins-page');
-  const html = catalogHtml(new Map([['@webship.co/workspace-git', 'git']]));
+  const html = catalogHtml(new Set(['@webship.co/workspace-git']));
   assert.match(html, /Catalogue/);
   assert.strictEqual((html.match(/<span>Added<\/span>/g) || []).length, 1, 'git is marked, once');
   assert.match(html, /<a class="plugin-row-main uk-link-reset" href="\/settings\/plugin\/git">/);
-  assert.match(html, /"spec":"@webship\.co\/workspace-upsun"/, 'the rest get a Require button with the package to install');
-  assert.match(html, /aria-label="Require Upsun">Require</, 'and the button names what it requires');
+  // The same short name as the Settings home, then what it does, then the id (the package is its title).
+  assert.match(html, /<span class="plugin-row-name">Dev<\/span><span class="plugin-row-extra plugin-row-id" title="@webship\.co\/workspace-dev">dev<\/span><\/span>\s*<span class="plugin-row-summary">Development sites: the Drupal, Drupal CMS and Webship builders<\/span>/);
+  assert.match(html, /<span class="plugin-row-name">Git<\/span>/);
+  assert.ok(!html.includes('plugin-catalog-needs') && !/needs:/.test(html));
+  assert.match(html, /"spec":"@webship\.co\/workspace-upsun"/, 'the rest get a button with the package to add');
+  assert.match(html, /aria-label="Add Upsun">Add</, 'and the button names what it adds');
   assert.strictEqual((html.match(/<li class="plugin-row"/g) || []).length, catalog().length);
-  // A plain Set of module names is still an answer (the first form this took).
-  assert.strictEqual((catalogHtml(new Set(['@webship.co/workspace-git'])).match(/<span>Added<\/span>/g) || []).length, 1);
+});
+
+test('a plugin that is here shows the state it is in, not a green "Added" over something that is not installed', () => {
+  const { catalogHtml } = require('../../plugins-page');
+  const model = require('../../settings-model');
+  const row = { name: 'cpanel', module: '@webship.co/workspace-cpanel', version: '1.0.0', manifest: { name: 'cpanel', label: 'cPanel' }, step: 1, wants: { unmet: [], problems: [] } };
+  const p = model.groupByFamily([row])[0].plugins[0];
+  const html = catalogHtml(new Map([[p.module, p]]));
+  const at = html.indexOf('href="/settings/plugin/cpanel"');
+  const li = html.slice(at, html.indexOf('</li>', at));
+  assert.match(li, /<span>Not installed<\/span>/);
+  assert.ok(!li.includes('<span>Added</span>'));
+  assert.match(li, /plugin-row-chevron/, 'the row is the link; no second link beside it');
+});
+
+test('every plugin of the catalogue has a name and a line that is not its name or its package', () => {
+  for (const p of catalog()) {
+    assert.ok(p.label && p.summary, p.name);
+    assert.notStrictEqual(p.summary.toLowerCase(), p.label.toLowerCase(), `${p.name}: the line repeats the name`);
+    assert.ok(!p.summary.includes('@webship.co'), p.name);
+    assert.ok(p.summary.length <= 110, `${p.name}: one line`);
+  }
 });
 
 test('the AI folders are a family of their own, the platforms on npm are listed, and the avatar is a feature', () => {
@@ -43,18 +67,21 @@ test('the AI folders are a family of their own, the platforms on npm are listed,
   assert.strictEqual(FAMILIES[0].id, 'platforms', 'platforms first, as Settings shows them');
 });
 
-test('the Plugins page is where a plugin is added: a labelled box, the catalogue under a filter, the commands of the core', () => {
+test('the Plugins page is where a plugin is added: a labelled box, the catalogue under a filter, the commands of the base closed at the end', () => {
   const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'plugins-page.js'), 'utf8');
-  assert.match(src, /<label class="settings-search-label" for="plugin-require-spec">Require a package by name<\/label>/);
+  assert.match(src, /<label class="settings-search-label" for="plugin-require-spec">Add a package by name<\/label>/);
   assert.match(src, /<div class="settings-search" hidden>/);
   assert.match(src, /data-show="\$\{show\}"/);
   assert.match(src, /\$\{commandsSectionHtml\(\)\}/);
+  assert.match(src, /<details class="plugin-commands-section">/);
+  assert.match(src, /Needed by the builders that use DDEV, the default runtime/, 'DDEV is the default runtime, never the only one');
   assert.ok(!src.includes('plugin-card'), 'no card per plugin: a plugin that is here has a row on Settings and a page of its own');
   assert.ok(!src.includes('hx-confirm'), 'an unmet need is said on the step, not asked in a dialog');
 });
 
-test('a row of the catalogue stays short on a phone: the package line does not wrap', () => {
-  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'public', 'css', 'components', 'plugins-page.css'), 'utf8');
-  const phone = css.slice(css.indexOf('@media (max-width: 40em)'));
-  assert.match(phone, /\.plugin-catalog \.plugin-row-summary \{ white-space: nowrap; \}/);
+test('a row of the catalogue wraps its line instead of cutting it, and an empty catalogue is not drawn', () => {
+  const read = (f) => require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'public', f), 'utf8');
+  assert.match(read('css/components/settings-home.css'), /\.plugin-row-summary \{ white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; \}/);
+  assert.ok(!/\.plugin-catalog \.plugin-row-summary \{ white-space: nowrap; \}/.test(read('css/components/plugins-page.css')));
+  assert.match(read('ui.js'), /querySelectorAll\('\.plugin-catalog-section'\)\.forEach\(\(g\) => \{ g\.hidden = /);
 });

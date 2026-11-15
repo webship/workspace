@@ -13,7 +13,7 @@ Feature: Settings → Plugins
   Scenario: A package can be required from the page
     Given I am on "/settings/plugins"
      Then the element ".plugin-require input[name=spec]" should be displayed
-      And I should see "Require a package by name"
+      And I should see "Add a package by name"
 
   Scenario: The catalogue has a filter
     Given I am on "/settings/plugins"
