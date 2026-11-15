@@ -25,7 +25,8 @@ test('a toast is held while the pointer is over it or focus is inside it', () =>
 
 test('the shell controls are named by what they show, and its landmarks have names', () => {
   assert.match(server, /aria-label="Ctrl K: open the command palette"/);
-  assert.match(server, /aria-label="Hold to talk Space: hold this button, or the Space bar"/);
+  // The talk button is named by its own words ("Hold to talk Space"); the longer sentence is its title.
+  assert.match(server, /class="dock-btn dock-talk" title="Hold to talk, or hold the Space bar"><span class="dock-talk-icon"><\/span><span>Hold to talk<\/span> <kbd>Space<\/kbd>/);
   assert.match(server, /<nav class="uk-navbar-container toolbar" aria-label="Toolbar">/);
   assert.match(server, /<aside class="assistant-side" aria-label="AI Assistant">/);
 });
