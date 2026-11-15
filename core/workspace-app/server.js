@@ -6113,7 +6113,9 @@ const server = http.createServer(async (req, res) => {
         const pp = require('./plugins-page');
         const list = pp.rows();
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(pp.catalogHtml(new Map(list.map((p) => [p.module, p.name])), new Map(list.filter((p) => p.needsLine).map((p) => [p.module, p.needsLine]))));
+        const up = require('./plugin-updates');
+        const grouped = require('./settings-model').groupByFamily(list, { latest: up.peek().latest, isNewer: up.isNewer }).flatMap((g) => g.plugins);
+        return res.end(pp.catalogHtml(new Map(grouped.map((p) => [p.module, p]))));
       }
       // The plugins of the Settings home, drawn again when a step has run (a job that finished).
       if (pathname === '/fragments/settings/plugins') {
