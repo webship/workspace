@@ -146,3 +146,8 @@
 .tabmodal-filter-status { margin: 0.25rem 0.75rem 0; min-height: 1.1rem; font-size: 0.75rem; color: var(--text-subtle); }
 .tabmodal-filter-status:empty { display: none; }
 .uk-modal-dialog:focus { outline: none; }
+
+/* The pane's heading is an h2 for the outline, and keeps the plain face it had as an h3. */
+.tabmodal-heading { font-family: var(--font-primary); font-weight: 600; letter-spacing: normal; }
+/* A long name wraps under itself rather than being cut beside its badge. */
+.tabmodal-tab .tabmodal-tab-label { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; text-align: left; }
