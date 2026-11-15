@@ -24,8 +24,8 @@ const server = fs.readFileSync(path.join(__dirname, '../../server.js'), 'utf8');
 const screensSrc = fs.readFileSync(path.join(__dirname, '../../screens.js'), 'utf8');
 
 test('an ANSWERED question is not a question', () => {
-  const asked = 'rajab@host:~$ read -p x\nDo you want to continue? (y/n) ';
-  const answered = 'Do you want to continue? (y/n) y\nrajab@host:~/workspace/test/ruverify1$';
+  const asked = 'user@host:~$ read -p x\nDo you want to continue? (y/n) ';
+  const answered = 'Do you want to continue? (y/n) y\nuser@host:~/workspace/test/ruverify1$';
   assert.equal(waitingState(asked).waiting, true);
   assert.equal(waitingState(answered).waiting, false,
     'the shell has moved on; the hand has to go down or it is noise');

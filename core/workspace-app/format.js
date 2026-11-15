@@ -34,7 +34,7 @@ function humanSize(bytes) {
 
 /**
  * A path as a person writes it: `~/workspace/dev/site1`, not
- * `/home/rajab/workspace/dev/site1`. Every path the dashboard SHOWS goes
+ * `/home/user/workspace/dev/site1`. Every path the dashboard SHOWS goes
  * through this — the home prefix is noise in a UI, and it is the one part of a
  * path that differs between machines, so a command someone copies from here
  * should paste cleanly on theirs.
