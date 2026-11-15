@@ -269,6 +269,7 @@ module.exports.register = (api) => {
 | `api.addWorkPrompt(fn)` | The prompt a screen started for a work item begins with: `fn({ key, workspace, project })` returns it, or null for the dashboard's own. |
 | `api.addSessionLog(fn)` | Where a session's log lives when the dashboard does not know: `fn(session, dirs)` returns a file in one of `dirs`, or ''. |
 | `api.addAssistantContext(fn)` | A paragraph of the assistant's system context: what this plugin lets it reach, and the rules. |
+| `api.addAssistantTurn(fn)` | A paragraph for one turn only: `fn({ body, message })` is given what the page posted and answers a paragraph or `''`; it may be async. For something the person hands over with a turn (a picture, a selection), named in the body by the plugin's own script through `wsAssistantHooks.beforeSend`. Needs `capabilities.has('assistant-turn')`. |
 | `api.addRunner(fn)` | The runner of the commands the dashboard starts (a build, a row menu's verb, a tool). `fn({ session, workspace, project, projectDir, ownerDir, verb, cmdLine, label })` starts the command its own way and returns `{ ok, session, already, why, html }` (`html` is the answer shown), or null to leave it to the dashboard. Needs `capabilities.has('runner')`. |
 | `api.addScreensPanel(fn)` | A panel at the top of the Screens page: `fn()` returns its HTML, or '' for none. Needs `capabilities.has('screens-panel')`. |
 
@@ -451,6 +452,23 @@ the turn itself, and shows the two buttons when the browser has no recogniser of
 The events the page already sends are there too: `ws-assistant-working` (`{ on, failed }`),
 `ws-assistant-reply` and `ws-assistant-speech` (`{ type: 'start' | 'word' | 'end', word }`, which the
 avatar's mouth follows: a plugin that speaks dispatches it).
+
+## A plugin's script and the avatar's windows
+
+The avatar's windows (the board, the reading window, a video) are the dashboard's. A plugin's script
+reaches them through `window.wsAvatarWindows`, present when `capabilities.has('avatar-windows')` and the
+assistant has an avatar:
+
+| Call | What it does |
+| --- | --- |
+| `open(kind, title)` | A window of the plugin's own, by a kind of its own (`camera`): the `<section>`, whose content goes in `.avatar-window-body`. It is dragged, filled and closed like the others. `close(kind)`, `isOpen(kind)` |
+| `board()` | Opens the board and answers `{ svg, area, lines, window, keep(node), clear() }`: the drawing (an SVG, 100 by 60), the notes' area, the list of lines. `keep(node)` puts what the plugin added under the board's Undo and Clear |
+| `write(lines)`, `draw(commands)`, `note(text)` | What the assistant's `BOARD:` and `DRAW:` lines do |
+| `browse(url)`, `readerDocument()` | The reading window: open an https page in it, and its document (no scripts run in it) |
+| `speak(text)` | Says it in the avatar's voice, when the voice is on |
+
+`document.addEventListener('ws-avatar-window', (e) => …)` hears a window being made: `e.detail` is
+`{ kind, window }`.
 
 ## Families
 

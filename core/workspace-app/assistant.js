@@ -133,7 +133,7 @@ const AVATAR_BIG_MOVES = {
 const AVATAR_PLACES = ['home', 'left', 'right', 'center', 'panel'];
 const AVATAR_SIZES = ['small', 'medium', 'large', 'xl', 'huge', 'bigger', 'smaller'];
 
-async function assistantReply(message, ctx, thread = null, { voice = false, avatar = false, avatarName = '', avatarId = '', page = null } = {}) {
+async function assistantReply(message, ctx, thread = null, { voice = false, avatar = false, avatarName = '', avatarId = '', page = null, turn = [] } = {}) {
   const cast = require('./assistant-cast');
   // The avatar's own moves: the set it is given (settings.yml, or its character file) and the moves its project brings.
   const mind = avatar ? cast.avatarMind(loadSettings(), ROOT, String(avatarId || '')) : { moves: '', ownMoves: {}, agent: '' };
@@ -174,6 +174,8 @@ async function assistantReply(message, ctx, thread = null, { voice = false, avat
     })(),
     // What the activated plugins let the assistant reach (a tracker, a cloud), each with its own rules.
     ...require('./plugin-loader').pluginAssistantContext(),
+    // And what they add to this turn alone: something the person handed over with it.
+    ...(Array.isArray(turn) ? turn.filter((t) => typeof t === 'string' && t) : []),
     // WHAT THIS MACHINE ACTUALLY HAS. Without this the assistant improvised: it would
     // describe doing a job by hand that a skill on this very machine does properly, or
     // name an agent that does not exist. Names only, with the descriptions left on disk —

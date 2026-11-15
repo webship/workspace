@@ -99,6 +99,7 @@ const workKeyLinkFns = [];   // (key) -> url | null
 const workPromptFns = [];    // ({ key, workspace, project }) -> prompt | null
 const sessionLogFns = [];    // (session, dirs) -> file | ''
 const assistantContextFns = []; // () -> a paragraph for the assistant's system context, or ''
+const assistantTurnFns = [];    // async ({ body, message }) -> a paragraph for THIS turn's system context, or ''
 const forges = {};           // '<host>' -> { name, label, env(), auth() }: who answers for a git forge host
 const openWithFns = [];      // (abs, { label, caption, git }) -> html | null: the Open-with menu for a folder (the IDE plugin)
 const workspaceViews = {};   // '<key>' -> { name, listHtml(state), count(), noFilesActions, noNewForm }: a plugin that owns a workspace folder's page
@@ -145,7 +146,9 @@ function appliesTo(config, workspaceKey) {
 //   uploads        api.addUpload: a plugin action that takes a binary body (an utterance, a picture).
 //   assistant-answer  the page's `ws-assistant-answer` event, `wsAssistantSend` and `wsAssistantHooks`.
 //   assistant-ear  `window.wsAssistantEar`: a plugin's script answers the dock's talk buttons and the Space bar.
-const CAPABILITIES = Object.freeze(new Set(['row-menu-body', 'runner', 'screens-panel', 'scripts', 'uploads', 'assistant-answer', 'assistant-ear']));
+//   assistant-turn  api.addAssistantTurn: a plugin adds a paragraph to one turn's system context.
+//   avatar-windows  `window.wsAvatarWindows` and the `ws-avatar-window` event: the board, the reading window, a window of the plugin's own.
+const CAPABILITIES = Object.freeze(new Set(['row-menu-body', 'runner', 'screens-panel', 'scripts', 'uploads', 'assistant-answer', 'assistant-ear', 'assistant-turn', 'avatar-windows']));
 
 const SCRIPT_NAME_RE = /^[a-z0-9][a-z0-9._-]{0,80}\.js$/;
 const UPLOAD_MAX = 32 * 1024 * 1024;
@@ -263,6 +266,13 @@ function makeApi(name, config) {
     // A paragraph of the assistant's system context: what this plugin lets it reach, and the rules.
     addAssistantContext(fn) {
       assistantContextFns.push(fn);
+    },
+    // A paragraph for one turn only: `fn({ body, message })` is given what the page posted (with whatever
+    // the plugin's own script added to it through wsAssistantHooks.beforeSend) and answers a paragraph, or
+    // '' for nothing. It may be async. For something the person hands the assistant with a turn: a picture
+    // to look at, a selection. Needs `capabilities.has('assistant-turn')`.
+    addAssistantTurn(fn) {
+      assistantTurnFns.push(fn);
     },
     // Who answers for a git forge host ('github.com'): `env()` is the environment a child process
     // needs to authenticate there (a token), or null; `auth()` says who, for the settings page.
@@ -582,6 +592,14 @@ function pluginAssistantContext() {
   for (const fn of assistantContextFns) { try { const s = fn(); if (s) out.push(s); } catch (_) { /* next */ } }
   return out;
 }
+/** What the plugins add to one turn's system context: every answer, in order; a plugin that throws is left out. */
+async function pluginAssistantTurn(body, message) {
+  const out = [];
+  for (const fn of assistantTurnFns) {
+    try { const s = await fn({ body: body && typeof body === 'object' ? body : {}, message: String(message || '') }); if (s && typeof s === 'string') out.push(s.slice(0, 4000)); } catch (_) { /* next */ }
+  }
+  return out;
+}
 function pluginSessionLog(session, dirs) {
   for (const fn of sessionLogFns) { try { const f = fn(session, dirs); if (f) return f; } catch (_) { /* next */ } }
   return '';
@@ -618,7 +636,7 @@ loadPlugins();
 module.exports = {
   pluginActions: actions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
   pluginRowMenus, rowMenuHtml, menuShellHtml, pluginRowMenuSlot, pluginRowMenuBody, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginScripts, pluginScript, pluginUpload, pluginLabels,
-  pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext, pluginForge, pluginForges, pluginOpenWith, pluginFolderLinks, pluginWorkspaceView,
+  pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext, pluginAssistantTurn, pluginForge, pluginForges, pluginOpenWith, pluginFolderLinks, pluginWorkspaceView,
   pluginScreensPanelsHtml,
   loadedPlugins: loaded, pluginConfigs,
 };
