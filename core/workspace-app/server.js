@@ -2639,7 +2639,9 @@ const isFragment = (req) => new URL(req.url, 'http://localhost').searchParams.ge
 function settingsHomeData() {
   const settingsModel = require('./settings-model');
   const plugins = require('./plugins-page').rows();
-  return { files: listSettingsFiles(), plugins, groups: settingsModel.groupByFamily(plugins), folders: loadWorkspaces(),
+  // A newer version on npm is shown when it is already known; asking is a fragment's job, never a page's.
+  const updates = require('./plugin-updates');
+  return { files: listSettingsFiles(), plugins, groups: settingsModel.groupByFamily(plugins, { latest: updates.peek().latest, isNewer: updates.isNewer }), folders: loadWorkspaces(),
     styles: { count: listThemes().length, wearing: themeLabel(styleSettings().theme) } };
 }
 
@@ -6088,6 +6090,19 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(commandsShell(commandTitle(r.dir, file), esc(`${ws}/${file}`), 'list', commandsPage.scriptPageBody({
           ws, file, desc: commandDescription(r.dir, file), flags: commandFlags(r.dir, file), source, badge: badge({ workspace: ws, file }) })));
+      }
+      // Newer versions on npm: asked here, on its own, so no page waits for the registry. When the answer
+      // is new and names something, the plugins are drawn again to carry it.
+      if (pathname === '/fragments/settings/updates') {
+        const updates = require('./plugin-updates');
+        const list = require('./plugins-page').rows();
+        const only = new URL(req.url, 'http://localhost').searchParams.get('plugin') || '';
+        const cold = !updates.peek().at;
+        const got = await updates.refresh(list.map((p) => p.module).filter(Boolean));
+        const outdated = updates.outdated(list, got.latest).filter((u) => !only || u.name === only);
+        if (cold && outdated.length) res.setHeader('HX-Trigger', 'refresh-projects');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(only ? '' : require('./settings-home').updatesLineHtml(outdated, got.error));
       }
       // The catalogue of the Plugins page, drawn again when a package has been required.
       if (pathname === '/fragments/settings/catalog') {

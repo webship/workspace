@@ -56,6 +56,14 @@ function familyHtml(f) {
     </section>`;
 }
 
+/** What npm says about newer versions, in a line: which plugins, or that it could not be asked. Nothing when there is nothing to say. */
+function updatesLineHtml(outdated = [], error = '') {
+  if (error) return `<p class="settings-updates-line is-unknown">${iconHtml('tabler:cloud-off', 0.9)}<span>npm could not be asked for newer versions (${esc(error)}). The versions shown are the ones installed here.</span></p>`;
+  if (!outdated.length) return '';
+  return `<p class="settings-updates-line">${iconHtml('tabler:arrow-up-circle', 0.9)}<span>${outdated.length === 1 ? 'A newer version is' : `${outdated.length} newer versions are`} on npm: ${
+    outdated.map((u) => `<a href="${esc(pluginHref(u.name))}">${esc(u.label)} ${esc(u.version)} → ${esc(u.latest)}</a>`).join(', ')}.</span></p>`;
+}
+
 /** The plugins of this workspace by family: the part of the page that is drawn again when a step has run. */
 function pluginsSectionHtml(groups) {
   const n = model.counts(groups);
@@ -131,6 +139,7 @@ function homeHtml({ files = [], plugins = [], groups = [], folders = {}, styles 
       <h2 class="settings-group-head" id="settings-base-head">Workspace base</h2>
       <div class="settings-grid">${base.map(tileHtml).join('')}</div>
     </section>
+    <div class="settings-updates" hx-get="/fragments/settings/updates" hx-trigger="load" hx-swap="innerHTML" role="status"></div>
     ${pluginsSectionHtml(groups)}
     ${loose.length ? `
     <section class="settings-group settings-loose" aria-labelledby="settings-loose-head">
@@ -144,4 +153,4 @@ function homeHtml({ files = [], plugins = [], groups = [], folders = {}, styles 
   </div>`;
 }
 
-module.exports = { homeHtml, pluginsSectionHtml, pluginRowHtml, stateHtml, actionHtml, pluginHref };
+module.exports = { homeHtml, updatesLineHtml, pluginsSectionHtml, pluginRowHtml, stateHtml, actionHtml, pluginHref };

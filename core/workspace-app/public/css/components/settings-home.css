@@ -152,3 +152,10 @@
 }
 /* A path or a command inside a plugin's page breaks rather than running off a narrow screen. */
 .plugin-page code, .settings-home .settings-family-about code { white-space: normal; overflow-wrap: anywhere; }
+
+/* What npm says about newer versions: a quiet line above the plugins, and a block on a plugin's page. */
+.settings-updates:empty { display: none; }
+.settings-updates-line { display: flex; gap: 0.45rem; align-items: flex-start; margin: 0 0 1rem; padding: 0.55rem 0.8rem; border-radius: 10px; background: var(--subtle-brand); color: var(--text-default); font-size: 0.875rem; }
+.settings-updates-line.is-unknown { background: var(--surface-muted); color: var(--text-subtle); }
+.settings-updates-line .tabler-icon { flex: none; margin-top: 0.1rem; }
+.plugin-alert.is-info { background: var(--subtle-brand); color: var(--text-default); }

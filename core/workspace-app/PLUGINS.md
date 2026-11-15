@@ -496,6 +496,11 @@ Needs settings (Configure: a value in its settings file is still `CHANGE_ME`, or
 there), Ready. Beside them: Needs <plugin> (something it needs is not here; the action adds it in the
 same run, `--with-needs`), Files missing (Reinstall), Needs cannot be met (a cycle).
 
+A plugin whose package is on npm also says when a newer version is there (`plugin-updates.js`): the
+registry is asked for the `latest` tag of each package in a fragment of its own, a few at a time, and
+the answer is kept for six hours. A package that is not on the registry (a path, a GitHub repository,
+a folder under `plugins/`) gets no answer, and no answer is never shown as up to date.
+
 ## Families
 
 Plugins that do the same job for different services share a base package, so a provider is thin and
