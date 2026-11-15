@@ -184,7 +184,9 @@ function placeSettings(plugin, placed) {
   const m = plugin.manifest;
   if (!m.settingsTemplate) return { restart: false };
   const dest = path.join(CONFIG_DIR, m.settingsFile || `plugin.${plugin.name}.settings.yml`);
-  if (fs.existsSync(dest)) return { restart: false };
+  // Recorded every time, written only once: a path an earlier install recorded and this one does not is
+  // removed as stale, and this file holds what the person configured.
+  if (fs.existsSync(dest)) { placed.push(rel(dest)); return { restart: false }; }
   let text = fs.readFileSync(path.join(plugin.dir, m.settingsTemplate), 'utf8');
   if (m.legacySettingsKey) {
     try {
