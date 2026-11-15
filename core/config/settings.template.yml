@@ -281,7 +281,7 @@ auth:
 #                 component asks for. `mode` chooses which half of it you see.
 #   logo          a filename in core/workspace-app/public — not a path or a URL, because
 #                 everything the dashboard loads is served from itself
-#   logo_on_dark  the mark to swap in on a dark page; defaults to `logo`
+#   logo_on_dark  the mark to swap in on a dark page; defaults to the white mark, `logo-dark.png`
 #   favicon       the browser-tab icon; defaults to `logo`
 #
 # mode and editor_theme are DEFAULTS, for someone who has not used the theme toggle. A stored

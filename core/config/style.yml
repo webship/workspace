@@ -43,9 +43,9 @@ page_width: comfortable
 page_size: 50
 page_sort: newest
 
-# Brand assets, from core/workspace-app/public/. One blue mark reads on a light and a dark page, so both point at the same file.
+# Brand assets, from core/workspace-app/public/. The blue mark on a light page, the same mark in white on a dark one.
 logo_on_light: logo.png
-logo_on_dark: logo.png
+logo_on_dark: logo-dark.png
 favicon_svg:
 favicon_png: favicon.png
 # A separate, larger file: a home-screen icon is 180px, and the 32px tab icon blown up to that is a

@@ -58,8 +58,8 @@ test('the shipped default is the PNGs, with no SVG to point at', () => {
   assert.equal(style.faviconPng, 'favicon.png');
   assert.equal(style.touchIcon, 'touch-icon.png');
   assert.equal(style.logoOnLight, 'logo.png');
-  assert.equal(style.logoOnDark, 'logo.png');
-  for (const f of [style.faviconPng, style.touchIcon, style.logoOnLight]) {
+  assert.equal(style.logoOnDark, 'logo-dark.png', 'the white mark on a dark page');
+  for (const f of [style.faviconPng, style.touchIcon, style.logoOnLight, style.logoOnDark]) {
     assert.ok(fs.existsSync(path.join(PUBLIC, f)), `${f} ships with the dashboard`);
   }
   // And the page only writes the SVG tag when there is an SVG to write.
