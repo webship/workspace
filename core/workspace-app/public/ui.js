@@ -995,6 +995,9 @@ document.body.addEventListener('htmx:after:request', (e) => {
   if (!form || e.target.closest('[id^="list-editor"]')) return;
   const ok = e.detail && e.detail.ctx && e.detail.ctx.response ? e.detail.ctx.response.status < 400 : true;
   if (ok) { delete form.dataset.dirty; const d = form.querySelector('.settings-dirty'); if (d) d.hidden = true; }
+  // On a plugin's own page a save can finish its last step: the state and the steps beside the form are
+  // drawn again, so "Needs settings" does not stay on screen over a file that was just filled in.
+  if (ok && form.closest('.plugin-page')) document.body.dispatchEvent(new CustomEvent('refresh-projects'));
 });
 window.addEventListener('beforeunload', (e) => {
   if (document.querySelector('.settings-form[data-dirty]')) { e.preventDefault(); e.returnValue = ''; }
