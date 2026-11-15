@@ -168,6 +168,7 @@ test('init says what is missing before it starts, and goes on', () => {
   assert.match(r.stdout, /✗ core: python +missing — needed/);
   assert.match(r.stdout, /✗ core: rsync +missing — suggested/);
   assert.ok(fs.existsSync(path.join(dir, 'core', 'scripts', 'needs.json')), 'the workspace is made, with the list');
+  assert.ok(fs.existsSync(path.join(dir, 'commands', 'cmd-tools-commands.sh')), 'with the base\'s commands folder, which Run a tool calls');
   const quiet = run([BIN, 'init', path.join(path.dirname(dir), 'second')], coreStubs());
   assert.doesNotMatch(quiet.stdout, /commands this machine does not have/, 'nothing missing: nothing said');
 });

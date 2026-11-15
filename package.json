@@ -12,6 +12,7 @@
     "webship-workspace": "core/bin/workspace.js"
   },
   "files": [
+    "commands",
     "core/bin",
     "core/config/settings.template.yml",
     "core/config/ai.defaults.yml",
