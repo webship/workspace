@@ -31,7 +31,7 @@ test('the base is five entries, and the styles are one of them: no tile per them
 });
 
 test('every plugin is a row in its family: a link to its page, its state in words, one action', () => {
-  assert.strictEqual((html.match(/<li class="plugin-row"/g) || []).length, 4);
+  assert.strictEqual((html.match(/<li class="plugin-row" /g) || []).length, 4);
   for (const f of ['platforms', 'folders', 'containers', 'features']) assert.ok(html.includes(`data-family="${f}"`), f);
   assert.ok(!html.includes('data-family="hosting"'), 'a family with no plugin is not drawn');
   assert.ok(html.includes('href="/settings/plugin/jira"'));
@@ -79,4 +79,13 @@ test('the plugins are drawn again when a step has run, and the page says its fil
   const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
   assert.match(server, /pathname === '\/fragments\/settings\/plugins'/);
   assert.ok(!server.includes(': fname(CONFIG_DIR);'), 'the heading does not print the home folder');
+});
+
+test('focus stays with the plugin when its row or its steps are drawn again after a step', () => {
+  assert.match(html, /<li class="plugin-row" data-refocus="row-jira"/);
+  const page = fs.readFileSync(path.join(__dirname, '..', '..', 'settings-plugin-page.js'), 'utf8');
+  assert.match(page, /data-refocus="steps-\$\{esc\(p\.name\)\}"/);
+  const ui = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'ui.js'), 'utf8');
+  assert.match(ui, /document\.activeElement !== document\.body\)\) return;/, 'only when focus was lost: a person who moved on is left where they are');
+  assert.match(ui, /holder\.setAttribute\('tabindex', '-1'\)/);
 });

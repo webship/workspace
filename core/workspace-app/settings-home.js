@@ -36,7 +36,7 @@ function pluginRowHtml(p) {
   const label = p.manifest.label || p.name;
   const find = [label, p.name, p.module, p.summary, p.state.label, model.familyById(p.family).label].join(' ').toLowerCase();
   return `
-      <li class="plugin-row" data-find="${esc(find)}" data-active="${p.state.active ? '1' : '0'}" data-attention="${p.state.attention ? '1' : '0'}" data-state="${esc(p.state.id)}">
+      <li class="plugin-row" data-refocus="row-${esc(p.name)}" data-find="${esc(find)}" data-active="${p.state.active ? '1' : '0'}" data-attention="${p.state.attention ? '1' : '0'}" data-state="${esc(p.state.id)}">
         <a class="plugin-row-main uk-link-reset" href="${esc(pluginHref(p.name))}">
           <span class="plugin-row-name">${esc(label)}</span>
           <span class="plugin-row-summary">${esc(p.state.note || p.summary || p.module || '')}</span>

@@ -221,7 +221,7 @@ function statusHtml(p, { known = new Set() } = {}) {
     </header>
     ${alertHtml(p)}${updateHtml(p)}${p.step >= 1 && p.loaded === false ? `
     <p class="plugin-alert" role="status">${iconHtml('tabler:refresh', 1)}<span><strong>Active, but not loaded yet.</strong> The dashboard loads a plugin's code when it starts; its menus and pages show after a restart: <code>bash core/scripts/plugins.sh --restart</code></span></p>` : ''}
-    <section class="plugin-section" aria-labelledby="plugin-steps-head">
+    <section class="plugin-section" aria-labelledby="plugin-steps-head" data-refocus="steps-${esc(p.name)}">
       <h3 class="plugin-section-head" id="plugin-steps-head">${p.state.id === 'ready' ? 'The four steps: all done' : 'Turn it on: four steps'}</h3>
       ${stepsHtml(p)}
     </section>
