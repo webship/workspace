@@ -40,6 +40,7 @@ the same shape, which is how one is developed before it gets a repository.
   "ddev": { "compose": ["ddev/docker-compose.upsun-cli.yaml"], "hostMounts": ["~/.upsun-cli"] },
   "themes": ["config/theme.upsun.yml"],
   "css": ["public/upsun.css"],
+  "js": ["public/upsun.js"],                          // browser scripts, loaded on every page after the dashboard's own
   "features": ["features/upsun.feature"],             // webship-js scenarios, run by the dashboard's own suite
   "ai": { "agents": ["agents/upsun-deployer.md"] },   // AI items: agents, skills, commands, prompts
   "needs": [["dev", "test", "demos", "sandboxes", "projects"], "ai-agents"],   // other plugins it cannot work without
@@ -253,6 +254,8 @@ module.exports.register = (api) => {
 | `api.addFolderSetup({ html, steps, prompt, problem })` | A section of the New-folder form (`html(ws, { allowed })`), the shell steps it adds (`steps(ws, name, form, ctx)` → array), the lines it adds to the Claude Code prompt (`prompt(…)` → array) and its validation (`problem(ws, form, ctx)` → '' or why). |
 | `api.addTypeAction(action, types)` | What the manifest's `typeActions` does, from code. |
 | `api.addCss(file)` | A stylesheet appended after the components (what the manifest's `css` does). |
+| `api.addScript(file)` | A browser script of the plugin's own (what the manifest's `js` does): served at `/plugin-js/<plugin>/<file name>` and loaded with `defer` after `ui.js`, in the order declared. Needs `capabilities.has('scripts')`. |
+| `api.addUpload(name, handler, { maxBytes })` | POST handler at `/actions/p/<plugin>/<name>` for a binary body (an utterance, a picture). Context: `{ req, res, body, searchParams, json }`; `body` is a Buffer, `json(object, status)` answers. Refused from another site and over `maxBytes` (2 MB unless said). Needs `capabilities.has('uploads')`. |
 | `api.addLabels(map)` | Labels for its settings keys (what the manifest's `labels` does). |
 | `api.addProjectBadge(fn)` | A badge in the project card's corner, sent with every screens poll so it clears itself. `fn({ key, project, dir, sessions })` returns HTML or null; `sessions` is the project's live screens. |
 | `api.addSettingsOptions(file, dotted, fn)` | Live options for a field of a settings file (what a CLI can see rather than a hand-typed key). `fn()` is async and returns `[value, label][]`, or null for a plain input. |
@@ -422,6 +425,22 @@ Open-with menu for a folder: project rows, the files pages, the images gallery) 
 (a link that opens a folder elsewhere, inside the COMPOSER menu). `api.lib` also hands a plugin what
 git says about a folder (`hasOwnGit`, `gitWorktreeInfo`, `projectHasGit`, `gitBranchOf`), the
 lingering-session tail (`lingerTail`, `LINGER_MARK`), `tildePath` and `hostRunnerRequest`.
+
+## A plugin's script and the assistant
+
+A script a plugin loads (`js`, `api.addScript`) is plain browser JavaScript on every page; it reads what
+it needs from one of the plugin's fragments. For the assistant's panel it has three things, all present
+when `capabilities.has('assistant-answer')`:
+
+- `window.wsAssistantSend(text)` sends a turn as if it were typed. It returns false when there is no panel.
+- `window.wsAssistantHooks.beforeSend.push((body) => ({ ...body, voice: true }))` adds to what a turn carries.
+- `document.addEventListener('ws-assistant-answer', (e) => { … })` hears every answer before the summary
+  voice speaks it: `e.detail` is `{ html, spoken, directive }`. A listener that speaks the answer itself
+  calls `e.preventDefault()`, and the summary voice stays silent for that answer.
+
+The events the page already sends are there too: `ws-assistant-working` (`{ on, failed }`),
+`ws-assistant-reply` and `ws-assistant-speech` (`{ type: 'start' | 'word' | 'end', word }`, which the
+avatar's mouth follows: a plugin that speaks dispatches it).
 
 ## Families
 
