@@ -88,7 +88,7 @@ test('the full-page view is a place, not a layout', () => {
     'leaving it must leave the page too — /assistant has no sidebar to become');
   assert.match(server, /pathname === '\/assistant'/, 'the page itself');
   // Two panels on one screen would be two views of one conversation, both live.
-  assert.match(server, /context === 'assistant' \? '' : `<aside class="assistant-side">/,
+  assert.match(server, /context === 'assistant' \? '' : `<aside class="assistant-side" aria-label="AI Assistant">/,
     'the page must not also carry the docked panel');
   assert.match(css, /html\[data-assistant-view="full"\] \.assistant-side \{ display: none; \}/);
 });

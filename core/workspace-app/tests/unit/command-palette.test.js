@@ -95,7 +95,8 @@ test('the stylesheet is a component with a visible selected row and honours redu
 test('there is a visible way in: a toolbar button that says what key opens it', () => {
   const server = read('server.js');
   assert.match(server, /class="uk-navbar-item palette-trigger" type="button"/);
-  assert.match(server, /aria-label="Open the command palette" aria-keyshortcuts="Control\+K Meta\+K"/);
+  // The name starts with what is printed on the button (WCAG 2.5.3): "Ctrl K".
+  assert.match(server, /aria-label="Ctrl K: open the command palette" aria-keyshortcuts="Control\+K Meta\+K"/);
   assert.match(read('public/palette.js'), /closest\('\.palette-trigger'\)/);
   assert.match(read('public/palette.js'), /k\.textContent = '⌘K'/);
 });

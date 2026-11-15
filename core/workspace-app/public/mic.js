@@ -121,7 +121,11 @@
       btn.className = 'field-mic';
       // The language is named in the tooltip. Dictation that produces nonsense looks like a broken
       // microphone; seeing "Dictate (Arabic (Jordan))" is what turns it into a setting to check.
-      const label = (cfg && cfg.lang) ? `Dictate into this field (${cfg.lang})` : 'Dictate into this field';
+      // Named after the field it fills: three buttons called "Dictate into this field" cannot be told apart
+      // in a list of controls or by voice.
+      const own = (field.labels && field.labels[0] && field.labels[0].textContent) || field.getAttribute('aria-label') || field.getAttribute('placeholder') || '';
+      const into = own.replace(/\s+/g, ' ').trim().slice(0, 60) || 'this field';
+      const label = (cfg && cfg.lang) ? `Dictate into ${into} (${cfg.lang})` : `Dictate into ${into}`;
       btn.title = label;
       btn.setAttribute('aria-label', label);
       btn.innerHTML = '<span uk-icon="icon: microphone; ratio: .7"></span>';
