@@ -44,7 +44,9 @@ the same shape, which is how one is developed before it gets a repository.
   "features": ["features/upsun.feature"],             // webship-js scenarios, run by the dashboard's own suite
   "ai": { "agents": ["agents/upsun-deployer.md"] },   // AI items: agents, skills, commands, prompts
   "needs": [["dev", "test", "demos", "sandboxes", "projects"], "ai-agents"],   // other plugins it cannot work without
-  "suggests": ["github"]                              // other plugins that go well with it: said, never added
+  "suggests": ["github"],                             // other plugins that go well with it: said, never added
+  "family": "hosting",                                // where Settings lists it (see "Where Settings lists a plugin")
+  "summary": "Link a project to Upsun: environments, data, deploys"   // the one line under its name in Settings
 }
 ```
 
@@ -472,6 +474,27 @@ assistant has an avatar:
 
 `document.addEventListener('ws-avatar-window', (e) => …)` hears a window being made: `e.detail` is
 `{ kind, window }`.
+
+## Where Settings lists a plugin
+
+Settings groups plugins by family and shows, for each, one state and the one action that comes next
+(`settings-model.js`). A plugin may say where it belongs and what it is in a line:
+
+| Manifest key | What it is |
+| --- | --- |
+| `family` | One of `platforms`, `folders`, `ai`, `hosting`, `forges`, `containers`, `features`. Another value is ignored. |
+| `summary` | One line, up to 160 characters, shown under the plugin's name. |
+
+Both are optional and read only by a dashboard with `capabilities.has('settings-family')`; an older
+one ignores them. Without `family` the base decides: an `ai-*` folder is AI, a plugin the catalogue
+lists takes the catalogue's family, a plugin with `workspace.key` is a workspace folder, a plugin that
+ships a builder (`cmd-*-project.sh`) is a platform, anything else is a feature. Without `summary` the
+line is the catalogue's, else the first sentence of the package description.
+
+The states, in the order a plugin moves through them: Not active (Activate), Not installed (Install),
+Needs settings (Configure: a value in its settings file is still `CHANGE_ME`, or the file is not
+there), Ready. Beside them: Needs <plugin> (something it needs is not here; the action adds it in the
+same run, `--with-needs`), Files missing (Reinstall), Needs cannot be met (a cycle).
 
 ## Families
 
