@@ -119,6 +119,21 @@ function needsHtml(p, known = new Set()) {
   return parts.join('');
 }
 
+/** A newer version on npm: what it is, the button that requires it, and the same for a terminal. */
+function updateHtml(p) {
+  const v = p.state.update;
+  if (!v || !p.module) return '';
+  const spec = `${p.module}@${v}`;
+  return `<div class="plugin-alert is-info" role="status">
+      ${iconHtml('tabler:arrow-up-circle', 1)}
+      <div><p><strong>Version ${esc(v)} is on npm.</strong> This workspace has ${esc(p.version || 'an unknown version')}.</p>
+      <p><button type="button" class="uk-button uk-button-primary uk-button-small" hx-post="/actions/plugins"
+          hx-vals='${esc(JSON.stringify({ verb: 'require', spec }))}' hx-target="#webship-workspace-output" hx-swap="innerHTML">Update to ${esc(v)}</button>
+        <span class="plugin-step-command">or: <code>bash core/scripts/plugins.sh --require ${esc(spec)}</code></span></p>
+      ${p.step >= 2 ? '<p>Then Reinstall, at the end of this page, places the files of the new version.</p>' : ''}</div>
+    </div>`;
+}
+
 /** The settings of the plugin: the form of the chosen file, the way to the other one, or why there is none. */
 function settingsHtml(p, { files = [], chosen = null, formHtml = '' } = {}) {
   const here = files.filter((f) => f.exists);
@@ -204,7 +219,7 @@ function statusHtml(p, { known = new Set() } = {}) {
       <p class="plugin-head-meta">${esc(f.label)} · <code>${esc(p.module || p.spec || p.name)}</code>${p.version ? ` ${esc(p.version)}` : ''}</p>
       ${p.description || p.summary ? `<p class="plugin-head-about">${esc(p.description || p.summary)}</p>` : ''}
     </header>
-    ${alertHtml(p)}${p.step >= 1 && p.loaded === false ? `
+    ${alertHtml(p)}${updateHtml(p)}${p.step >= 1 && p.loaded === false ? `
     <p class="plugin-alert" role="status">${iconHtml('tabler:refresh', 1)}<span><strong>Active, but not loaded yet.</strong> The dashboard loads a plugin's code when it starts; its menus and pages show after a restart: <code>bash core/scripts/plugins.sh --restart</code></span></p>` : ''}
     <section class="plugin-section" aria-labelledby="plugin-steps-head">
       <h3 class="plugin-section-head" id="plugin-steps-head">${p.state.id === 'ready' ? 'The four steps: all done' : 'Turn it on: four steps'}</h3>
@@ -221,6 +236,7 @@ function statusHtml(p, { known = new Set() } = {}) {
 function pluginPageHtml(p, ctx = {}) {
   return `
   <article class="plugin-page" data-plugin="${esc(p.name)}">
+    <div hx-get="/fragments/settings/updates?plugin=${esc(encodeURIComponent(p.name))}" hx-trigger="load" hx-swap="none" hidden></div>
     ${statusHtml(p, ctx)}
     <section class="plugin-section" id="settings" aria-labelledby="plugin-settings-head">
       <h3 class="plugin-section-head" id="plugin-settings-head">Settings</h3>
@@ -246,4 +262,4 @@ function missingHtml(name) {
     </div>`;
 }
 
-module.exports = { pluginPageHtml, statusHtml, steps, stepsHtml, needsHtml, settingsHtml, shipsHtml, removeHtml, missingHtml };
+module.exports = { pluginPageHtml, statusHtml, updateHtml, steps, stepsHtml, needsHtml, settingsHtml, shipsHtml, removeHtml, missingHtml };
