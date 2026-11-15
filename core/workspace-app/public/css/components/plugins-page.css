@@ -16,5 +16,8 @@
   .plugin-catalog .plugin-row-main { grid-column: 1; }
   .plugin-catalog .plugin-row-state { grid-column: 1; }
   .plugin-catalog .plugin-row-action { grid-column: 2; grid-row: 1 / span 2; }
+  /* The package name and what it needs stay on one line here too: wrapped, a row of the catalogue ran
+     to seven lines of "met by" on a phone. The plugin's own page says its needs in full. */
+  .plugin-catalog .plugin-row-summary { white-space: nowrap; }
 }
 .plugin-require .settings-search-row > :first-child { flex: 1 1 16rem; }
