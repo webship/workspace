@@ -1227,7 +1227,7 @@ ${avatarOn ? `<script src="${assetUrl('/assistant-avatar-ui.js')}" defer></scrip
   <div class="global-working-bar"></div>
   <div class="global-working-pill"><div uk-spinner="ratio: .5"></div> Working…</div>
 </div>
-<nav class="uk-navbar-container toolbar">
+<nav class="uk-navbar-container toolbar" aria-label="Toolbar">
   <div class="toolbar-inner">
     <div uk-navbar>
       <div class="uk-navbar-left">
@@ -1245,7 +1245,7 @@ ${avatarOn ? `<script src="${assetUrl('/assistant-avatar-ui.js')}" defer></scrip
         ${topbarHtml('end')}
         <span id="auth-user" class="uk-navbar-item uk-text-small" hidden></span>
         <button class="uk-navbar-item palette-trigger" type="button" title="Go to a workspace, a project or a page (Ctrl or Cmd + K)"
-                aria-label="Open the command palette" aria-keyshortcuts="Control+K Meta+K">
+                aria-label="Ctrl K: open the command palette" aria-keyshortcuts="Control+K Meta+K">
           <span uk-icon="icon: search; ratio: .9" aria-hidden="true"></span><kbd class="palette-trigger-key" aria-hidden="true">Ctrl K</kbd>
         </button>
         <button class="uk-navbar-item theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
@@ -1256,7 +1256,7 @@ ${avatarOn ? `<script src="${assetUrl('/assistant-avatar-ui.js')}" defer></scrip
     </div>
   </div>
 </nav>
-${context === 'assistant' ? '' : `<aside class="assistant-side">
+${context === 'assistant' ? '' : `<aside class="assistant-side" aria-label="AI Assistant">
   ${assistantHtml({ context })}
 </aside>
 <!-- The way back in, in every view, whenever the panel is not showing: the control itself lives in the
@@ -1632,7 +1632,7 @@ function assistantHtml({ context = 'home' } = {}) {
                    style="width:100%;height:100%;border:none;background-color:transparent;"></deep-chat>
         ${speechAssistantSettings(loadSettings()).avatar === 'none' ? '' : `<div class="assistant-dock" role="group" aria-label="Voice">
           <button type="button" class="dock-btn dock-voice" aria-pressed="true" title="The voice is on: click to mute it" aria-label="The voice is on: click to mute it"></button>
-          <button type="button" class="dock-btn dock-talk" title="Hold to talk, or hold the Space bar" aria-label="Hold to talk, or hold the Space bar"><span class="dock-talk-icon"></span><span>Hold to talk</span><kbd>Space</kbd></button>
+          <button type="button" class="dock-btn dock-talk" title="Hold to talk, or hold the Space bar" aria-label="Hold to talk Space: hold this button, or the Space bar"><span class="dock-talk-icon"></span><span>Hold to talk</span><kbd>Space</kbd></button>
           <button type="button" class="dock-btn dock-mic" aria-pressed="false" title="Keep listening: what you say is sent" aria-label="Keep listening: what you say is sent"></button>
         </div>`}
       </div>

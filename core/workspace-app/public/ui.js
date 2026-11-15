@@ -2414,13 +2414,24 @@ function flashResults(root) {
     const done = msg.dataset.reloadOnClose ? () => { msg.remove(); reloadForChanges(); } : () => msg.remove();
     // Something to act on (a command to copy) is not on a timer: its close button is the way out.
     if (msg.classList.contains('flash-stay')) { msg.classList.add('is-held'); return; }
+    // An error is not on a timer either: it says what went wrong and what to do, and a person reading
+    // with a magnifier, a screen reader or simply slowly must not lose it after twelve seconds. It is
+    // said at once (role="alert"), and its close button is the way out.
+    if (isError) { msg.setAttribute('role', 'alert'); msg.classList.add('is-held'); return; }
     let timer = setTimeout(done, ms);
-    // Reading a long message must not race the timer.
-    msg.addEventListener('mouseenter', () => { clearTimeout(timer); msg.classList.add('is-held'); });
-    msg.addEventListener('mouseleave', () => {
+    // Reading a long message must not race the timer: the pointer over it holds it, and so does
+    // keyboard focus inside it (its link, its close button).
+    const hold = () => { clearTimeout(timer); msg.classList.add('is-held'); };
+    const release = () => {
+      if (msg.matches(':hover') || msg.contains(document.activeElement)) return;
       msg.classList.remove('is-held');
+      clearTimeout(timer);
       timer = setTimeout(done, 2500);
-    });
+    };
+    msg.addEventListener('mouseenter', hold);
+    msg.addEventListener('focusin', hold);
+    msg.addEventListener('mouseleave', release);
+    msg.addEventListener('focusout', () => setTimeout(release, 0));
   });
 }
 
