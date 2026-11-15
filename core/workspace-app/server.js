@@ -8024,7 +8024,7 @@ Summarise what you changed and how to verify it`,
           const thread = chats.loadThread(req);
           // What the plugins add to this turn alone (api.addAssistantTurn): a picture to look at, a selection.
           const turn = await require('./plugin-loader').pluginAssistantTurn(parsed, message);
-          const { replyHtml, directive, sessionId } = await assistantReply(message, String(parsed.context || ''), thread, { voice: parsed.voice === true, avatar: parsed.avatar === true, avatarName: parsed.avatarName, avatarId: parsed.avatarId, page: parsed.page, turn });
+          const { replyHtml, directive, sessionId } = await assistantReply(message, String(parsed.context || ''), thread, { voice: parsed.voice === true, avatar: parsed.avatar === true, avatarName: parsed.avatarName, avatarId: parsed.avatarId, page: parsed.page }, turn);
           const kept = rememberTurn(res, req, thread, message, replyHtml, sessionId);
           return json({ html: `<div class="dc-reply">${replyHtml}</div>`, directive, thread: kept.id });
         } catch (err) {

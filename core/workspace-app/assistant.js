@@ -133,7 +133,7 @@ const AVATAR_BIG_MOVES = {
 const AVATAR_PLACES = ['home', 'left', 'right', 'center', 'panel'];
 const AVATAR_SIZES = ['small', 'medium', 'large', 'xl', 'huge', 'bigger', 'smaller'];
 
-async function assistantReply(message, ctx, thread = null, { voice = false, avatar = false, avatarName = '', avatarId = '', page = null, turn = [] } = {}) {
+async function assistantReply(message, ctx, thread = null, { voice = false, avatar = false, avatarName = '', avatarId = '', page = null } = {}, turn = []) {
   const cast = require('./assistant-cast');
   // The avatar's own moves: the set it is given (settings.yml, or its character file) and the moves its project brings.
   const mind = avatar ? cast.avatarMind(loadSettings(), ROOT, String(avatarId || '')) : { moves: '', ownMoves: {}, agent: '' };
