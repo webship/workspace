@@ -153,7 +153,8 @@ function appliesTo(config, workspaceKey) {
 //   assistant-ear  `window.wsAssistantEar`: a plugin's script answers the dock's talk buttons and the Space bar.
 //   assistant-turn  api.addAssistantTurn: a plugin adds a paragraph to one turn's system context.
 //   avatar-windows  `window.wsAvatarWindows` and the `ws-avatar-window` event: the board, the reading window, a window of the plugin's own.
-const CAPABILITIES = Object.freeze(new Set(['row-menu-body', 'runner', 'screens-panel', 'scripts', 'uploads', 'assistant-answer', 'assistant-ear', 'assistant-turn', 'avatar-windows']));
+//   settings-family  the manifest's `family` and `summary`: where Settings lists the plugin, and the line under its name.
+const CAPABILITIES = Object.freeze(new Set(['row-menu-body', 'runner', 'screens-panel', 'scripts', 'uploads', 'assistant-answer', 'assistant-ear', 'assistant-turn', 'avatar-windows', 'settings-family']));
 
 const SCRIPT_NAME_RE = /^[a-z0-9][a-z0-9._-]{0,80}\.js$/;
 const UPLOAD_MAX = 32 * 1024 * 1024;

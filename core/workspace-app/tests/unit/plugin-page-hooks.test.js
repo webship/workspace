@@ -96,7 +96,7 @@ test('the page offers the assistant to a plugin\'s script: send a turn, add to i
   assert.match(ui, /new CustomEvent\('ws-assistant-answer', \{ cancelable: true/);
   assert.match(ui, /const speakHere = document\.dispatchEvent\(answer\);\s+setWorking\(false\);\s+if \(response && response\.html\) \{ if \(speakHere\) narrator\.narrate/);
   const loader = fs.readFileSync(path.join(APP, 'plugin-loader.js'), 'utf8');
-  assert.match(loader, /'scripts', 'uploads', 'assistant-answer', 'assistant-ear', 'assistant-turn', 'avatar-windows'\]\)/);
+  assert.match(loader, /'scripts', 'uploads', 'assistant-answer', 'assistant-ear', 'assistant-turn', 'avatar-windows', 'settings-family'\]\)/);
   const doc = fs.readFileSync(path.join(APP, 'PLUGINS.md'), 'utf8');
   for (const s of ['`api.addScript(file)`', '`api.addUpload(name, handler, { maxBytes })`', 'ws-assistant-answer', 'wsAssistantSend', '"js": [']) assert.ok(doc.includes(s), `PLUGINS.md says ${s}`);
 });
