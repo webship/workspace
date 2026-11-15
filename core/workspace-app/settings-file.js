@@ -24,7 +24,8 @@ const { CONFIG_DIR } = require('./workspaces');
 
 // A theme's tokens are configuration like anything else here, so `theme.<name>.yml` is editable
 // on the Settings screen rather than only by editing a stylesheet in the app's own directory.
-const SETTINGS_FILE_RE = /^(settings\.yml|style\.yml|workspace\.[a-z0-9_-]+\.settings\.yml|plugin\.[a-z0-9_-]+\.settings\.yml|theme\.[a-z0-9_-]+\.yml)$/;
+// ai.settings.yml is this machine's AI CLIs and sources (ai-anycli.js), over the shipped ai.defaults.yml.
+const SETTINGS_FILE_RE = /^(settings\.yml|style\.yml|ai\.settings\.yml|workspace\.[a-z0-9_-]+\.settings\.yml|plugin\.[a-z0-9_-]+\.settings\.yml|theme\.[a-z0-9_-]+\.yml)$/;
 
 // Keys whose value must never reach the browser. Judged on the full path, because one
 // "password" here is not a secret at all: `account.pass` is the admin password a fresh
@@ -48,7 +49,7 @@ function listSettingsFiles() {
   // settings.yml first, then the per-workspace files alphabetically.
   // settings.yml, then style.yml, then the workspaces, then the themes — the order somebody
   // looks for them in, rather than the order the directory happens to list them.
-  const rank = (f) => (f === 'settings.yml' ? 0 : f === 'style.yml' ? 1 : f.startsWith('workspace.') ? 2 : f.startsWith('plugin.') ? 3 : 4);
+  const rank = (f) => (f === 'settings.yml' ? 0 : f === 'style.yml' || f === 'ai.settings.yml' ? 1 : f.startsWith('workspace.') ? 2 : f.startsWith('plugin.') ? 3 : 4);
   return files.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 }
 

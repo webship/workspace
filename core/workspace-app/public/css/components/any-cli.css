@@ -1,0 +1,14 @@
+/* Sources and AI CLIs: the panel of an ai-* folder (and of cmd-* commands), in the modal. */
+.any-cli h4 { margin-top: 1.1rem; }
+.any-cli-said { max-height: 14rem; overflow: auto; margin: 0 0 0.75rem; padding: 0.6rem 0.75rem; font-size: 0.78rem; line-height: 1.45;
+  white-space: pre-wrap; border: 1px solid var(--line); border-left: 3px solid var(--ok-ink, var(--brand-primary)); border-radius: 4px; }
+.any-cli-said.is-error { border-left-color: var(--danger); }
+.any-cli-state { font-size: 0.68rem; white-space: nowrap; }
+.any-cli-actions { white-space: nowrap; text-align: right; }
+.any-cli-actions .uk-button, .any-cli-cell .uk-button { margin-left: 0.2rem; }
+.any-cli-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.any-cli-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.6rem; border: 1px solid var(--line); border-radius: 999px; font-size: 0.85rem; }
+.any-cli-chip.is-off { opacity: 0.55; }
+.any-cli-cell { white-space: nowrap; }
+.any-cli-add { margin-top: 0.5rem; }
+.any-cli details > summary { cursor: pointer; }

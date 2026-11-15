@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+## AI items and cmd-* commands from several repositories, into any AI CLI.
+##
+##   bash core/scripts/ai-items.sh <kind> <verb> [name] [options]
+##
+##   kind   ai-agents | ai-skills | ai-commands | ai-prompts | cmd
+##
+##   bash core/scripts/ai-items.sh ai-skills sources                          each source, its state, its items
+##   bash core/scripts/ai-items.sh ai-skills source-add webship/ai-agents     owner/repo, an https:// address of a GitHub,
+##                                                                            GitLab or Bitbucket repository, or
+##                                                                            skills.sh/owner/repo/skill
+##        --as <id> --ref <branch> --path <folder> --item <name>
+##   bash core/scripts/ai-items.sh ai-skills source-check [<id>]              ask upstream; changes no item
+##   bash core/scripts/ai-items.sh ai-skills source-update [<id>] [--force]
+##   bash core/scripts/ai-items.sh ai-skills source-remove <id> [--keep-items]
+##   bash core/scripts/ai-items.sh cmd source-add <source> --to dev           cmd-*.sh into dev/: placed, never run
+##   bash core/scripts/ai-items.sh ai-skills clis                             every AI CLI: on, default, installed, signed in
+##   bash core/scripts/ai-items.sh ai-skills items                            each item against the CLIs that are on
+##   bash core/scripts/ai-items.sh ai-skills install <name> --cli gemini      --cli all = every CLI that is on;
+##                                                                            --to dev/site = that project only
+##   bash core/scripts/ai-items.sh ai-skills uninstall <name> --cli gemini
+##
+## The CLIs are data: core/config/ai.defaults.yml, with this machine's core/config/ai.settings.yml over
+## it. A CLI or a source added there shows up here and in the dashboard with no code change.
+## What is fetched is files only: shown, never run. See core/docs/ai-items-any-cli.md.
+
+set -u
+WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}";
+WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(cd "${WORKSPACE_SCRIPTS}/../.." && pwd)}";
+export WORKSPACE_ROOT ;
+# The engine lives beside these scripts (not necessarily under WORKSPACE_ROOT: a test points the root
+# at a temporary tree while the code stays here).
+APP="$(cd "${WORKSPACE_SCRIPTS}/../workspace-app" && pwd)";
+
+usage() { awk 'NR > 1 && !/^##/ { exit } NR > 1 { sub(/^## ?/, ""); print }' "${BASH_SOURCE[0]}"; }
+
+if [ $# -lt 2 ] || [ "${1:-}" == '--help' ] || [ "${1:-}" == '-h' ] ; then
+  usage ;
+  [ $# -ge 1 ] && { [ "$1" == '--help' ] || [ "$1" == '-h' ] ; } && exit 0 ;
+  exit 2 ;
+fi
+
+if ! command -v node > /dev/null 2>&1 ; then
+  echo "Node.js is needed for this (the dashboard's own runtime)." >&2 ;
+  exit 1 ;
+fi
+
+exec node "${APP}/ai-anycli-cli.js" "$@" < /dev/null

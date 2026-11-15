@@ -1,0 +1,215 @@
+# The AI command line tools (CLIs) an AI item can be installed into, as data.
+#
+# This file ships with the workspace and is replaced by an update. Do not edit it: put what differs on
+# this machine in core/config/ai.settings.yml, which is merged over it key by key and is never
+# replaced. Switching a CLI off, changing the default, adding a CLI nobody listed here or adding a
+# source is an entry there, never a code change:
+#
+#   default_cli: gemini
+#   clis:
+#     codex:
+#       enabled: false
+#     mycli:
+#       label: My CLI
+#       command: mycli
+#       kinds:
+#         ai-skills:
+#           user: ~/.mycli/skills
+#           project: .mycli/skills
+#           convert: skill-folder
+#
+# Each path and format below was read in that CLI's own documentation (the `docs` link) on
+# 2026-11-15. A kind a CLI has no place for has no entry, and is shown as such.
+#
+#   command         what is looked for on the PATH (installed / missing)
+#   signed_in       files whose PRESENCE means the person is signed in; never opened. These names
+#                   are what the CLIs are seen to write, not from their documentation: a wrong
+#                   one shows as "signed out", and is corrected in ai.settings.yml
+#   signed_in_env   variables whose being set means the same; never printed
+#   run             the documented non-interactive form; {prompt} is the task
+#   agent_arg       how that form names an agent, when the CLI documents one
+#   kinds.<kind>    user: where it is read for every session; project: inside one project;
+#                   convert: the converter (see core/docs/ai-items-any-cli.md); extension: of the file
+#
+# Items are kept in the workspace folders in one shape, the Claude Code one, and converted on install.
+
+default_cli: claude
+
+clis:
+  claude:
+    label: Claude Code
+    vendor: Anthropic
+    command: claude
+    enabled: true
+    docs: https://code.claude.com/docs/en/skills
+    signed_in:
+      - ~/.claude/.credentials.json
+    signed_in_env:
+      - ANTHROPIC_API_KEY
+      - CLAUDE_CODE_OAUTH_TOKEN
+    instructions: CLAUDE.md
+    run: ["-p", "{prompt}"]
+    agent_arg: ["--agent", "{agent}"]
+    kinds:
+      ai-agents:
+        user: ~/.claude/agents
+        project: .claude/agents
+        convert: copy
+      ai-skills:
+        user: ~/.claude/skills
+        project: .claude/skills
+        convert: skill-folder
+      ai-commands:
+        user: ~/.claude/commands
+        project: .claude/commands
+        convert: copy
+
+  gemini:
+    label: Gemini CLI
+    vendor: Google
+    command: gemini
+    enabled: true
+    docs: https://geminicli.com/docs/cli/custom-commands/
+    signed_in:
+      - ~/.gemini/oauth_creds.json
+    signed_in_env:
+      - GEMINI_API_KEY
+      - GOOGLE_API_KEY
+    instructions: GEMINI.md
+    run: ["-p", "{prompt}"]
+    kinds:
+      ai-agents:
+        user: ~/.gemini/agents
+        project: .gemini/agents
+        convert: agent-markdown
+      ai-skills:
+        user: ~/.gemini/skills
+        project: .gemini/skills
+        convert: skill-folder
+      ai-commands:
+        user: ~/.gemini/commands
+        project: .gemini/commands
+        convert: command-toml
+        extension: .toml
+
+  codex:
+    label: OpenAI Codex CLI
+    vendor: OpenAI
+    command: codex
+    enabled: true
+    docs: https://developers.openai.com/codex
+    signed_in:
+      - ~/.codex/auth.json
+    signed_in_env:
+      - CODEX_API_KEY
+      - OPENAI_API_KEY
+    instructions: AGENTS.md
+    run: ["exec", "{prompt}"]
+    kinds:
+      ai-agents:
+        user: ~/.codex/agents
+        project: .codex/agents
+        convert: agent-toml
+        extension: .toml
+      ai-skills:
+        user: ~/.agents/skills
+        project: .agents/skills
+        convert: skill-folder
+      # "Custom prompts are deprecated. Use skills": still read, for the user only.
+      ai-commands:
+        user: ~/.codex/prompts
+        convert: command-markdown
+
+  grok:
+    label: Grok Build
+    vendor: xAI
+    command: grok
+    enabled: false
+    docs: https://docs.x.ai/build/features/skills-plugins-marketplaces
+    signed_in_env:
+      - XAI_API_KEY
+    instructions: AGENTS.md
+    run: ["-p", "{prompt}"]
+    kinds:
+      # The file format of ~/.grok/agents is not documented, so agents have no entry.
+      # A skill is also its slash command there.
+      ai-skills:
+        user: ~/.grok/skills
+        project: .grok/skills
+        convert: skill-folder
+
+  vibe:
+    label: Mistral Vibe
+    vendor: Mistral AI
+    command: vibe
+    enabled: false
+    docs: https://docs.mistral.ai/vibe/code/cli/skills
+    signed_in_env:
+      - MISTRAL_API_KEY
+    instructions: AGENTS.md
+    run: ["-p", "{prompt}"]
+    agent_arg: ["--agent", "{agent}"]
+    kinds:
+      ai-agents:
+        user: ~/.vibe/agents
+        project: .vibe/agents
+        convert: agent-toml-vibe
+        extension: .toml
+      ai-skills:
+        user: ~/.vibe/skills
+        project: .vibe/skills
+        convert: skill-folder
+
+  qwen:
+    label: Qwen Code
+    vendor: Alibaba
+    command: qwen
+    enabled: false
+    docs: https://qwenlm.github.io/qwen-code-docs/en/users/features/commands/
+    signed_in_env:
+      - DASHSCOPE_API_KEY
+    instructions: QWEN.md
+    run: ["-p", "{prompt}"]
+    kinds:
+      ai-agents:
+        user: ~/.qwen/agents
+        project: .qwen/agents
+        convert: agent-markdown
+      ai-skills:
+        user: ~/.qwen/skills
+        project: .qwen/skills
+        convert: skill-folder
+      ai-commands:
+        user: ~/.qwen/commands
+        project: .qwen/commands
+        convert: command-markdown-args
+
+  kimi:
+    label: Kimi Code CLI
+    vendor: Moonshot AI
+    command: kimi
+    enabled: false
+    docs: https://moonshotai.github.io/kimi-code/en/customization/skills.md
+    instructions: AGENTS.md
+    run: ["-p", "{prompt}"]
+    agent_arg: ["--agent", "{agent}"]
+    kinds:
+      ai-agents:
+        user: ~/.kimi-code/agents
+        project: .kimi-code/agents
+        convert: agent-markdown
+      # A skill is also its slash command there.
+      ai-skills:
+        user: ~/.kimi-code/skills
+        project: .kimi-code/skills
+        convert: skill-folder
+
+# Where items come from, per kind: ai-agents, ai-skills, ai-commands, ai-prompts, cmd.
+# Added with `--source-add` (or by hand in ai.settings.yml); none ships.
+sources: {}
+
+# Which CLI plays which part when several work on one spec. `default` is default_cli.
+roles:
+  author: default
+  reviewer: gemini
+  second_opinion: codex

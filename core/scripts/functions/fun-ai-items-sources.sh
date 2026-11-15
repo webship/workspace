@@ -296,3 +296,43 @@ function ai_items_update() {
   [ "${updated}" -gt 0 ] && echo "Restart your Claude Code session to pick the updates up." ;
   return 0 ;
 }
+
+# Sources and AI CLIs (--sources, --source-add, --source-check, --source-update, --source-remove,
+# --clis, --items, --install/--uninstall with --cli): hand the request to the engine and stop, when
+# one of those flags was given. Called at the end of args/arg-ai-items.sh, so every ai-* folder's
+# cmd-tools-ai-items.sh has them without carrying a line of its own.
+#   ai_items_any_cli <kind>
+function ai_items_any_cli() {
+  local kind="$1" verb="" ;
+  local args=() ;
+  local name="${NAME:-_all_}" ;
+  [ "${name}" == '_all_' ] && name="" ;
+
+  if [ "${SOURCES:-}" == 'yes' ] ; then verb="sources" ;
+  elif [ ! "${SOURCE_ADD:-_none_}" == '_none_' ] ; then
+    verb="source-add" ; args+=("${SOURCE_ADD}") ;
+    [ -n "${name}" ] && args+=(--item "${name}") ;
+    [ ! "${SOURCE_ID:-_none_}" == '_none_' ] && args+=(--as "${SOURCE_ID}") ;
+    [ ! "${REF:-_none_}" == '_none_' ] && args+=(--ref "${REF}") ;
+    [ ! "${SOURCE_PATH:-_none_}" == '_none_' ] && args+=(--path "${SOURCE_PATH}") ;
+  elif [ "${SOURCE_CHECK:-}" == 'yes' ] ; then verb="source-check" ; [ -n "${name}" ] && args+=("${name}") ;
+  elif [ "${SOURCE_UPDATE:-}" == 'yes' ] ; then verb="source-update" ; [ -n "${name}" ] && args+=("${name}") ;
+  elif [ ! "${SOURCE_REMOVE:-_none_}" == '_none_' ] ; then verb="source-remove" ; args+=("${SOURCE_REMOVE}") ;
+  elif [ "${CLIS:-}" == 'yes' ] ; then verb="clis" ;
+  elif [ "${ITEMS:-}" == 'yes' ] ; then verb="items" ;
+  elif [ "${UNINSTALL:-}" == 'yes' ] ; then verb="uninstall" ; [ -n "${name}" ] && args+=("${name}") ;
+  elif [ "${INSTALL:-}" == 'yes' ] && [ ! "${CLI:-_none_}" == '_none_' ] ; then verb="install" ; [ -n "${name}" ] && args+=("${name}") ;
+  else
+    return 0 ;
+  fi
+
+  [ "${FORCE:-}" == 'yes' ] && args+=(--force) ;
+  [ "${KEEP_ITEMS:-}" == 'yes' ] && args+=(--keep-items) ;
+  [ ! "${CLI:-_none_}" == '_none_' ] && args+=(--cli "${CLI}") ;
+  if [ ! "${TO:-_none_}" == '_none_' ] && { [ "${verb}" == 'install' ] || [ "${verb}" == 'uninstall' ] || [ "${verb}" == 'items' ] ; } ; then
+    args+=(--to "${TO}") ;
+  fi
+
+  bash "${WORKSPACE_SCRIPTS}/ai-items.sh" "${kind}" "${verb}" "${args[@]}" ;
+  exit $? ;
+}

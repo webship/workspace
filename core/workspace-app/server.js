@@ -4139,6 +4139,9 @@ function pageActionGroups(context) {
       // Prompts pull from the shared repo into this folder and stop there: a prompt is
       // the launch command for a new screen session, not something ~/.claude loads.
       groups.push({ id: 'sync', label: 'Sync', items: [
+        btn('primary', 'tabler:plug-connected', 'Sources and AI CLIs',
+            `hx-get="/fragments/${esc(key)}/any-cli" hx-target="#editor-modal-body" hx-swap="innerHTML"`,
+            `The repositories ${meta.nounPlural} come from (GitHub, GitLab, Bitbucket${key === 'ai-skills' ? ', skills.sh' : ''}), and each one in every AI CLI that is on`),
         sync('repo', 'cloud-download', `From ${AI_ITEMS_REPO().split('/')[1]}`, `Copy the shared ${meta.nounPlural} into this folder`),
         ...(NO_CLAUDE_SYNC.has(key) ? [] : [
           sync('claude', 'home', 'From ~/.claude', `Copy this machine's webship-* ${meta.nounPlural} into this folder`),
@@ -4295,6 +4298,10 @@ function pageActionGroups(context) {
     groups.push({ id: 'repo', label: WORKSPACE_REPO(), items: [
       btn('default', 'cloud-download', 'Compare all', `hx-post="/actions/command-list-remote" ${out}`,
           `Which commands are the same, differ, or are missing against ${WORKSPACE_REPO()}`),
+    ] });
+    groups.push({ id: 'sources', label: 'Sources', items: [
+      btn('default', 'tabler:plug-connected', 'From repositories', `hx-get="/fragments/cmd/any-cli" ${modal}`,
+          'cmd-*.sh commands from more than one repository: placed in a folder, listed with their source, never run'),
     ] });
   }
 
@@ -4725,6 +4732,7 @@ const ACTIONS = {
   ...require('./actions/checks'),
   ...require('./actions/plugins'),
   ...require('./actions/ai-items'),
+  ...require('./actions/ai-anycli'),
   ...require('./actions/screens'),
   ...require('./actions/composer'),
   ...require('./actions/node'),
@@ -7748,6 +7756,12 @@ Summarise what you changed and how to verify it`,
         }
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(`<select class="uk-select${small}" name="toProject" title="Project in the chosen workspace">${options}</select>`);
+      }
+      // Sources and AI CLIs: several repositories into a folder, and the folder into any AI CLI.
+      const anyCliPanel = require('./ai-anycli-page').fragment(pathname, Object.keys(loadWorkspaces()));
+      if (anyCliPanel !== null) {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(anyCliPanel);
       }
       const addFormMatch = pathname.match(/^\/fragments\/(agents|skills)\/add-form$/);
       if (addFormMatch) {
