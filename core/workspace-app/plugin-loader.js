@@ -52,6 +52,11 @@ const lib = {
   claudeSessionsFor: (...a) => claudeSessions.sessionsFor(...a),
   // The last `screen -ls`, for a renderer that cannot wait: refreshed in the background, at most every 10s.
   screensCached: () => screensCached(),
+  // The local site a URL or a host name belongs to ({ workspace, project, dir, host }, or null), and
+  // whether the reading window may open a URL ('' when it may, else why not): for a plugin that offers a
+  // site its own tools (a picture of it, its tests) only where the reader would open it.
+  localSite: (urlOrHost) => require('./local-sites').localSite(urlOrHost),
+  readerAllowed: (url) => { let u; try { u = new URL(String(url)); } catch (_) { return Promise.resolve('that is not a link'); } return require('./reader').allowed(u, undefined, { local: require('./local-sites').localSite }); },
   // The type registry, and what a workspace resolved to — so a plugin can offer itself only
   // where it makes sense ("sites only", "not on media").
   TYPES,
