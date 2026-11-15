@@ -1,0 +1,249 @@
+/**
+ * A plugin's own page in Settings: /settings/plugin/<name>.
+ *
+ * Everything about one plugin in one place, where it used to be a card on the Plugins page, a tile
+ * for its settings file and another for its folder: the state it is in, the four steps as one list
+ * with the step that is next carrying its button and the same command for a terminal, what it needs
+ * (met by which plugin, or not met with the fix), its settings form, what it ships and where that
+ * was placed, and how to remove it. The rules are settings-model.js's; the buttons run
+ * core/scripts/plugins.sh exactly as the Plugins page did.
+ */
+
+const path = require('path');
+
+const { esc } = require('./html');
+const { iconHtml } = require('./icons');
+const { needsInstall } = require('./plugin-manifest');
+const model = require('./settings-model');
+const { stateHtml, actionHtml, pluginHref } = require('./settings-home');
+
+const command = (verb, name, withNeeds = false) => `bash core/scripts/plugins.sh --${verb} ${name}${withNeeds ? ' --with-needs' : ''}`;
+const anyOfText = (anyOf) => (anyOf.length > 1 ? `${anyOf.slice(0, -1).join(', ')} or ${anyOf[anyOf.length - 1]}` : anyOf[0]);
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+function postButton(verb, p, label, { primary = false, withNeeds = false, confirm = '' } = {}) {
+  return `<button type="button" class="uk-button uk-button-${primary ? 'primary' : 'default'} uk-button-small" hx-post="/actions/plugins"
+      hx-vals='${esc(JSON.stringify({ verb, name: p.name, ...(withNeeds ? { withNeeds: '1' } : {}) }))}'
+      hx-target="#webship-workspace-output" hx-swap="innerHTML"${confirm ? ` hx-confirm="${esc(confirm)}"` : ''}>${esc(label)}</button>`;
+}
+
+/**
+ * The four steps, each `{ id, title, status: done | now | later, text, action, command }`.
+ * Only the step that is next has an action; a step with nothing to do says so instead of pretending.
+ */
+function steps(p) {
+  const label = p.manifest.label || p.name;
+  const unmet = (p.wants && !(p.wants.problems || []).length && p.wants.unmet) || [];
+  const picks = unmet.map((n) => n.pick).join(' and ');
+  const withNeeds = unmet.length > 0;
+  const places = needsInstall(p.manifest) || !!(p.manifest.workspace && p.manifest.workspace.key);
+  const file = p.manifest.settingsFile || '';
+  const placedCount = (p.placed && p.placed.placed) || 0;
+  const status = (i) => (i <= p.step ? 'done' : i === p.step + 1 ? 'now' : 'later');
+  const needsLine = withNeeds ? ` It needs ${picks}, which ${unmet.length === 1 ? 'is' : 'are'} not here yet: one run adds ${unmet.length === 1 ? 'it' : 'them'} first (require, activate, install).` : '';
+  return [
+    { id: 'require', title: 'Require', status: 'done',
+      text: `The package is in the dashboard: ${p.module || p.spec || p.name}${p.version ? ` ${p.version}` : ''}.` },
+    { id: 'activate', title: 'Activate', status: status(1),
+      text: p.step >= 1 ? 'Switched on in settings.yml.' : `Switch ${label} on in settings.yml.${needsLine}`,
+      action: p.step === 0 ? { verb: 'activate', label: `Activate${withNeeds ? ` with ${picks}` : ''}`, withNeeds } : null },
+    { id: 'install', title: 'Install', status: !places && p.step >= 1 ? 'done' : status(2),
+      text: !places ? 'Nothing to place: this plugin ships no files for the workspace.'
+        : p.step >= 2 ? `${plural(placedCount, 'file')} placed in the workspace.`
+          : `Place what it ships in the workspace: commands, functions, AI items, its settings file.${p.step === 1 ? needsLine : ''}`,
+      action: p.step === 1 ? { verb: 'install', label: `Install${withNeeds ? ` with ${picks}` : ''}`, withNeeds } : null },
+    { id: 'configure', title: 'Configure', status: !file && p.step >= 2 ? 'done' : status(3),
+      text: !file ? 'No settings file: nothing to configure.'
+        : p.step >= 3 ? `${file} has no placeholder left.`
+          : p.step === 2 ? `Fill in ${file}: a value is still CHANGE_ME, or the file is not there.`
+            : `Its own file, ${file}, is written by Install.`,
+      action: p.step === 2 ? { href: '#settings', label: 'Go to its settings' } : null },
+  ];
+}
+
+function stepsHtml(p) {
+  const icons = { done: 'tabler:circle-check', now: 'tabler:circle-dot', later: 'tabler:circle-dashed' };
+  const words = { done: 'Done', now: 'Next', later: 'Later' };
+  const items = steps(p).map((s, i) => {
+    const action = !s.action ? '' : s.action.href
+      ? `<p class="plugin-step-do"><a class="uk-button uk-button-primary uk-button-small" href="${esc(s.action.href)}">${esc(s.action.label)}</a></p>`
+      : `<p class="plugin-step-do">${postButton(s.action.verb, p, s.action.label, { primary: true, withNeeds: s.action.withNeeds })}
+           <span class="plugin-step-command">or in a terminal: <code>${esc(command(s.action.verb, p.name, s.action.withNeeds))}</code></span></p>`;
+    return `
+      <li class="plugin-step-item is-${s.status}"${s.status === 'now' ? ' aria-current="step"' : ''}>
+        <span class="plugin-step-mark">${iconHtml(icons[s.status], 1)}</span>
+        <div class="plugin-step-body">
+          <p class="plugin-step-title"><strong>${i + 1}. ${esc(s.title)}</strong> <span class="plugin-step-status">${words[s.status]}</span></p>
+          <p class="plugin-step-text">${esc(s.text)}</p>
+          ${action}
+        </div>
+      </li>`;
+  }).join('');
+  return `<ol class="plugin-step-list">${items}</ol>`;
+}
+
+/** What is off beside the four steps: a need that went away, files that are gone, a need that cannot be met. */
+function alertHtml(p) {
+  const s = p.state;
+  if (!['needs', 'files-missing', 'problem'].includes(s.id)) return '';
+  return `<div class="plugin-alert is-${esc(s.tone)}" role="status">
+      ${iconHtml(s.icon, 1)}
+      <div><p><strong>${esc(s.label)}.</strong> ${esc(s.note)}.</p>
+      ${s.action.kind === 'post' ? `<p>${actionHtml(p, { primary: true })} <span class="plugin-step-command">or: <code>${esc(command(s.action.verb, p.name, s.action.withNeeds))}</code></span></p>` : ''}</div>
+    </div>`;
+}
+
+function needsHtml(p, known = new Set()) {
+  const w = p.wants || { needs: [], suggests: [], problems: [] };
+  const link = (name) => (known.has(name) ? `<a href="${esc(pluginHref(name))}">${esc(name)}</a>` : esc(name));
+  const need = (n) => (n.metBy
+    ? `<li class="plugin-need is-met">${iconHtml('tabler:circle-check', 0.9)}<span><strong>${esc(anyOfText(n.anyOf))}</strong>: met by ${link(n.metBy)}.</span></li>`
+    : `<li class="plugin-need is-unmet">${iconHtml('tabler:alert-triangle', 0.9)}<span><strong>${esc(anyOfText(n.anyOf))}</strong>: not here.
+        ${n.anyOf.length > 1 ? `${esc(n.pick)} is the one that is added. ` : ''}${p.state.action.kind === 'post' && p.state.action.withNeeds
+    ? `<em>${esc(p.state.action.label)}</em> adds it in the same run`
+    : 'It is added with the next step'}${known.has(n.pick) ? `, or open ${link(n.pick)} and turn it on there` : ''}.</span></li>`);
+  const suggest = (n) => `<li class="plugin-need is-${n.metBy ? 'met' : 'optional'}">${iconHtml(n.metBy ? 'tabler:circle-check' : 'tabler:circle-dashed', 0.9)}<span>${esc(anyOfText(n.anyOf))}: ${n.metBy ? `here (${link(n.metBy)})` : 'not here, and not needed'}.</span></li>`;
+  const cmd = (r) => {
+    const name = `${r.anyOf.length > 1 ? `one of ${r.anyOf.join(', ')}` : r.anyOf[0]}${r.where === 'host' ? '' : ` (${r.where})`}`;
+    if (r.state === 'found') return `<li class="plugin-need is-met">${iconHtml('tabler:circle-check', 0.9)}<span><code>${esc(name)}</code>: found${r.version ? `, ${esc(r.version)}` : ''}.</span></li>`;
+    if (r.state === 'unchecked') return `<li class="plugin-need is-optional">${iconHtml('tabler:circle-dashed', 0.9)}<span><code>${esc(name)}</code>: not checked from here${r.why ? ` (${esc(r.why)})` : ''}.</span></li>`;
+    return `<li class="plugin-need is-unmet">${iconHtml('tabler:alert-triangle', 0.9)}<span><code>${esc(name)}</code>: not on this machine${r.kind === 'needs' ? '' : ' (a part of the plugin uses it)'}.${r.hint ? ` Install: ${esc(r.hint)}` : ''}</span></li>`;
+  };
+  const parts = [];
+  if (w.problems && w.problems.length) parts.push(`<p class="plugin-alert is-danger">${iconHtml('tabler:alert-triangle', 1)}<span>${esc(w.problems.join('; '))}</span></p>`);
+  if (w.needs.length) parts.push(`<h4 class="plugin-sub">Other plugins it cannot work without</h4><ul class="plugin-need-list">${w.needs.map(need).join('')}</ul>`);
+  if (w.suggests.length) parts.push(`<h4 class="plugin-sub">Goes well with</h4><ul class="plugin-need-list">${w.suggests.map(suggest).join('')}</ul>`);
+  if ((p.commands || []).length) parts.push(`<h4 class="plugin-sub">Commands on this machine</h4><ul class="plugin-need-list">${p.commands.map(cmd).join('')}</ul>`);
+  if (!parts.length) parts.push('<p class="plugin-quiet">Needs nothing from another plugin, and no command on this machine.</p>');
+  if ((p.neededBy || []).length) parts.push(`<h4 class="plugin-sub">Needed by</h4><p class="plugin-quiet">${p.neededBy.map(link).join(', ')}.</p>`);
+  return parts.join('');
+}
+
+/** The settings of the plugin: the form of the chosen file, the way to the other one, or why there is none. */
+function settingsHtml(p, { files = [], chosen = null, formHtml = '' } = {}) {
+  const here = files.filter((f) => f.exists);
+  const names = { plugin: 'Plugin settings', folder: 'Folder settings' };
+  if (!files.length) return '<p class="plugin-quiet">This plugin has no settings.</p>';
+  if (!here.length) {
+    return `<p class="plugin-quiet">${files.map((f) => `<code>core/config/${esc(f.file)}</code>`).join(' and ')} ${files.length === 1 ? 'is' : 'are'} written by Install${p.step < 2 ? ', the step above' : '. Reinstall puts a missing file back'}.</p>`;
+  }
+  const tabs = here.length > 1 ? `<p class="settings-tabs plugin-file-tabs">${here.map((f) => `<a class="uk-button uk-button-${chosen && f.file === chosen.file ? 'primary' : 'default'} uk-button-small"
+      href="${esc(pluginHref(p.name))}?file=${esc(f.kind)}#settings"${chosen && f.file === chosen.file ? ' aria-current="page"' : ''}>${esc(names[f.kind])}</a>`).join(' ')}</p>` : '';
+  const missing = files.filter((f) => !f.exists);
+  return `${tabs}${missing.length ? `<p class="plugin-quiet">${missing.map((f) => `<code>core/config/${esc(f.file)}</code>`).join(' and ')} is not there yet: Install writes it.</p>` : ''}${formHtml}`;
+}
+
+const base = (f) => path.basename(String(f));
+
+/** What the plugin ships, and where the install put it. */
+function shipsHtml(p, { record = null, workspaces = new Set() } = {}) {
+  const m = p.manifest;
+  const placed = (record && record.placed) || [];
+  const where = (file) => placed.filter((x) => path.basename(x) === file).map((x) => `<code>${esc(x)}</code>`);
+  const commandFiles = [...new Set([...(((m.commands || {}).files) || []), ...(((m.workspace || {}).files) || [])].map(base))];
+  const parts = [];
+  if (commandFiles.length) {
+    parts.push(`<h4 class="plugin-sub">Commands <span class="settings-family-count">${commandFiles.length}</span></h4>
+      <ul class="plugin-ship-list">${commandFiles.map((f) => {
+    const at = where(f);
+    return `<li><code>${esc(f)}</code><span class="plugin-quiet">${at.length ? `in ${at.map((x) => x.replace(/<code>(.*)\/[^/]*<\/code>/, '<code>$1/</code>')).join(', ')}` : 'not placed yet'}</span></li>`;
+  }).join('')}</ul>`);
+  }
+  const kinds = [['agents', 'ai-agents', 'Agents'], ['skills', 'ai-skills', 'Skills'], ['commands', 'ai-commands', 'Commands'], ['prompts', 'ai-prompts', 'Prompts']];
+  const ai = kinds.map(([kind, folder, title]) => ({ kind, folder, title, items: (((m.ai || {})[kind]) || []).map((f) => base(f).replace(/\.md$/, '')) })).filter((k) => k.items.length);
+  if (ai.length) {
+    parts.push(`<h4 class="plugin-sub">AI items <span class="settings-family-count">${ai.reduce((n, k) => n + k.items.length, 0)}</span></h4>
+      <ul class="plugin-ship-list">${ai.map((k) => `<li><span><strong>${esc(k.title)}</strong>: ${k.items.map((i) => `<code>${esc(i)}</code>`).join(', ')}</span>
+        <span class="plugin-quiet">${workspaces.has(k.folder)
+    ? `${p.step >= 2 ? 'in' : 'will be placed in'} <a href="/${esc(k.folder)}">${esc(k.folder)}/</a>`
+    : `skipped: there is no ${esc(k.folder)}/ folder here`}</span></li>`).join('')}</ul>`);
+  }
+  const also = [
+    (m.themes || []).length ? plural(m.themes.length, 'style') : '',
+    (m.features || []).length ? plural(m.features.length, 'browser test file') : '',
+    ((m.ddev || {}).compose || []).length ? plural(m.ddev.compose.length, 'compose file') : '',
+    (((m.scripts || {}).functions) || []).length ? plural(m.scripts.functions.length, 'bash function file') : '',
+    (((m.workspace || {}).docs) || []).length ? plural(m.workspace.docs.length, 'doc') : '',
+  ].filter(Boolean);
+  if (also.length) parts.push(`<p class="plugin-quiet">Also: ${esc(also.join(', '))}.</p>`);
+  if (placed.length) {
+    parts.push(`<details class="plugin-placed"><summary>${plural(placed.length, 'file')} placed${record.installed ? ` on ${esc(String(record.installed).slice(0, 10))}` : ''}</summary>
+      <ul class="plugin-placed-list">${placed.map((x) => `<li><code>${esc(x)}</code></li>`).join('')}</ul></details>`);
+  }
+  if (!parts.length) parts.push('<p class="plugin-quiet">It ships no files for the workspace: its code runs inside the dashboard.</p>');
+  return parts.join('');
+}
+
+function removeHtml(p) {
+  const label = p.manifest.label || p.name;
+  if (p.step < 1 && !(p.placed && p.placed.installed)) {
+    return `<p class="plugin-quiet">Not active: nothing of it is in the workspace. The package itself is removed with <code>npm uninstall ${esc(p.module || p.name)}</code> in <code>core/workspace-app</code>.</p>`;
+  }
+  if ((p.neededBy || []).length) {
+    return `<p class="plugin-quiet">${esc(label)} cannot be deactivated or uninstalled while ${esc(p.neededBy.join(', '))} ${p.neededBy.length === 1 ? 'needs' : 'need'} it. Remove ${p.neededBy.length === 1 ? 'that one' : 'those'} first.</p>`;
+  }
+  const buttons = [
+    p.step >= 1 && needsInstall(p.manifest) ? postButton('install', p, p.step >= 2 ? 'Reinstall' : 'Install') : '',
+    p.step >= 1 ? postButton('deactivate', p, 'Deactivate', { confirm: `Deactivate ${label}? Its menus and pages go; its files and settings stay.` }) : '',
+    p.placed && p.placed.installed ? postButton('uninstall', p, 'Uninstall', { confirm: `Uninstall ${label}? What Install placed is removed (a file edited here is kept) and the plugin is deactivated.` }) : '',
+  ].filter(Boolean).join(' ');
+  return `<p class="plugin-buttons">${buttons}</p>
+    <p class="plugin-quiet">Reinstall places its files again and is safe to repeat. Deactivate keeps files and settings. Uninstall removes what Install placed.</p>`;
+}
+
+/** The part that changes when a step has run: the heading with the state, what is off, the steps, the needs. */
+function statusHtml(p, { known = new Set() } = {}) {
+  const f = model.familyById(p.family);
+  return `
+  <div class="plugin-status" id="plugin-status" hx-get="/fragments/settings/plugin/${esc(encodeURIComponent(p.name))}" hx-trigger="refresh-projects from:body" hx-swap="outerHTML">
+    <header class="plugin-head">
+      <div class="plugin-head-title">
+        <h2 class="plugin-head-name">${esc(p.manifest.label || p.name)}</h2>
+        <span class="plugin-head-state">${stateHtml(p.state)}</span>
+      </div>
+      <p class="plugin-head-meta">${esc(f.label)} · <code>${esc(p.module || p.spec || p.name)}</code>${p.version ? ` ${esc(p.version)}` : ''}</p>
+      ${p.description || p.summary ? `<p class="plugin-head-about">${esc(p.description || p.summary)}</p>` : ''}
+    </header>
+    ${alertHtml(p)}${p.step >= 1 && p.loaded === false ? `
+    <p class="plugin-alert" role="status">${iconHtml('tabler:refresh', 1)}<span><strong>Active, but not loaded yet.</strong> The dashboard loads a plugin's code when it starts; its menus and pages show after a restart: <code>bash core/scripts/plugins.sh --restart</code></span></p>` : ''}
+    <section class="plugin-section" aria-labelledby="plugin-steps-head">
+      <h3 class="plugin-section-head" id="plugin-steps-head">${p.state.id === 'ready' ? 'The four steps: all done' : 'Turn it on: four steps'}</h3>
+      ${stepsHtml(p)}
+    </section>
+    <section class="plugin-section" id="needs" aria-labelledby="plugin-needs-head">
+      <h3 class="plugin-section-head" id="plugin-needs-head">What it needs</h3>
+      ${needsHtml(p, known)}
+    </section>
+  </div>`;
+}
+
+/** The whole page body. `ctx`: `{ known, files, chosen, formHtml, record, workspaces }`. */
+function pluginPageHtml(p, ctx = {}) {
+  return `
+  <article class="plugin-page" data-plugin="${esc(p.name)}">
+    ${statusHtml(p, ctx)}
+    <section class="plugin-section" id="settings" aria-labelledby="plugin-settings-head">
+      <h3 class="plugin-section-head" id="plugin-settings-head">Settings</h3>
+      ${settingsHtml(p, ctx)}
+    </section>
+    <section class="plugin-section" id="ships" aria-labelledby="plugin-ships-head">
+      <h3 class="plugin-section-head" id="plugin-ships-head">What it ships</h3>
+      ${shipsHtml(p, ctx)}
+    </section>
+    <section class="plugin-section" id="remove" aria-labelledby="plugin-remove-head">
+      <h3 class="plugin-section-head" id="plugin-remove-head">Reinstall or remove</h3>
+      ${removeHtml(p)}
+    </section>
+  </article>`;
+}
+
+/** No such plugin here: say so, and where one is added. */
+function missingHtml(name) {
+  return `<div class="settings-empty">
+      <p><strong>No plugin called ${esc(name)} is added to this workspace.</strong></p>
+      <p>See what is added on <a href="/settings">Settings</a>, or add it from <a href="/settings/plugins">the catalogue</a>:
+        <code>bash core/scripts/plugins.sh --require @webship.co/workspace-${esc(name)}</code></p>
+    </div>`;
+}
+
+module.exports = { pluginPageHtml, statusHtml, steps, stepsHtml, needsHtml, settingsHtml, shipsHtml, removeHtml, missingHtml };
