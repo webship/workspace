@@ -175,7 +175,7 @@ Base is `uk-child-width-1-2`, so 21 cards are ~11 rows and four headings add hei
 
 ## S — Structure
 
-Target checkout: `/home/rajab/workspace/products/workspace` (the clone; A-11).
+Target checkout: `/home/user/workspace/products/workspace` (the clone; A-11).
 
 | File | What changes | Fits what exists |
 |---|---|---|

@@ -30,7 +30,7 @@ const isSessionId = (v) => UUID_RE.test(String(v || ''));
 
 /**
  * The CLI's own name for a directory: the absolute path with every slash turned into a dash. So
- * /home/rajab/workspace/dev/ha1x00b1 is -home-rajab-workspace-dev-ha1x00b1.
+ * /home/user/workspace/dev/ha1x00b1 is -home-user-workspace-dev-ha1x00b1.
  */
 function projectSlug(dir) {
   return String(path.resolve(dir)).replace(/\//g, '-');

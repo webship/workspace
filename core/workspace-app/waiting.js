@@ -56,7 +56,7 @@ function waitingState(tail) {
   // after the bracket because a cursor sits there — and a typed `y` is one character, so
   //
   //   Do you want to continue? (y/n) y
-  //   rajab@host:~/workspace/test/ruverify1$
+  //   user@host:~/workspace/test/ruverify1$
   //
   // went on matching once the shell had moved on, and the hand never went down. A badge that cries
   // "waiting" on a session nobody is blocking is worse than no badge: it trains you to ignore it.

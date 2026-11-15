@@ -11,7 +11,7 @@ const { parseBrowserLine } = require('../../screens');
 
 // A real Playwright MCP browser, as `ps -eo pid,etime,args` prints it.
 const MCP_CHROME = '1359368 12:03 /opt/google/chrome/chrome --disable-field-trial-config --no-first-run '
-  + '--user-data-dir=/home/rajab/.cache/ms-playwright-mcp/mcp-chrome-fe954a1 --remote-debugging-pipe about:blank';
+  + '--user-data-dir=/home/user/.cache/ms-playwright-mcp/mcp-chrome-fe954a1 --remote-debugging-pipe about:blank';
 
 test('a Playwright MCP browser is recognised, with its profile', () => {
   const b = parseBrowserLine(MCP_CHROME);
@@ -35,7 +35,7 @@ test('a headless browser with a debugging port reports both', () => {
 test('renderer processes and ordinary browsers are not listed', () => {
   // A renderer child: same binary, but it is not the browser.
   assert.strictEqual(parseBrowserLine('1359377 12:03 /opt/google/chrome/chrome --type=zygote '
-    + '--user-data-dir=/home/rajab/.cache/ms-playwright-mcp/mcp-chrome-fe954a1'), null);
+    + '--user-data-dir=/home/user/.cache/ms-playwright-mcp/mcp-chrome-fe954a1'), null);
   // The docs tooling's screenshot chromium: no automation flags, no profile.
   assert.strictEqual(parseBrowserLine('68819 11:00 /usr/lib/chromium/chromium --show-component-extension-options'), null);
   // Not a browser at all.
@@ -50,7 +50,7 @@ test('renderer processes and ordinary browsers are not listed', () => {
 test('the suite runner and its docker wrapper are not browsers', () => {
   const lines = [
     ' 841992       02:26 ddev exec PLAYWRIGHT_BROWSERS_PATH=/mnt/ddev-global-cache/ms-playwright BROWSER=chromium yarn run test:chromium',
-    ' 842061       02:26 /home/rajab/.ddev/bin/docker-compose -f /home/rajab/workspace/dev/v11x00b1/.ddev/.ddev-docker-compose-full.yaml exec web bash -c set -eu && ( PLAYWRIGHT_BROWSERS_PATH=/mnt/ddev-global-cache/ms-playwright BROWSER=chromium yarn run test:chromium)',
+    ' 842061       02:26 /home/user/.ddev/bin/docker-compose -f /home/user/workspace/dev/v11x00b1/.ddev/.ddev-docker-compose-full.yaml exec web bash -c set -eu && ( PLAYWRIGHT_BROWSERS_PATH=/mnt/ddev-global-cache/ms-playwright BROWSER=chromium yarn run test:chromium)',
     ' 842084       02:26 bash -c set -eu && ( PLAYWRIGHT_BROWSERS_PATH=/mnt/ddev-global-cache/ms-playwright BROWSER=chromium yarn run test:chromium)',
   ];
   for (const line of lines) {
