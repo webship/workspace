@@ -196,6 +196,13 @@ case "${verb}" in
 
   --require)
     [ -n "${name}" ] || { echo "Which package? e.g. --require github:webship/workspace-upsun" ; exit 1 ; } ;
+    # A bare name is a plugin's short name, never an npm package of that name: `--require dev` means
+    # @webship.co/workspace-dev (what `webship-workspace plugin require dev` does), not the unrelated
+    # package "dev". A scope, a source (github:, a URL, a path) or a tarball (it has a dot) is taken as written.
+    # The same with a version or a tag after it: `dev@1.0.9`, `dev@latest`.
+    if [[ "${name}" =~ ^[a-z0-9][a-z0-9-]*(@[A-Za-z0-9.^~*-]+)?$ ]] ; then
+      echo "→ '${name}' is a plugin's short name: @webship.co/workspace-${name}" ; name="@webship.co/workspace-${name}" ;
+    fi
     echo "→ npm install ${name} (core/workspace-app)" ;
     # The plugin repositories are private: let git borrow the gh CLI's login for github.com, the way
     # the commands tooling does, so a github: spec resolves without a token in the environment.
