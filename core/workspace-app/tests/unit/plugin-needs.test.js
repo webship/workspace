@@ -388,9 +388,9 @@ test('--list and the Plugins page say what each plugin needs, whether it is met,
   assert.match(card(html, 'WP'), /It needs dev and ai-agents, which are not here yet: one run adds them first/);
   assert.match(card(html, 'WP'), /&quot;verb&quot;:&quot;activate&quot;,&quot;name&quot;:&quot;wp&quot;,&quot;withNeeds&quot;:&quot;1&quot;[^>]*>Activate with dev and ai-agents</);
   assert.match(card(html, 'WP'), /<code>bash core\/scripts\/plugins\.sh --activate wp --with-needs<\/code>/);
-  assert.doesNotMatch(card(html, 'dev'), /withNeeds/, 'a plugin with no needs is a plain button');
-  assert.match(card(html, 'broken'), /needs: must be a list/);
-  assert.doesNotMatch(card(html, 'broken'), /withNeeds/, 'a manifest that is wrong is not offered a fix it cannot have');
+  assert.doesNotMatch(card(html, 'Dev'), /withNeeds/, 'a plugin with no needs is a plain button');
+  assert.match(card(html, 'Broken'), /needs: must be a list/);
+  assert.doesNotMatch(card(html, 'Broken'), /withNeeds/, 'a manifest that is wrong is not offered a fix it cannot have');
   // The catalogue does not repeat what a plugin needs: its row is its name and what it does, and its page says the rest.
   platform(t.plugins, 'wordpress', { needs: ['dev'] });
   assert.doesNotMatch(page(), /needs: dev \(not here\)/);
@@ -404,9 +404,9 @@ test('--list and the Plugins page say what each plugin needs, whether it is met,
   assert.match(list, /dev .*ready\n\s+needed by: wp/);
   html = pages();
   assert.match(card(html, 'WP'), /<strong>dev or test<\/strong>: met by <a href="\/settings\/plugin\/dev">dev<\/a>/);
-  assert.match(card(html, 'WP'), /<strong>ai-agents<\/strong>: met by <a href="\/settings\/plugin\/ai-agents">ai-agents<\/a>/);
+  assert.match(card(html, 'WP'), /<strong><a href="\/settings\/plugin\/ai-agents">ai-agents<\/a><\/strong>: here\./, 'one name that is here says so once');
   assert.doesNotMatch(card(html, 'WP'), /withNeeds/, 'met: nothing to add');
-  assert.match(card(html, 'dev'), /dev cannot be deactivated or uninstalled while wp needs it/);
+  assert.match(card(html, 'Dev'), /Dev cannot be deactivated or uninstalled while wp needs it/);
 });
 
 test('the Plugins page action passes --with-needs only when the card asked, and only to the three verbs that take it', () => {

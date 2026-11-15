@@ -2140,7 +2140,7 @@ function settingsModesHtml(file, raw) {
   </p>`;
 }
 
-async function settingsFormHtml(file, message) {
+async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
   const rows = readSettingsRows(file);
   if (!rows) return '<div class="msg error">Could not read that settings file.</div>';
   const modes = settingsModesHtml(file, false);
@@ -2161,6 +2161,20 @@ async function settingsFormHtml(file, message) {
   // The comment written above a key in the file is its description, unless the dashboard has its own.
   const described = (r) => (r.comment && !FIELD_HINTS[r.dotted]
     ? `<span class="settings-desc">${esc(r.comment.length > 240 ? `${r.comment.slice(0, 237)}...` : r.comment)}</span>` : '');
+  // The label is the name of the field and nothing else. What explains it (the dashboard's hint, the
+  // comment above the key in the file) and what is still to do (a value that is the placeholder) sit
+  // beside it and are tied to the control with aria-describedby: a screen reader used to read a
+  // 190-character paragraph as the name of a field, every time focus landed on it.
+  const isTodo = (r) => !r.list && /CHANGE_ME/.test(String(r.value || ''));
+  const explained = (r) => `${fieldHint(r.dotted)}${described(r)}`;
+  const describedBy = (r, id) => {
+    const ids = [explained(r) ? `${id}-hint` : '', isTodo(r) ? `${id}-todo` : ''].filter(Boolean);
+    return ids.length ? ` aria-describedby="${ids.join(' ')}"` : '';
+  };
+  const keyHtml = (r, id, name, secret = false) => `<div class="settings-key"><label for="${id}">${esc(name)}</label>${secret ? ' <span class="uk-label">secret</span>' : ''}${
+    explained(r) ? `<span class="settings-explain" id="${id}-hint">${explained(r)}</span>` : ''}${
+    isTodo(r) ? `<span class="settings-todo" id="${id}-todo">${iconHtml('tabler:alert-triangle', 0.7)} Still the placeholder: replace it</span>` : ''}</div>`;
+  const todoCount = rows.filter(isTodo).length;
   const fieldFor = (r) => {
     if (r.list) {
       // Every list gets real controls: `workspaces` is what exists and in what order
@@ -2176,9 +2190,9 @@ async function settingsFormHtml(file, message) {
     const id = `s_${r.line}`;
     if (r.secret) {
       return `
-      <div class="settings-row">
-        <label class="settings-key" for="${id}">${esc(FIELD_LABELS[r.dotted] || r.leaf || r.dotted)} <span class="uk-label">secret</span>${fieldHint(r.dotted)}${described(r)}</label>
-        <input class="uk-input" id="${id}" name="v_${r.line}" type="password" value=""
+      <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
+        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf || r.dotted, true)}
+        <input class="uk-input" id="${id}"${describedBy(r, id)} name="v_${r.line}" type="password" value=""
                placeholder="${r.value ? 'set — leave blank to keep it' : 'not set'}" autocomplete="new-password">
         <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
         <input type="hidden" name="secret_${r.line}" value="1">
@@ -2191,9 +2205,9 @@ async function settingsFormHtml(file, message) {
       // says one thing and the form must not quietly say another.
       const known = options.some(([v]) => v === cur);
       return `
-      <div class="settings-row">
-        <label class="settings-key" for="${id}">${esc(FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}${fieldHint(r.dotted)}${described(r)}</label>
-        <select class="uk-select" id="${id}" name="v_${r.line}">
+      <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
+        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}
+        <select class="uk-select" id="${id}"${describedBy(r, id)} name="v_${r.line}">
           ${options.map(([v, label]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(label)}</option>`).join('')}
           ${known ? '' : `<option value="${esc(cur)}" selected>${esc(cur)} — not a known value</option>`}
         </select>
@@ -2213,9 +2227,9 @@ async function settingsFormHtml(file, message) {
       const cur = String(r.value).trim();
       const isDefault = ['default', 'auto', 'none', ''].includes(cur.toLowerCase());
       return `
-      <div class="settings-row">
-        <label class="settings-key" for="${id}">${esc(FIELD_LABELS[r.dotted] || r.leaf)}${fieldHint(r.dotted)}${described(r)}</label>
-        <select class="uk-select" id="${id}" name="v_${r.line}" data-voice-name>
+      <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
+        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf)}
+        <select class="uk-select" id="${id}"${describedBy(r, id)} name="v_${r.line}" data-voice-name>
           <option value="default"${isDefault ? ' selected' : ''}>Default for the dictation language</option>
           ${isDefault ? '' : `<option value="${esc(cur)}" selected>${esc(cur)}</option>`}
         </select>
@@ -2226,9 +2240,9 @@ async function settingsFormHtml(file, message) {
     const numeric = FIELD_NUMBERS[r.dotted];
     if (numeric) {
       return `
-      <div class="settings-row">
-        <label class="settings-key" for="${id}">${esc(FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}${fieldHint(r.dotted)}${described(r)}</label>
-        <input class="uk-input settings-number" id="${id}" name="v_${r.line}" type="number"
+      <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
+        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}
+        <input class="uk-input settings-number" id="${id}"${describedBy(r, id)} name="v_${r.line}" type="number"
                value="${esc(String(r.value).trim())}"
                min="${numeric.min}" max="${numeric.max}" step="${numeric.step}"
                inputmode="decimal">
@@ -2242,11 +2256,11 @@ async function settingsFormHtml(file, message) {
       // which the save loop would read as "no change" and the value could never be turned off.
       // When checked, both arrive and the later one wins (see the array handling in the save).
       return `
-      <div class="settings-row">
-        <label class="settings-key" for="${id}">${esc(FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}${fieldHint(r.dotted)}${described(r)}</label>
+      <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
+        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}
         <label class="settings-toggle">
           <input type="hidden" name="v_${r.line}" value="false">
-          <input class="settings-switch" type="checkbox" role="switch" id="${id}" name="v_${r.line}" value="true" ${on ? 'checked' : ''}>
+          <input class="settings-switch" type="checkbox" role="switch" id="${id}"${describedBy(r, id)} name="v_${r.line}" value="true" ${on ? 'checked' : ''}>
           <span class="uk-text-meta settings-switch-state" aria-hidden="true">${on ? 'On' : 'Off'}</span>
         </label>
         <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
@@ -2255,13 +2269,13 @@ async function settingsFormHtml(file, message) {
     if (isImageKey(r.key, r.value)) {
       const exists = r.value && fs.existsSync(path.join(PUBLIC_DIR, r.value));
       return `
-      <div class="settings-row">
-        <label class="settings-key" for="${id}">${esc(FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}${fieldHint(r.dotted)}${described(r)}</label>
+      <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
+        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}
         <div class="image-field">
           <span class="image-preview">${exists
             ? `<img src="/${esc(r.value)}" alt="">`
             : `<span class="image-missing" title="No such file in public/">?</span>`}</span>
-          <input class="uk-input" id="${id}" name="v_${r.line}" value="${esc(r.value)}" data-mic="0"
+          <input class="uk-input" id="${id}"${describedBy(r, id)} name="v_${r.line}" value="${esc(r.value)}" data-mic="0"
                  data-image-field="1" autocomplete="off">
           <button class="uk-button uk-button-default uk-button-small" type="button"
                   hx-get="/fragments/settings/images?target=${encodeURIComponent(id)}"
@@ -2272,9 +2286,9 @@ async function settingsFormHtml(file, message) {
       </div>`;
     }
     return `
-      <div class="settings-row">
-        <label class="settings-key" for="${id}">${esc(FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}${fieldHint(r.dotted)}${described(r)}</label>
-        <input class="uk-input" id="${id}" name="v_${r.line}" value="${esc(r.value)}">
+      <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
+        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}
+        <input class="uk-input" id="${id}"${describedBy(r, id)} name="v_${r.line}" value="${esc(r.value)}">
         <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
       </div>`;
   };
@@ -2305,7 +2319,7 @@ async function settingsFormHtml(file, message) {
   return `
     ${modes}
     <div class="uk-card uk-card-default uk-card-body settings-card">
-      <h3 class="uk-margin-small-bottom">${fname(file)}</h3>
+      <${heading} class="uk-margin-small-bottom settings-card-file">${fname(file)}</${heading}>
       <p class="uk-text-meta">${ws
         ? `Settings for the <strong>${esc(ws)}</strong> workspace.`
         : file === 'settings.yml' ? 'Hub settings: paths, the account used by installs, contributor identity and API keys.'
@@ -2314,14 +2328,16 @@ async function settingsFormHtml(file, message) {
         Comments and formatting in the file are preserved; only the lines you change are rewritten.</p>
       ${message || ''}
       <input type="search" class="uk-input settings-find" placeholder="Find a setting in this file" aria-label="Find a setting in this file" autocomplete="off">
-      <p class="uk-text-meta settings-find-none" hidden>No setting here matches.</p>
+      <p class="uk-text-meta settings-find-none" role="status" hidden>No setting here matches.</p>
       ${ws ? workspacePresentationHtml(file) : ''}
       <form class="settings-form" hx-post="/actions/save-settings" hx-target="#settings-output" hx-swap="innerHTML">
         <input type="hidden" name="file" value="${esc(file)}">
         ${fields}
         <div class="uk-margin-top settings-save">
           <button type="submit" class="uk-button uk-button-primary"><span uk-icon="icon: check; ratio: .8"></span> Save ${fname(file)}</button>
-          <span class="settings-dirty uk-text-meta" hidden>Unsaved changes</span>
+${todoCount ? `
+          <span class="settings-todo settings-todo-count">${todoCount} field${todoCount === 1 ? ' still holds' : 's still hold'} the placeholder</span>` : ''}
+          <span class="settings-dirty uk-text-meta" role="status" hidden>Unsaved changes</span>
         </div>
       </form>
       <form id="ws-delete-form" hidden></form>
@@ -2655,7 +2671,8 @@ async function settingsPluginData(name, want = '', { form = true } = {}) {
   if (!plugin) return null;
   const files = settingsModel.filesOf(plugin).map((f) => ({ ...f, exists: home.files.includes(f.file) }));
   const chosen = files.find((f) => f.exists && f.kind === want) || files.find((f) => f.exists) || null;
-  const formHtml = form && chosen ? await settingsFormHtml(chosen.file) : '';
+  // On a plugin's page the form sits under the section heading "Settings" (h3), so its file name is one level down.
+  const formHtml = form && chosen ? await settingsFormHtml(chosen.file, '', { heading: 'h4' }) : '';
   const st = require('./plugin-needs').state();
   return { plugin, known: new Set(all.map((p) => p.name)), files, chosen, formHtml, record: st.record[name] || null, workspaces: st.workspaces };
 }
@@ -2777,7 +2794,11 @@ async function settingsPage(section, state, options = {}) {
             : isIndex ? 'The base, and the plugins added to it'
             // The folder as the workspace names it: the same on every machine, and nothing of a home folder in a screenshot.
             : fname(path.relative(ROOT, CONFIG_DIR) || CONFIG_DIR);
-  return pageShell(`${pageName} · Webship Workspace`, `
+  // Each page says what it is in its title: six tabs that all read "Settings" cannot be told apart.
+  const titled = isPlugin ? `${options.pluginName} · Plugins · Settings`
+    : isPlugins ? 'Add a plugin · Settings'
+      : !isScreens && !isIndex && chosenName ? `${chosenName} · Settings` : pageName;
+  return pageShell(`${titled} · Webship Workspace`, `
 <main class="uk-container uk-container-small page-body webship-workspace-page">
   <div class="uk-flex uk-flex-middle page-heading">${widthSwitcherHtml()}
     <span class="page-heading-icon">${iconHtml(isScreens ? 'tabler:device-tv' : 'tabler:settings', 1.1)}</span>
@@ -6132,7 +6153,7 @@ const server = http.createServer(async (req, res) => {
           res.writeHead(data ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' });
           return res.end(await settingsPage('plugin', readPageState(req), { fragment: isFragment(req),
             pluginName: data ? (data.plugin.manifest.label || data.plugin.name) : pm[1],
-            pluginHtml: data ? pluginPage.pluginPageHtml(data.plugin, data) : pluginPage.missingHtml(pm[1]) }));
+            pluginHtml: data ? pluginPage.pluginPageHtml(data.plugin, { ...data, fragment: isFragment(req) }) : pluginPage.missingHtml(pm[1]) }));
         } }
       // The part of that page that changes when a step has run; the settings form beside it is left alone.
       { const ps = pathname.match(/^\/fragments\/settings\/plugin\/([a-z0-9-]+)$/);
@@ -6144,7 +6165,7 @@ const server = http.createServer(async (req, res) => {
           const pluginPage = require('./settings-plugin-page');
           res.writeHead(data ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' });
           return res.end(!data ? '' : part === 'after' ? pluginPage.afterHtml(data.plugin, data)
-            : part === 'settings' ? pluginPage.settingsSectionHtml(data.plugin, data) : pluginPage.statusHtml(data.plugin, data));
+            : part === 'settings' ? pluginPage.settingsSectionHtml(data.plugin, data) : pluginPage.statusHtml(data.plugin, { ...data, fragment: isFragment(req) }));
         } }
       if (pathname === '/settings/plugins') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });

@@ -25,7 +25,7 @@ test('the comment above a key is read as its description', () => {
 test('a settings file has a find box, switches that say On or Off, and an unsaved marker', () => {
   assert.match(server, /class="uk-input settings-find"/);
   assert.match(server, /class="settings-switch" type="checkbox" role="switch"/);
-  assert.match(server, /class="settings-dirty uk-text-meta" hidden>Unsaved changes/);
+  assert.match(server, /class="settings-dirty uk-text-meta" role="status" hidden>Unsaved changes/);
   assert.match(ui, /\.settings-find/);
   assert.match(ui, /addEventListener\('beforeunload'/);
 });

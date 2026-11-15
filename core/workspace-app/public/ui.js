@@ -959,9 +959,13 @@ document.body.addEventListener('htmx:after:swap', (e) => {
 // was pressed is gone with the old one. Focus goes to the same plugin in the new one (its row, or the
 // steps of its page) instead of falling back to the top of the document.
 let settingsFocusKey = '';
+let settingsFocusItem = '';
 document.addEventListener('focusin', (e) => {
   const holder = e.target.closest && e.target.closest('[data-refocus]');
   settingsFocusKey = holder ? holder.dataset.refocus : '';
+  // Which of the holder's buttons it was (Deactivate, not just "one of the three").
+  const item = holder && e.target.closest('[data-refocus-item]');
+  settingsFocusItem = item ? item.dataset.refocusItem : '';
 });
 // Several parts of a plugin's page are drawn again by one step, one after the other: the check waits
 // for the last of them, or focus would be put on a button that the next redraw takes away.
@@ -972,7 +976,8 @@ document.body.addEventListener('htmx:after:settle', () => {
     if (!settingsFocusKey || (document.activeElement && document.activeElement !== document.body)) return;
     const holder = [...document.querySelectorAll('[data-refocus]')].find((el) => el.dataset.refocus === settingsFocusKey);
     if (!holder) return;
-    const target = holder.querySelector('.plugin-step-item.is-now button, .plugin-step-item.is-now a, .plugin-row-action .uk-button, .plugin-buttons .uk-button') || holder;
+    const same = settingsFocusItem && [...holder.querySelectorAll('[data-refocus-item]')].find((el) => el.dataset.refocusItem === settingsFocusItem);
+    const target = same || holder.querySelector('.plugin-step-item.is-now button, .plugin-step-item.is-now a, .plugin-row-action .uk-button, .plugin-buttons .uk-button') || holder;
     if (target === holder && !holder.hasAttribute('tabindex')) holder.setAttribute('tabindex', '-1');
     target.focus();
   }, 120);
