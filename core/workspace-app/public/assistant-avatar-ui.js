@@ -404,7 +404,15 @@
       });
       // The pen: freehand strokes in the board's own coordinates, so they scale with it.
       let stroke = null;
-      const at = (e) => { const r = s.getBoundingClientRect(); return [((e.clientX - r.left) / r.width) * 100, ((e.clientY - r.top) / r.height) * 60]; };
+      // Where the pointer is, in the board's own units. The drawing keeps its 5 by 3 inside the window, so
+      // when the window has another shape (filled to the page, dragged wide) the box is not the drawing:
+      // the browser's own matrix is asked, and the box is only the fallback.
+      const at = (e) => {
+        const m = s.getScreenCTM && s.getScreenCTM();
+        if (m) { const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse()); return [p.x, p.y]; }
+        const r = s.getBoundingClientRect();
+        return [((e.clientX - r.left) / r.width) * 100, ((e.clientY - r.top) / r.height) * 60];
+      };
       s.addEventListener('pointerdown', (e) => {
         if (!area.classList.contains('is-pen')) return;
         e.preventDefault();
@@ -464,7 +472,8 @@
   function clearBoard() {
     const b = board();
     b.lines.replaceChildren();
-    [...b.svg.querySelectorAll('rect, circle, line, text, path:not(marker path)')].forEach((e) => e.remove());
+    // Everything on the drawing but its own definitions (the arrow's head): whatever shape it is.
+    [...b.svg.children].filter((e) => e.tagName.toLowerCase() !== 'defs').forEach((e) => e.remove());
     b.area.querySelectorAll('.avatar-note').forEach((n) => n.remove());
     added.length = 0;
   }

@@ -326,7 +326,7 @@
 
   /** Every field that asked for suggestions, including ones arriving in a fragment. */
   function attachAll(root) {
-    (root || document).querySelectorAll('[data-suggest]').forEach((el) => {
+    (root && typeof root.querySelectorAll === 'function' ? root : document).querySelectorAll('[data-suggest]').forEach((el) => {
       attachSuggest(el, el.dataset.suggest);
     });
   }
