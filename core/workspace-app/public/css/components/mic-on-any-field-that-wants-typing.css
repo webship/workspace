@@ -170,9 +170,11 @@ html.dark .ai-mark { color: var(--text-inverse); }
   color: var(--link);
 }
 .uk-button-danger { border-radius:31.25rem; }
+/* A ring that can be seen: the halo this used to draw was the palest brand tint, 1.2:1 against the card
+   (1.0:1 inside a highlighted step), with the outline taken away. base.css says why it is the link colour. */
 .uk-button:focus-visible {
-  outline: 0;
-  box-shadow: 0 0 0 3px var(--subtle-brand);
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
 }
 /* The prompt toolbar: command picker on the left, actions on the right. */
 .chat-tools-spacer { flex: 1; }

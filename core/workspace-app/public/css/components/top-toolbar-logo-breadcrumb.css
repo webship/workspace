@@ -114,3 +114,10 @@ html.dark .theme-icon-moon { display: none; }
   .page-heading .uk-text-meta, .page-heading .fname { overflow-wrap: anywhere; }
   .page-heading .width-switcher { display: none; }
 }
+
+/* Where the toolbar wraps to several rows (a phone) or the window is very short (a page zoomed to
+   400%), it stops following the page: stuck, it covered what had focus and left a strip to read in. */
+@media (max-width: 40em), (max-height: 30em) {
+  .uk-navbar-container.toolbar { position: static; }
+  html { scroll-padding-top: 0.75rem; }
+}

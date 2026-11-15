@@ -170,16 +170,18 @@ h1, h2, h3, h4, h5, h6, .uk-h1, .uk-h2, .uk-h3, .uk-h4, .uk-h5, .uk-h6, .uk-card
    the shorter one never won and every dropdown stayed unstyled. `background-color`,
    not the `background` shorthand: the shorthand would drop the arrow, which UIKit
    draws as a background-image in that same rule. */
+/* The edge of a field is what says "this is a field": it is mixed from the style's own subtle ink and
+   card, so it holds 3:1 against the card in every style and both halves (--line is 1.3:1). */
 .uk-input, .uk-textarea {
   background: var(--surface-input);
   color: var(--text-subtle-2);
-  border-color: var(--line);
+  border-color: color-mix(in srgb, var(--text-subtle) 70%, var(--surface-card));
 }
 
 .uk-select:not([multiple]):not([size]) {
   background-color: var(--surface-input);
   color: var(--text-subtle-2);
-  border-color: var(--line);
+  border-color: color-mix(in srgb, var(--text-subtle) 70%, var(--surface-card));
 }
 
 /* The field keeps its own surface and ink while it has focus: UIKit's focus rule sets a white
@@ -245,6 +247,21 @@ footer.uk-section, footer.uk-section a { color: var(--text-subtle); }
   outline-color: var(--text-inverse);
   outline-offset: 1px;
 }
+
+/* UIKit sets `outline: none` on its buttons and fields at (0,2,0), which the :where() rule above (0,0,0)
+   never beat: Save, Install and every select took focus with a 1.2:1 halo and nothing else. The ring is
+   the link colour, which is the one brand colour tuned to read on the page in both halves (5.9:1 on the
+   light card, 6.5:1 on the dark one), and it sits outside the control, so it reads on a filled button too. */
+.uk-button:focus-visible,
+.uk-select:focus-visible,
+.uk-input:focus-visible,
+.uk-textarea:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+/* What takes focus is scrolled to below the sticky toolbar, not under it. */
+html { scroll-padding-top: 4.875rem; }
 
 /* A link inside a block of text has to be told apart from that text by something other than colour
    (WCAG 1.4.1): brand blue against the meta grey is 1.08:1 to a colour-blind reader and on a printout.

@@ -22,7 +22,7 @@ test('a number field with no unit prints no unit (it printed the word undefined)
 
 test('the page heading wraps on a phone, and a wide table scrolls inside itself', () => {
   const css = read('public/css/components/top-toolbar-logo-breadcrumb.css');
-  const phone = css.slice(css.lastIndexOf('@media (max-width: 40em)'));
+  const phone = css.slice(css.lastIndexOf('@media (max-width: 40em) {'));
   assert.match(phone, /\.page-heading \{ flex-wrap: wrap; \}/);
   assert.match(phone, /\.page-heading \.width-switcher \{ display: none; \}/);
   assert.match(read('plugins-page.js'), /<div class="uk-overflow-auto" tabindex="0" role="region" aria-label="Commands on this machine">/);
