@@ -2661,27 +2661,42 @@ async function settingsPluginData(name, want = '', { form = true } = {}) {
   return { plugin, known: new Set(all.map((p) => p.name)), files, chosen, formHtml, record: st.record[name] || null, workspaces: st.workspaces };
 }
 
-/** The settings, as the tabs of the settings modal: the dashboard's own, then files, styles, workspaces. */
-function settingsTabGroups() {
-  const files = listSettingsFiles();
-  const meta = loadWorkspaces();
-  const wsKey = (f) => (f.match(/^workspace\.(.+)\.settings\.yml$/) || [])[1] || '';
-  const url = (x) => `/settings/${x === '' ? '' : encodeURIComponent(x)}?fragment=1`.replace('/?', '?');
-  const own = files.filter((f) => !wsKey(f) && !/^theme\./.test(f));
-  return [
-    { id: 'dashboard', label: 'The dashboard', tabs: [
+/**
+ * The settings, as the tabs of the settings modal: the same order as the Settings home. The base first
+ * (with the home itself as the overview), the way to add a plugin, then the plugins that are here by
+ * family, each opening its own page; a plugin that wants something says so in a badge. `wanted` is the
+ * tab asked for: a settings file that has no tab of its own any more (a style file, a plugin's or a
+ * folder's file) still opens, as one more tab, so an address kept from before is not a dead one.
+ */
+function settingsTabGroups(wanted = '') {
+  const settingsModel = require('./settings-model');
+  const data = settingsHomeData();
+  const sorted = settingsModel.sortFiles(data.files, data.plugins);
+  const url = (x) => `/settings/${encodeURIComponent(x)}?fragment=1`;
+  const fileTab = (f, label, icon) => ({ id: f, label, icon, url: url(f), hint: settingsModel.fileHint(f, { folderSubtitle: (data.folders[(f.match(/^workspace\.(.+)\.settings\.yml$/) || [])[1]] || {}).subtitle }) });
+  const groups = [
+    { id: 'base', label: 'Workspace base', tabs: [
+      { id: 'overview', label: 'Overview', icon: 'tabler:list-search', url: '/settings?fragment=1', hint: 'The base, and every plugin with its state: one filter over all of it' },
+      ...sorted.general.map((f) => fileTab(f, 'General', 'tabler:settings')),
       { id: 'navigation', label: 'Navigation', icon: 'tabler:layout-sidebar-right', url: '/settings/navigation?fragment=1', hint: 'The sidebar and the top bar: what they show, where, and what you added' },
       { id: 'buttons', label: 'Buttons', icon: 'tabler:layout-grid', url: '/settings/buttons?fragment=1', hint: 'The buttons of every project row, what is inside them, and the actions on them' },
       { id: 'command-order', label: 'Command order', icon: 'tabler:sort-ascending-letters', url: '/settings/command-order?fragment=1', hint: 'What each workspace offers first: its builders, then its tools' },
       { id: 'styles', label: 'Styles', icon: 'tabler:palette', url: '/settings/styles?fragment=1', hint: 'Every style on this machine, shown in its own colours and its own type' },
+      { id: 'plugins', label: 'Add a plugin', icon: 'tabler:plus', url: '/settings/plugins?fragment=1', hint: 'Require a package, or choose one from the catalogue by family' },
     ] },
-    { id: 'files', label: 'Files', tabs: own.map((f) => ({ id: f, label: f, icon: 'tabler:file-settings', url: url(f), hint: require('./settings-model').fileHint(f) })) },
-    { id: 'style-files', label: 'Style files', tabs: files.filter((f) => /^theme\./.test(f)).map((f) => ({ id: f, label: f.replace(/^theme\.|\.yml$/g, ''), icon: 'tabler:brush', url: url(f), hint: `The variables of the ${f.replace(/^theme\.|\.yml$/g, '')} style` })) },
-    { id: 'workspaces', label: 'Workspaces', tabs: files.filter((f) => wsKey(f)).map((f) => {
-      const m = meta[wsKey(f)] || {};
-      return { id: f, label: m.label || wsKey(f), icon: m.icon || 'tabler:folder', url: url(f), hint: m.subtitle || `${wsKey(f)}/` };
-    }) },
-  ].filter((g) => g.tabs.length);
+    ...data.groups.map((g) => ({ id: `family-${g.id}`, label: g.label, tabs: g.plugins.map((p) => ({
+      id: `plugin-${p.name}`, label: p.manifest.label || p.name, icon: g.icon, url: `/settings/plugin/${encodeURIComponent(p.name)}?fragment=1`,
+      hint: p.summary || p.module || '', badge: p.state.attention || !p.state.active ? p.state.label : '' })) })),
+    { id: 'other', label: 'Other settings files', tabs: [
+      ...sorted.folders.map((f) => { const key = f.replace(/^workspace\.|\.settings\.yml$/g, ''); const m = data.folders[key] || {}; return fileTab(f, m.label || key, m.icon || 'tabler:folder'); }),
+      ...sorted.other.map((f) => fileTab(f, f, 'tabler:file-settings')),
+    ] },
+  ];
+  const has = (id) => groups.some((g) => g.tabs.some((t) => t.id === id));
+  if (wanted && !has(wanted) && data.files.includes(wanted)) {
+    groups.push({ id: 'file', label: 'This file', tabs: [fileTab(wanted, wanted, /^theme\./.test(wanted) ? 'tabler:brush' : 'tabler:file-settings')] });
+  }
+  return groups.filter((g) => g.tabs.length);
 }
 
 async function settingsPage(section, state, options = {}) {
@@ -4371,7 +4386,7 @@ function pageActionsHtml(context) {
          <ul class="uk-nav uk-dropdown-nav">${assistantMenuItemsHtml()}</ul>
        </div>
      </div>` },
-    navLink('/settings', 'cog', 'Settings', context === 'settings', 'Settings — core/config/*.yml', '/fragments/settings/modal'),
+    navLink('/settings', 'cog', 'Settings', context === 'settings', 'Settings: the base, and the plugins added to it', '/fragments/settings/modal'),
     // Last in the group and on every page. There was no help link anywhere at all, which is
     // fine for the person who built this and useless for the seventy who did not: a guide
     // nobody can find is a guide nobody reads.
@@ -6141,7 +6156,7 @@ const server = http.createServer(async (req, res) => {
         const tab = new URL(req.url, 'http://localhost').searchParams.get('tab') || '';
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(tabModal.tabModalHtml({ id: 'settings', title: 'Settings',
-          subtitle: 'core/config', filter: true, hash: true, groups: settingsTabGroups(), active: tab }));
+          subtitle: 'core/config', filter: true, hash: true, groups: settingsTabGroups(tab), active: tab || 'overview' }));
       }
       if (pathname === '/fragments/styles/new') {
         const from = new URL(req.url, 'http://localhost').searchParams.get('from') || '';

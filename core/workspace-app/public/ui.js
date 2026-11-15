@@ -920,6 +920,26 @@ document.addEventListener('keydown', (e) => {
   e.target.value = '';
   settingsSearchApply(e.target.closest('.settings-home'));
 });
+// Inside the settings modal the overview's links open the tab of the same thing, not a page behind it.
+document.addEventListener('click', (e) => {
+  const a = e.target.closest && e.target.closest('.tabmodal .settings-home a[href^="/settings/"]');
+  if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button) return;
+  const where = a.getAttribute('href').split(/[?#]/)[0];
+  const id = where === '/settings/plugins' ? 'plugins'
+    : where.startsWith('/settings/plugin/') ? `plugin-${where.slice('/settings/plugin/'.length)}` : decodeURIComponent(where.slice('/settings/'.length));
+  const tab = [...a.closest('.tabmodal').querySelectorAll('.tabmodal-tab')].find((t) => t.dataset.tab === id);
+  if (!tab) return;
+  e.preventDefault();
+  tab.click();
+  tab.focus();
+});
+// A tab's content starts at its top: the pane kept the scroll of the tab before it, so a plugin opened
+// from far down the overview showed its middle.
+document.body.addEventListener('htmx:after:swap', (e) => {
+  const tab = e.target && e.target.closest && e.target.closest('.tabmodal-tab');
+  const pane = tab && tab.closest('.tabmodal').querySelector('.tabmodal-pane');
+  if (pane) pane.scrollTop = 0;
+});
 settingsSearchInit();
 document.body.addEventListener('htmx:after:swap', settingsSearchInit);
 document.body.addEventListener('htmx:after:settle', settingsSearchInit);
