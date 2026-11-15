@@ -93,7 +93,8 @@ test('the state part is drawn again when a step has run; the form beside it is n
   const html = page.pluginPageHtml(p, { files: [], known: new Set() });
   assert.match(html, /id="plugin-status" hx-get="\/fragments\/settings\/plugin\/jira\?part=status" hx-trigger="refresh-projects from:body" hx-swap="outerHTML"/);
   const status = html.slice(html.indexOf('id="plugin-status"'), html.indexOf('id="settings"'));
-  assert.ok(status.includes('plugin-step-list') && status.includes('id="needs"'));
+  assert.ok(status.includes('plugin-step-list') && !status.includes('id="needs"'), 'the state and the steps; the needs follow the settings');
+  assert.ok(html.indexOf('id="settings"') < html.indexOf('id="needs"'), 'the settings come before what it needs');
   for (const id of ['needs', 'settings', 'ships', 'remove']) assert.ok(html.includes(`id="${id}"`), `#${id}`);
   assert.match(page.missingHtml('nope'), /No plugin called nope is added to this workspace/);
   const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
@@ -128,4 +129,69 @@ test('what it ships and the removal follow a step; the settings section follows 
   const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
   assert.match(server, /part === 'after' \? pluginPage\.afterHtml\(data\.plugin, data\)/);
   assert.match(server, /settingsPluginData\(ps\[1\], '', \{ form: part === 'settings' \}\)/);
+});
+
+test('only the steps that are real for a plugin are numbered and counted', () => {
+  const p = make('notes', { label: 'Notes' }, 0);
+  assert.strictEqual(page.stepsLeft(p), 1);
+  const html = page.stepsHtml(p);
+  assert.match(html, /Turn it on: one step left/);
+  assert.strictEqual((html.match(/class="plugin-step-item /g) || []).length, 2, 'Require and Activate; Install and Configure do not apply');
+  assert.match(html, /plugin-steps-skipped">Nothing to place: this plugin ships no files for the workspace\. No settings file: nothing to configure\./);
+  const full = make('jira', { label: 'Jira', settingsFile: 'plugin.jira.settings.yml', settingsTemplate: 'config/x.yml' }, 0);
+  assert.match(page.stepsHtml(full), /Turn it on: three steps left/);
+});
+
+test('a plugin that is turned on shows one line, with the steps behind it', () => {
+  const html = page.stepsHtml(make('jira', { label: 'Jira', settingsFile: 'plugin.jira.settings.yml', settingsTemplate: 'config/x.yml' }, 3));
+  assert.match(html, /^<details class="plugin-steps-done"><summary>/);
+  assert.match(html, /Turned on<\/span>\s*<span class="plugin-quiet">required, activated, installed, configured<\/span>/);
+  assert.ok(!html.includes('Turn it on:'));
+  assert.match(page.stepsHtml(make('notes', { label: 'Notes' }, 3)), /<span class="plugin-quiet">required, activated<\/span>/);
+});
+
+test('a need that is here says so once, a web address in a hint is a link, backticks are not printed', () => {
+  const wants = { needs: [{ anyOf: ['ai-agents'], metBy: 'ai-agents', pick: 'ai-agents' }, { anyOf: ['dev', 'test'], metBy: 'dev', pick: 'dev' }],
+    suggests: [{ anyOf: ['github'], metBy: 'github', pick: 'github' }], unmet: [], problems: [] };
+  const p = make('upsun', { label: 'Upsun' }, 3, { wants, description: 'One builder (`cmd-x.sh`) and more.',
+    commands: [{ anyOf: ['upsun'], where: 'host', state: 'missing', kind: 'needs', hint: 'see https://docs.example.com/cli.html' }] });
+  const needs = page.needsHtml(p, new Set(['ai-agents', 'dev', 'github']));
+  assert.match(needs, /<strong><a href="\/settings\/plugin\/ai-agents">ai-agents<\/a><\/strong>: here\./);
+  assert.ok(!needs.includes('met by <a href="/settings/plugin/ai-agents">'));
+  assert.match(needs, /<strong>dev or test<\/strong>: met by <a href="\/settings\/plugin\/dev">dev<\/a>\./);
+  assert.match(needs, /<a href="\/settings\/plugin\/github">github<\/a>: here\./);
+  assert.match(needs, /Install: see <a href="https:\/\/docs\.example\.com\/cli\.html" rel="noopener">/);
+  assert.ok(!page.statusHtml(p).includes('`'));
+});
+
+test('Uninstall is drawn as the one that removes files, last and apart; each button can take focus back by its own name', () => {
+  const html = page.removeHtml(make('jira', { label: 'Jira', settingsTemplate: 'config/x.yml' }, 3, { placed: { installed: true } }));
+  assert.ok(html.indexOf('>Uninstall<') > html.indexOf('>Deactivate<'));
+  assert.match(html, /<span class="plugin-buttons-apart"><button type="button" class="uk-button uk-button-danger plugin-danger uk-button-small" data-refocus-item="uninstall"/);
+  for (const verb of ['install', 'deactivate', 'uninstall']) assert.ok(html.includes(`data-refocus-item="${verb}"`), verb);
+  const ui = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'ui.js'), 'utf8');
+  assert.match(ui, /el\.dataset\.refocusItem === settingsFocusItem/);
+});
+
+test('in a pane of the settings modal the plugin name is the pane heading, not said again', () => {
+  const p = make('jira', { label: 'Jira' }, 3);
+  assert.ok(!page.statusHtml(p, { fragment: true }).includes('plugin-head-name'));
+  assert.match(page.statusHtml(p), /<h2 class="plugin-head-name">Jira<\/h2>/);
+});
+
+test('a settings field: the label is its name only, hints are tied with aria-describedby, a placeholder value is marked', () => {
+  const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
+  assert.match(server, /const keyHtml = \(r, id, name, secret = false\) => `<div class="settings-key"><label for="\$\{id\}">\$\{esc\(name\)\}<\/label>/);
+  assert.ok(!/<label class="settings-key" for="\$\{id\}">[^\n]*fieldHint/.test(server), 'no hint inside a label');
+  assert.match(server, /const isTodo = \(r\) => !r\.list && \/CHANGE_ME\/\.test\(String\(r\.value \|\| ''\)\);/);
+  assert.match(server, /Still the placeholder: replace it/);
+  assert.match(server, /aria-describedby="\$\{ids\.join\(' '\)\}"/);
+  assert.match(server, /still hold'\} the placeholder/);
+  assert.match(server, /settingsFormHtml\(chosen\.file, '', \{ heading: 'h4' \}\)/, 'under the h3 "Settings" of a plugin page the file name is an h4');
+});
+
+test('each page says what it is in its title', () => {
+  const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
+  assert.match(server, /const titled = isPlugin \? `\$\{options\.pluginName\} · Plugins · Settings`/);
+  assert.match(server, /: isPlugins \? 'Add a plugin · Settings'/);
 });

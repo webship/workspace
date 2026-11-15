@@ -202,3 +202,24 @@
   .settings-search, .settings-home { min-width: 0; max-width: 100%; }
   .settings-chip { flex: none; }
 }
+
+/* A plugin's page after the reviews. */
+.plugin-steps-done > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; width: fit-content; max-width: 100%; padding: 0.25rem 0; }
+.plugin-steps-done-title { display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 600; color: var(--ok-ink); }
+.plugin-steps-done .plugin-step-list { margin-top: 0.5rem; }
+.plugin-steps-skipped { margin-top: 0.5rem; }
+.plugin-buttons-apart { margin-left: auto; padding-left: 1.5rem; }
+.plugin-buttons { align-items: center; max-width: 56rem; }
+/* The one that removes files: the danger ink as an outline, quiet until it is the one being pressed. */
+.plugin-danger.uk-button-danger { background: transparent; color: var(--danger-ink); border: 1px solid var(--danger); }
+.plugin-danger.uk-button-danger:hover, .plugin-danger.uk-button-danger:focus { background: var(--danger-soft); color: var(--danger-ink); }
+/* In a pane of the settings modal the pane's heading is the plugin's name. */
+.plugin-head-title:empty { display: none; }
+
+/* A settings field: the label is the name; what explains it and what is still to do sit under it. */
+.settings-key label { display: inline; font: inherit; color: inherit; }
+.settings-explain { display: block; }
+.settings-todo { display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.25rem; padding: 0.05rem 0.5rem 0.05rem 0.35rem; border-radius: 999px; background: var(--warning-soft); color: var(--warning-ink); font-family: var(--font-primary); font-size: 0.75rem; font-weight: 600; word-break: normal; }
+.settings-todo .tabler-icon { flex: none; }
+.settings-row.is-todo > .uk-input, .settings-row.is-todo > .uk-select { border-color: var(--warning-ink); }
+.settings-todo-count { margin: 0 0 0 0.75rem; }
