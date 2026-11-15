@@ -10,6 +10,9 @@ const fs = require('fs');
 // Only the labels file is read this way; every settings file people edit is handled by
 // settings-file.js, which never round-trips YAML because doing so discards their comments.
 const yaml = require('js-yaml');
+// Before anything is started: where this dashboard's screen sessions live when the default socket
+// directory cannot be used (a machine with no screen of its own). Every child inherits the choice.
+require('./screen-dir').ensureScreenDir();
 const yamlLoad = (text) => (typeof yaml.safeLoad === 'function' ? yaml.safeLoad(text) : yaml.load(text));
 const os = require('os');
 const { spawn, spawnSync } = require('child_process');
