@@ -154,7 +154,8 @@ function appliesTo(config, workspaceKey) {
 //   assistant-turn  api.addAssistantTurn: a plugin adds a paragraph to one turn's system context.
 //   avatar-windows  `window.wsAvatarWindows` and the `ws-avatar-window` event: the board, the reading window, a window of the plugin's own.
 //   settings-family  the manifest's `family` and `summary`: where Settings lists the plugin, and the line under its name.
-const CAPABILITIES = Object.freeze(new Set(['row-menu-body', 'runner', 'screens-panel', 'scripts', 'uploads', 'assistant-answer', 'assistant-ear', 'assistant-turn', 'avatar-windows', 'settings-family']));
+//   screens-only   a command runs in a screen session and nowhere else: there is no run in the page, and a job (lib.startJob) is drawn where it was asked for.
+const CAPABILITIES = Object.freeze(new Set(['row-menu-body', 'runner', 'screens-panel', 'scripts', 'uploads', 'assistant-answer', 'assistant-ear', 'assistant-turn', 'avatar-windows', 'settings-family', 'screens-only']));
 
 const SCRIPT_NAME_RE = /^[a-z0-9][a-z0-9._-]{0,80}\.js$/;
 const UPLOAD_MAX = 32 * 1024 * 1024;

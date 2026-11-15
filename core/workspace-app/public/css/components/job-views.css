@@ -1,0 +1,220 @@
+/* ---------- A job view: a process followed where it was asked for ---------- */
+
+/* A command runs in a screen session, never in the page: there is no stack of terminals at the
+   bottom. What is drawn here is the view left beside it — the log of a session followed in the
+   modal, a plugin's progress — in normal flow, at the width of what holds it. The modal is the
+   chrome; the view inside it is content, not a second window. */
+.job-view {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin: 1rem 0 0 !important;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
+}
+
+.job-view-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0 .4rem 0;
+}
+
+.job-view-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+
+.job-view-status { font-size: 0.74rem; white-space: nowrap; opacity: .85; font-family: var(--font-code); }
+.job-view.is-done .job-view-status { color: var(--ok); }
+.job-view.is-failed .job-view-status { color: var(--danger); }
+
+.job-view-btn {
+  background: none;
+  border: 0;
+  padding: 0.125rem 0.25rem;
+  cursor: pointer;
+  color: inherit;
+  opacity: .7;
+  line-height: 1;
+}
+
+.job-view-btn:hover { opacity: 1; }
+
+.job-view .terminal-pre {
+  min-height: 20rem;
+  max-height: 55vh;
+  overflow: auto;
+  margin: 0;
+  font-size: 0.72rem;
+  border-radius: .5rem;
+}
+
+.job-progress { display: flex; align-items: center; gap: .75rem; margin: .5rem 0; }
+.job-progress .uk-progress { margin: 0; flex: 1; }
+.job-progress .uk-text-meta { white-space: nowrap; }
+.job-done-note { margin: .5rem 0 0; font-weight: 600; }
+
+/* The session a notice linked to ("Open in Screens"), first on the Screens page: its state, and
+   the end of its log — which is still there when the session has ended. */
+.screen-asked { border-left: 3px solid var(--brand-primary); }
+.screen-asked.is-ended { border-left-color: var(--line); }
+.screen-asked-head { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+.screen-asked .terminal-pre {
+  white-space: pre-wrap;            /* a phone reads it without scrolling sideways */
+  overflow-wrap: anywhere;
+  margin: 0.5rem 0 0;
+  max-height: 40vh;
+  overflow: auto;
+  font-size: 0.72rem;
+  border-radius: .375rem;
+}
+
+/* No screen session could be started: the notice is as wide as its place, and the line to run by
+   hand wraps rather than widening it (a phone shows all of it). */
+.no-screen-body { flex: 1 1 auto; min-width: 0; }
+.no-screen code { overflow-wrap: anywhere; white-space: normal; }
+.no-screen-line { flex-wrap: wrap; }
+.no-screen-line code { flex: 1 1 16rem; white-space: pre-wrap; }
+.no-screen { max-height: calc(100vh - 6rem); overflow-y: auto; }
+
+/* An agent, skill or prompt row: name and labels on the first line, what it is for underneath.
+   Clamped to three lines with the full text on hover — these descriptions run to a paragraph
+   (one agent's is 700 characters) and a list of 69 has to stay scannable. */
+.item-row-body { display: flex; flex-direction: column; gap: 0.25rem; }
+
+.item-row-body > .uk-text-bold { display: block; }
+
+.item-description {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-subtle);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.item-declared {
+  font-family: var(--font-code);
+  font-size: 0.7rem;
+  padding: 0.0625rem 0.3125rem;
+  border-radius: 0.25rem;
+  background: var(--subtle-accent);
+  color: var(--brand-secondary);
+}
+
+/* The actions sat on the same flex line as the name; with a description below, they belong on
+   their own row like the project rows. */
+.item-row-body .project-actions {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+  margin-top: 0.125rem;
+}
+
+/* Sized to sit inline with the small buttons beside it, not as wide as the search box above. */
+.install-target { display: inline-flex; gap: 0.35rem; }
+.install-target select, .install-target input { width: auto; max-width: 11rem; }
+
+/* A markdown file in agents/, skills/ or prompts/ with no frontmatter name: Claude Code cannot
+   dispatch it, so it is a reference document, not an item. Said, not hidden — it is still the
+   user's file to read and edit. */
+.item-doc { background: transparent; border: 1px dashed var(--line); color: var(--text-subtle); }
+
+/* The search row: the field takes the slack, its buttons sit beside it, and the auto toggle
+   reads as a preference rather than another filter. */
+.list-controls .uk-button-small { flex: 0 0 auto; }
+
+.list-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+}
+
+.list-reset { opacity: .85; }
+.list-reset:hover { opacity: 1; }
+
+/* The Resume control in the New screen form: a checkbox that turns the list of sessions on, because
+   starting fresh is the default and resuming is the exception. */
+.claude-resume { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.claude-resume-on { display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
+.claude-resume select { flex: 1; min-width: 16rem; }
+.claude-resume select[disabled] { opacity: .55; }
+
+/* The New screen form, as steps rather than as one row of controls. Each fieldset is a question:
+   where it runs, what it starts, its arguments, and the prompt — in the order they are answered. */
+.new-screen-card .screen-step {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem 0.9rem;
+  margin: 0 0 0.75rem;
+}
+.new-screen-card .screen-step > legend {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  color: var(--text-subtle);
+  padding: 0 0.4rem;
+}
+.new-screen-card .uk-form-label { font-size: 0.75rem; display: block; margin-bottom: 0.2rem; }
+.screen-where-path { margin-top: 0.25rem; }
+
+/* What it starts: three named choices with a line each, rather than three words in a dropdown. */
+.screen-kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+@media (max-width: 40em) { .screen-kinds { grid-template-columns: 1fr; } }
+.screen-kind {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "radio name" "radio help";
+  gap: 0 0.5rem;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+  cursor: pointer;
+}
+.screen-kind input { grid-area: radio; }
+.screen-kind strong { grid-area: name; font-size: 0.8125rem; }
+.screen-kind .uk-text-meta { grid-area: help; font-size: 0.6875rem; line-height: 1.3; }
+.screen-kind.is-on { border-color: var(--brand-primary); background: var(--subtle-brand); }
+
+.screen-name-row { display: grid; grid-template-columns: 1fr; gap: 0.15rem; }
+
+/* The Claude Code arguments, read from the CLI's own --help. The four reached for every time are laid
+   out first; the rest are behind the disclosure, so the form opens as a few controls, not as forty. */
+.claude-args-common,
+.claude-args-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem 0.75rem; }
+@media (max-width: 47.9375em) { .claude-args-common, .claude-args-grid { grid-template-columns: 1fr; } }
+.claude-args-common { margin-top: 0.5rem; }
+.claude-arg { display: grid; grid-template-columns: 1fr; gap: 0.15rem; min-width: 0; }
+.claude-arg-name code, .claude-arg-flag code { font-size: 0.75rem; color: var(--link); }
+.claude-arg-help {
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--text-subtle);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.claude-arg-flag {
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "box name" "box help";
+  gap: 0 0.4rem;
+  align-items: center;
+  cursor: pointer;
+}
+.claude-arg-flag input { grid-area: box; }
+.claude-arg-flag code { grid-area: name; }
+.claude-arg-flag .claude-arg-help { grid-area: help; }
+.claude-args-all { margin-top: 0.75rem; }
+.claude-args-all > summary { cursor: pointer; font-size: 0.8125rem; font-weight: 600; }

@@ -176,8 +176,8 @@ async function cc_run({ form, send }) {
   }
   if (!started.ok) return send(screenStartedHtml(started, e.label, t.name), started.already ? 409 : 500);
   rl.recordRun({ at: new Date().toISOString(), id: `command:${e.id}`, label: e.label, workspace: t.ws, project: t.where || '.', session: started.session });
-  // Run by a plugin or in the page: its own answer says where the output is, since no terminal page opens on it.
-  if (started.html || started.job) return send(screenStartedHtml(started, e.label, t.name));
+  // Run by a plugin: its own answer says where the output is.
+  if (started.html) return send(screenStartedHtml(started, e.label, t.name));
 
   if (e.open === 'screen') {
     return send(`<div hidden hx-get="/fragments/screen-term/${encodeURIComponent(started.session)}" hx-trigger="load" hx-target="#editor-modal-body" hx-swap="innerHTML"

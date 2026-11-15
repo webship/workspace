@@ -305,7 +305,7 @@ sites) the menu never installs. It only adds to `composer.json`: **require**, **
 **validate** and links to edit the file. A workspace chooses with `composer: full` or
 `composer: manifest` in its own settings file, and manifest is the default.
 
-Every command runs in a screen session, and the toast at the top opens it. A DDEV project runs
+Every command runs in a screen session, and the notice at the top opens it. A DDEV project runs
 `ddev composer`; any other folder runs composer in the dashboard's own DDEV container. Clicking a
 command whose run is still going leaves that run alone and links to it.
 
@@ -360,7 +360,7 @@ nothing changed, the row is exactly as it has always been.
   **built in**: they can be moved and hidden, never deleted.
 - **Add an action** right inside the button: a label, its group, which folders it shows on, one
   command per line, and whether it keeps going after a failed step, asks before running, and opens
-  **a toast** linking to its session or **its screen** straight away. Your actions can be edited and
+  **a notice** linking to its session or **its screen** straight away. Your actions can be edited and
   deleted in place.
 - **Use a command** from Commands instead of typing it: pick it in the box, or write a step as
   `use: <command id>`. It runs on the row's project, asks for its options, and keeps its own filter of
@@ -409,6 +409,13 @@ Builds, installs, test suites and AI agents run in **screen sessions** so they s
 the tab. The **Screens** page lists them all, opens a real terminal on any of them, and — this is the
 useful part — flags one that has **stopped to ask you something** with `✋ waiting on a choice`,
 instead of leaving it looking busy for ever.
+
+Nothing you start draws a terminal at the bottom of the page. A build, a row's menu, a tool or a
+plugin step answers with a short notice at the top (what started, on what) and **Open in Screens**.
+That link opens the Screens page on that session: its state, **Open terminal**, and the end of its
+log, which is still there when the session has ended. If no screen session can be started, the
+command is not run: the notice says what is missing, the step that fixes it, and the command line
+to copy into your own terminal, and it stays until you close it.
 
 On a project card the screens sit beside the site's state: the screen icon, how many are running, and a
 ✋ when one waits for you. Its menu starts **New screen here…** (a shell in that project) or **Claude
@@ -618,6 +625,7 @@ paths, the CLIs, the Web IDE, the exposure state, and the inotify limit.
 | Nothing works after a reboot | DDEV projects do not come back by themselves. `bash core/scripts/autostart.sh --enable`, and `sudo loginctl enable-linger $USER` |
 | **JIRA** is greyed out | `twg` is missing or not signed in. The tooltip says which; `~/.local/bin/twg login --force` |
 | The Web IDE says *Unable to watch for file changes* | the kernel's inotify limit. `install.sh --check` prints the fix |
+| A command answers *was not started* | no screen session can be started: `screen` is missing where the dashboard runs. `bash core/scripts/install.sh` installs it; the notice also gives the line to run by hand |
 | A screen session looks stuck | check **Screens** — if it says `✋ waiting on a choice`, it is waiting for **you**. Open the terminal and answer it |
 
 ### One thing to know before you change it

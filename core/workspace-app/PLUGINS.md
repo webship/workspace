@@ -336,15 +336,23 @@ shadow a built-in, and disabling it removes its whole surface at once.
 
 ## Who runs a command
 
-Every command the dashboard starts (a build, a row menu's verb, a tool, a plugin's `screenAction`)
+Every command the dashboard starts (a build, a row menu's verb, a tool, a step of Settings →
+Plugins, a plugin's `screenAction`) runs in a screen session, and is read on the Screens page. It
 is offered to three runners, in this order, and the first that takes it answers the request:
 
 1. **A plugin's runner** (`api.addRunner`). It starts the command its own way and returns the
    result, or returns null to decline. A runner that throws is skipped.
 2. **The host runner** (`core/workspace-app/scripts/screen-host.sh --start`): the dashboard's own
-   screen sessions on the machine. It is the fallback while no plugin runs the command.
-3. **The page**: the command as a job toast with live output. It ends when the dashboard restarts,
-   and it means a command is never refused because the machine has no runner.
+   screen sessions on the machine.
+3. **Screen where the dashboard runs**: its container (`screen` is in the image), or the machine
+   when the dashboard is run there with node. A fresh workspace needs nothing more.
+
+There is no run in the page: no terminal is drawn at the bottom of it, by the dashboard or by a
+plugin (`api.capabilities.has('screens-only')`). After a start the page shows a short notice —
+what started, on what, and **Open in Screens**, which goes to `/screens?session=<name>`: that
+session first, with the end of its log, also after it has ended. When no runner can start a
+session the command is not started, and the answer says what is missing, the step that fixes it,
+and the command line to copy into a terminal of your own.
 
 ```js
 api.addRunner(async ({ session, workspace, project, projectDir, cmdLine, label }) => {
@@ -354,15 +362,20 @@ api.addRunner(async ({ session, workspace, project, projectDir, cmdLine, label }
 });
 ```
 
-A caller whose answer is about the session itself (a progress view that follows it) passes
-`page: false` to `startInScreen`, and is told the runner is missing instead of being run in the page.
+A runner's `html` is the answer shown: keep it a short notice with a link to the session
+(`<div class="msg assistant flash-now">…</div>`), not output.
 
 ## Useful targets
 
-- `#webship-workspace-output` — the page's output area (results, job toasts land near it).
+- `#webship-workspace-output` — the page's output area (short results; they surface as notices at the top).
 - `#editor-modal-body` — the editor modal; anything swapped in opens it automatically.
-- `api.lib.startJob(title, cmd, args, cwd, opts)` + `jobFragment(id).html` — run a command as a
-  live job toast, the way every built-in long action does.
+- `api.lib.screenAction(send, { workspace, project, projectDir, verb, cmdLine, label })` — start a
+  command the way every built-in action does: a screen session, and the notice with its link. End
+  a short command with `api.lib.lingerTail(label)` so its session stays open to be read.
+- `api.lib.startJob(title, cmd, args, cwd, opts)` + `jobFragment(id).html` — a view that follows a
+  process where you swap it in (a modal, a panel of your own): a progress bar from `phases`, the
+  output, a Stop button. It stays where it was put — it is never moved to the bottom of the page —
+  and it ends with the dashboard, so it is not how a command is run.
 
 ## Types and plugins
 

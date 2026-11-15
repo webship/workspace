@@ -227,6 +227,47 @@ function screenTailHtml(session) {
   return esc(text || '(no output yet)');
 }
 
+/** Is a session done? It is gone, or it is only waiting to be read (its last line is the linger mark). */
+async function sessionDone(session) {
+  if (!(await listScreens()).some((s) => s.session === session)) return true;
+  const log = screenLogFor(session);
+  if (!log) return false;
+  try {
+    const text = fs.readFileSync(log, 'utf8').slice(-2000);
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    return lines.length > 0 && lines[lines.length - 1].includes(require('./linger').LINGER_MARK);
+  } catch (_) { return false; }
+}
+
+/**
+ * One session, asked for by name: /screens?session=<name>, the link of the notice a command starts
+ * with. Running: its state, its terminal, the end of its log. Ended: the end of its log, which is
+ * still there — so a command that took a second can be read after its session is gone.
+ */
+async function sessionAskedHtml(session) {
+  const live = (await listScreens()).find((s) => s.session === session);
+  const log = screenLogFor(session);
+  const tail = log ? `<pre class="terminal-pre">${screenTailHtml(session).replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')}</pre>` : '';
+  const logLine = log ? `<span class="uk-text-meta">log: <code>${esc(tildePath(log))}</code></span>` : '';
+  if (live) {
+    return `<div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small screen-asked is-running" data-session="${esc(session)}">
+      <div class="screen-asked-head"><strong>${esc(session)}</strong>
+        <span class="uk-label uk-label-success">running</span>
+        <button class="uk-button uk-button-primary uk-button-small" type="button" data-open-terminal="${esc(session)}"
+          title="Attach an interactive terminal (screen -x)"><span uk-icon="icon: laptop; ratio: .8"></span> Open terminal</button>
+        ${logLine}</div>
+      ${tail}</div>`;
+  }
+  if (log) {
+    return `<div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small screen-asked is-ended" data-session="${esc(session)}">
+      <div class="screen-asked-head"><strong>${esc(session)}</strong>
+        <span class="uk-label">ended</span> <span>The session has ended. The end of its log:</span> ${logLine}</div>
+      ${tail}</div>`;
+  }
+  return `<div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small screen-asked is-ended" data-session="${esc(session)}">
+      <div class="screen-asked-head"><strong>${esc(session)}</strong> <span>No such session is running, and it left no log here.</span></div></div>`;
+}
+
 // Where a new session can run: the workspace root, any workspace folder, and
 // any project inside one. The value is a token the action resolves back to a
 // directory — never a path from the browser.
@@ -1060,4 +1101,4 @@ module.exports = {
   TERM_STYLES,
   termPaneHtml, termLayerHtml, termCliHintHtml,
   claudeResumeHtml,
-  waitingState, sessionWaitingWhy, agentSessions, activityByDir, activityFromSessions, listScreens, listContainerScreens, listPlaywrightBrowsers, parseBrowserLine, processInContainer, sessionNeedsInput, screensForDir, screenLogFor, screensListHtml, screensGridHtml, screenTailHtml, screenTargets, screenTargetDir, newScreenFormHtml, newScreenButtonHtml, screenWhereHtml, workspaceOptionsHtml, workspaceOfTarget, targetOptionsHtml, defaultSessionName, claudeArgsHtml, promptTemplates, promptTemplateText };
+  waitingState, sessionWaitingWhy, agentSessions, activityByDir, activityFromSessions, listScreens, listContainerScreens, listPlaywrightBrowsers, parseBrowserLine, processInContainer, sessionNeedsInput, screensForDir, screenLogFor, screensListHtml, screensGridHtml, screenTailHtml, sessionAskedHtml, sessionDone, screenTargets, screenTargetDir, newScreenFormHtml, newScreenButtonHtml, screenWhereHtml, workspaceOptionsHtml, workspaceOfTarget, targetOptionsHtml, defaultSessionName, claudeArgsHtml, promptTemplates, promptTemplateText };
