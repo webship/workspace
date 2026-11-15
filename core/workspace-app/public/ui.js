@@ -950,13 +950,19 @@ document.addEventListener('focusin', (e) => {
   const holder = e.target.closest && e.target.closest('[data-refocus]');
   settingsFocusKey = holder ? holder.dataset.refocus : '';
 });
+// Several parts of a plugin's page are drawn again by one step, one after the other: the check waits
+// for the last of them, or focus would be put on a button that the next redraw takes away.
+let settingsRefocusTimer = 0;
 document.body.addEventListener('htmx:after:settle', () => {
-  if (!settingsFocusKey || (document.activeElement && document.activeElement !== document.body)) return;
-  const holder = [...document.querySelectorAll('[data-refocus]')].find((el) => el.dataset.refocus === settingsFocusKey);
-  if (!holder) return;
-  const target = holder.querySelector('.plugin-step-item.is-now button, .plugin-step-item.is-now a, .plugin-row-action .uk-button') || holder;
-  if (target === holder && !holder.hasAttribute('tabindex')) holder.setAttribute('tabindex', '-1');
-  target.focus({ preventScroll: false });
+  clearTimeout(settingsRefocusTimer);
+  settingsRefocusTimer = setTimeout(() => {
+    if (!settingsFocusKey || (document.activeElement && document.activeElement !== document.body)) return;
+    const holder = [...document.querySelectorAll('[data-refocus]')].find((el) => el.dataset.refocus === settingsFocusKey);
+    if (!holder) return;
+    const target = holder.querySelector('.plugin-step-item.is-now button, .plugin-step-item.is-now a, .plugin-row-action .uk-button, .plugin-buttons .uk-button') || holder;
+    if (target === holder && !holder.hasAttribute('tabindex')) holder.setAttribute('tabindex', '-1');
+    target.focus();
+  }, 120);
 });
 settingsSearchInit();
 document.body.addEventListener('htmx:after:swap', settingsSearchInit);

@@ -87,5 +87,6 @@ test('focus stays with the plugin when its row or its steps are drawn again afte
   assert.match(page, /data-refocus="steps-\$\{esc\(p\.name\)\}"/);
   const ui = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'ui.js'), 'utf8');
   assert.match(ui, /document\.activeElement !== document\.body\)\) return;/, 'only when focus was lost: a person who moved on is left where they are');
+  assert.match(ui, /clearTimeout\(settingsRefocusTimer\);/, 'after the last of the redraws, not the first');
   assert.match(ui, /holder\.setAttribute\('tabindex', '-1'\)/);
 });
