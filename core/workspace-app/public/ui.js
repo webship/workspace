@@ -940,6 +940,22 @@ document.body.addEventListener('htmx:after:swap', (e) => {
   const pane = tab && tab.closest('.tabmodal').querySelector('.tabmodal-pane');
   if (pane) pane.scrollTop = 0;
 });
+// When a step has run, the part of Settings that shows the plugin is drawn again, and the button that
+// was pressed is gone with the old one. Focus goes to the same plugin in the new one (its row, or the
+// steps of its page) instead of falling back to the top of the document.
+let settingsFocusKey = '';
+document.addEventListener('focusin', (e) => {
+  const holder = e.target.closest && e.target.closest('[data-refocus]');
+  settingsFocusKey = holder ? holder.dataset.refocus : '';
+});
+document.body.addEventListener('htmx:after:settle', () => {
+  if (!settingsFocusKey || (document.activeElement && document.activeElement !== document.body)) return;
+  const holder = [...document.querySelectorAll('[data-refocus]')].find((el) => el.dataset.refocus === settingsFocusKey);
+  if (!holder) return;
+  const target = holder.querySelector('.plugin-step-item.is-now button, .plugin-step-item.is-now a, .plugin-row-action .uk-button') || holder;
+  if (target === holder && !holder.hasAttribute('tabindex')) holder.setAttribute('tabindex', '-1');
+  target.focus({ preventScroll: false });
+});
 settingsSearchInit();
 document.body.addEventListener('htmx:after:swap', settingsSearchInit);
 document.body.addEventListener('htmx:after:settle', settingsSearchInit);

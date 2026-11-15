@@ -25,3 +25,27 @@ Feature: Settings → Plugins
     Given I am on "/settings"
      Then I should see "Plugins"
       And "a[href='/settings/plugins']" should be attached
+
+  # workspace-notes is the reference plugin the base carries, so it is on every dashboard.
+  Scenario: A plugin has a page of its own, with the four steps as one list
+    Given I am on "/settings/plugin/workspace-notes"
+     Then the element ".plugin-head-name" should be displayed
+      And the element "ol.plugin-step-list" should be displayed
+      And I should see "What it needs"
+      And I should see "What it ships"
+      And I should see "Reinstall or remove"
+
+  Scenario: The Settings home lists it as a row with its state in words
+    Given I am on "/settings"
+     Then "a[href='/settings/plugin/workspace-notes']" should be attached
+      And the element ".plugin-row .plugin-state" should be displayed
+
+  Scenario: A plugin that is not here says so, and where to add it
+    Given I am on "/settings/plugin/no-such-plugin"
+     Then I should see "No plugin called no-such-plugin is added to this workspace"
+      And "a[href='/settings/plugins']" should be attached
+
+  Scenario: The filter of the Settings home says when nothing matches
+    Given I am on "/settings"
+     When I fill in "settings-search-input" with "zzzz-nothing-has-this-name" by its "id" attribute
+     Then I should see "Nothing matches."
