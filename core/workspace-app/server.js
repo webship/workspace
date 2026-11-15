@@ -83,7 +83,7 @@ const {
 } = require('./ai-items');
 // Optional features workspaces turn on from settings.yml `plugins:` — see PLUGINS.md.
 const {
-  pluginActions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
+  pluginActions, pluginFragment, pluginPage, pluginScripts, pluginScript, pluginUpload, pluginPageActionGroups, pluginProjectActionsHtml,
   pluginRowMenus, menuShellHtml, pluginRowMenuSlot, pluginRowMenuBody, pluginWorkspaceView, pluginOpenWith, pluginFolderLinks, pluginProjectChipsHtml, pluginLabels,
   pluginProjectBadgesHtml, pluginSettingsOptions, pluginWorkKeyLink, pluginWorkPrompt,
 } = require('./plugin-loader');
@@ -1196,7 +1196,7 @@ ${avatarOn ? `<script type="importmap">{"imports":{"three":"/vendor/three/three.
 <script src="${assetUrl('/narration.js')}" defer></script>
 <script src="${assetUrl('/media-player.js')}" defer></script>
 <script src="${assetUrl('/ui.js')}" defer></script>
-${avatarOn ? `<script src="${assetUrl('/assistant-avatar-ui.js')}" defer></script>\n` : ''}<script src="${assetUrl('/sortable.js')}" defer></script>
+${avatarOn ? `<script src="${assetUrl('/assistant-avatar-ui.js')}" defer></script>\n` : ''}${pluginScripts().map((p) => `<script src="${esc(p.url)}" defer></script>\n`).join('')}<script src="${assetUrl('/sortable.js')}" defer></script>
 <script src="${assetUrl('/palette.js')}" defer></script>
 <!-- "@" and "/" suggestions in any prompt field, including the assistant composer. Its own
      file because it is self-contained and ui.js is already the biggest script here; deferred
@@ -5833,6 +5833,8 @@ const server = http.createServer(async (req, res) => {
       }
       if (pathname === '/actions/status') return handleAction(pathname, {}, res);
       if (pathname.startsWith('/fragments/p/') && pluginFragment(pathname, req, res)) return;
+      // A plugin's browser script (its manifest's `js`, or api.addScript): only a file a plugin declared.
+      if (pathname.startsWith('/plugin-js/') && pluginScript(pathname, res)) return;
       // The body of a plugin's row menu that loads when it opens (plugin-loader's rowMenuHtml): the
       // plugin's own fragment, arranged like an inline menu's items — the Buttons settings hide, order
       // and add to it the same way, and the settings page sees its entries once one has been opened.
@@ -8011,6 +8013,26 @@ Summarise what you changed and how to verify it`,
         }
       });
       return;
+    }
+
+    // A plugin's upload (api.addUpload): a binary body, so it is answered before the form parser. The
+    // same guard as every action: a page on another site cannot post here.
+    const upload = req.method === 'POST' && pathname.startsWith('/actions/p/') ? pluginUpload(pathname) : null;
+    if (upload) {
+      const json = (o, status = 200) => { if (res.headersSent) return; res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(o)); };
+      if (foreignOrigin(req)) return json({ error: 'Refused: this request came from another site.' }, 403);
+      if (Number(req.headers['content-length'] || 0) > upload.maxBytes) return json({ error: 'That is too large.' }, 413);
+      const parts = []; let size = 0; let over = false;
+      req.on('data', (d) => { size += d.length; if (size > upload.maxBytes) { over = true; parts.length = 0; } else if (!over) parts.push(d); });
+      req.on('end', () => {
+        if (over) return json({ error: 'That is too large.' }, 413);
+        const fail = (err) => { console.error('plugin upload failed:', pathname, err && err.message ? err.message : err); json({ error: 'That failed.' }, 500); };
+        try {
+          const r = upload.handler({ req, res, body: Buffer.concat(parts), searchParams: new URL(req.url, 'http://localhost').searchParams, json });
+          if (r && typeof r.catch === 'function') r.catch(fail);
+        } catch (err) { fail(err); }
+      });
+      return undefined;
     }
 
     // An upload is binary and larger than a form, so it has its own route before the form parser.

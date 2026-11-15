@@ -86,7 +86,7 @@ test('the api offers addRunner and addScreensPanel, and names both as capabiliti
   const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin-loader.js'), 'utf8');
   assert.match(src, /addRunner\(fn\) \{/);
   assert.match(src, /addScreensPanel\(fn\) \{/);
-  assert.match(src, /new Set\(\['row-menu-body', 'runner', 'screens-panel'\]\)/);
+  assert.match(src, /new Set\(\['row-menu-body', 'runner', 'screens-panel'[^\]]*\]\)/);
   assert.strictEqual(loader.pluginScreensPanelsHtml(), '', 'no plugin, no panel');
   assert.match(fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8'), /pluginScreensPanelsHtml\(\)/, 'the Screens page draws the panels');
   const doc = fs.readFileSync(path.join(__dirname, '..', '..', 'PLUGINS.md'), 'utf8');

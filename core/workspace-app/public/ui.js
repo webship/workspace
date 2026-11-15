@@ -1454,7 +1454,13 @@ document.addEventListener('click', (e) => {
     },
   };
   el.requestInterceptor = (details) => {
-    details.body = { ...details.body, voice: narrator.isOn(), avatar: Boolean(window.wsAssistantAvatarOn && window.wsAssistantAvatarOn()), avatarName: window.wsAvatarName ? window.wsAvatarName() : '', avatarId: window.wsAvatarId ? window.wsAvatarId() : '', page: window.wsAvatarContext ? window.wsAvatarContext() : null };
+    let body = { ...details.body, voice: narrator.isOn(), avatar: Boolean(window.wsAssistantAvatarOn && window.wsAssistantAvatarOn()), avatarName: window.wsAvatarName ? window.wsAvatarName() : '', avatarId: window.wsAvatarId ? window.wsAvatarId() : '', page: window.wsAvatarContext ? window.wsAvatarContext() : null };
+    // A plugin's script may add to what a turn carries (window.wsAssistantHooks.beforeSend): a function
+    // is given the body and returns it, or nothing to leave it as it is.
+    for (const fn of (window.wsAssistantHooks && window.wsAssistantHooks.beforeSend) || []) {
+      try { const next = fn(body); if (next && typeof next === 'object') body = next; } catch (_) { /* a plugin's mistake must not stop a turn */ }
+    }
+    details.body = body;
     return details;
   };
   const playSendAnimation = () => {
@@ -1481,6 +1487,16 @@ document.addEventListener('click', (e) => {
   };
   el.onError = () => setWorking(false, true);
 
+  // What a plugin's script reaches: send a turn as if it were typed, and add to a turn's body.
+  window.wsAssistantHooks = window.wsAssistantHooks || {};
+  if (!Array.isArray(window.wsAssistantHooks.beforeSend)) window.wsAssistantHooks.beforeSend = [];
+  window.wsAssistantSend = (text) => {
+    const words = String(text || '').trim();
+    if (!words) return false;
+    try { el.submitUserMessage({ text: words }); return true; }
+    catch (_) { try { el.submitUserMessage(words); return true; } catch (__) { return false; } }
+  };
+
   // The reply arrives as rendered markdown plus the directives the assistant ended with. Acting on
   // them here keeps the interface steering that the HTMX pane had: the agent can start a project
   // and then take you to it.
@@ -1491,8 +1507,12 @@ document.addEventListener('click', (e) => {
       if (d.open) window.open(d.open, '_blank', 'noopener');
       if (d.navigate) setTimeout(() => { window.location.href = d.navigate; }, 600);
     }
+    // A plugin's script that speaks the answer itself (sentence by sentence, in a voice of its own) says
+    // so by cancelling this event; left alone, the summary voice speaks as before.
+    const answer = new CustomEvent('ws-assistant-answer', { cancelable: true, detail: { html: (response && response.html) || '', spoken: (d && d.spoken) || '', directive: d || null } });
+    const speakHere = document.dispatchEvent(answer);
     setWorking(false);
-    if (response && response.html) narrator.narrate({ spoken: d && d.spoken, html: response.html });
+    if (response && response.html) { if (speakHere) narrator.narrate({ spoken: d && d.spoken, html: response.html }); }
     document.dispatchEvent(new CustomEvent('ws-assistant-reply', { detail: { directive: d || null, voice: narrator.isOn() } }));
     return response;
   };

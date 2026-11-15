@@ -89,6 +89,8 @@ const pages = [];            // { re, handler({ req, res, match, send }) }
 const chipFns = [];          // ({ key, project, dir, meta }) -> html | null
 const folderSetups = [];     // { html(ws, ctx), steps(ws, name, form, ctx), prompt(ws, name, form, ctx), problem(ws, form, ctx) }
 const cssFiles = [];         // absolute paths, appended to the stylesheet after the components
+const scriptFiles = [];      // { plugin, name, file }: browser scripts, served at /plugin-js/<plugin>/<name> and loaded after ui.js
+const uploads = {};          // '/actions/p/<plugin>/<name>' -> { handler({ req, res, body, searchParams, json }), maxBytes }
 let labels = {};             // settings labels, merged into settings.labels.yml's
 const badgeFns = [];         // ({ key, project, dir, sessions }) -> html | null, in the card's corner, refreshed with the screens poll
 const settingsOptionFns = []; // ({ file, dotted }) -> Promise<[value, label][] | null>
@@ -139,7 +141,20 @@ function appliesTo(config, workspaceKey) {
 //   row-menu-body  a row-menu function may return `{ html, body }`: the body loads when the menu opens.
 //   runner         api.addRunner: a plugin can be the runner of the commands the dashboard starts.
 //   screens-panel  api.addScreensPanel: a plugin can draw a panel at the top of the Screens page.
-const CAPABILITIES = Object.freeze(new Set(['row-menu-body', 'runner', 'screens-panel']));
+//   scripts        api.addScript and the manifest's `js`: a plugin's browser scripts are loaded on every page.
+//   uploads        api.addUpload: a plugin action that takes a binary body (an utterance, a picture).
+//   assistant-answer  the page's `ws-assistant-answer` event, `wsAssistantSend` and `wsAssistantHooks`.
+const CAPABILITIES = Object.freeze(new Set(['row-menu-body', 'runner', 'screens-panel', 'scripts', 'uploads', 'assistant-answer']));
+
+const SCRIPT_NAME_RE = /^[a-z0-9][a-z0-9._-]{0,80}\.js$/;
+const UPLOAD_MAX = 32 * 1024 * 1024;
+/** One browser script of a plugin: the file's own name is its name in the URL, so two cannot share one. */
+function addScriptFile(plugin, file) {
+  const name = path.basename(String(file));
+  if (!SCRIPT_NAME_RE.test(name)) throw new Error(`${plugin}: a script is named in lowercase letters, digits, dots and hyphens, and ends in .js ('${name}')`);
+  if (scriptFiles.some((s) => s.plugin === plugin && s.name === name)) return;
+  scriptFiles.push({ plugin, name, file: path.resolve(String(file)) });
+}
 
 function makeApi(name, config) {
   return {
@@ -196,6 +211,19 @@ function makeApi(name, config) {
     // A stylesheet of the plugin's own, appended after the components (it may only add rules).
     addCss(file) {
       cssFiles.push(file);
+    },
+    // A browser script of the plugin's own, loaded with `defer` on every page after the dashboard's
+    // (what the manifest's `js` does). It is served from where it is, at /plugin-js/<plugin>/<file name>.
+    addScript(file) {
+      addScriptFile(name, file);
+    },
+    // POST /actions/p/<plugin>/<action> with a binary body: an utterance to transcribe, a picture to
+    // look at. `handler({ req, res, body, searchParams, json })` answers it (`json(object, status)` is
+    // the short way). Refused from another site and over `maxBytes` (2 MB unless said, 32 MB at most).
+    addUpload(action, handler, { maxBytes = 2 * 1024 * 1024 } = {}) {
+      if (!/^[a-z0-9-]+$/.test(action)) throw new Error(`${name}: invalid upload name '${action}'`);
+      if (typeof handler !== 'function') throw new Error(`${name}: an upload needs a handler`);
+      uploads[`/actions/p/${name}/${action}`] = { handler, maxBytes: Math.max(1, Math.min(UPLOAD_MAX, Number(maxBytes) || 0)) };
     },
     // An action name workspace types may allow ('upsun' on sites): what `typeAllows` answers.
     addTypeAction(action, types) {
@@ -276,6 +304,7 @@ function applyManifest(name, plugin) {
   const m = plugin.manifest || {};
   for (const [action, types] of Object.entries(m.typeActions || {})) addTypeAction(action, types);
   for (const f of m.css || []) cssFiles.push(path.join(plugin.dir, f));
+  for (const f of m.js || []) { try { addScriptFile(name, path.join(plugin.dir, f)); } catch (err) { console.error(String(err.message || err)); } }
   if (m.labels) {
     try {
       const data = yaml.load(fs.readFileSync(path.join(plugin.dir, m.labels), 'utf8')) || {};
@@ -557,13 +586,37 @@ function pluginSessionLog(session, dirs) {
   return '';
 }
 const pluginCssFiles = () => cssFiles.filter((f) => fs.existsSync(f));
+
+/** The plugins' browser scripts, in the order they were declared: `{ url, file }`. The URL carries the file's time. */
+function pluginScripts() {
+  const out = [];
+  for (const s of scriptFiles) {
+    try { out.push({ url: `/plugin-js/${s.plugin}/${s.name}?v=${Math.floor(fs.statSync(s.file).mtimeMs)}`, file: s.file }); } catch (_) { /* gone: not loaded */ }
+  }
+  return out;
+}
+
+/** Handle GET /plugin-js/<plugin>/<name>: only a script a plugin declared. Returns true when handled. */
+function pluginScript(pathname, res) {
+  const m = pathname.match(/^\/plugin-js\/([a-z0-9-]+)\/([a-z0-9][a-z0-9._-]{0,80}\.js)$/);
+  const hit = m && scriptFiles.find((s) => s.plugin === m[1] && s.name === m[2]);
+  if (!hit) return false;
+  let body;
+  try { body = fs.readFileSync(hit.file); } catch (_) { return false; }
+  res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Content-Length': body.length });
+  res.end(body);
+  return true;
+}
+
+/** The upload registered at this path, `{ handler, maxBytes }`, or null. */
+const pluginUpload = (pathname) => uploads[pathname] || null;
 const pluginLabels = () => labels;
 
 loadPlugins();
 
 module.exports = {
   pluginActions: actions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
-  pluginRowMenus, rowMenuHtml, menuShellHtml, pluginRowMenuSlot, pluginRowMenuBody, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginLabels,
+  pluginRowMenus, rowMenuHtml, menuShellHtml, pluginRowMenuSlot, pluginRowMenuBody, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginScripts, pluginScript, pluginUpload, pluginLabels,
   pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext, pluginForge, pluginForges, pluginOpenWith, pluginFolderLinks, pluginWorkspaceView,
   pluginScreensPanelsHtml,
   loadedPlugins: loaded, pluginConfigs,
