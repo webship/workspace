@@ -286,7 +286,7 @@ function playSvg(img) {
   img.setAttribute('src', `${src}${src.includes('?') ? '&' : '?'}play=${Date.now()}`);
 }
 function watchSvgMotion(root) {
-  (root || document).querySelectorAll('img[data-svg-motion]:not([data-svg-watched])').forEach((img) => {
+  (root && typeof root.querySelectorAll === 'function' ? root : document).querySelectorAll('img[data-svg-motion]:not([data-svg-watched])').forEach((img) => {
     img.dataset.svgWatched = '1';
     if (!window.IntersectionObserver) return;
     const io = new IntersectionObserver((entries) => {
@@ -465,7 +465,7 @@ function aceTheme() {
 function attachAce(root) {
   // A swap can name a target that is not an element (a polling card replaces itself); there is nothing to attach to then.
   if (root && typeof root.querySelectorAll !== 'function') return;
-  const fields = (root || document).querySelectorAll('textarea[data-ace]:not([data-ace-ready])');
+  const fields = (root && typeof root.querySelectorAll === 'function' ? root : document).querySelectorAll('textarea[data-ace]:not([data-ace-ready])');
   if (!fields.length) return;
   // Claim each field NOW, synchronously, before awaiting the loader — the guard above
   // is only honest if it is set before anything can await. Both `htmx:after:swap` and
@@ -776,7 +776,7 @@ document.addEventListener('input', (e) => {
 // A long one folds its groups: the first group and "This project" stay open, the rest open on their
 // heading; a heading that is a sentence stays a note. Every entry is one line, its full text the tooltip.
 function foldDdevMenus(root) {
-  (root || document).querySelectorAll('.act-menu .uk-dropdown:not([data-folded])').forEach((drop) => {
+  (root && typeof root.querySelectorAll === 'function' ? root : document).querySelectorAll('.act-menu .uk-dropdown:not([data-folded])').forEach((drop) => {
     const links = drop.querySelectorAll('li > a').length;
     if (!links) return;           // filled later by its own request, folded then
     drop.dataset.folded = '1';
@@ -1013,7 +1013,7 @@ document.addEventListener('click', (e) => {
 
 // The caption of a button is also its tooltip, so folding it away loses nothing for a pointer.
 function syncRowCaptions(root) {
-  for (const wrap of (root || document).querySelectorAll('.act-with-status')) {
+  for (const wrap of (root && typeof root.querySelectorAll === 'function' ? root : document).querySelectorAll('.act-with-status')) {
     const cap = wrap.querySelector('.act-status');
     const btn = wrap.querySelector('button');
     if (!cap || !btn) continue;

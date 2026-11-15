@@ -106,7 +106,7 @@
    */
   function addFieldMics(root) {
     if (!enabled()) return;
-    const fields = (root || document).querySelectorAll(
+    const fields = (root && typeof root.querySelectorAll === 'function' ? root : document).querySelectorAll(
       'input[type="text"]:not([data-mic]), input:not([type]):not([data-mic]), textarea:not([data-mic])');
     fields.forEach((field) => {
       field.dataset.mic = '1';
