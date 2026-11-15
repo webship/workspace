@@ -39,3 +39,26 @@ test('a tab opens at its top, whatever the scroll of the tab before it', () => {
   const ui = read('public/ui.js');
   assert.match(ui, /closest\('\.tabmodal-tab'\);\s*const pane = tab && tab\.closest\('\.tabmodal'\)\.querySelector\('\.tabmodal-pane'\);\s*if \(pane\) pane\.scrollTop = 0;/);
 });
+
+test('the modal takes focus into the dialog when it opens and gives it back to what opened it', () => {
+  const ui = read('public/ui.js');
+  assert.match(ui, /let editorModalOpener = null;/);
+  assert.match(ui, /dialog\.tabIndex = -1;\s*dialog\.focus\(\{ preventScroll: true \}\);/);
+  assert.match(ui, /if \(opener && opener\.isConnected\) setTimeout\(\(\) => \{ try \{ opener\.focus\(\); \}/);
+});
+
+test('modal tabs: the panel is not a live region, a tab says its badge and its group apart from its name, the filter says what is left', () => {
+  const { tabModalHtml } = require('../../tab-modal');
+  const html = tabModalHtml({ id: 'settings', title: 'Settings', filter: true, groups: [
+    { id: 'family-platforms', label: 'Platforms', tabs: [{ id: 'plugin-drupal', label: 'Drupal', url: '/x', badge: 'Needs settings', badgeTone: 'warning' }, { id: 'plugin-odoo', label: 'Odoo', url: '/y', badge: 'Not active' }] }] });
+  assert.ok(!html.includes('aria-live'), 'a 5,000-character panel is not read out on every tab change');
+  assert.match(html, /<span class="tabmodal-tab-label">Drupal<\/span><span class="uk-hidden-visually">, <\/span><span class="tabmodal-badge is-warning">Needs settings<\/span><span class="uk-hidden-visually">, Platforms<\/span>/);
+  assert.match(html, /<span class="tabmodal-badge">Not active<\/span>/, 'not a blocker: the quiet badge');
+  assert.match(html, /<p class="tabmodal-group-label" aria-hidden="true">Platforms<\/p>/);
+  assert.match(html, /aria-describedby="tm-settings-filter-status"/);
+  assert.match(html, /<p class="tabmodal-filter-status" id="tm-settings-filter-status" role="status" data-total="2"><\/p>/);
+  assert.match(html, /<h2 class="tabmodal-heading">Drupal<\/h2>/, 'the pane heading is level with "Settings", so the sections under it are below it');
+  assert.match(read('public/ui.js'), /`\$\{shown\} of \$\{status\.dataset\.total\} shown\.` : 'Nothing matches\.'/);
+  assert.match(groups, /badgeTone: p\.state\.attention \? 'warning' : ''/);
+  assert.match(groups, /hint: p\.summary \|\| '',/, 'the line under the pane heading is what the plugin is, not its package a second time');
+});

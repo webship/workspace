@@ -22,7 +22,7 @@ const { iconHtml } = require('./icons');
  * @param {{label: string, url: string}} [o.back]  a way out above the tabs, loaded into the whole modal
  * @param {boolean} [o.filter] a filter box above the tabs, for a long list
  * @param {boolean} [o.hash]   keep #<id>/<tab> in the address, so the place can be linked to and reopened
- * @param {{id: string, label: string, tabs: {id: string, label: string, url: string, icon?: string, hint?: string, badge?: string}[]}[]} o.groups
+ * @param {{id: string, label: string, tabs: {id: string, label: string, url: string, icon?: string, hint?: string, badge?: string, badgeTone?: string}[]}[]} o.groups
  * @param {string} [o.active]  the tab to open on; the first one when it is not found
  */
 function tabModalHtml({ id, title, subtitle = '', back = null, filter = false, hash = false, groups, active = '' }) {
@@ -30,13 +30,16 @@ function tabModalHtml({ id, title, subtitle = '', back = null, filter = false, h
   if (!all.length) return '<div class="msg error">Nothing to show here.</div>';
   const current = all.find((t) => t.id === active) || all[0];
   const pane = `tm-${id}-pane`;
-  const tab = (t) => {
+  // A tab says its name, then (after a pause a screen reader can hear) what it wants and which group it
+  // is in. The group's printed label is for the eye only: inside a tablist a label is not a tab, so it is
+  // hidden from assistive technology and the group goes into each tab's name instead.
+  const tab = (t, group = '') => {
     const on = t === current;
     return `<button type="button" role="tab" class="tabmodal-tab${on ? ' is-selected' : ''}"
         id="tm-${esc(id)}-${esc(t.id)}" data-tab="${esc(t.id)}" data-label="${esc(t.label)}"
         data-hint="${esc(t.hint || '')}" aria-selected="${on ? 'true' : 'false'}" aria-controls="${esc(pane)}"
         tabindex="${on ? '0' : '-1'}" hx-get="${esc(t.url)}" hx-target="#${esc(pane)}" hx-swap="innerHTML">
-        ${iconHtml(t.icon || 'tabler:point', 0.9)}<span class="tabmodal-tab-label">${esc(t.label)}</span>${t.badge ? `<span class="tabmodal-badge">${esc(t.badge)}</span>` : ''}
+        ${iconHtml(t.icon || 'tabler:point', 0.9)}<span class="tabmodal-tab-label">${esc(t.label)}</span>${t.badge ? `<span class="uk-hidden-visually">, </span><span class="tabmodal-badge${t.badgeTone ? ` is-${esc(t.badgeTone)}` : ''}">${esc(t.badge)}</span>` : ''}${group ? `<span class="uk-hidden-visually">, ${esc(group)}</span>` : ''}
       </button>`;
   };
   return `
@@ -48,22 +51,23 @@ function tabModalHtml({ id, title, subtitle = '', back = null, filter = false, h
       <h2>${esc(title)}</h2>
       ${subtitle ? `<span class="uk-text-meta">${esc(subtitle)}</span>` : ''}
     </div>
-    ${filter ? `<input type="search" class="tabmodal-filter uk-input uk-form-small" placeholder="Filter" aria-label="Filter ${esc(title)}" autocomplete="off">` : ''}
+    ${filter ? `<input type="search" class="tabmodal-filter uk-input uk-form-small" placeholder="Filter" aria-label="Filter ${esc(title)}" aria-describedby="tm-${esc(id)}-filter-status" autocomplete="off">
+    <p class="tabmodal-filter-status" id="tm-${esc(id)}-filter-status" role="status" data-total="${all.length}"></p>` : ''}
     <div class="tabmodal-tabs" role="tablist" aria-orientation="vertical" aria-label="${esc(title)}">
       ${groups.map((g) => `
       <div class="tabmodal-group" role="presentation" data-group="${esc(g.id)}">
-        ${g.label ? `<p class="tabmodal-group-label" role="presentation">${esc(g.label)}</p>` : ''}
-        ${g.tabs.map(tab).join('')}
+        ${g.label ? `<p class="tabmodal-group-label" aria-hidden="true">${esc(g.label)}</p>` : ''}
+        ${g.tabs.map((t) => tab(t, g.label)).join('')}
       </div>`).join('')}
     </div>
   </nav>
   <section class="tabmodal-main">
     <header class="tabmodal-head">
-      <h3 class="tabmodal-heading">${esc(current.label)}</h3>
+      <h2 class="tabmodal-heading">${esc(current.label)}</h2>
       <span class="tabmodal-sub uk-text-meta">${esc(current.hint || '')}</span>
     </header>
     <div class="tabmodal-pane" id="${esc(pane)}" role="tabpanel" aria-labelledby="tm-${esc(id)}-${esc(current.id)}"
-         tabindex="0" aria-live="polite">
+         tabindex="0">
       <div class="tabmodal-loading" hx-get="${esc(current.url)}" hx-trigger="load" hx-target="#${esc(pane)}" hx-swap="innerHTML">
         <span class="uk-text-meta">Loading…</span>
       </div>

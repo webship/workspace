@@ -127,7 +127,7 @@ function pluginsSectionHtml(groups, { only = '' } = {}) {
              hx-get="/fragments/settings/plugins${only ? `?only=${esc(only)}` : ''}" hx-trigger="refresh-projects from:body" hx-swap="outerHTML"
              data-count-all="${n.all}" data-count-attention="${n.attention}" data-count-active="${n.active}" data-count-inactive="${n.inactive}" data-count-updates="${n.updates}">
       <div class="settings-group-bar">
-        <h2 class="settings-group-head" id="settings-plugins-head">${only === 'attention' ? 'Plugins that need attention' : 'Plugins'}</h2>
+        <${only ? 'h3' : 'h2'} class="settings-group-head" id="settings-plugins-head">${only === 'attention' ? 'Plugins that need attention' : 'Plugins'}</${only ? 'h3' : 'h2'}>
         <span class="settings-group-summary">${summary}</span>
         <a class="uk-button uk-button-default uk-button-small settings-add" href="/settings/plugins">${iconHtml('tabler:plus', 0.8)} Add a plugin</a>
       </div>
