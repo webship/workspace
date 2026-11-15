@@ -377,20 +377,23 @@ test('--list and the Plugins page say what each plugin needs, whether it is met,
   let list = sh(t, '--list').stdout;
   assert.match(list, /wp .*required · next: activate\n\s+needs: one of dev, test \(not here; dev is the one added\) · ai-agents \(not here\) {3}suggests: graph \(not here\)/);
   assert.match(list, /broken .*\n\s+problem: needs: must be a list of plugin names/);
+  // Each plugin's own page in Settings (the Plugins page used to carry a card per plugin).
+  const pages = () => node(t, 'const m=require("./settings-model"),pg=require("./settings-plugin-page");const g=m.groupByFamily(require("./plugins-page").rows()).flatMap((f)=>f.plugins);const known=new Set(g.map((p)=>p.name));console.log(g.map((p)=>"PLUGIN-PAGE "+pg.pluginPageHtml(p,{known,files:[]})).join(""))');
   const page = () => node(t, 'console.log(require("./plugins-page").pluginsPageHtml())');
-  let html = page();
-  const card = (h, label) => h.split('plugin-card').find((c) => c.includes(`>${label} <span`)) || '';
-  assert.match(card(html, 'WP'), /<strong>Needs:<\/strong> <span class="plugin-need is-unmet">one of dev, test <span class="uk-text-warning">not here<\/span>/);
-  assert.match(card(html, 'WP'), /<strong>Suggests:<\/strong> <span class="plugin-need is-unmet">graph/);
-  // Activate asks first, and a yes runs the script with --with-needs; a cancel sends nothing.
-  assert.match(card(html, 'WP'), /hx-vals='\{"verb":"activate","name":"wp","withNeeds":"1"\}'[^>]*hx-confirm="WP needs one of dev, test and ai-agents, which this workspace does not have yet\. Add dev and ai-agents too \(require, activate, install\)\? Cancel changes nothing\."/);
-  assert.match(card(html, 'WP'), /title="bash core\/scripts\/plugins\.sh --activate wp --with-needs"/);
-  assert.doesNotMatch(card(html, 'dev'), /hx-confirm|withNeeds/, 'a plugin with no needs is a plain button');
-  assert.match(card(html, 'broken'), /plugin-needs-problem">needs: must be a list/);
-  assert.doesNotMatch(card(html, 'broken'), /hx-confirm/, 'a manifest that is wrong is not offered a fix it cannot have');
+  let html = pages();
+  const card = (h, label) => h.split('PLUGIN-PAGE ').find((c) => c.includes(`<h2 class="plugin-head-name">${label}</h2>`)) || '';
+  assert.match(card(html, 'WP'), /<strong>dev or test<\/strong>: not here\.\s+dev is the one that is added\./);
+  assert.match(card(html, 'WP'), /graph: not here, and not needed/);
+  // The step says what it adds and runs the script with --with-needs: no question in a dialog.
+  assert.match(card(html, 'WP'), /It needs dev and ai-agents, which are not here yet: one run adds them first/);
+  assert.match(card(html, 'WP'), /&quot;verb&quot;:&quot;activate&quot;,&quot;name&quot;:&quot;wp&quot;,&quot;withNeeds&quot;:&quot;1&quot;[^>]*>Activate with dev and ai-agents</);
+  assert.match(card(html, 'WP'), /<code>bash core\/scripts\/plugins\.sh --activate wp --with-needs<\/code>/);
+  assert.doesNotMatch(card(html, 'dev'), /withNeeds/, 'a plugin with no needs is a plain button');
+  assert.match(card(html, 'broken'), /needs: must be a list/);
+  assert.doesNotMatch(card(html, 'broken'), /withNeeds/, 'a manifest that is wrong is not offered a fix it cannot have');
   // The catalogue says it for a package that is here.
   platform(t.plugins, 'wordpress', { needs: ['dev'] });
-  assert.match(page(), /@webship\.co\/workspace-wordpress<\/code> <span class="uk-text-meta plugin-catalog-needs">needs: dev \(not here\)<\/span>/);
+  assert.match(page(), /@webship\.co\/workspace-wordpress<\/code> <span class="plugin-catalog-needs">needs: dev \(not here\)<\/span>/);
   fs.rmSync(path.join(t.plugins, 'wordpress'), { recursive: true });
   fs.rmSync(path.join(t.plugins, 'broken'), { recursive: true });
   ok(sh(t, '--install', 'wp', '--with-needs'));
@@ -398,11 +401,11 @@ test('--list and the Plugins page say what each plugin needs, whether it is met,
   list = sh(t, '--list').stdout;
   assert.match(list, /needs: one of dev, test \(met by dev\) · ai-agents \(met by ai-agents\)/);
   assert.match(list, /dev .*ready\n\s+needed by: wp/);
-  html = page();
-  assert.match(card(html, 'WP'), /is-met">one of dev, test <span class="uk-text-success">✓ dev<\/span>/);
-  assert.match(card(html, 'WP'), /is-met">ai-agents <span class="uk-text-success">✓<\/span>/, 'one name: the tick alone');
-  assert.doesNotMatch(card(html, 'WP'), /hx-confirm/, 'met: no question');
-  assert.match(card(html, 'dev'), /<strong>Needed by:<\/strong> wp — it cannot be deactivated or uninstalled while they are in use/);
+  html = pages();
+  assert.match(card(html, 'WP'), /<strong>dev or test<\/strong>: met by <a href="\/settings\/plugin\/dev">dev<\/a>/);
+  assert.match(card(html, 'WP'), /<strong>ai-agents<\/strong>: met by <a href="\/settings\/plugin\/ai-agents">ai-agents<\/a>/);
+  assert.doesNotMatch(card(html, 'WP'), /withNeeds/, 'met: nothing to add');
+  assert.match(card(html, 'dev'), /dev cannot be deactivated or uninstalled while wp needs it/);
 });
 
 test('the Plugins page action passes --with-needs only when the card asked, and only to the three verbs that take it', () => {
@@ -430,7 +433,7 @@ test('the first words a new workspace reads say that a plugin can need another o
   assert.match(r.stdout, /A plugin that needs another one says so when you require it; add --with-needs to activate/);
   const server = fs.readFileSync(path.join(APP, 'server.js'), 'utf8');
   const empty = server.slice(server.indexOf('function emptyWorkspaceHtml'), server.indexOf('function emptyWorkspaceHtml') + 1800);
-  assert.match(empty, /plugin activate wordpress --with-needs<\/code> adds what is missing first, and the Activate button asks/);
+  assert.match(empty, /plugin activate wordpress --with-needs<\/code> adds what is missing first, and the Activate step on the plugin's page says what it adds/);
 });
 
 test('a plugin\'s commands and its agents, skills, commands and prompts land in the folders that are active here, follow the workspaces list, and go with the plugin', () => {

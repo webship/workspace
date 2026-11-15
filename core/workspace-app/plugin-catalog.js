@@ -9,20 +9,21 @@
 const SCOPE = '@webship.co';
 
 const FAMILIES = [
+  { id: 'platforms', label: 'Platforms', about: 'Builders and tools for one platform.', plugins: [
+    ['drupal', 'Drupal'], ['drupal-cms', 'Drupal CMS'], ['wordpress', 'WordPress'], ['joomla', 'Joomla'], ['typo3', 'TYPO3'], ['backdrop-cms', 'Backdrop CMS'],
+    ['craft-cms', 'Craft CMS'], ['django-cms', 'django CMS'], ['ghost', 'Ghost'], ['magento', 'Magento'], ['prestashop', 'PrestaShop'], ['odoo', 'Odoo'],
+    ['astro', 'Astro'], ['gatsby', 'Gatsby'],
+  ] },
   { id: 'workspaces', label: 'Workspace folders', about: 'A folder of projects or items, with its settings file and its commands.', plugins: [
     ['dev', 'Development sites: the Drupal, Drupal CMS and Webship builders'], ['test', 'Test sites, with the automated-testing stack'],
     ['sandboxes', 'Throwaway experiments'], ['demos', 'Demo sites'], ['projects', 'Client projects'], ['products', 'Webship products'],
     ['drupal-site-templates', 'Drupal site templates'], ['drupal-modules', 'Contrib and private modules'], ['drupal-themes', 'Themes'], ['drupal-recipes', 'Recipes'], ['drupal-profiles', 'Installation profiles'],
     ['libraries', 'Third-party libraries'], ['docs', 'Markdown documents, edited in place'], ['specs', 'Specifications'], ['worklogs', 'Session worklogs'],
-    ['images', 'Images'], ['video', 'Videos'], ['audio', 'Audio'], ['designs', 'Penpot designs'], ['avatar', 'Avatars and the talking assistant'],
-    ['ai-agents', 'AI agents'], ['ai-skills', 'AI skills'], ['ai-commands', 'AI commands'], ['ai-prompts', 'AI prompts'],
+    ['images', 'Images'], ['video', 'Videos'], ['audio', 'Audio'], ['designs', 'Penpot designs'],
     ['graph', 'Knowledge graphs of your projects, and the Graph menu'], ['rag', 'RAG indexes of your projects, and the RAG menu'],
   ] },
-  { id: 'features', label: 'Features', about: 'A menu, a page or a service the core does not carry.', plugins: [
-    ['git', 'The GIT menu on every project row'], ['ide', 'The Web IDE (VS Code in the browser) and the IDE menu'],
-    ['jira', 'Jira work items, through the Teamwork Graph CLI'], ['google-drive', 'Sync a workspace folder to Google Drive, and its MCP server'],
-    ['testing', 'The Tests menu and the test reports'], ['webship-js', 'Browser tests with webship-js'],
-    ['screens', 'Screen sessions, terminals and container shells for every command, switched on and off by settings'],
+  { id: 'ai', label: 'AI', about: 'Agents, skills, commands and prompts, kept as files and installed into an AI CLI.', plugins: [
+    ['ai-agents', 'AI agents'], ['ai-skills', 'AI skills'], ['ai-commands', 'AI commands'], ['ai-prompts', 'AI prompts'],
   ] },
   { id: 'hosting', label: 'Hosting providers', about: 'Link a project to its host: environments and live URLs, get the database and files, deploy, logs.', plugins: [
     ['upsun', 'Upsun'], ['acquia', 'Acquia Cloud'], ['digitalocean', 'DigitalOcean App Platform'], ['cpanel', 'cPanel'], ['aws', 'AWS Elastic Beanstalk'], ['azure', 'Azure App Service'], ['godaddy', 'GoDaddy'],
@@ -33,8 +34,12 @@ const FAMILIES = [
   { id: 'containers', label: 'Container runtimes', about: 'A menu for projects that run on something other than DDEV.', plugins: [
     ['docker', 'Docker Compose'], ['lando', 'Lando'], ['docksal', 'Docksal'], ['podman', 'Podman'], ['kubernetes', 'Kubernetes'],
   ] },
-  { id: 'platforms', label: 'Platforms', about: 'Builders and tools for one platform.', plugins: [
-    ['drupal', 'Drupal'], ['wordpress', 'WordPress'], ['odoo', 'Odoo'],
+  { id: 'features', label: 'Features', about: 'A menu, a page or a service the core does not carry.', plugins: [
+    ['git', 'The GIT menu on every project row'], ['ide', 'The Web IDE (VS Code in the browser) and the IDE menu'],
+    ['jira', 'Jira work items, through the Teamwork Graph CLI'], ['google-drive', 'Sync a workspace folder to Google Drive, and its MCP server'],
+    ['testing', 'The Tests menu and the test reports'], ['webship-js', 'Browser tests with webship-js'],
+    ['screens', 'Screen sessions, terminals and container shells for every command, switched on and off by settings'],
+    ['avatar', 'Avatars and the talking assistant'],
   ] },
   { id: 'drives', label: 'Cloud drives', about: 'Push a folder to a cloud drive.', plugins: [
     ['microsoft', 'Microsoft OneDrive and SharePoint'], ['apple', 'Apple iCloud Drive'],

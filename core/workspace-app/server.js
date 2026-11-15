@@ -2751,7 +2751,7 @@ async function settingsPage(section, state, options = {}) {
           : isPlugin
             ? 'A plugin: its state, what it needs, its settings and what it ships'
           : isPlugins
-            ? 'optional features: require, activate, install, configure'
+            ? 'Add a plugin: require it here, then turn it on from its own page'
           : isStyles
             ? 'Every style on this machine, shown in its own colours and its own type'
             : isIndex ? 'The base, and the plugins added to it'
@@ -2966,7 +2966,7 @@ function emptyWorkspaceHtml() {
 webship-workspace plugin activate dev
 webship-workspace plugin install dev</pre>
       <p class="uk-text-meta">A plugin that needs another one says so when you require it (a builder needs a sites folder, its agents the AI Agents folder):
-        <code>webship-workspace plugin activate wordpress --with-needs</code> adds what is missing first, and the Activate button asks.</p>
+        <code>webship-workspace plugin activate wordpress --with-needs</code> adds what is missing first, and the Activate step on the plugin's page says what it adds.</p>
       <ul class="uk-list uk-list-collapse">${families}</ul>
       <p class="uk-text-meta"><a href="/settings/plugins">Open the catalogue</a> · the full list: <code>webship-workspace catalog</code></p>
     </div>`;
@@ -6069,6 +6069,13 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(commandsShell(commandTitle(r.dir, file), esc(`${ws}/${file}`), 'list', commandsPage.scriptPageBody({
           ws, file, desc: commandDescription(r.dir, file), flags: commandFlags(r.dir, file), source, badge: badge({ workspace: ws, file }) })));
+      }
+      // The catalogue of the Plugins page, drawn again when a package has been required.
+      if (pathname === '/fragments/settings/catalog') {
+        const pp = require('./plugins-page');
+        const list = pp.rows();
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(pp.catalogHtml(new Map(list.map((p) => [p.module, p.name])), new Map(list.filter((p) => p.needsLine).map((p) => [p.module, p.needsLine]))));
       }
       // The plugins of the Settings home, drawn again when a step has run (a job that finished).
       if (pathname === '/fragments/settings/plugins') {

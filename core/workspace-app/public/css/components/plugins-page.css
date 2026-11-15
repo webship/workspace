@@ -1,9 +1,20 @@
-/* Settings → Plugins: one card per plugin package, with the four steps it walks. */
-.plugin-cards { display: grid; gap: 0.75rem; }
-.plugin-card .uk-card-title { font-size: 1.05rem; }
-.plugin-steps { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
-.plugin-step { color: var(--text-subtle); }
-.plugin-step.is-done { color: var(--ok-ink, var(--brand-primary)); font-weight: 600; }
-.plugin-step-sep { color: var(--line); }
+/* Settings → Plugins: the box that requires a package, then the catalogue as rows (settings-home.css). */
+.plugin-require { max-width: 44rem; }
+.plugin-require .settings-search-row .uk-input { max-width: none; }
+.plugin-require-section { margin-bottom: 1.25rem; }
+.plugin-catalog .plugin-row-summary code { background: transparent; padding: 0; color: var(--text-subtle); font-size: 0.75rem; }
+.plugin-catalog-needs { margin-left: 0.35rem; }
 .plugin-buttons { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-.plugin-require .uk-input { max-width: 100%; }
+/* The catalogue's rows are short (a name and a package), so on a wide page they run in columns:
+   64 plugins in a third of the height. Lines are drawn by each row, so a filtered list has no gaps. */
+.plugin-catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr)); overflow: hidden; }
+.plugin-catalog .plugin-row { border-top: 0; box-shadow: 0 1px 0 var(--line), 1px 0 0 var(--line); grid-template-columns: minmax(0, 1fr) auto auto; }
+.plugin-catalog .plugin-row-state:empty { display: none; }
+@media (max-width: 40em) {
+  .plugin-catalog { grid-template-columns: 1fr; }
+  .plugin-catalog .plugin-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .plugin-catalog .plugin-row-main { grid-column: 1; }
+  .plugin-catalog .plugin-row-state { grid-column: 1; }
+  .plugin-catalog .plugin-row-action { grid-column: 2; grid-row: 1 / span 2; }
+}
+.plugin-require .settings-search-row > :first-child { flex: 1 1 16rem; }

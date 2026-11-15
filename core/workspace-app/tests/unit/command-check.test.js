@@ -217,14 +217,15 @@ test('plugins.sh --check reports one plugin or everything; --install says what i
 
 test('Settings → Plugins lists the core\'s commands and each plugin\'s, found or missing, with how to install what is missing', () => {
   const t = tree({ needs: { commands: ['bash', 'cloudctl-not-here'] }, suggests: { commands: ['container:twg'] } });
-  const r = spawnSync(process.execPath, ['-e', 'const p=require("./plugins-page");require("./command-check").setLocalOnly(true);console.log(p.pluginsPageHtml())'], { cwd: APP, env: t.env, encoding: 'utf8' });
+  const r = spawnSync(process.execPath, ['-e', 'require("./command-check").setLocalOnly(true);const p=require("./plugins-page"),m=require("./settings-model"),pg=require("./settings-plugin-page");const g=m.groupByFamily(p.rows()).flatMap((f)=>f.plugins);console.log(p.pluginsPageHtml()+g.map((x)=>"PLUGIN-PAGE "+pg.pluginPageHtml(x,{files:[]})).join(""))'], { cwd: APP, env: t.env, encoding: 'utf8' });
   assert.strictEqual(r.status, 0, r.stderr);
   const html = r.stdout;
-  const card = html.split('plugin-card').find((c) => c.includes('>Cloud <span')) || '';
-  assert.match(card, /<strong>Commands:<\/strong> <span class="plugin-command is-found">bash <span class="uk-text-success"[^>]*>✓ \d/);
-  assert.match(card, /is-missing">cloudctl-not-here <span class="uk-text-danger"[^>]*>missing<\/span>/);
-  assert.match(card, /cloudctl-not-here is not on this machine\. Install it yourself — Debian\/Ubuntu: apt install cloudctl-not-here/);
-  assert.match(card, /is-unchecked">twg \(container\) <span class="uk-text-meta"[^>]*>not checked/);
+  // A plugin's commands are on its own page in Settings.
+  const card = html.split('PLUGIN-PAGE ').find((c) => c.includes('<h2 class="plugin-head-name">Cloud</h2>')) || '';
+  assert.match(card, /Commands on this machine<\/h4>/);
+  assert.match(card, /<code>bash<\/code>: found, \d/);
+  assert.match(card, /is-unmet">[\s\S]{0,200}<code>cloudctl-not-here<\/code>: not on this machine\. Install: Debian\/Ubuntu: apt install cloudctl-not-here/);
+  assert.match(card, /<code>twg \(container\)<\/code>: not checked from here/);
   assert.match(html, /Commands on this machine<\/h2>/);
   assert.match(html, /<tr class="command-row is-found"><td><code>bash<\/code><\/td><td>needed<\/td>/);
   assert.match(html, /webship-workspace doctor/);
