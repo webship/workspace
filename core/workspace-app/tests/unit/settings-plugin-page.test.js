@@ -108,3 +108,10 @@ test('a plugin that is active but not loaded says so, with the command that load
   assert.ok(!page.statusHtml(make('jira', { label: 'Jira' }, 3, { loaded: true })).includes('not loaded yet'));
   assert.ok(!page.statusHtml(make('jira', { label: 'Jira' }, 0, { loaded: false })).includes('not loaded yet'), 'a plugin that is not active is not expected to be loaded');
 });
+
+test('saving the form on a plugin page draws its state again: "Needs settings" does not outlive the save', () => {
+  const ui = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'ui.js'), 'utf8');
+  assert.match(ui, /if \(ok && form\.closest\('\.plugin-page'\)\) document\.body\.dispatchEvent\(new CustomEvent\('refresh-projects'\)\);/);
+  const html = page.pluginPageHtml(make('jira', { label: 'Jira' }, 2), { files: [], known: new Set() });
+  assert.ok(html.indexOf('id="plugin-status"') < html.indexOf('id="settings"'), 'the state is outside the form, so the form is not redrawn under the person');
+});
