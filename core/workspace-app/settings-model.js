@@ -62,7 +62,9 @@ function summaryOf(plugin, index = catalogIndex()) {
   if (m.summary) return String(m.summary).replace(/\s+/g, ' ').trim().slice(0, 160);
   const listed = index.get((plugin && plugin.name) || '');
   if (listed && listed.label && listed.label !== (m.label || '')) return listed.label;
-  return firstSentence(plugin && plugin.description);
+  // "Drupal for Webship Workspace" says nothing the name beside it has not said.
+  const said = firstSentence(plugin && plugin.description).replace(/\s+for (the )?Webship Workspace$/i, '');
+  return said.toLowerCase() === String(m.label || (plugin && plugin.name) || '').toLowerCase() ? '' : said;
 }
 
 /** The settings files that are a plugin's own: its settings file, and its folder's when it is a folder. */

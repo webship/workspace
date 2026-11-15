@@ -2631,6 +2631,14 @@ function cardHostHtml(host) {
 /** A request that wants the content of a page only, to put into a pane of a tabbed modal. */
 const isFragment = (req) => new URL(req.url, 'http://localhost').searchParams.get('fragment') === '1';
 
+/** What the Settings home draws from: the files, the plugins by family with their states, the folders' cards, the styles. */
+function settingsHomeData() {
+  const settingsModel = require('./settings-model');
+  const plugins = require('./plugins-page').rows();
+  return { files: listSettingsFiles(), plugins, groups: settingsModel.groupByFamily(plugins), folders: loadWorkspaces(),
+    styles: { count: listThemes().length, wearing: themeLabel(styleSettings().theme) } };
+}
+
 /** The settings, as the tabs of the settings modal: the dashboard's own, then files, styles, workspaces. */
 function settingsTabGroups() {
   const files = listSettingsFiles();
@@ -2645,7 +2653,7 @@ function settingsTabGroups() {
       { id: 'command-order', label: 'Command order', icon: 'tabler:sort-ascending-letters', url: '/settings/command-order?fragment=1', hint: 'What each workspace offers first: its builders, then its tools' },
       { id: 'styles', label: 'Styles', icon: 'tabler:palette', url: '/settings/styles?fragment=1', hint: 'Every style on this machine, shown in its own colours and its own type' },
     ] },
-    { id: 'files', label: 'Files', tabs: own.map((f) => ({ id: f, label: f, icon: 'tabler:file-settings', url: url(f), hint: 'Paths, the install account, contributor identity and API keys' })) },
+    { id: 'files', label: 'Files', tabs: own.map((f) => ({ id: f, label: f, icon: 'tabler:file-settings', url: url(f), hint: require('./settings-model').fileHint(f) })) },
     { id: 'style-files', label: 'Style files', tabs: files.filter((f) => /^theme\./.test(f)).map((f) => ({ id: f, label: f.replace(/^theme\.|\.yml$/g, ''), icon: 'tabler:brush', url: url(f), hint: `The variables of the ${f.replace(/^theme\.|\.yml$/g, '')} style` })) },
     { id: 'workspaces', label: 'Workspaces', tabs: files.filter((f) => wsKey(f)).map((f) => {
       const m = meta[wsKey(f)] || {};
@@ -2675,53 +2683,8 @@ async function settingsPage(section, state, options = {}) {
 
   const workspaceKey = (f) => (f.match(/^workspace\.(.+)\.settings\.yml$/) || [])[1] || '';
   const meta = loadWorkspaces();
-  const card = (href, icon, title, subtitle, active) => `
-    <a class="settings-tile${active ? ' is-current' : ''}" href="${href}"${active ? ' aria-current="page"' : ''}>
-      <span class="settings-tile-icon">${iconHtml(icon, 1)}</span>
-      <span class="settings-tile-name">${esc(title)}</span>
-      <span class="settings-tile-meta">${esc(subtitle)}</span>
-    </a>`;
-
-  const hubCards = [
-    card('/settings/navigation', 'tabler:layout-sidebar-right', 'Navigation',
-      'the sidebar and the top bar', isNavigation),
-    card('/settings/buttons', 'tabler:layout-grid', 'Buttons',
-      'what every project row offers, and the actions on it', isButtons),
-    card('/settings/command-order', 'tabler:sort-ascending-letters', 'Command order',
-      'what each workspace offers first: its builders, then its tools', isBuildOrder),
-    card('/settings/plugins', 'tabler:puzzle', 'Plugins',
-      'optional features: require, activate, install, configure', isPlugins),
-    ...files.filter((f) => !workspaceKey(f)).map((f) =>
-      // The plain name: fname() is markup, and a card title is escaped text.
-      card(`/settings/${encodeURIComponent(f)}`, 'tabler:settings', f,
-        'paths, the install account, contributor identity and API keys', f === current)),
-  ].join('');
-
-  const workspaceCards = files.filter((f) => workspaceKey(f)).map((f) => {
-    const key = workspaceKey(f);
-    const m = meta[key] || {};
-    return card(`/settings/${encodeURIComponent(f)}`, m.icon || 'tabler:folder',
-      m.label || key, m.subtitle || `${key}/`, f === current);
-  }).join('');
-
-  const index = `
-    <section class="settings-group">
-      <h2 class="settings-group-head">The dashboard</h2>
-      <div class="settings-grid">${hubCards}</div>
-    </section>
-    <section class="settings-group">
-      <h2 class="settings-group-head">Workspace settings</h2>
-      <p class="uk-text-meta">One file per workspace: what it is called, its icon and description, and
-        whatever that workspace's own commands read — its modules, its themes, its profiles.</p>
-      <div class="settings-grid">${workspaceCards}</div>
-    </section>
-    <section class="settings-group">
-      <h2 class="settings-group-head">Styles</h2>
-      <p class="uk-text-meta">Every style on this machine, shown in its own colours and its own type —
-        and where a new one is made.</p>
-      <div class="settings-grid">${card('/settings/styles', 'tabler:palette', 'Styles',
-        `${listThemes().length} on this machine · wearing ${esc(themeLabel(styleSettings().theme))}`)}</div>
-    </section>`;
+  // The home: the base, then every plugin by family with its state and one action (settings-home.js).
+  const index = isIndex ? require('./settings-home').homeHtml(settingsHomeData()) : '';
 
   // A chosen one gets the width to itself: the way back is a line, not the whole list again.
   const chosenName = isPlugins ? 'Plugins' : isStyles ? 'Styles'
@@ -2765,7 +2728,9 @@ async function settingsPage(section, state, options = {}) {
             ? 'optional features: require, activate, install, configure'
           : isStyles
             ? 'Every style on this machine, shown in its own colours and its own type'
-            : fname(CONFIG_DIR);
+            : isIndex ? 'The base, and the plugins added to it'
+            // The folder as the workspace names it: the same on every machine, and nothing of a home folder in a screenshot.
+            : fname(path.relative(ROOT, CONFIG_DIR) || CONFIG_DIR);
   return pageShell(`${pageName} · Webship Workspace`, `
 <main class="uk-container uk-container-small page-body webship-workspace-page">
   <div class="uk-flex uk-flex-middle page-heading">${widthSwitcherHtml()}
@@ -6079,6 +6044,20 @@ const server = http.createServer(async (req, res) => {
         return res.end(commandsShell(commandTitle(r.dir, file), esc(`${ws}/${file}`), 'list', commandsPage.scriptPageBody({
           ws, file, desc: commandDescription(r.dir, file), flags: commandFlags(r.dir, file), source, badge: badge({ workspace: ws, file }) })));
       }
+      // The plugins of the Settings home, drawn again when a step has run (a job that finished).
+      if (pathname === '/fragments/settings/plugins') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(require('./settings-home').pluginsSectionHtml(settingsHomeData().groups));
+      }
+      // A plugin's own address in Settings. Until it has a page of its own it lands on its settings
+      // file, else on the Plugins page.
+      { const pm = pathname.match(/^\/settings\/plugin\/([a-z0-9-]+)$/);
+        if (pm) {
+          const found = require('./plugin-manifest').pluginByName(pm[1]);
+          const file = found && found.manifest.settingsFile;
+          res.writeHead(302, { Location: file && listSettingsFiles().includes(file) ? `/settings/${encodeURIComponent(file)}` : '/settings/plugins' });
+          return res.end();
+        } }
       if (pathname === '/settings/plugins') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(await settingsPage('plugins', readPageState(req), { fragment: isFragment(req) }));
