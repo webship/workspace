@@ -17,7 +17,8 @@ test('the modal starts with the base and an overview, then a group per family wi
   for (const id of ['navigation', 'buttons', 'command-order', 'styles', 'plugins']) assert.ok(groups.includes(`id: '${id}'`), id);
   assert.match(groups, /data\.groups\.map\(\(g\) => \(\{ id: `family-\$\{g\.id\}`, label: g\.label/);
   assert.match(groups, /id: `plugin-\$\{p\.name\}`[\s\S]{0,200}url: `\/settings\/plugin\/\$\{encodeURIComponent\(p\.name\)\}\?fragment=1`/);
-  assert.match(groups, /badge: p\.state\.attention \|\| !p\.state\.active \? p\.state\.label : ''/, 'a plugin that wants something says so on its tab');
+  assert.match(groups, /badge: p\.state\.id !== 'ready' \? p\.state\.label : p\.state\.update \? `Update \$\{p\.state\.update\}` : ''/,
+    'a plugin that wants something says what on its tab: its state, or the newer version; a ready plugin with an update does not say Ready');
   assert.ok(!groups.includes("'style-files'"), 'no tab per theme file: the styles are one entry');
   assert.match(server, /groups: settingsTabGroups\(tab\), active: tab \|\| 'overview'/);
 });

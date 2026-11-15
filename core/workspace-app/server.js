@@ -2685,7 +2685,8 @@ function settingsTabGroups(wanted = '') {
     ] },
     ...data.groups.map((g) => ({ id: `family-${g.id}`, label: g.label, tabs: g.plugins.map((p) => ({
       id: `plugin-${p.name}`, label: p.manifest.label || p.name, icon: g.icon, url: `/settings/plugin/${encodeURIComponent(p.name)}?fragment=1`,
-      hint: p.summary || p.module || '', badge: p.state.attention || !p.state.active ? p.state.label : '' })) })),
+      hint: p.summary || p.module || '', // The badge is what the plugin wants: its state when that is not Ready, else the newer version that is on npm.
+      badge: p.state.id !== 'ready' ? p.state.label : p.state.update ? `Update ${p.state.update}` : '' })) })),
     { id: 'other', label: 'Other settings files', tabs: [
       ...sorted.folders.map((f) => { const key = f.replace(/^workspace\.|\.settings\.yml$/g, ''); const m = data.folders[key] || {}; return fileTab(f, m.label || key, m.icon || 'tabler:folder'); }),
       ...sorted.other.map((f) => fileTab(f, f, 'tabler:file-settings')),
