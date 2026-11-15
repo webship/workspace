@@ -128,6 +128,7 @@ function wireCloneAddressPreview(root) {
   paint();
 }
 
+let editorModalOpener = null;
 function onEditorSwap(e) {
   const el = swappedEl(e);
   if (!el || !el.id) return;
@@ -140,6 +141,12 @@ function onEditorSwap(e) {
     document.querySelectorAll('.uk-dropdown.uk-open').forEach((d) => {
       try { window.UIkit.dropdown(d).hide(false); } catch (_) { /* not a dropdown any more */ }
     });
+    // What had focus when the modal was asked for gets it back when the modal closes.
+    const modal = document.getElementById('editor-modal');
+    if (modal && !modal.classList.contains('uk-open') && !editorModalOpener) {
+      const from = document.activeElement;
+      editorModalOpener = from && from !== document.body && !modal.contains(from) ? from : null;
+    }
     // Showing an open modal again is a no-op, so both events may fire.
     window.UIkit.modal('#editor-modal').show();
     sizeVideoPlayers(el);
@@ -214,6 +221,13 @@ document.addEventListener('shown', (e) => {
   if (!e.target || e.target.id !== 'editor-modal') return;
   containEditorModal(true);
   nameEditorModal();
+  // Focus goes into the dialog itself (the element that has role="dialog" and the name), so a screen
+  // reader says "Settings, dialog" and Tab starts inside; it was left on the unnamed wrapper around it.
+  const dialog = e.target.querySelector('.uk-modal-dialog');
+  if (dialog && !dialog.contains(document.activeElement)) {
+    dialog.tabIndex = -1;
+    dialog.focus({ preventScroll: true });
+  }
 });
 document.body.addEventListener('htmx:after:swap', (e) => {
   if (swappedEl(e)?.id === 'editor-modal-body') nameEditorModal();
@@ -228,6 +242,10 @@ document.addEventListener('hidden', (e) => {
   body?.querySelectorAll('video, audio').forEach((m) => { try { m.pause(); } catch (_) { /* gone already */ } });
   if (body) body.innerHTML = '';          // drop the editor, and any unsaved text with it
   document.body.dispatchEvent(new CustomEvent('refresh-projects'));
+  // Back to where the person was: without this a keyboard user started again from the top of the page.
+  const opener = editorModalOpener;
+  editorModalOpener = null;
+  if (opener && opener.isConnected) setTimeout(() => { try { opener.focus(); } catch (_) { /* it is gone */ } }, 0);
 });
 
 // Show error responses instead of discarding them.
@@ -721,6 +739,12 @@ document.addEventListener('click', (e) => {
     tm.querySelectorAll('.tabmodal-group').forEach((g) => {
       g.hidden = ![...g.querySelectorAll('.tabmodal-tab')].some((t) => !t.hidden);
     });
+    // Said in words, and to a screen reader: how many are left, or that nothing matches (a blank column reads as a fault).
+    const status = tm.querySelector('.tabmodal-filter-status');
+    if (status) {
+      const shown = [...tm.querySelectorAll('.tabmodal-tab')].filter((t) => !t.hidden).length;
+      status.textContent = !q ? '' : shown ? `${shown} of ${status.dataset.total} shown.` : 'Nothing matches.';
+    }
   });
 
   // A link to a place: #settings/<tab> opens the modal on that tab, from any page.

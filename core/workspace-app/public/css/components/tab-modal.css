@@ -140,3 +140,9 @@
 #editor-modal .uk-modal-close-default:hover { background: color-mix(in srgb, var(--text-subtle) 14%, transparent); }
 #editor-modal .uk-modal-close-default:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
 
+
+/* A badge that says something blocks takes the warning tint; the rest stay quiet. */
+.tabmodal-badge.is-warning { background: var(--warning-soft); color: var(--warning-ink); font-weight: 600; }
+.tabmodal-filter-status { margin: 0.25rem 0.75rem 0; min-height: 1.1rem; font-size: 0.75rem; color: var(--text-subtle); }
+.tabmodal-filter-status:empty { display: none; }
+.uk-modal-dialog:focus { outline: none; }

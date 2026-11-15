@@ -2701,9 +2701,12 @@ function settingsTabGroups(wanted = '') {
       { id: 'plugins', label: 'Add a plugin', icon: 'tabler:plus', url: '/settings/plugins?fragment=1', hint: 'Require a package, or choose one from the catalogue by family' },
     ] },
     ...data.groups.map((g) => ({ id: `family-${g.id}`, label: g.label, tabs: g.plugins.map((p) => ({
-      id: `plugin-${p.name}`, label: p.manifest.label || p.name, icon: g.icon, url: `/settings/plugin/${encodeURIComponent(p.name)}?fragment=1`,
-      hint: p.summary || p.module || '', // The badge is what the plugin wants: its state when that is not Ready, else the newer version that is on npm.
-      badge: p.state.id !== 'ready' ? p.state.label : p.state.update ? `Update ${p.state.update}` : '' })) })),
+      id: `plugin-${p.name}`, label: p.label || p.manifest.label || p.name, icon: g.icon, url: `/settings/plugin/${encodeURIComponent(p.name)}?fragment=1`,
+      // The pane's own heading is the name; the line under it is what the plugin is (its package is on the page).
+      hint: p.summary || '',
+      // The badge is what the plugin wants: its state when that is not Ready, else the newer version that is on npm.
+      // A blocker takes the warning tint; "Not active" and an update stay quiet.
+      badge: p.state.id !== 'ready' ? p.state.label : p.state.update ? `Update ${p.state.update}` : '', badgeTone: p.state.attention ? 'warning' : '' })) })),
     { id: 'other', label: 'Other settings files', tabs: [
       ...sorted.folders.map((f) => { const key = f.replace(/^workspace\.|\.settings\.yml$/g, ''); const m = data.folders[key] || {}; return fileTab(f, m.label || key, m.icon || 'tabler:folder'); }),
       ...sorted.other.map((f) => fileTab(f, f, 'tabler:file-settings')),

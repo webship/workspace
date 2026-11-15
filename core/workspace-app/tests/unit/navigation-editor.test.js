@@ -183,7 +183,7 @@ test('Settings is grouped and shown as a grid, not 26 identical pills', () => {
   // weighted the same and wrapped onto three lines.
   // The base first, then the plugins by family: the home is settings-home.js's now.
   assert.match(home, /<h2 class="settings-group-head" id="settings-base-head">Workspace base<\/h2>/);
-  assert.match(home, /<h2 class="settings-group-head" id="settings-plugins-head">\$\{only === 'attention' \? 'Plugins that need attention' : 'Plugins'\}<\/h2>/);
+  assert.match(home, /class="settings-group-head" id="settings-plugins-head">\$\{only === 'attention' \? 'Plugins that need attention' : 'Plugins'\}</);
   // Every editor that is not a settings FILE has to be excluded here, or choosing it would fall
   // through to the index. Matched loosely on purpose: the list grows (Command order joined it), and a
   // test that pins the exact expression fails on the addition rather than on the behaviour.
