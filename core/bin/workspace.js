@@ -87,6 +87,22 @@ function copyCore(dest) {
   // The dashboard's version chip reads this file, never package.json (an installation is not the package).
   fs.writeFileSync(path.join(dest, 'core', 'workspace-app', '.app-version'), require(path.join(PKG_ROOT, 'package.json')).version + '\n');
   for (const f of ['README.md', 'LICENSE']) if (fs.existsSync(path.join(PKG_ROOT, f)) && !fs.existsSync(path.join(dest, f))) fs.copyFileSync(path.join(PKG_ROOT, f), path.join(dest, f));
+  // commands/ is the base's own folder: the dashboard's "Run a tool" and the Commands page call
+  // commands/cmd-tools-commands.sh. Its cmd-*.sh are the base's and follow the package; the other
+  // files there (README, the notes for AI CLIs) are written once and then left to the person.
+  const cmdSrc = path.join(PKG_ROOT, 'commands');
+  if (fs.existsSync(cmdSrc)) {
+    const cmdDest = path.join(dest, 'commands');
+    fs.mkdirSync(cmdDest, { recursive: true });
+    for (const e of fs.readdirSync(cmdSrc, { withFileTypes: true })) {
+      if (!e.isFile()) continue;
+      const to = path.join(cmdDest, e.name);
+      const own = /^cmd-.*\.sh$/.test(e.name);
+      if (!own && fs.existsSync(to)) continue;
+      fs.copyFileSync(path.join(cmdSrc, e.name), to);
+      if (own) fs.chmodSync(to, 0o755);
+    }
+  }
 }
 
 /** settings.yml from the lean template: an empty workspaces list, no plugins, the placeholders to fill. */
