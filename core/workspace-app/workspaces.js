@@ -115,7 +115,9 @@ function styleSettings() {
     mode: one_of(s.mode, ['light', 'dark', 'system'], 'light'),
     editorTheme: one_of(s.editor_theme, ['auto', 'light', 'dark'], 'auto'),
     logoOnLight: s.logo_on_light || 'logo.png',
-    logoOnDark: s.logo_on_dark || 'logo.png',
+    // The shipped mark is blue; on a dark page it is the same mark in white. A dark logo that was never
+    // chosen (empty, or still the shipped blue file) is the white one; a file of your own is kept.
+    logoOnDark: s.logo_on_dark && s.logo_on_dark !== 'logo.png' ? s.logo_on_dark : 'logo-dark.png',
     faviconSvg: s.favicon_svg || '',
     faviconPng: s.favicon_png || 'favicon.png',
     // A separate, larger file: a home-screen icon is 180px, and the 32px tab icon blown up to that
