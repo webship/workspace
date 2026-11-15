@@ -52,3 +52,9 @@ test('the Plugins page is where a plugin is added: a labelled box, the catalogue
   assert.ok(!src.includes('plugin-card'), 'no card per plugin: a plugin that is here has a row on Settings and a page of its own');
   assert.ok(!src.includes('hx-confirm'), 'an unmet need is said on the step, not asked in a dialog');
 });
+
+test('a row of the catalogue stays short on a phone: the package line does not wrap', () => {
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'public', 'css', 'components', 'plugins-page.css'), 'utf8');
+  const phone = css.slice(css.indexOf('@media (max-width: 40em)'));
+  assert.match(phone, /\.plugin-catalog \.plugin-row-summary \{ white-space: nowrap; \}/);
+});
