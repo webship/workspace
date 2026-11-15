@@ -8,48 +8,85 @@
 
 const SCOPE = '@webship.co';
 
+// Each plugin: [id, name, what it is in a line]. The name is the one Settings shows everywhere; the
+// line is what a person reads to decide, so it says what the plugin does, never its package name.
 const FAMILIES = [
   { id: 'platforms', label: 'Platforms', about: 'Builders and tools for one platform.', plugins: [
-    ['drupal', 'Drupal'], ['drupal-cms', 'Drupal CMS'], ['wordpress', 'WordPress'], ['joomla', 'Joomla'], ['typo3', 'TYPO3'], ['backdrop-cms', 'Backdrop CMS'],
-    ['craft-cms', 'Craft CMS'], ['django-cms', 'django CMS'], ['ghost', 'Ghost'], ['magento', 'Magento'], ['prestashop', 'PrestaShop'], ['odoo', 'Odoo'],
-    ['astro', 'Astro'], ['gatsby', 'Gatsby'],
+    ['drupal', 'Drupal', 'A builder for Drupal core sites and the Drush tool'],
+    ['drupal-cms', 'Drupal CMS', 'A builder for Drupal CMS sites, with site templates and recipes'],
+    ['wordpress', 'WordPress', 'A builder for WordPress sites and the WP-CLI tool'],
+    ['joomla', 'Joomla', 'A builder for Joomla sites and the Joomla CLI tool'],
+    ['typo3', 'TYPO3', 'A builder for TYPO3 sites and its console tool'],
+    ['backdrop-cms', 'Backdrop CMS', 'A builder for Backdrop CMS sites and its command line tool'],
+    ['craft-cms', 'Craft CMS', 'A builder for Craft CMS sites and its console tool'],
+    ['django-cms', 'django CMS', 'A builder for django CMS sites and its manage tool'],
+    ['ghost', 'Ghost', 'A builder for Ghost sites and the Ghost CLI tool'],
+    ['magento', 'Magento', 'A builder for Magento shops and its command line tool'],
+    ['prestashop', 'PrestaShop', 'A builder for PrestaShop shops and its console tool'],
+    ['odoo', 'Odoo', 'A builder for Odoo Community sites and the odoo-bin tool'],
+    ['astro', 'Astro', 'A builder for Astro sites'],
+    ['gatsby', 'Gatsby', 'A builder for Gatsby sites'],
   ] },
   { id: 'workspaces', label: 'Workspace folders', about: 'A folder of projects or items, with its settings file and its commands.', plugins: [
-    ['dev', 'Development sites: the Drupal, Drupal CMS and Webship builders'], ['test', 'Test sites, with the automated-testing stack'],
-    ['sandboxes', 'Throwaway experiments'], ['demos', 'Demo sites'], ['projects', 'Client projects'], ['products', 'Webship products'],
-    ['drupal-site-templates', 'Drupal site templates'], ['drupal-modules', 'Contrib and private modules'], ['drupal-themes', 'Themes'], ['drupal-recipes', 'Recipes'], ['drupal-profiles', 'Installation profiles'],
-    ['libraries', 'Third-party libraries'], ['docs', 'Markdown documents, edited in place'], ['specs', 'Specifications'], ['worklogs', 'Session worklogs'],
-    ['images', 'Images'], ['video', 'Videos'], ['audio', 'Audio'], ['designs', 'Penpot designs'],
-    ['graph', 'Knowledge graphs of your projects, and the Graph menu'], ['rag', 'RAG indexes of your projects, and the RAG menu'],
+    ['dev', 'Dev', 'Development sites: the Drupal, Drupal CMS and Webship builders'],
+    ['test', 'Test', 'Test sites, with the automated-testing stack'],
+    ['sandboxes', 'Sandboxes', 'Throwaway experiments'], ['demos', 'Demos', 'Demo sites'],
+    ['projects', 'Projects', 'Client projects'], ['products', 'Products', 'Webship products'],
+    ['drupal-site-templates', 'Drupal site templates', 'Site templates, built and kept as packages'],
+    ['drupal-modules', 'Drupal modules', 'Contrib and private modules'], ['drupal-themes', 'Drupal themes', 'Themes, built and kept as packages'],
+    ['drupal-recipes', 'Drupal recipes', 'Recipes, built and kept as packages'], ['drupal-profiles', 'Drupal profiles', 'Installation profiles'],
+    ['libraries', 'Libraries', 'Third-party libraries'], ['docs', 'Docs', 'Markdown documents, edited in place'],
+    ['specs', 'Specs', 'Specifications, written before the work'], ['worklogs', 'Worklogs', 'Session worklogs, dated and kept as written'],
+    ['images', 'Images', 'Pictures made and kept here'], ['video', 'Videos', 'Recordings, with their scripts'], ['audio', 'Audio', 'Voices, sounds and music'],
+    ['designs', 'Designs', 'Penpot designs'],
+    ['graph', 'Graphs', 'Knowledge graphs of your projects, and the Graph menu'], ['rag', 'RAG', 'Search indexes of your projects, and the RAG menu'],
   ] },
   { id: 'ai', label: 'AI', about: 'Agents, skills, commands and prompts, kept as files and installed into an AI CLI.', plugins: [
-    ['ai-agents', 'AI agents'], ['ai-skills', 'AI skills'], ['ai-commands', 'AI commands'], ['ai-prompts', 'AI prompts'],
+    ['ai-agents', 'AI Agents', 'Agents, kept as files and installed into an AI CLI'],
+    ['ai-skills', 'AI Skills', 'Skills, kept as folders and installed into an AI CLI'],
+    ['ai-commands', 'AI Commands', 'Slash commands, kept as files and installed into an AI CLI'],
+    ['ai-prompts', 'AI Prompts', 'Prompts to reuse, kept as files'],
   ] },
   { id: 'hosting', label: 'Hosting providers', about: 'Link a project to its host: environments and live URLs, get the database and files, deploy, logs.', plugins: [
-    ['upsun', 'Upsun'], ['acquia', 'Acquia Cloud'], ['digitalocean', 'DigitalOcean App Platform'], ['cpanel', 'cPanel'], ['aws', 'AWS Elastic Beanstalk'], ['azure', 'Azure App Service'], ['godaddy', 'GoDaddy'],
+    ['upsun', 'Upsun', 'Environments, data, deploys and logs of a project on Upsun'],
+    ['acquia', 'Acquia Cloud', 'Environments, data, deploys and logs of a project on Acquia Cloud'],
+    ['digitalocean', 'DigitalOcean', 'Apps, deploys and logs of a project on DigitalOcean App Platform'],
+    ['cpanel', 'cPanel', 'Domains, data, deploys and the error log of a cPanel account'],
+    ['aws', 'AWS', 'Environments, deploys and logs of a project on AWS Elastic Beanstalk'],
+    ['azure', 'Azure', 'Deploys and logs of a project on Azure App Service'],
+    ['godaddy', 'GoDaddy', 'Data and deploys of a site hosted at GoDaddy'],
   ] },
   { id: 'forges', label: 'Git forges', about: 'The repository, its issues and pull requests, and the credential the dashboard uses there.', plugins: [
-    ['github', 'GitHub'], ['gitlab', 'GitLab (git.drupalcode.org by default)'], ['bitbucket', 'Bitbucket'],
+    ['github', 'GitHub', 'The repository, issues and pull requests of projects on GitHub'],
+    ['gitlab', 'GitLab', 'The repository, issues and merge requests of projects on GitLab (git.drupalcode.org by default)'],
+    ['bitbucket', 'Bitbucket', 'The repository, issues and pull requests of projects on Bitbucket'],
   ] },
-  { id: 'containers', label: 'Container runtimes', about: 'A menu for projects that run on something other than DDEV.', plugins: [
-    ['docker', 'Docker Compose'], ['lando', 'Lando'], ['docksal', 'Docksal'], ['podman', 'Podman'], ['kubernetes', 'Kubernetes'],
+  { id: 'containers', label: 'Container runtimes', about: 'A menu for projects that run on a runtime other than the default one.', plugins: [
+    ['docker', 'Docker Compose', 'Up, down, logs and a shell for projects with a compose file'],
+    ['lando', 'Lando', 'Start, stop, rebuild and logs for projects with a .lando.yml'],
+    ['docksal', 'Docksal', 'Start, stop and logs for projects with a .docksal folder'],
+    ['podman', 'Podman', 'Build, run and logs for projects with a Containerfile'],
+    ['kubernetes', 'Kubernetes', 'Apply, status and logs for projects with Kubernetes manifests'],
   ] },
-  { id: 'features', label: 'Features', about: 'A menu, a page or a service the core does not carry.', plugins: [
-    ['git', 'The GIT menu on every project row'], ['ide', 'The Web IDE (VS Code in the browser) and the IDE menu'],
-    ['jira', 'Jira work items, through the Teamwork Graph CLI'], ['google-drive', 'Sync a workspace folder to Google Drive, and its MCP server'],
-    ['testing', 'The Tests menu and the test reports'], ['webship-js', 'Browser tests with webship-js'],
-    ['screens', 'Screen sessions, terminals and container shells for every command, switched on and off by settings'],
-    ['avatar', 'Avatars and the talking assistant'],
+  { id: 'features', label: 'Features', about: 'A menu, a page or a service the base does not carry.', plugins: [
+    ['git', 'Git', 'The GIT menu on every project row'],
+    ['ide', 'Web IDE', 'VS Code in the browser, and the IDE menu'],
+    ['jira', 'Jira', 'Jira work items, through the Teamwork Graph CLI'],
+    ['google-drive', 'Google Drive', 'Sync a workspace folder to Google Drive, and its MCP server'],
+    ['testing', 'Testing', 'The Tests menu and the test reports'],
+    ['webship-js', 'Webship-js', 'Browser tests with webship-js'],
+    ['screens', 'Screens and terminals', 'Screen sessions, terminals and container shells for every command'],
+    ['avatar', 'Avatars', 'Avatars and the talking assistant'],
   ] },
   { id: 'drives', label: 'Cloud drives', about: 'Push a folder to a cloud drive.', plugins: [
-    ['microsoft', 'Microsoft OneDrive and SharePoint'], ['apple', 'Apple iCloud Drive'],
+    ['microsoft', 'Microsoft', 'Push a folder to OneDrive or SharePoint'], ['apple', 'Apple iCloud', 'Push a folder to iCloud Drive'],
   ] },
 ];
 
-/** Every catalogue entry, flat: { name, module, label, family }. */
+/** Every catalogue entry, flat: { name (its id), module, label (its name), summary, family, familyLabel }. */
 function catalog() {
   const out = [];
-  for (const f of FAMILIES) for (const [name, label] of f.plugins) out.push({ name, module: `${SCOPE}/workspace-${name}`, label, family: f.id, familyLabel: f.label });
+  for (const f of FAMILIES) for (const [name, label, summary] of f.plugins) out.push({ name, module: `${SCOPE}/workspace-${name}`, label, summary, family: f.id, familyLabel: f.label });
   return out;
 }
 

@@ -30,22 +30,66 @@ test('the base is five entries, and the styles are one of them: no tile per them
   assert.ok(!html.includes('paths, the install account, contributor identity and API keys'), 'the one hint that was on every file is gone');
 });
 
-test('every plugin is a row in its family: a link to its page, its state in words, one action', () => {
+test('every plugin is a row in its family: a link to its page, the line that says what it is, one state pill, one action', () => {
   assert.strictEqual((html.match(/<li class="plugin-row" /g) || []).length, 4);
   for (const f of ['platforms', 'folders', 'containers', 'features']) assert.ok(html.includes(`data-family="${f}"`), f);
   assert.ok(!html.includes('data-family="hosting"'), 'a family with no plugin is not drawn');
   assert.ok(html.includes('href="/settings/plugin/jira"'));
   for (const label of ['Needs settings', 'Not installed', 'Ready', 'Not active']) assert.ok(html.includes(`<span>${label}</span>`), label);
-  assert.match(html, /href="\/settings\/plugin\/jira#settings" aria-label="Configure Jira">Configure</);
-  assert.match(html, /4 added · 1 ready · 2 need attention · 1 not active/);
+  assert.strictEqual((html.match(/class="plugin-state /g) || []).length, 4, 'one pill a row');
+  assert.match(html, /<span class="settings-group-summary"><span>4 added<\/span> · <span>1 ready<\/span> · <button type="button" class="settings-summary-link" data-press-chip="attention">2 need attention<\/button> · <span>1 not active<\/span><\/span>/,
+    'the number that says something is waiting is the way to it');
+  // The second line is what the plugin is, never the reason for its state and never a package name.
+  assert.match(html, /<span class="plugin-row-summary">Jira work items, through the Teamwork Graph CLI<\/span>/);
+  assert.ok(!/plugin-row-summary">@webship/.test(html));
+  assert.match(html, /class="plugin-state is-warning" title="Its settings are not filled in yet"/, 'the reason is on the pill');
 });
 
-test('a step with an unmet need says what is added and runs with --with-needs; the command is on the button', () => {
+test('only a row with work to do carries a button: Configure is as prominent as Install, a ready row ends in a chevron', () => {
+  assert.match(html, /<a class="uk-button uk-button-primary uk-button-small plugin-action" href="\/settings\/plugin\/jira#settings" aria-label="Configure Jira">Configure</);
+  const ready = html.slice(html.indexOf('data-state="ready"'));
+  const row = ready.slice(0, ready.indexOf('</li>'));
+  assert.match(row, /<span class="plugin-row-chevron" aria-hidden="true">/);
+  assert.strictEqual((row.match(/<a /g) || []).length, 1, 'one link to the plugin page, not two');
+});
+
+test('a step with an unmet need: a short word on the button, the whole sentence in its name, --with-needs, the command in its title', () => {
   const row = html.slice(html.indexOf('data-state="not-installed"'));
-  assert.match(row, /Install with dev</);
+  assert.match(row, /aria-label="Install with dev: WordPress">Install</);
+  assert.match(row, /<span class="plugin-row-extra">needs dev<\/span>/);
   assert.match(row, /&quot;withNeeds&quot;:&quot;1&quot;/);
   assert.match(row, /title="bash core\/scripts\/plugins\.sh --install wordpress --with-needs"/);
   assert.match(row, /hx-post="\/actions\/plugins"/);
+});
+
+test('a newer version is quiet text beside the name and a chip of its own: it is never a second pill and never counted as attention', () => {
+  const rows = [plugin('git', { label: 'Git' }, 3)];
+  const g = model.groupByFamily(rows, { latest: { '@webship.co/workspace-git': '1.0.9' }, isNewer: (a, b) => a !== b });
+  const page = home.homeHtml({ files: ['settings.yml'], plugins: rows, groups: g, styles: { count: 1, wearing: 'x' } });
+  assert.match(page, /<span class="plugin-row-extra">1\.0\.0 → 1\.0\.9<\/span>/);
+  assert.strictEqual((page.match(/class="plugin-state /g) || []).length, 1);
+  assert.match(page, /data-show="updates" aria-pressed="false">Updates <span class="settings-chip-count" data-count="updates">1</);
+  assert.match(page, /data-count-attention="0"[^>]*data-count-updates="1"/);
+  assert.match(page, /data-update="1"/);
+  // Not known yet (the registry has not answered): the chip is there, hidden, and no other count waits for it.
+  assert.match(html, /data-show="updates" aria-pressed="false" hidden>/);
+});
+
+test('a plugin with nothing that says what it is gets a name with capitals and "No description", not a raw id', () => {
+  const rows = [plugin('workspace-notes', {}, 0)];
+  const page = home.homeHtml({ files: [], plugins: rows, groups: model.groupByFamily(rows), styles: { count: 1, wearing: 'x' } });
+  assert.match(page, /<span class="plugin-row-name">Workspace Notes<\/span>/);
+  assert.match(page, /<span class="plugin-row-summary">No description<\/span>/);
+});
+
+test('in the settings modal the home is an overview: what needs attention, not the list and the filter a second time', () => {
+  const compact = home.homeHtml({ files, plugins, groups: model.groupByFamily(plugins), styles: { count: 2, wearing: 'x' }, compact: true });
+  assert.ok(!compact.includes('settings-search-input') && !compact.includes('settings-base'));
+  assert.strictEqual((compact.match(/<li class="plugin-row" /g) || []).length, 2, 'the two that need something');
+  assert.match(compact, /Plugins that need attention/);
+  assert.match(compact, /hx-get="\/fragments\/settings\/plugins\?only=attention"/);
+  const calm = home.pluginsSectionHtml(model.groupByFamily([plugin('dev', { label: 'Dev', workspace: { key: 'dev' } }, 3)]), { only: 'attention' });
+  assert.match(calm, /Nothing needs attention/);
 });
 
 test('a settings file no plugin here owns is listed as such, with its own hint', () => {
@@ -60,7 +104,7 @@ test('the filter is drawn hidden (a script shows it), is labelled, and announces
   assert.match(html, /<div class="settings-search" hidden>/);
   assert.match(html, /<label class="settings-search-label" for="settings-search-input">/);
   assert.match(html, /role="status" aria-live="polite"/);
-  assert.strictEqual((html.match(/class="settings-chip"/g) || []).length, 4);
+  assert.strictEqual((html.match(/class="settings-chip"/g) || []).length, 5);
   assert.match(html, /data-show="all" aria-pressed="true"/);
   const ui = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'ui.js'), 'utf8');
   assert.match(ui, /function settingsSearchApply/);

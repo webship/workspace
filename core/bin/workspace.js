@@ -104,7 +104,7 @@ function catalogText() {
   const lines = ['What you can add (one npm package each; nothing is installed until you ask):', ''];
   for (const f of FAMILIES) {
     lines.push(`${f.label} — ${f.about}`);
-    for (const [name, label] of f.plugins) lines.push(`  ${name.padEnd(24)} ${label}   (${SCOPE}/workspace-${name})`);
+    for (const [name, label, summary] of f.plugins) lines.push(`  ${name.padEnd(24)} ${label}: ${summary}   (${SCOPE}/workspace-${name})`);
     lines.push('');
   }
   lines.push('Add one:  webship-workspace plugin require <name>   then activate, install, configure — or Settings → Plugins in the dashboard.');

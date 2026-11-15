@@ -159,3 +159,46 @@
 .settings-updates-line.is-unknown { background: var(--surface-muted); color: var(--text-subtle); }
 .settings-updates-line .tabler-icon { flex: none; margin-top: 0.1rem; }
 .plugin-alert.is-info { background: var(--subtle-brand); color: var(--text-default); }
+
+
+/* ---- After the design critique and the accessibility test ---- */
+
+/* The home's groups carry no frame of their own: the family lists do. Three borders deep (card, group,
+   list) put the names 73px inside the card for nothing. */
+.settings-home .settings-group { border: 0; padding: 0; margin-bottom: 1.75rem; }
+.settings-base .settings-tile-meta { font-size: 0.75rem; display: block; -webkit-line-clamp: unset; overflow: visible; }
+.settings-quiet { margin: 0.25rem 0 1rem; font-size: 0.875rem; color: var(--text-subtle); }
+
+/* One list width, one state column. The list is capped like the steps of a plugin's page so a name
+   and its state sit close; the state is a fixed column, left-aligned, so the pills share one left edge
+   whatever the width of the action beside them. */
+.settings-plugins .settings-family, .settings-plugins .settings-group-bar { max-width: 56rem; }
+.plugin-row { grid-template-columns: minmax(0, 1fr) 9.5rem 7.5rem; }
+.plugin-row-state { justify-content: flex-start; }
+.plugin-row-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.6rem; }
+.plugin-row-extra { font-size: 0.75rem; color: var(--text-subtle); font-variant-numeric: tabular-nums; }
+/* The line that says what a plugin is wraps rather than being cut: a cut line cannot be read by anyone. */
+.plugin-row-summary { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.plugin-row-chevron { display: inline-flex; padding: 0 0.75rem; color: var(--text-subtle); }
+.plugin-state .tabler-icon, .plugin-state [uk-icon] { flex: none; }
+/* A link drawn as a button is centred in its pill the way a real button is. */
+.plugin-action, .plugin-step-do .uk-button, .plugin-buttons .uk-button, .settings-add { display: inline-flex; align-items: center; justify-content: center; }
+.settings-summary-link { padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: var(--link); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+
+@media (max-width: 40em) {
+  /* Name and summary on the left; the state above the action on the right: three lines, not five. */
+  .plugin-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "main state" "main action"; align-items: start; gap: 0.35rem 0.6rem; }
+  .plugin-row-main { grid-area: main; grid-column: auto; }
+  .plugin-row-state { grid-area: state; justify-content: flex-end; }
+  .plugin-row-action { grid-area: action; }
+  .plugin-row-action .uk-button { min-height: 2.25rem; }
+  /* The base is five names: two per row, the hint left to the page behind each. */
+  .settings-base .settings-grid { grid-template-columns: 1fr 1fr; }
+  .settings-base .settings-tile { grid-template-areas: "icon name"; padding: 0.6rem 0.65rem; min-height: 2.75rem; }
+  .settings-base .settings-tile-meta { display: none; }
+  /* The chips are one row that scrolls sideways inside itself. */
+  .settings-chips { flex: 1 1 100%; min-width: 0; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0.25rem; scrollbar-width: thin; }
+  .settings-search-row { min-width: 0; }
+  .settings-search, .settings-home { min-width: 0; max-width: 100%; }
+  .settings-chip { flex: none; }
+}
