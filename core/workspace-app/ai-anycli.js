@@ -560,7 +560,12 @@ function syncSource(kind, src, lock, { say, force = false, adding = false }) {
         }
       } else {
         const changedHere = fs.existsSync(dest) && contentHash(dest) !== had.placed;
-        if (had.upstream === id && fs.existsSync(dest) && !(force && changedHere)) { had.latest = id; had.gone = false; continue; }
+        if (had.upstream === id && fs.existsSync(dest) && !(force && changedHere)) {
+          had.latest = id; had.gone = false;
+          // Nothing moved upstream, but the item is not the source's any more: say so, rather than "up to date".
+          if (changedHere) { say(`  left ${place}: changed locally (--force replaces it with the source's).`); counts.left += 1; }
+          continue;
+        }
         if (changedHere && !force) {
           had.latest = id; had.gone = false;
           say(`  left ${place}: changed locally (--force replaces it with the source's).`);
