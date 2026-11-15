@@ -105,3 +105,12 @@ html.dark .theme-icon-moon { display: none; }
 
 .exposure-banner strong { display: block; margin-bottom: .25rem; color: var(--danger); }
 .exposure-banner code { background: transparent; }
+
+/* Phone: the heading wraps instead of pushing the page wider than the screen (a long subtitle, a
+   path), and the page-width control goes: a phone has one width. */
+@media (max-width: 40em) {
+  .page-heading { flex-wrap: wrap; }
+  .page-heading > div { flex: 1 1 0; min-width: 0; }
+  .page-heading .uk-text-meta, .page-heading .fname { overflow-wrap: anywhere; }
+  .page-heading .width-switcher { display: none; }
+}

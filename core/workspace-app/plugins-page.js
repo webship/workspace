@@ -124,10 +124,12 @@ function commandsSectionHtml() {
       <h2 class="settings-group-head">Commands on this machine</h2>
       <p class="uk-text-meta">What the core calls, and whether it is here: the same as <code>webship-workspace doctor</code> (or <code>bash core/scripts/plugins.sh --check</code>), which also covers the host when the dashboard runs in its container. A plugin's own commands are on its card above. Nothing is installed for you.</p>
       ${missing.length ? `<p class="${missing.some((r) => r.kind === 'needs') ? 'uk-text-danger' : 'uk-text-warning'} uk-text-small plugin-commands-missing">Missing: ${esc(missing.map(commandLabel).join(', '))}.</p>` : ''}
+      <div class="uk-overflow-auto" tabindex="0" role="region" aria-label="Commands on this machine">
       <table class="uk-table uk-table-small uk-table-divider plugin-commands-table">
         <thead><tr><th>Command</th><th></th><th>Here</th><th>Used for</th></tr></thead>
         <tbody>${core.rows.map(row).join('')}</tbody>
       </table>
+      </div>
     </section>`;
 }
 
