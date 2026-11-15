@@ -185,12 +185,18 @@ assistant:
   # only what you may use, and a fan-made model only on your own machine.
   avatars:
     - druplicon
-  # Per avatar, optional: the hair colour it starts with (#rrggbb; each browser can pick another), and the
-  # Claude Code agent it brings while shown (used only when installed in ~/.claude/agents), e.g.
+  # After the ones named above, every character found in the avatar projects of the avatars workspace
+  # (avatars/<project>/characters/<id>.json) is offered too. false offers only the ones named.
+  avatars_discover: true
+  # Per avatar, optional: the hair colour it starts with (#rrggbb; each browser can pick another), the
+  # Claude Code agent it brings while shown (used only when installed in ~/.claude/agents) and the set of
+  # moves it does beyond the shared ones (a character file may name its agent and its moves itself), e.g.
   #   avatar_hair:
-  #     labiba-meme: "#0074e0"
+  #     my-character: "#0074e0"
   #   avatar_agents:
   #     druplicon: avatar-druplicon
+  #   avatar_moves:
+  #     my-character: guide
   # Where the assistant keeps what the team teaches it (MEMORY.md), relative to the workspace root.
   # Private to this machine: gitignored, and never copied by sync-tooling or the updater.
   memory: core/workspace-app/.memory

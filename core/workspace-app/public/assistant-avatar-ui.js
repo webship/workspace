@@ -84,7 +84,7 @@
     useVoiceOf(picked);
     stage.setAttribute('aria-label', `${picked.name}, the assistant's avatar`);
     loading = import('/assistant-avatar.js')
-      .then((m) => m.mountAvatar(canvas, { model: picked.model, moves: picked.moves || '', hair: hairOf(picked), box: () => floatCard.getBoundingClientRect(), look: lookPref() }))
+      .then((m) => m.mountAvatar(canvas, { model: picked.model, moves: picked.moves || '', ownMoves: picked.ownMoves || '', hair: hairOf(picked), box: () => floatCard.getBoundingClientRect(), look: lookPref() }))
       .then((a) => {
         loading = null;
         if (!root.classList.contains('assistant-avatar-on') || who().id !== picked.id) { a.dispose(); if (root.classList.contains('assistant-avatar-on')) mount(greet); return; }
