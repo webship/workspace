@@ -98,7 +98,7 @@ parser.add_argument('--keep-items',
 parser.add_argument('--force',
                     action='store_true',
                     default=False,
-                    help='With --source-update or --source-remove, also replace or remove an item changed here.')
+                    help='With --source-update or --source-remove, also replace or remove an item changed here. With --uninstall, also remove a file no install put there.')
 parser.add_argument('--clis',
                     action='store_true',
                     default=False,

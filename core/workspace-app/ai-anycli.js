@@ -933,17 +933,47 @@ function wantedItems(kind, name) {
   return [name];
 }
 
+/* The installs record: core/config/ai-installs.lock.json. One entry per item put into a CLI's folder, with
+ * a hash of what was written, so an uninstall removes exactly that and nothing a person put or edited there. */
+const installsFile = () => path.join(configDir(), 'ai-installs.lock.json');
+function readInstalls() {
+  try {
+    const data = JSON.parse(fs.readFileSync(installsFile(), 'utf8'));
+    if (isMap(data) && isMap(data.installed)) return data;
+  } catch (_) { /* a first install */ }
+  return { version: 1, installed: {} };
+}
+function writeInstalls(data) {
+  fs.mkdirSync(path.dirname(installsFile()), { recursive: true });
+  fs.writeFileSync(installsFile(), `${JSON.stringify(data, null, 2)}\n`);
+}
+const installKey = (cli, kind, to, name) => `${cli.id}|${kind}|${to && to !== '_none_' ? to : 'user'}|${name}`;
+
+/**
+ * Is what sits at a CLI's place for this name what an install put there? Yes when it still hashes to
+ * what the record holds, or (an install from before the record) when it equals the folder's item now.
+ */
+function isOurs(kind, name, cli, to, top, record) {
+  const rec = record.installed[installKey(cli, kind, to, name)];
+  if (rec && rec.hash === contentHash(top)) return true;
+  return folderItems(kind).includes(name) && itemCliState(kind, name, cli, to) === 'installed';
+}
+
 /** Install one item, or all, of a folder into one CLI, or all that are on. */
 function install(kind, name, cliId, { to = '', say = () => {} } = {}) {
   if (!AI_KINDS.includes(kind)) fail(`Only AI items install into an AI CLI (${AI_KINDS.join(', ')}).`);
   if (kind === 'ai-prompts') fail('A prompt is the launch command of a new session: it is run, not installed into a CLI.');
   const cfg = loadConfig();
   const items = wantedItems(kind, name);
+  const record = readInstalls();
   let done = 0;
   for (const cli of wantedClis(cliId, cfg)) {
     const place = cliPlace(cli, kind, to);
-    if (!place) { say(`${cli.label}: no place for a ${KIND_NOUN[kind]}${to ? ' in a project' : ''} there. Nothing installed.`); continue; }
+    if (!place) { say(`${cli.label}: no place for ${/^[aeiou]/.test(KIND_NOUN[kind]) ? 'an' : 'a'} ${KIND_NOUN[kind]}${to ? ' in a project' : ''} there. Nothing installed.`); continue; }
     for (const item of items) {
+      // What is there already and no install put there (edited there, or a file of the person's own with the name).
+      const top = path.join(place.dir, kind === 'ai-skills' ? item : `${item}${place.extension}`);
+      const differed = fs.existsSync(top) && !isOurs(kind, item, cli, to, top, record);
       const { files, notes } = converted(kind, item, place);
       if (kind === 'ai-skills') fs.rmSync(path.join(place.dir, item), { recursive: true, force: true });
       for (const [rel, buf] of files) {
@@ -953,30 +983,45 @@ function install(kind, name, cliId, { to = '', say = () => {} } = {}) {
       }
       const first = [...files.keys()][0];
       say(`${cli.label}: installed ${item} -> ${path.join(place.dir, kind === 'ai-skills' ? item : first)}${place.convert === 'copy' || place.convert === 'skill-folder' ? '' : ` (${place.convert})`}`);
+      record.installed[installKey(cli, kind, to, item)] = { hash: contentHash(top), at: now() };
+      if (differed) say('    replaced what was there: no install had put it there (edited there, or something else of that name)');
       for (const n of notes) say(`    ${n}`);
       done += 1;
     }
     if (!cli.installed) say(`    ${cli.command} is not on the PATH here: the files are where the documentation of ${cli.label} says, and it was not run.`);
   }
+  if (done) writeInstalls(record);
   if (done) say('Start a new session of the CLI to pick it up.');
   return done;
 }
 
-function uninstall(kind, name, cliId, { to = '', say = () => {} } = {}) {
+/**
+ * Take one item out of one CLI, or of all that are on. Only what an install put there is removed (the
+ * installs record, see isOurs): a file edited there since, or something else with the name, is left
+ * and said, unless `force`.
+ */
+function uninstall(kind, name, cliId, { to = '', say = () => {}, force = false } = {}) {
   if (!AI_KINDS.includes(kind) || kind === 'ai-prompts') fail('Nothing of this kind is installed into a CLI.');
   if (!name || name === '_all_') fail('Name the item to take out of the CLI.');
   if (!NAME_RE.test(name)) fail(`Not an item name: '${name}'.`);
   const cfg = loadConfig();
+  const record = readInstalls();
   let done = 0;
   for (const cli of wantedClis(cliId, cfg)) {
     const place = cliPlace(cli, kind, to);
     if (!place) continue;
     const top = path.join(place.dir, kind === 'ai-skills' ? name : `${name}${place.extension}`);
     if (!fs.existsSync(top)) { say(`${cli.label}: ${name} is not installed.`); continue; }
+    if (!force && !isOurs(kind, name, cli, to, top, record)) {
+      say(`${cli.label}: left ${top}: it is not what was installed from ${kind}/ (edited there, or something else of that name). --force removes it.`);
+      continue;
+    }
     fs.rmSync(top, { recursive: true, force: true });
+    delete record.installed[installKey(cli, kind, to, name)];
     say(`${cli.label}: removed ${top}`);
     done += 1;
   }
+  if (done) writeInstalls(record);
   return done;
 }
 
@@ -1002,5 +1047,5 @@ module.exports = {
   parseSource, defaultSourceId, discover, contentHash, placeItem, gitEnv, forgeToken,
   lockFile, readLock, itemState, sourcesOf, sourcesStatus,
   sourceAdd, sourceCheck, sourceUpdate, sourceRemove,
-  splitFrontmatter, lenientFront, folderItems, cliPlace, converted, itemCliState, install, uninstall, matrix,
+  splitFrontmatter, lenientFront, folderItems, installsFile, cliPlace, converted, itemCliState, install, uninstall, matrix,
 };

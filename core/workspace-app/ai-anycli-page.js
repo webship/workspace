@@ -49,8 +49,8 @@ function age(iso) {
 }
 
 const post = (vals) => `hx-post="/actions/any-cli" hx-vals='${esc(JSON.stringify(vals))}' hx-target="#any-cli-panel" hx-swap="outerHTML"`;
-const button = (label, vals, title, style = 'default') =>
-  `<button type="button" class="uk-button uk-button-${style} uk-button-small" ${post(vals)} title="${esc(title)}">${esc(label)}</button>`;
+const button = (label, vals, title, style = 'default', confirm = '') =>
+  `<button type="button" class="uk-button uk-button-${style} uk-button-small" ${post(vals)}${confirm ? ` hx-confirm="${esc(confirm)}"` : ''} title="${esc(title)}">${esc(label)}</button>`;
 
 /** The workspace a form names for the action's own check: the folder itself, or for cmd the folder the commands go in. */
 function sourcesHtml(kind, workspaces) {
@@ -129,7 +129,10 @@ function itemsHtml(kind) {
           : !can ? '<span class="uk-text-meta">use the terminal</span>'
           : cell.state === 'not installed' ? button('Install', { ...vals, verb: 'install' }, `Install ${r.name} into this CLI`, 'primary')
           : `${cell.state === 'installed, differs' ? button('Update', { ...vals, verb: 'install' }, `Install ${r.name} again, as it is in the folder now`, 'primary') : ''}
-             ${button('Remove', { ...vals, verb: 'uninstall' }, `Take ${r.name} out of this CLI`)}`;
+             ${cell.state === 'installed, differs'
+    // What is there is not what the folder installs: removing it is asked first, and said to the engine.
+    ? button('Remove', { ...vals, verb: 'uninstall', force: '1' }, `Take ${r.name} out of this CLI, though what is there differs from the item`, 'default', `What ${r.name} is in this CLI differs from the item in the folder (edited there, or something else of that name). Remove it?`)
+    : button('Remove', { ...vals, verb: 'uninstall' }, `Take ${r.name} out of this CLI`)}`;
         return `<td class="any-cli-cell" data-cli="${esc(cell.cli)}">${badge(cell.state)} ${act}</td>`;
       }).join('')}
     </tr>`).join('');

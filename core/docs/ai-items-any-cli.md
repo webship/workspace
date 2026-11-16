@@ -65,6 +65,8 @@ bash cmd-tools-ai-items.sh <name> --uninstall --cli gemini
 
 `--install` with no `--cli` is Claude Code, as before.
 
+`--uninstall` removes what an install put there, and only that: each install is recorded with a hash of what it wrote (`core/config/ai-installs.lock.json`). A file in the CLI's folder that was edited there since, or something of your own with the same name, is left and named; `--force` removes it. `--install` over such a file replaces it and says so.
+
 The CLIs are data. `core/config/ai.defaults.yml` ships these, each path and format read in that CLI's own documentation on 2026-11-15 (the `docs` link of each entry):
 
 | CLI | Agents | Skills | Commands | Ships |

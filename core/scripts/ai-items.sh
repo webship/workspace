@@ -19,6 +19,8 @@
 ##   bash core/scripts/ai-items.sh ai-skills install <name> --cli gemini      --cli all = every CLI that is on;
 ##                                                                            --to dev/site = that project only
 ##   bash core/scripts/ai-items.sh ai-skills uninstall <name> --cli gemini
+##                                                                            a file no install put there is left
+##                                                                            unless --force
 ##
 ##   bash core/scripts/ai-items.sh roles                                      who writes, who reviews, who gives a second
 ##                                                                            opinion on a spec, and whether each can run

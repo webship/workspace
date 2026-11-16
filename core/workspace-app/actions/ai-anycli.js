@@ -47,6 +47,8 @@ async function any_cli({ form, send, workspace }) {
     const name = field('name'); const cli = field('cli');
     if (!TOKEN_RE.test(name) || !TOKEN_RE.test(cli)) return again('Which item, and which CLI?', true);
     args.push(name, '--cli', cli);
+    // Asked for, and confirmed, on a cell whose file is not what the folder installs.
+    if (verb === 'uninstall' && field('force') === '1') args.push('--force');
   }
 
   const out = await run(process.execPath, [path.join(__dirname, '..', 'ai-anycli-cli.js'), ...args], path.join(__dirname, '..'),

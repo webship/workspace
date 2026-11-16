@@ -14,6 +14,7 @@
  *          items                         the folder's items against the CLIs that are on   (--to <folder>/<project>)
  *          install [<name>]              --cli <id|all> (default: the default CLI) --to <folder>/<project>
  *          uninstall <name>              --cli <id|all> --to <folder>/<project>
+ *                                        --force also removes a file no install put there
  *
  *   node ai-anycli-cli.js roles                                   each role of a spec's flow, its CLI, ready or why not
  *   node ai-anycli-cli.js run --role <author|reviewer|second_opinion> --spec <folder> "<task>"
@@ -116,7 +117,7 @@ function main(argv) {
     case 'clis': printClis(); return 0;
     case 'items': printItems(kind, to); return 0;
     case 'install': A.install(kind, name, opt.cli || 'default', { to, say }); return 0;
-    case 'uninstall': A.uninstall(kind, name, opt.cli || 'default', { to, say }); return 0;
+    case 'uninstall': A.uninstall(kind, name, opt.cli || 'default', { to, say, force: !!opt.force }); return 0;
     default: throw new A.AnyCliError(`Unknown verb '${verb}'. Run with --help.`);
   }
 }

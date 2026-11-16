@@ -528,3 +528,98 @@ test('frontmatter a YAML parser rejects is read line by line and said, never dro
   A.uninstall('ai-agents', 'deployer', 'gemini');
   fs.rmSync(path.join(ROOT, 'ai-agents', 'deployer.md'));
 });
+
+test('uninstall removes what an install put there, and only that: a file edited there or put there by hand is left unless forced', () => {
+  write(path.join(ROOT, 'ai-agents', 'keeper.md'), AGENT('keeper'));
+  const place = path.join(HOME, '.claude', 'agents', 'keeper.md');
+  const run = (fn, kind, name, cliId, opts = {}) => { const said = []; const n = fn(kind, name, cliId, { ...opts, say: (s) => said.push(s) }); return { n, said: said.join('\n') }; };
+  const recorded = () => Object.keys(JSON.parse(fs.readFileSync(A.installsFile(), 'utf8')).installed);
+
+  // Installed by the folder: recorded, and removed with its record.
+  run(A.install, 'ai-agents', 'keeper', 'claude');
+  assert.ok(A.installsFile().endsWith(path.join('core', 'config', 'ai-installs.lock.json')));
+  assert.ok(recorded().includes('claude|ai-agents|user|keeper'));
+  assert.strictEqual(run(A.uninstall, 'ai-agents', 'keeper', 'claude').n, 1);
+  assert.ok(!fs.existsSync(place));
+  assert.ok(!recorded().includes('claude|ai-agents|user|keeper'));
+
+  // The item moved on in the folder after the install: what is in the CLI is still what was installed, so it goes.
+  run(A.install, 'ai-agents', 'keeper', 'claude');
+  fs.appendFileSync(path.join(ROOT, 'ai-agents', 'keeper.md'), '\nOne more line.\n');
+  assert.strictEqual(A.itemCliState('ai-agents', 'keeper', A.cliById('claude')), 'installed, differs');
+  assert.strictEqual(run(A.uninstall, 'ai-agents', 'keeper', 'claude').n, 1);
+
+  // A file of the person's own with the item's name: left, named, and removed only when forced.
+  write(place, 'My own agent, written by hand.\n');
+  let r = run(A.uninstall, 'ai-agents', 'keeper', 'claude');
+  assert.strictEqual(r.n, 0);
+  assert.match(r.said, /Claude Code: left .*keeper\.md: it is not what was installed from ai-agents\/ \(edited there, or something else of that name\)\. --force removes it\./);
+  assert.strictEqual(fs.readFileSync(place, 'utf8'), 'My own agent, written by hand.\n');
+  assert.strictEqual(cli.main(['ai-agents', 'uninstall', 'keeper', '--cli', 'claude']), 0, 'the command line leaves it too');
+  assert.ok(fs.existsSync(place));
+
+  // An install over it replaces it, and says so; over its own copy it says nothing of the kind.
+  r = run(A.install, 'ai-agents', 'keeper', 'claude');
+  assert.match(r.said, /replaced what was there: no install had put it there/);
+  assert.strictEqual(fs.readFileSync(place, 'utf8'), fs.readFileSync(path.join(ROOT, 'ai-agents', 'keeper.md'), 'utf8'));
+  assert.doesNotMatch(run(A.install, 'ai-agents', 'keeper', 'claude').said, /replaced what was there/);
+
+  // Edited in the CLI's folder after the install: left; --force removes it.
+  fs.appendFileSync(place, 'edited there\n');
+  assert.strictEqual(run(A.uninstall, 'ai-agents', 'keeper', 'claude').n, 0);
+  assert.ok(fs.existsSync(place));
+  assert.strictEqual(cli.main(['ai-agents', 'uninstall', 'keeper', '--cli', 'claude', '--force']), 0);
+  assert.ok(!fs.existsSync(place), '--force removes it');
+
+  // A name the folder has no item for, and no install recorded: left unless forced.
+  const stray = path.join(HOME, '.claude', 'agents', 'not-from-here.md');
+  write(stray, 'Somebody else put this here.\n');
+  assert.strictEqual(run(A.uninstall, 'ai-agents', 'not-from-here', 'claude').n, 0);
+  assert.ok(fs.existsSync(stray));
+  assert.strictEqual(run(A.uninstall, 'ai-agents', 'not-from-here', 'claude', { force: true }).n, 1);
+  assert.ok(!fs.existsSync(stray));
+
+  // Installed before there was a record (no entry), unchanged: it equals the item, so it goes.
+  fs.copyFileSync(path.join(ROOT, 'ai-agents', 'keeper.md'), place);
+  assert.ok(!recorded().includes('claude|ai-agents|user|keeper'));
+  assert.strictEqual(run(A.uninstall, 'ai-agents', 'keeper', 'claude').n, 1);
+
+  // A skill folder with a file added there is not what was installed.
+  write(path.join(ROOT, 'ai-skills', 'kept-skill', 'SKILL.md'), SKILL('kept-skill'));
+  run(A.install, 'ai-skills', 'kept-skill', 'claude');
+  const skillDir = path.join(HOME, '.claude', 'skills', 'kept-skill');
+  write(path.join(skillDir, 'notes.md'), 'mine\n');
+  assert.strictEqual(run(A.uninstall, 'ai-skills', 'kept-skill', 'claude').n, 0);
+  assert.ok(fs.existsSync(path.join(skillDir, 'notes.md')));
+  fs.rmSync(path.join(skillDir, 'notes.md'));
+  assert.strictEqual(run(A.uninstall, 'ai-skills', 'kept-skill', 'claude').n, 1);
+  assert.ok(!fs.existsSync(skillDir));
+
+  // A project has its own entry.
+  run(A.install, 'ai-agents', 'keeper', 'claude', { to: 'dev/site1' });
+  assert.ok(recorded().includes('claude|ai-agents|dev/site1|keeper'));
+  assert.strictEqual(run(A.uninstall, 'ai-agents', 'keeper', 'claude', { to: 'dev/site1' }).n, 1);
+
+  // The panel asks before it removes a cell that differs, and tells the engine it was asked.
+  run(A.install, 'ai-agents', 'keeper', 'claude');
+  fs.appendFileSync(place, 'edited there\n');
+  const html = require('../../ai-anycli-page').panelHtml('ai-agents');
+  const row = html.slice(html.indexOf('data-item="keeper"'));
+  const cell = row.slice(row.indexOf('data-cli="claude"'), row.indexOf('data-cli="gemini"'));
+  assert.match(cell, /&quot;verb&quot;:&quot;uninstall&quot;,&quot;force&quot;:&quot;1&quot;[^>]* hx-confirm="What keeper is in this CLI differs from the item/);
+  fs.rmSync(place); fs.rmSync(path.join(ROOT, 'ai-agents', 'keeper.md')); fs.rmSync(path.join(ROOT, 'ai-skills', 'kept-skill'), { recursive: true });
+});
+
+test('a CLI with no place for a kind says so in plain words: "an agent", "a command"', () => {
+  write(path.join(ROOT, 'ai-agents', 'worded.md'), AGENT('worded'));
+  const before = fs.existsSync(A.settingsFile()) ? fs.readFileSync(A.settingsFile(), 'utf8') : null;
+  A.updateSettings((data) => { data.clis = { ...(data.clis || {}), grok: { enabled: true } }; });
+  try {
+    const said = [];
+    A.install('ai-agents', 'worded', 'grok', { say: (s) => said.push(s) });
+    assert.deepStrictEqual(said, ['Grok Build: no place for an agent there. Nothing installed.']);
+  } finally {
+    if (before === null) fs.rmSync(A.settingsFile(), { force: true }); else fs.writeFileSync(A.settingsFile(), before);
+    fs.rmSync(path.join(ROOT, 'ai-agents', 'worded.md'));
+  }
+});
