@@ -198,6 +198,22 @@ for arg in "${@:2}" ; do
     *) [ -z "${name}" ] && name="${arg}" ;;
   esac
 done
+# The catalogue and `--require` name a plugin by its package (google-drive); the steps after it take the
+# manifest's name (google-drive-sync). When the two differ, the package's name is taken for its plugin's.
+case "${verb}" in
+  --activate|--install|--configure|--deactivate|--uninstall)
+    if [ -n "${name}" ] && ! plugin_known "${name}" ; then
+      of_package="$( cd "${APP}" && node -e '
+        const want = process.argv[1];
+        const hit = require("./plugin-manifest").installedPlugins().find((p) => String(p.module || "").replace(/^.*\/workspace-/, "") === want);
+        process.stdout.write(hit ? hit.name : "");
+      ' "${name}" 2>/dev/null )" ;
+      if [ -n "${of_package}" ] && [ "${of_package}" != "${name}" ] ; then
+        echo "The plugin of the package '${name}' is named '${of_package}': using that." ;
+        name="${of_package}" ;
+      fi
+    fi ;;
+esac
 case "${verb}" in
   -h|--help|'') usage ; exit 0 ;;
 

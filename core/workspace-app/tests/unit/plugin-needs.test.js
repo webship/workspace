@@ -599,3 +599,21 @@ test('uninstall keeps what a person changed and says so: a command, a settings f
   ok(sh(t, '--activate', 'host')); ok(sh(t, '--install', 'host'));
   assert.match(fs.readFileSync(conf, 'utf8'), /tok-123/);
 });
+
+test('a step given the package name of a plugin whose manifest name differs takes the plugin, and says so', () => {
+  const t = tree();
+  // The package is workspace-drive; its manifest names the plugin drive-sync (as Google Drive does).
+  const dir = plugin(t.plugins, 'drive', {});
+  const pkgFile = path.join(dir, 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgFile, 'utf8'));
+  pkg.name = '@webship.co/workspace-drive';
+  pkg.workspacePlugin.name = 'drive-sync';
+  fs.writeFileSync(pkgFile, JSON.stringify(pkg, null, 2));
+  const r = sh(t, '--activate', 'drive');
+  assert.strictEqual(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /The plugin of the package 'drive' is named 'drive-sync': using that\./);
+  assert.match(fs.readFileSync(path.join(t.config, 'settings.yml'), 'utf8'), /drive-sync:[\s\S]*enabled: true/);
+  const no = sh(t, '--activate', 'nothing-like-it');
+  assert.strictEqual(no.status, 1);
+  assert.match(no.stdout, /No plugin named 'nothing-like-it'/);
+});
