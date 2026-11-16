@@ -817,10 +817,12 @@ async function screensGridHtml() {
              five verbs, and two of those side by side on a 1400px screen leaves each one narrower than
              the buttons it holds. Two and three across are for a machine with a dozen sessions on it,
              where the question is "which of these is waiting" rather than "what does this one say". -->
+        <!-- Named by what they show: "2" and "3" were named "Two across" and "Three across", so the words on
+             the button were not in its name (WCAG 2.5.3); the first is an icon alone and keeps its sentence. -->
         <span class="screens-cols" role="group" aria-label="How many sessions across">
           ${[['1', 'list', 'One under another'], ['2', 'grid', 'Two across'], ['3', 'grid', 'Three across']]
     .map(([n, icon, title]) => `<button type="button" class="uk-button uk-button-default uk-button-small"
-            data-screens-cols="${n}" title="${esc(title)}" aria-label="${esc(title)}"
+            data-screens-cols="${n}" title="${esc(title)}" aria-label="${esc(n === '1' ? title : `${n} across`)}"
             aria-pressed="false">${n === '1' ? '<span uk-icon="icon: list; ratio: .7"></span>' : `<span uk-icon="icon: ${icon}; ratio: .7"></span> ${n}`}</button>`).join('')}
         </span>
         ${newScreenButtonHtml()}

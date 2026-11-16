@@ -634,7 +634,8 @@ html.dark .row-item { background: transparent; }
 #row-arrange-form[data-dirty="1"] .row-unsaved-note { display: inline; }
 /* A command's own move arrows: small, beside its handle, so it can be reordered without dragging. */
 .row-entry-item > .ws-move { flex: none; margin-left: 0; order: -1; }
-.row-entry-item > .ws-move .uk-button { padding: 0 0.25rem; line-height: 1.125rem; min-height: 0; }
+/* At least 24x24 (WCAG 2.5.8): they were 24x20 on rows 23px apart, two to an item. */
+.row-entry-item > .ws-move .uk-button { padding: 0 0.25rem; line-height: 1.375rem; min-width: 1.5rem; min-height: 1.5rem; }
 /* Rows tab at phone width: a command's line wraps so its name keeps a readable width (it was left about 20px,
    one word per line), and a group's line wraps so its move arrows stay inside the list instead of being cut off. */
 @media (max-width: 40em) {
