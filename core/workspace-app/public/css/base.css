@@ -164,6 +164,9 @@ em { color: inherit; }
    .uk-h3) stayed UIKit's dark grey on the dark page. */
 h1, h2, h3, h4, h5, h6, .uk-h1, .uk-h2, .uk-h3, .uk-h4, .uk-h5, .uk-h6, .uk-card-default .uk-card-title { color: var(--text-default); }
 .uk-text-meta, .uk-text-lead { color: var(--text-subtle) !important; }
+/* UIKit's muted grey is 2.84:1 on white: the AI folders' shared-only rows were drawn in it. Muted is the
+   theme's subtle ink, like meta text. */
+.uk-text-muted { color: var(--text-subtle) !important; }
 
 /* Form controls. The select needs UIKit's own selector — `.uk-select` alone is
    (0,1,0) against UIKit's `.uk-select:not([multiple]):not([size])` at (0,3,0), so
