@@ -139,7 +139,7 @@ function repoDiffers(key, name, repoBlobs) {
 }
 
 const ITEM_TEMPLATES = {
-  agents: (name) => `---
+  'ai-agents': (name) => `---
 name: ${name}
 description: Use this agent to <when to invoke it>.
 tools:
@@ -157,7 +157,7 @@ You are the specialist agent for <what this agent does>.
 
 - <how to work>
 `,
-  skills: (name) => `---
+  'ai-skills': (name) => `---
 name: ${name}
 description: <what this skill does and when to use it>
 ---
@@ -168,7 +168,28 @@ description: <what this skill does and when to use it>
 
 - <steps the skill follows>
 `,
-  prompts: (name) => `<Write the reusable prompt here — installing it makes it available in Claude Code as /${name}>
+  'ai-commands': (name) => `---
+description: <what /${name} does, in one line>
+argument-hint: '<what to type after it>'
+---
+
+# /${name}
+
+Do <what the command does> for: \`$ARGUMENTS\`
+
+The argument is <what it names>.
+
+## Steps
+
+1. <the first step>
+`,
+  'ai-prompts': (name) => `<What ${name} is for, in one sentence.>
+
+\`\`\`
+claude """
+<Write the reusable prompt here: it opens a new session from the New screen form.>
+"""
+\`\`\`
 `,
   docs: (name) => `# ${name}
 

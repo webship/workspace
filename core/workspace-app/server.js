@@ -7802,8 +7802,8 @@ Summarise what you changed and how to verify it`,
       </form>
     </div>`);
       }
-      const cloneMatch = pathname.match(/^\/fragments\/(agents|skills|prompts)\/clone\/([a-zA-Z0-9_%.-]+)$/);
-      if (cloneMatch) {
+      const cloneMatch = pathname.match(/^\/fragments\/(ai-agents|ai-skills|ai-commands|ai-prompts)\/clone\/([a-zA-Z0-9_%.-]+)$/);
+      if (cloneMatch && loadWorkspaces()[cloneMatch[1]]) {
         const key = cloneMatch[1];
         const name = decodeURIComponent(cloneMatch[2]);
         if (!ITEM_NAME_RE.test(name)) { res.writeHead(400); return res.end('bad name'); }
@@ -7827,8 +7827,8 @@ Summarise what you changed and how to verify it`,
       </form>
     </div>`);
       }
-      const proposeMatch = pathname.match(/^\/fragments\/(agents|skills|prompts)\/propose\/([a-zA-Z0-9_%.-]+)$/);
-      if (proposeMatch) {
+      const proposeMatch = pathname.match(/^\/fragments\/(ai-agents|ai-skills|ai-commands|ai-prompts)\/propose\/([a-zA-Z0-9_%.-]+)$/);
+      if (proposeMatch && loadWorkspaces()[proposeMatch[1]]) {
         const key = proposeMatch[1];
         const name = decodeURIComponent(proposeMatch[2]);
         if (!ITEM_NAME_RE.test(name)) { res.writeHead(400); return res.end('bad name'); }
@@ -7872,8 +7872,8 @@ Summarise what you changed and how to verify it`,
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(anyCliPanel);
       }
-      const addFormMatch = pathname.match(/^\/fragments\/(agents|skills)\/add-form$/);
-      if (addFormMatch) {
+      const addFormMatch = pathname.match(/^\/fragments\/(ai-agents|ai-skills|ai-commands)\/add-form$/);
+      if (addFormMatch && loadWorkspaces()[addFormMatch[1]]) {
         const key = addFormMatch[1];
         const meta = loadWorkspaces()[key];
         const toWsOptions = `<option value="">~/.claude (global)</option>${
@@ -7895,8 +7895,8 @@ Summarise what you changed and how to verify it`,
             </form>
           </div>`);
       }
-      const aiFormMatch = pathname.match(/^\/fragments\/(agents|skills|prompts)\/ai-form$/);
-      if (aiFormMatch) {
+      const aiFormMatch = pathname.match(/^\/fragments\/(ai-agents|ai-skills|ai-commands|ai-prompts)\/ai-form$/);
+      if (aiFormMatch && loadWorkspaces()[aiFormMatch[1]]) {
         const key = aiFormMatch[1];
         const meta = loadWorkspaces()[key];
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
