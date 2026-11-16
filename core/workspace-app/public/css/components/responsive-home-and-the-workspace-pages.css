@@ -136,8 +136,10 @@ html.dark #editor-modal .editor-card {
 }
 
 @media (max-width: 47.9375em) {
-  /* On a phone the two buttons are what wrap, not the field. */
-  .lc-find { flex-wrap: wrap; row-gap: 0.375rem; }
+  /* On a phone the two buttons are what wrap, not the field. Two classes: .lc-group says nowrap in a file
+     assembled after this one, and with one class it won — at 320px Reset ran 12px off the screen on every
+     list page (round 7). */
+  .lc-group.lc-find { flex-wrap: wrap; row-gap: 0.375rem; }
   .list-controls .list-search { flex-basis: 100%; }
 }
 
@@ -458,7 +460,12 @@ html.dark #editor-modal .editor-card {
 
 /* A phone: a path or a command in the text breaks where it must. UIkit keeps inline code on one line,
    so one long path made the whole page scroll sideways (docs, images, the AI folders, commands,
-   graphs, rag, videos, audio, designs). A block of code keeps its lines and scrolls in its own box. */
+   graphs, rag, videos, audio, designs). A block of code keeps its lines and scrolls in its own box.
+   Below 960px too (the next block): /graphs' "graphify query … --graph <path>" ran to 969px at 768
+   and to 937px at 200% zoom of a laptop. */
+@media (max-width: 59.9375em) {
+  :not(pre) > code { white-space: normal; overflow-wrap: anywhere; }
+}
 @media (max-width: 39.9375em) {
   :not(pre) > code, code.fname { white-space: normal; overflow-wrap: anywhere; }
   .cmd-file { max-width: 100%; }
