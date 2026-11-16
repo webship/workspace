@@ -83,6 +83,20 @@ plugin_here() {
     process.exit(recorded || has(require("./workspaces").loadSettings().plugins) ? 0 : 1);
   ' "$1" 2>/dev/null ) ;
 }
+# The settings files a plugin has, one per line: its own (the manifest's settingsFile, or
+# plugin.<name>.settings.yml when it only names a template) and, for a plugin that is a workspace folder,
+# the folder's (workspace.<key>.settings.yml).
+settings_files_of() {
+  ( cd "${APP}" && node -e '
+    const p = require("./plugin-manifest").pluginByName(process.argv[1]);
+    const m = (p && p.manifest) || {};
+    const out = [];
+    if (m.settingsFile || m.settingsTemplate) out.push(m.settingsFile || `plugin.${p.name}.settings.yml`);
+    const ws = m.workspace || {};
+    if (ws.key && ws.settingsTemplate && /^[a-z0-9_-]+$/.test(String(ws.key))) out.push(`workspace.${ws.key}.settings.yml`);
+    process.stdout.write(out.join("\n"));
+  ' "$1" 2>/dev/null ) ;
+}
 no_such_plugin() { echo "No plugin named '$1' is here: nothing was changed. --list shows the plugins of this workspace." ; }
 # A plugin that IS a workspace folder names it in its manifest (workspace.key); activating it puts the
 # key on settings.yml's workspaces list (the dashboard's order), deactivating takes it off.
@@ -344,7 +358,12 @@ case "${verb}" in
     else
       restart_app ;
     fi
-    echo "Installed. Next: --configure ${name}." ;;
+    # The next step only when there is one: a plugin with no settings is ready as it is.
+    if [ -n "$(settings_files_of "${name}")" ] ; then
+      echo "Installed. Next: --configure ${name}." ;
+    else
+      echo "Installed. ${name} has nothing to configure: it is ready." ;
+    fi ;;
 
   --uninstall)
     [ -n "${name}" ] || { echo "Which plugin?" ; exit 1 ; } ;
@@ -363,16 +382,23 @@ case "${verb}" in
   --configure)
     [ -n "${name}" ] || { echo "Which plugin?" ; exit 1 ; } ;
     plugin_known "${name}" || { echo "No plugin named '${name}' is installed in the dashboard. --require it first." ; exit 1 ; } ;
-    file="$( cd "${APP}" && node -e 'const p=require("./plugin-manifest").pluginByName(process.argv[1]);process.stdout.write(p&&p.manifest.settingsFile?p.manifest.settingsFile:"")' "${name}" )" ;
-    [ -n "${file}" ] || { echo "${name} has no settings file of its own." ; exit 0 ; } ;
-    if [ ! -f "${WORKSPACE_ROOT}/core/config/${file}" ] ; then
-      ( cd "${APP}" && node plugin-install.js install "${name}" > /dev/null ) ;
-    fi
-    echo "Its settings: ${WORKSPACE_ROOT}/core/config/${file}" ;
-    echo "Edit it there, or on the dashboard: https://workspace.ddev.site/settings/${file}" ;
-    # Shown as the dashboard shows it: a secret that is set reads <hidden> (a token, a key, a password,
-    # every value of a map of them), a placeholder stays, a comment is left alone.
-    ( cd "${APP}" && node -e 'process.stdout.write(require("./settings-file").settingsTextForTerminal(process.argv[1]) || "")' "${file}" ) ;;
+    files="$(settings_files_of "${name}")" ;
+    [ -n "${files}" ] || { echo "${name} has nothing to configure: it has no settings file, and it is not a workspace folder." ; exit 0 ; } ;
+    # A settings file that is not there yet is written by the install (from the plugin's template).
+    for file in ${files} ; do
+      [ -f "${WORKSPACE_ROOT}/core/config/${file}" ] || { ( cd "${APP}" && node plugin-install.js install "${name}" > /dev/null 2>&1 ) ; break ; } ;
+    done
+    for file in ${files} ; do
+      [ -f "${WORKSPACE_ROOT}/core/config/${file}" ] || { echo "${file} is not there yet: --install ${name} writes it." ; continue ; } ;
+      case "${file}" in
+        workspace.*) echo "The settings of its folder: ${WORKSPACE_ROOT}/core/config/${file}" ;;
+        *) echo "Its settings: ${WORKSPACE_ROOT}/core/config/${file}" ;;
+      esac
+      echo "Edit it there, or on the dashboard: https://workspace.ddev.site/settings/${file}" ;
+      # Shown as the dashboard shows it: a secret that is set reads <hidden> (a token, a key, a password,
+      # every value of a map of them), a placeholder stays, a comment is left alone.
+      ( cd "${APP}" && node -e 'process.stdout.write(require("./settings-file").settingsTextForTerminal(process.argv[1]) || "")' "${file}" ) ;
+    done ;;
 
   --restart) restart_app ;;
 
