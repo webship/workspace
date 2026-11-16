@@ -87,7 +87,7 @@ async function updateHintHtml({ current, repo, host = 'github.com', esc }) {
   if (!tag || !isNewer(tag, current)) return '';
   const href = `https://${host}/${repo}/releases/tag/${encodeURIComponent(tag)}`;
   return `<a class="version-new" href="${esc(href)}" target="_blank" rel="noopener"
-    title="${esc(`${tag} has been released — this machine runs ${current}. Update with: bash core/workspace-app/scripts/update.sh`)}"
+    title="${esc(`${tag} has been released — this machine runs ${current}. Update with: npx -y @webship.co/workspace@latest update  (then each plugin from Settings → Plugins)`)}"
     ><span uk-icon="icon: arrow-up; ratio: .7"></span>${esc(tag)}</a>`;
 }
 

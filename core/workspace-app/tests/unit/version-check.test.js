@@ -74,7 +74,7 @@ test('the hint links to that release and says what to run', () => {
   // network answer is exactly the part a test cannot have.
   assert.match(src, /releases\/tag\/\$\{encodeURIComponent\(tag\)\}/);
   assert.match(src, /has been released — this machine runs \$\{current\}/);
-  assert.match(src, /scripts\/update\.sh/, 'and what to do about it');
+  assert.match(src, /Update with: npx -y @webship\.co\/workspace@latest update/, 'and what to do about it: the update of a workspace made with npm (#411)');
   assert.match(src, /target="_blank" rel="noopener"/);
 });
 

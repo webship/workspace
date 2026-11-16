@@ -212,7 +212,8 @@ API keys:
 | What | Command | What it does |
 | --- | --- | --- |
 | The tools | `bash core/scripts/install.sh --check` | Reports what is missing, then installs it without `--check`. Idempotent, so it is also the update path for git, gh, Node.js, Docker, DDEV and Claude Code. |
-| The dashboard app, and the prompt templates | `bash core/workspace-app/scripts/update.sh --check` | Compares the installed version with the newest release; without `--check` it updates to it. |
+| The core: tooling, dashboard, `commands/` (a workspace made with npm) | `npx -y @webship.co/workspace@latest update <dir>` | Refreshes the core, keeps settings files and this machine's dashboard values, removes what a release stopped shipping, restarts the dashboard that serves this workspace. Plugins then: Update to <version> and Reinstall on their Settings page. |
+| The dashboard app alone, and the prompt templates | `bash core/workspace-app/scripts/update.sh --check` | Compares the installed version with the newest release; without `--check` it updates the dashboard folder to it, leaving what plugins placed there. |
 | The `cmd-*.sh` tooling (clone only) | `bash core/scripts/sync-tooling.sh --pull` | Copies the scripts, the dashboard and the per-workspace settings out of the clone into the live tree. |
 
 The dashboard updater is self-contained — plain bash, `curl`/`gh`, `tar` and `rsync`, no workspace

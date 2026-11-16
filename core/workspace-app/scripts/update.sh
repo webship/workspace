@@ -80,6 +80,14 @@ done
 
 installed="(untracked)"
 [ -f "${VERSION_FILE}" ] && installed="$(cat "${VERSION_FILE}")"
+
+# A workspace made with npm (webship-workspace init) is updated with the npm package, which refreshes the
+# whole core (core/scripts, core/config, commands/ too, not only this folder) and keeps what plugins placed
+# and this machine's own values: this script is the older way, for the dashboard folder alone (#411).
+if [ -f "${ROOT}/core/bin/workspace.js" ] && [ ! -d "${ROOT}/.git" ] && [ "${CHECK}" = "no" ] && [ -z "${WORKSPACE_UPDATE_REEXEC:-}" ]; then
+  echo "This workspace was made with npm. Update it with:  npx -y @webship.co/workspace@latest update ${ROOT}"
+  echo "(this script updates core/workspace-app alone; it goes on, leaving what plugins placed there)"
+fi
 # What the prompts on disk came with. It is the installed version UNLESS this run
 # is the second half of an update that already bumped it — hence --baseline, which
 # the re-exec passes through with the value from before the bump.
@@ -169,8 +177,13 @@ else
   fi
 
   echo "Updating ${APP_DIR} (runtime state survives)…"
+  # What plugins placed in the dashboard folder is theirs, recorded in core/config/plugins.installed.yml:
+  # their compose files and their browser features. A release does not carry them, so --delete must not
+  # take them (#411).
   rsync ${rsync_flags} --delete \
     --filter='protect .ddev/config.*.yaml' \
+    --filter='protect .ddev/docker-compose.plugin-*' \
+    --filter='protect tests/features/plugins/' \
     --exclude=node_modules --exclude=actions.log --exclude=logs --exclude=.app-version \
     --exclude=.prompts-shipped --exclude=.chats --exclude=.memory --exclude=.voice-cache \
     --exclude=screenshots --exclude='tests/reports' --exclude='.playwright-mcp' \

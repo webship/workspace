@@ -584,8 +584,18 @@ works by it.
 ## Keeping up to date
 
 ```bash
+npx -y @webship.co/workspace@latest update ~/workspace          # the core, the dashboard, commands/
+```
+
+Then each plugin: Settings → Plugins → the plugin → **Update to <version>**, then **Reinstall** (or
+`webship-workspace plugin require <name>` and `webship-workspace plugin install <name>`). A file you
+changed in what a plugin placed is kept beside the new one as `<file>.yours`.
+
+The older updater of the dashboard folder alone is still there, and leaves what plugins placed in it:
+
+```bash
 bash ~/workspace/core/workspace-app/scripts/update.sh --check   # what you have vs the latest
-bash ~/workspace/core/workspace-app/scripts/update.sh           # update
+bash ~/workspace/core/workspace-app/scripts/update.sh           # update the dashboard folder only
 ```
 
 The version you are running is in the **toolbar**, beside the product name. If it says
