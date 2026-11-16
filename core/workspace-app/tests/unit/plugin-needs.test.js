@@ -622,3 +622,24 @@ test('a plugin whose name is not the last word of its package is reached by eith
   ok(sh(t, '--activate', 'drive-sync'));
   assert.strictEqual(sh(t, '--activate', 'nope').status, 1);
 });
+
+test('a second install says what it did: nothing when nothing changed, and only the files it wrote when something did', () => {
+  const t = tree();
+  folder(t.plugins, 'dev');
+  const dir = plugin(t.plugins, 'host', { commands: { types: ['sites'], workspaces: ['dev'], files: ['commands/cmd-tools-host.sh', 'commands/cmd-host-project.sh'] } });
+  for (const n of ['dev', 'host']) ok(sh(t, '--activate', n));
+  ok(sh(t, '--install', 'dev'));
+  const first = ok(sh(t, '--install', 'host'));
+  assert.strictEqual((first.stdout.match(/^ {2}placed /gm) || []).length, 2, 'the first install lists what it placed');
+  const before = snapshot(t).replace(/installed: .*/g, '');
+  const second = ok(sh(t, '--install', 'host'));
+  assert.doesNotMatch(second.stdout, /^ {2}placed /m, 'nothing is said to be placed again');
+  assert.match(second.stdout, /nothing to do: all 2 file\(s\) are in place/);
+  assert.strictEqual(snapshot(t).replace(/installed: .*/g, ''), before, 'and nothing changed on disk');
+  // The package brings a new version of one file: that one is placed, the other is counted.
+  fs.appendFileSync(path.join(dir, 'commands', 'cmd-tools-host.sh'), '# 0.2.0\n');
+  const third = ok(sh(t, '--install', 'host'));
+  assert.match(third.stdout, /^ {2}placed dev\/cmd-tools-host\.sh$/m);
+  assert.doesNotMatch(third.stdout, /placed dev\/cmd-host-project\.sh/);
+  assert.match(third.stdout, /1 more file\(s\) were already in place, unchanged/);
+});
