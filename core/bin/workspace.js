@@ -80,6 +80,77 @@ function mergeAppPackage(from, to) {
   return `${JSON.stringify(next, null, 2)}\n`;
 }
 
+// The dashboard's .ddev/ files that carry this machine's own values over the release's placeholders.
+const DDEV_DIR = path.join('core', 'workspace-app', '.ddev');
+const DDEV_CONFIG = path.join(DDEV_DIR, 'config.yaml');
+const DDEV_DOCKERFILE = path.join(DDEV_DIR, 'web-build', 'Dockerfile.workspace-app');
+const DDEV_DOOD = path.join(DDEV_DIR, 'docker-compose.dood.yaml');
+
+/** This machine's dashboard, read before an update copies the release's .ddev/ over it. */
+function readMachineDashboard(dest) {
+  const read = (rel) => { try { return fs.readFileSync(path.join(dest, rel), 'utf8'); } catch (_) { return null; } };
+  return { config: read(DDEV_CONFIG), dockerfile: read(DDEV_DOCKERFILE), dood: read(DDEV_DOOD) };
+}
+
+/**
+ * Put this machine's own values back into the dashboard's .ddev/ after an update copied the release's
+ * (#406): the DDEV project's identity (a second workspace on a machine has its own name, the hostnames
+ * built from it, its own fqdns and router ports, which core/workspace-app/scripts/update.sh has always
+ * kept) and the docker group GID that core/scripts/docker-gid.sh wrote for this host (the release ships
+ * placeholders; with them every ddev command inside the dashboard fails after its next restart).
+ * Answers what it kept, in words.
+ */
+function keepMachineDashboard(dest, old) {
+  const kept = [];
+  const file = (rel) => path.join(dest, rel);
+  const line = (text, re) => { const m = String(text || '').match(re); return m ? m[0] : ''; };
+  if (old.config && fs.existsSync(file(DDEV_CONFIG))) {
+    let text = fs.readFileSync(file(DDEV_CONFIG), 'utf8');
+    const was = (re) => line(old.config, re);
+    const mine = (was(/^name:.*$/m).match(/^name:\s*(\S+)/) || [])[1] || '';
+    const shipped = (line(text, /^name:.*$/m).match(/^name:\s*(\S+)/) || [])[1] || '';
+    if (mine && shipped && mine !== shipped) {
+      text = text.replace(/^name:.*$/m, `name: ${mine}`);
+      // The hostnames are patterns built from the name (*.dev.<name>): renamed with it, or this checkout
+      // would answer on the other one's domains.
+      const esc = shipped.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      text = text.replace(new RegExp(`^(- "\\*\\..*?)${esc}"$`, 'gm'), `$1${mine}"`);
+      kept.push(`the DDEV project name ${mine} (and the hostnames built from it)`);
+    }
+    for (const key of ['additional_fqdns', 'router_http_port', 'router_https_port']) {
+      const re = new RegExp(`^${key}:.*$`, 'm');
+      const before = was(re);
+      if (before && before !== line(text, re)) {
+        text = re.test(text) ? text.replace(re, before) : `${text.replace(/\n*$/, '\n')}${before}\n`;
+        kept.push(before.replace(/:\s*/, ' '));
+      }
+    }
+    fs.writeFileSync(file(DDEV_CONFIG), text);
+  }
+  const gidOf = (text) => (String(text || '').match(/groupmod -g (\d+) docker/) || [])[1] || '';
+  const mineGid = gidOf(old.dockerfile);
+  if (mineGid && fs.existsSync(file(DDEV_DOCKERFILE))) {
+    const text = fs.readFileSync(file(DDEV_DOCKERFILE), 'utf8');
+    const shippedGid = gidOf(text);
+    if (shippedGid && shippedGid !== mineGid) {
+      fs.writeFileSync(file(DDEV_DOCKERFILE), text.replace(/groupmod -g \d+ docker/g, `groupmod -g ${mineGid} docker`)
+        .replace(/groupadd -g \d+ docker/g, `groupadd -g ${mineGid} docker`).replace(/usermod -g \d+ \$username/g, `usermod -g ${mineGid} $username`));
+      kept.push(`the docker GID ${mineGid}`);
+    }
+  }
+  const grantedOf = (text) => (String(text || '').match(/group_add:\s*\n\s*-\s*"(\d+)"/) || [])[1] || '';
+  const mineGranted = grantedOf(old.dood);
+  if (mineGranted && fs.existsSync(file(DDEV_DOOD))) {
+    const text = fs.readFileSync(file(DDEV_DOOD), 'utf8');
+    const shippedGranted = grantedOf(text);
+    if (shippedGranted && shippedGranted !== mineGranted) {
+      fs.writeFileSync(file(DDEV_DOOD), text.replace(/(group_add:\s*\n\s*-\s*)"\d+"/, `$1"${mineGranted}"`));
+      if (!kept.some((k) => k.startsWith('the docker GID'))) kept.push(`the docker GID ${mineGranted}`);
+    }
+  }
+  return kept;
+}
+
 /** Copy core/ into the workspace, skipping what belongs to a running install, never overwriting a settings file. */
 function copyCore(dest) {
   const SKIP = new Set(['node_modules', 'actions.log', 'package-lock.json']);
@@ -176,7 +247,17 @@ function init(dirArg, { update = false } = {}) {
   say(`${update ? 'Updating' : 'Making'} the Webship Workspace at ${dest}`);
   // Said before anything starts: what the core calls and this machine does not have.
   doctor(null, { only: 'core', quiet: true });
+  const machine = update ? readMachineDashboard(dest) : null;
   copyCore(dest);
+  if (machine) {
+    const kept = keepMachineDashboard(dest, machine);
+    if (kept.length) say(`  kept this machine's dashboard: ${kept.join(', ')}`);
+    // Whether that GID is still this host's: said only when it is not.
+    if (fs.existsSync(path.join(dest, 'core', 'scripts', 'docker-gid.sh'))) {
+      const gid = spawnSync('bash', [path.join(dest, 'core', 'scripts', 'docker-gid.sh'), '--check', '--quiet'], { encoding: 'utf8' });
+      if (gid.status === 1 && /dashboard docker GID is/.test(gid.stdout || '')) say(String(gid.stdout).replace(/\n$/, ''));
+    }
+  }
   const wroteSettings = writeSettings(dest);
   say(wroteSettings ? '  core/config/settings.yml written (empty: no workspaces, no plugins yet)' : '  core/config/settings.yml kept as it is');
   const app = path.join(dest, 'core', 'workspace-app');
