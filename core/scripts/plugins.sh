@@ -37,14 +37,44 @@ usage() { awk 'NR > 1 && !/^##/ { exit } NR > 1 { sub(/^## ?/, ""); print }' "${
 
 # Inside the dashboard container the app runs supervised; on the host there is nothing to restart but
 # the container's process, reached through docker.
+#
+# The container is the dashboard of ONE workspace. A second workspace on the same machine (a fresh
+# one made beside it, a copy for a trial) is served some other way — node on the machine, say — and
+# its plugin steps must leave that container alone: restarting it loses nothing of theirs and
+# interrupts whoever is using the other dashboard. So the container is restarted only when the app
+# folder it serves is this one.
+DASHBOARD_CONTAINER="${WORKSPACE_DASHBOARD_CONTAINER-ddev-workspace-web}";
+
+# Inside the container: DDEV mounts the app it serves at /var/www/html.
+container_app_is_ours() {
+  [ "${DDEV_APPROOT:-/var/www/html}" -ef "${APP}" ] ;
+}
+
+# On the machine: the container mounts its app's .ddev folder at /mnt/ddev_config.
+dashboard_container_is_ours() {
+  local source ;
+  source="$(docker inspect "${DASHBOARD_CONTAINER}" --format '{{range .Mounts}}{{if eq .Destination "/mnt/ddev_config"}}{{.Source}}{{end}}{{end}}' 2>/dev/null)" ;
+  [ -n "${source}" ] && [ "${source}" -ef "${APP}/.ddev" ] ;
+}
+
 restart_app() {
   # A test drives these verbs against a temporary tree; it must never restart the dashboard that serves.
   [ -n "${WORKSPACE_PLUGINS_NO_RESTART:-}" ] && return 0 ;
   if command -v supervisorctl > /dev/null 2>&1 && supervisorctl status webextradaemons:workspace-app > /dev/null 2>&1 ; then
-    supervisorctl restart webextradaemons:workspace-app ;
+    if container_app_is_ours ; then
+      supervisorctl restart webextradaemons:workspace-app ;
+    else
+      echo "The dashboard running here serves another workspace: it is left alone. Restart this workspace's own dashboard to load the change." ;
+    fi
   elif command -v docker > /dev/null 2>&1 ; then
-    docker exec ddev-workspace-web supervisorctl restart webextradaemons:workspace-app 2>/dev/null \
-      || echo "The dashboard is not running; it will load the change when it starts." ;
+    if ! docker inspect "${DASHBOARD_CONTAINER}" > /dev/null 2>&1 ; then
+      echo "The dashboard is not running; it will load the change when it starts." ;
+    elif dashboard_container_is_ours ; then
+      docker exec "${DASHBOARD_CONTAINER}" supervisorctl restart webextradaemons:workspace-app 2>/dev/null \
+        || echo "The dashboard is not running; it will load the change when it starts." ;
+    else
+      echo "The dashboard container on this machine serves another workspace: it is left alone. Restart this workspace's own dashboard to load the change." ;
+    fi
   fi
 }
 
