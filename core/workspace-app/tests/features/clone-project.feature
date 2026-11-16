@@ -2,11 +2,13 @@ Feature: Cloning a project
   The clone modal validates before anything runs, and never clones over an
   existing project or a name DDEV already tracks.
 
+  @needs-project-dev
   Scenario: The DDEV menu offers the clone
     Given I am on "/dev"
      When I click on the element ".project-row >> nth=0 >> .act-menu-ddev button"
      Then "[hx-get^='/fragments/projects/clone-form/dev/']" should be attached
 
+  @needs-project-dev
   Scenario: The form arrives prefilled, with the live check wired
     When I open the clone form of the first project in "dev"
      Then the clone form proposes a copy of that project
@@ -14,6 +16,7 @@ Feature: Cloning a project
       And "[hx-get='/fragments/projects/clone-check']" should be attached
       And "textarea[name='prompt']" should be attached
 
+  @needs-project-dev
   Scenario: The live check refuses an existing project
     When I ask the live check about the name of the first project in "dev"
      Then I should see "already exists"
@@ -22,6 +25,7 @@ Feature: Cloning a project
     Given I am on "/fragments/projects/clone-check?to=surely-free-name-zz&toWorkspace=dev"
      Then I should see "is free"
 
+  @needs-project-dev
   Scenario: Cloning over an existing project is refused server-side too
     When I post a clone of the first project in "dev" over itself
     Then the action response should contain "already exists"
