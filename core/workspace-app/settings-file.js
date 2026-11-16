@@ -33,10 +33,36 @@ const SETTINGS_FILE_RE = /^(settings\.yml|style\.yml|ai\.settings\.yml|workspace
 // unreadable for the one thing it is for — checking what you will log in with.
 const NOT_SECRET_PATHS = new Set(['account.pass']);
 
+const SECRET_NAME = /^(pass|password|passwd|token|api_key|apikey|secret|secret_key)$/i;
+const SECRET_SUFFIX = /(^|_)(token|secret|api_key|apikey|password|passwd)$/i;
+// A map of secrets is named in the plural and keyed by whatever each one belongs to
+// (`api_tokens: { <account>: <token> }`): the keys under it say nothing, the name above them does.
+const SECRET_MAP = /(^|_)(tokens|secrets|api_keys|apikeys|passwords)$/i;
+
 function isSecretKey(key, dotted) {
   if (dotted && NOT_SECRET_PATHS.has(dotted)) return false;
-  return /^(pass|password|passwd|token|api_key|apikey|secret|secret_key)$/i.test(key)
-    || /(^|_)(token|secret|api_key|apikey|password|passwd)$/i.test(key);
+  if (SECRET_NAME.test(key) || SECRET_SUFFIX.test(key)) return true;
+  const above = dotted ? String(dotted).split('.').slice(0, -1) : [];
+  return above.some((k) => SECRET_MAP.test(k));
+}
+
+/**
+ * A settings file as a terminal may show it: every secret that holds a real value reads `<hidden>`.
+ * A placeholder (`CHANGE_ME`, nothing) stays as it is: it is no secret, and it says what is left to fill.
+ * Comments are never touched, whatever words they use.
+ */
+function settingsTextForTerminal(file) {
+  const full = path.join(CONFIG_DIR, file);
+  let text;
+  try { text = fs.readFileSync(full, 'utf8'); } catch (_) { return null; }
+  const secretLines = new Set(rowsFromText(text).filter((r) => r.secret).map((r) => r.line));
+  return text.split('\n').map((line, i) => {
+    if (!secretLines.has(i)) return line;
+    const m = line.match(/^(\s*)([A-Za-z0-9_.-]+):[ \t]*(.*)$/);
+    if (!m) return line;
+    const value = m[3].replace(/\s+#.*$/, '').trim().replace(/^(['"])(.*)\1$/, '$2');
+    return value === '' || /^CHANGE_ME/.test(value) ? line : `${m[1]}${m[2]}: <hidden>`;
+  }).join('\n');
 }
 
 function listSettingsFiles() {
@@ -423,6 +449,7 @@ module.exports = {
   upsertSettingsValue,
   upsertSettingsList,
   readSettingsText,
+  settingsTextForTerminal,
   writeSettingsText,
   rowsFromText,
   SECRET_MASK,

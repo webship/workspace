@@ -204,3 +204,42 @@ test('upsertSettingsList replaces a list in place, creates one that is missing, 
   assert.strictEqual(y.z, 2);
   assert.match(fs.readFileSync(file, 'utf8'), /account: me  # keep/);
 });
+
+test('a map of secrets is secret all the way down, and a terminal is shown <hidden> for what is set, never for a comment', () => {
+  const { settingsTextForTerminal, readSettingsText, SECRET_MASK } = require('../../settings-file');
+  // `api_tokens: { <account>: <token> }`: the keys are account names, the values are the tokens.
+  assert.equal(isSecretKey('acme', 'api_tokens.acme'), true);
+  assert.equal(isSecretKey('acme', 'accounts.acme'), false);
+  assert.equal(isSecretKey('region', 'elevenlabs.region'), false);
+  const file = write('plugin.demo.settings.yml', [
+    '# The dashboard needs an API token: make one in the console.',
+    'cli_token: abc123',
+    'api_key: CHANGE_ME',
+    'api_secret: "s3cr3t"',
+    'empty_password:',
+    'api_tokens:',
+    '  # acme: CHANGE_ME',
+    '  acme: tok-acme',
+    '  later: CHANGE_ME',
+    'ssh_key: ~/.ssh/id_ed25519',
+    'host: example.com',
+    '',
+  ].join('\n'));
+  const shown = settingsTextForTerminal(file);
+  assert.match(shown, /^# The dashboard needs an API token: make one in the console\.$/m, 'a comment that says "token" is left as it is');
+  assert.match(shown, /^cli_token: <hidden>$/m);
+  assert.match(shown, /^api_key: CHANGE_ME$/m, 'a placeholder says what is left to fill');
+  assert.match(shown, /^api_secret: <hidden>$/m);
+  assert.match(shown, /^empty_password:$/m);
+  assert.match(shown, /^ {2}acme: <hidden>$/m, 'a token under api_tokens');
+  assert.match(shown, /^ {2}later: CHANGE_ME$/m);
+  assert.match(shown, /^ssh_key: ~\/\.ssh\/id_ed25519$/m, 'a path to a key file is not the key');
+  assert.match(shown, /^host: example\.com$/m);
+  for (const secret of ['abc123', 's3cr3t', 'tok-acme']) assert.ok(!shown.includes(secret), `${secret} is not printed`);
+  // The browser gets the same protection for the map.
+  const sent = readSettingsText(file);
+  assert.ok(!sent.text.includes('tok-acme'));
+  assert.ok(sent.masked.includes('api_tokens.acme'));
+  assert.ok(sent.text.includes(`  acme: ${SECRET_MASK}`));
+  assert.equal(settingsTextForTerminal('no-such.settings.yml'), null);
+});
