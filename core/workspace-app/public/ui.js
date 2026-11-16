@@ -1927,7 +1927,11 @@ document.addEventListener('click', (e) => {
        a white panel and a lilac microphone — the component's brand, not ours, and both stayed
        light after dark. */
     #chat-view, #input { background-color: transparent !important; }
-    #text-input-container { background-color: var(--surface-input) !important; border: 1px solid var(--line) !important; }
+    /* A field's edge at 3:1 and a ring while it has focus, as every other field has (base.css): the
+       stylesheet does not reach into this shadow root, so the composer kept --line (1.35:1) and showed
+       nothing when Tab reached it. */
+    #text-input-container { background-color: var(--surface-input) !important; border: 1px solid color-mix(in srgb, var(--text-subtle) 70%, var(--surface-card)) !important; }
+    #text-input-container:focus-within { border-color: var(--link) !important; outline: 2px solid var(--link); outline-offset: 2px; }
     #text-input { color: var(--text-default) !important; }
     #text-input[textinputplaceholderstyle] { color: var(--text-subtle) !important; }
     .input-button-svg { background-color: var(--surface-muted) !important; }
