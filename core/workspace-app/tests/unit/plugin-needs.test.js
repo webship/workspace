@@ -599,3 +599,26 @@ test('uninstall keeps what a person changed and says so: a command, a settings f
   ok(sh(t, '--activate', 'host')); ok(sh(t, '--install', 'host'));
   assert.match(fs.readFileSync(conf, 'utf8'), /tok-123/);
 });
+
+test('a plugin whose name is not the last word of its package is reached by either: every step takes the package\'s short name', () => {
+  const t = tree();
+  // The package @webship.co/workspace-drive is the plugin drive-sync.
+  plugin(t.store, 'drive', { name: 'drive-sync', commands: { types: ['sites'], files: ['commands/cmd-tools-drive.sh'] }, settingsTemplate: 'config/workspace.drive.settings.yml', settingsFile: 'plugin.drive-sync.settings.yml' });
+  folder(t.plugins, 'dev');
+  ok(sh(t, '--activate', 'dev')); ok(sh(t, '--install', 'dev'));
+  const req = ok(sh(t, '--require', 'drive'));
+  assert.match(req.stdout, /Required\. Next: --activate drive-sync\./, 'the next step is given with the name it takes');
+  const act = ok(sh(t, '--activate', 'drive'));
+  assert.match(act.stdout, /'drive' is the package of the plugin drive-sync/);
+  assert.match(act.stdout, /Activated: plugins\.drive-sync/);
+  assert.strictEqual(enabled(t, 'drive-sync'), true);
+  assert.strictEqual(settings(t).plugins.drive, undefined, 'no block under the package\'s name');
+  assert.match(ok(sh(t, '--install', 'drive')).stdout, /placed dev\/cmd-tools-drive\.sh/);
+  assert.match(ok(sh(t, '--configure', 'drive')).stdout, /Its settings: /);
+  assert.match(ok(sh(t, '--deactivate', 'drive')).stdout, /Deactivated: plugins\.drive-sync/);
+  assert.match(ok(sh(t, '--uninstall', 'drive')).stdout, /Uninstalled/);
+  assert.strictEqual(record(t)['drive-sync'], undefined);
+  // The manifest's own name still works, and a name that is neither is still refused.
+  ok(sh(t, '--activate', 'drive-sync'));
+  assert.strictEqual(sh(t, '--activate', 'nope').status, 1);
+});
