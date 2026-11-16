@@ -24,9 +24,16 @@ The 1.0.0 round pushed every version commit before any package was published and
 ## Upgrading a workspace
 
 ```bash
-npm install -g @webship.co/workspace@latest
-webship-workspace update ~/workspace
-cd ~/workspace/core/workspace-app && npm update
+npx -y @webship.co/workspace@latest update ~/workspace
 ```
 
-`update` refreshes the core, keeps every settings file and keeps the plugins you required in `core/workspace-app/package.json`; `npm update` moves the installed plugins to their newest versions within the ranges in `package.json`.
+`update` refreshes the core (`core/scripts`, `core/config`, the dashboard, `commands/`) and keeps every settings file, the plugins you required in `core/workspace-app/package.json`, and this machine's own values in the dashboard's `.ddev/` (its project name, its docker GID). It repairs what an earlier release left broken in `settings.yml`, removes the files a release stopped shipping while they are as shipped, notes how the installed plugins shipped their files, and restarts the dashboard when it serves this workspace.
+
+Then each plugin, which places the files of its new version: Settings → Plugins → the plugin → **Update to <version>**, then **Reinstall**; or from a terminal
+
+```bash
+webship-workspace plugin require <name>
+webship-workspace plugin install <name>
+```
+
+`npm update` in `core/workspace-app` moves the packages but not the files they placed: use the two steps above. A file a person changed in what a plugin placed is kept beside the new one as `<file>.yours`.
