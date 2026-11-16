@@ -14,6 +14,7 @@ Feature: The workspace dashboard
      Then the element ".ws-card-handle" should be displayed
       And the element "#workspace-cards" with the attribute "data-sortable" and the value containing "ws-card-wrap" should exist
 
+  @needs-project-dev
   Scenario: A workspace page offers its builder and its projects
     Given I am on "/dev"
      Then I should see "Build a new project"

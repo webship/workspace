@@ -74,3 +74,61 @@ jobs:
       - name: unit tests
         working-directory: core/workspace-app
         run: npm run test:unit
+
+  browser:
+    # The dashboard's own browser suite (cucumber-js with webship-js, core/workspace-app/tests/features) against a
+    # dashboard started here with node: no DDEV, no account, nothing outside the runner. A placeholder project in
+    # dev, products and rag (a folder, no site) gives the row scenarios (@needs-project-<folder>) a row to read.
+    name: the browser suite against a dashboard started in the job
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: core/workspace-app/package-lock.json
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml screen
+      - name: install the dashboard
+        working-directory: core/workspace-app
+        run: npm ci --no-audit --no-fund
+      - name: the browser (Chromium, as playwright.config.js asks)
+        working-directory: core/workspace-app
+        run: npx playwright install --with-deps chromium
+      # What the scenarios tagged @needs-project-<folder> and @needs-item-<folder> read: a placeholder project in
+      # dev, products and rag (a folder with a .ddev/config.yaml, no site; the products one declares two checks),
+      # and one agent and one prompt.
+      - name: a placeholder project in dev, products and rag, and an AI item
+        run: |
+          for ws in dev products rag; do
+            mkdir -p "$ws/ci-placeholder/.ddev"
+            printf 'name: ci-placeholder-%s\ntype: php\ndocroot: web\n' "$ws" > "$ws/ci-placeholder/.ddev/config.yaml"
+          done
+          printf '{\n  "name": "ci-placeholder",\n  "private": true,\n  "scripts": { "lint": "eslint .", "test": "node --test" }\n}\n' > products/ci-placeholder/package.json
+          printf -- '---\nname: ci-placeholder-agent\ndescription: Use this agent only in CI, as the item the browser suite opens.\n---\n\nNothing to do.\n' > ai-agents/ci-placeholder-agent.md
+          printf 'An item the browser suite opens in CI.\n\n```\nclaude "Nothing to do."\n```\n' > ai-prompts/ci-placeholder-prompt.md
+      - name: start the dashboard
+        working-directory: core/workspace-app
+        run: |
+          PORT=3000 nohup node server.js > dashboard.log 2>&1 &
+          for i in $(seq 1 60); do curl -fsS -o /dev/null http://127.0.0.1:3000/ && exit 0; sleep 1; done
+          cat dashboard.log
+          exit 1
+      - name: the browser suite
+        working-directory: core/workspace-app
+        env:
+          LAUNCH_URL: http://127.0.0.1:3000
+        run: npx cucumber-js --config cucumber.js
+      - name: the report and the dashboard's log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-suite
+          path: |
+            core/workspace-app/tests/reports/
+            core/workspace-app/dashboard.log
+          retention-days: 14
+          if-no-files-found: ignore

@@ -1,5 +1,6 @@
 Feature: Installing agents, skills and prompts
 
+  @needs-item-ai-agents
   Scenario: An item can be installed into the global Claude Code, or into one project
     Given I am on "/ai-agents"
      Then "select[name='toWorkspace']" should be attached
@@ -9,6 +10,7 @@ Feature: Installing agents, skills and prompts
   # htmx 4 fires after:swap on the element that MADE the request, not on the one
   # swapped — so a listener reading e.target saw the button and never opened the
   # modal. The content had loaded; nothing appeared.
+  @needs-item-ai-prompts
   Scenario: Editing a prompt opens the editor with its text in it
     Given I am on "/ai-prompts"
      When I click on the element "[hx-get^='/fragments/ai-prompts/edit/'] >> nth=0"
@@ -16,6 +18,7 @@ Feature: Installing agents, skills and prompts
       And "#editor-modal .ace_editor" should be visible
       And "#editor-modal form[hx-post='/actions/save-item']" should be attached
 
+  @needs-item-ai-agents
   Scenario: The same Edit works on the agents workspace
     Given I am on "/ai-agents"
      When I click on the element "[hx-get^='/fragments/ai-agents/edit/'] >> nth=0"

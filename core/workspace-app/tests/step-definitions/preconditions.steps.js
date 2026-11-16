@@ -83,7 +83,7 @@ Before({ tags: '@needs-check-aliases' }, function () {
     const dir = loadWorkspaces().products.dir;
     for (const p of fs.readdirSync(dir)) {
       if (!fs.statSync(path.join(dir, p)).isDirectory()) continue;
-      const rows = checksRowsOf('products', dir, p) || [];
+      const rows = checksRowsOf(dir, p) || [];
       if (rows.some((r) => r.status === 'ready')) { anyReady = true; break; }
     }
   } catch (_) { anyReady = false; }
@@ -92,6 +92,26 @@ Before({ tags: '@needs-check-aliases' }, function () {
       + 'declared but their dependencies are not installed, so every alias renders disabled '
       + 'and the per-alias control has nothing to offer. Install deps in one and this '
       + 'becomes a real test again.');
+    return 'skipped';
+  }
+  return undefined;
+});
+
+Before({ tags: '@needs-declared-checks' }, function () {
+  // The nested Tests menu lists the aliases a package declares: it needs a package in products/ that declares
+  // checks (any state: declared, deps missing, passed, failed). Asked of the app's own checksRowsOf, as above.
+  let any = false;
+  try {
+    const { checksRowsOf } = require(path.join(APP, 'checks'));
+    const { loadWorkspaces } = require(path.join(APP, 'workspaces'));
+    const dir = loadWorkspaces().products.dir;
+    any = fs.readdirSync(dir).some((p) => {
+      try { return fs.statSync(path.join(dir, p)).isDirectory() && (checksRowsOf(dir, p) || []).length > 0; } catch (_) { return false; }
+    });
+  } catch (_) { any = false; }
+  if (!any) {
+    this.attach('SKIPPED: no project in products/ declares checks (lint, test … in its package.json), so no Tests '
+      + 'menu lists an alias. Declare one and this becomes a real test again.');
     return 'skipped';
   }
   return undefined;
@@ -136,12 +156,17 @@ Before({ tags: '@needs-running-project' }, function () {
   return undefined;
 });
 
-/** A scalar out of a plugin's own settings file (core/config/plugin.<name>.settings.yml), or ''. */
+/**
+ * A scalar out of a plugin's own settings file (core/config/plugin.<name>.settings.yml), or ''. The placeholder a
+ * fresh settings file carries (CHANGE_ME) is no value: a plugin treats it as unset (the JIRA menu waits for a real
+ * project key), so a scenario that needs the setting is skipped rather than failed.
+ */
 function pluginSettingValue(plugin, key) {
   try {
     const yml = fs.readFileSync(path.join(ROOT, 'core', 'config', `plugin.${plugin}.settings.yml`), 'utf8');
     const m = yml.match(new RegExp(`^\\s*${key}:\\s*(.+)$`, 'm'));
-    return m ? m[1].trim().replace(/^["']|["']$/g, '').replace(/\s+#.*$/, '') : '';
+    const value = m ? m[1].trim().replace(/\s+#.*$/, '').replace(/^["']|["']$/g, '') : '';
+    return /^CHANGE_ME$/i.test(value) ? '' : value;
   } catch (_) { return ''; }
 }
 
@@ -159,6 +184,56 @@ Before(function (scenario) {
     if (!pluginSettingValue(plugin, key)) {
       this.attach(`SKIPPED: core/config/plugin.${plugin}.settings.yml has no ${key} on this machine; `
         + `set it and this becomes a real test again.`);
+      return 'skipped';
+    }
+  }
+  return undefined;
+});
+
+// `@needs-project-<folder>`: the scenario reads a project row of that workspace folder (a menu, the clone form), so
+// it needs a project there, any project: a folder is enough, no site has to run. On a workspace with none (a
+// fresh one, a runner) it is skipped with the reason; the moment the folder holds a project it is a real test.
+const NEEDS_PROJECT = /^@needs-project-([a-z0-9_-]+)$/;
+Before(function (scenario) {
+  for (const t of scenario.pickle.tags || []) {
+    const m = NEEDS_PROJECT.exec(t.name);
+    if (!m) continue;
+    const folder = m[1];
+    let any = false;
+    try {
+      const { loadWorkspaces } = require(path.join(APP, 'workspaces'));
+      const { listProjects } = require(path.join(APP, 'jobs'));
+      const ws = loadWorkspaces()[folder];
+      any = !!ws && listProjects(ws.dir).length > 0;
+    } catch (_) { any = false; }
+    if (!any) {
+      this.attach(`SKIPPED: the ${folder} folder holds no project, so there is no row to read. Any folder in it makes `
+        + `this a real test again (with a .ddev/config.yaml where the scenario opens the DDEV menu); no site needs to run.`);
+      return 'skipped';
+    }
+  }
+  return undefined;
+});
+
+// `@needs-item-<folder>`: the scenario opens an item of an AI folder (an agent, a prompt), so that folder needs one.
+// A workspace with no AI item (a checkout of the repository, a runner) has none to open.
+const NEEDS_ITEM = /^@needs-item-([a-z0-9_-]+)$/;
+const FOLDER_DOCS = new Set(['README.md', 'AGENTS.md', 'CLAUDE.md']);
+Before(function (scenario) {
+  for (const t of scenario.pickle.tags || []) {
+    const m = NEEDS_ITEM.exec(t.name);
+    if (!m) continue;
+    const folder = m[1];
+    let any = false;
+    try {
+      const { loadWorkspaces } = require(path.join(APP, 'workspaces'));
+      const ws = loadWorkspaces()[folder];
+      any = !!ws && fs.readdirSync(ws.dir, { withFileTypes: true }).some((e) => (e.isFile() && e.name.endsWith('.md') && !FOLDER_DOCS.has(e.name))
+        || (e.isDirectory() && fs.existsSync(path.join(ws.dir, e.name, 'SKILL.md'))));
+    } catch (_) { any = false; }
+    if (!any) {
+      this.attach(`SKIPPED: the ${folder} folder holds no item to open. Add one (any plugin with AI items, or a file of `
+        + `your own) and this becomes a real test again.`);
       return 'skipped';
     }
   }

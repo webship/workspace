@@ -6,6 +6,7 @@ Feature: The checks a project already declares
   # each case. They live together under Tests, with the checks nested inside it. The menu's items
   # arrive when it opens (/fragments/row-menu/tests/…), so each scenario that reads one opens the
   # first row's menu first; the caption under the button is on the page before that.
+  @needs-project-products
   Scenario: A package row offers its checks inside the Tests menu
     Given I am on "/products"
      Then the element ".project-row .act-menu-tests" should be displayed
@@ -14,6 +15,7 @@ Feature: The checks a project already declares
      Then ".uk-dropdown.uk-open" should be visible
       And ".act-menu-tests .act-menu-checks" should be attached
 
+  @needs-project-products
   Scenario: The button says what the package covers without running anything
     Given I am on "/products"
      Then the element ".act-menu-tests + .act-status" should be displayed
@@ -24,6 +26,7 @@ Feature: The checks a project already declares
   # the script the package itself declared. Listing them together is how the mapping is checkable.
   # Opened on a row whose caption says the package declares checks, since a package that declares
   # none lists none.
+  @needs-project-products @needs-declared-checks
   Scenario: The nested menu lists each alias against the script it runs
     Given I am on "/products"
      When I click on the element ".project-row:has(.act-menu-tests + .act-status:has-text('declared')), .project-row:has(.act-menu-tests + .act-status:has-text('deps missing')), .project-row:has(.act-menu-tests + .act-status:has-text('passed')), .project-row:has(.act-menu-tests + .act-status:has-text('failed')) >> nth=0 >> .act-menu-tests button"

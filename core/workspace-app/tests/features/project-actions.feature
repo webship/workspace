@@ -7,11 +7,12 @@ Feature: What a project row can actually do
   # menu's items are not on the page until it opens (its body comes from /fragments/row-menu/…), so
   # a scenario that needs an item opens one menu first, by `nth=0` or on /rag, which holds one row.
 
+  @needs-project-dev
+  # The Graph menu is the graph plugin's, asserted by its own feature: a dashboard without the plugin has none.
   Scenario: A row carries a menu for each thing it can do
     Given I am on "/dev"
      Then the element ".project-row .act-menu-ddev" should be displayed
       And the element ".project-row .act-menu-tests" should be displayed
-      And the element ".project-row .act-menu-graph" should be displayed
       And the element ".project-row .act-menu-more" should be displayed
 
   # These two are the whole testing feature as far as the interface is concerned: one sets the
@@ -29,10 +30,12 @@ Feature: What a project row can actually do
 
   # The state under the button is the answer to "is there anything to look at yet" — it says
   # webship, webship-js or none, and it is a caption under the control rather than a word inside it.
+  @needs-project-dev
   Scenario: A menu that carries a state word captions it under the button
     Given I am on "/dev"
      Then the element ".act-with-status .act-status" should be displayed
 
+  @needs-project-rag
   Scenario: The DDEV menu opens and holds the verbs that moved into it
     Given I am on "/rag"
      When I click on the element ".project-row .act-menu-ddev button"

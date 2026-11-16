@@ -30,7 +30,9 @@ Feature: Settings → Plugins
   Scenario: A plugin has a page of its own, with the four steps as one list
     Given I am on "/settings/plugin/workspace-notes"
      Then the element ".plugin-head-name" should be displayed
-      And the element "ol.plugin-step-list" should be displayed
+      # The list, while a step is left; folded under "Turned on" once every step is done (the base's own
+      # workspace-notes is on in a checkout of the repository): there either way.
+      And "ol.plugin-step-list" should be attached
       And I should see "What it needs"
       And I should see "What it ships"
       And I should see "Reinstall or remove"
