@@ -59,6 +59,21 @@ const rel = (p) => path.relative(ROOT, p);
 function readRecord() {
   try { return yaml.load(fs.readFileSync(RECORD, 'utf8')) || {}; } catch (_) { return {}; }
 }
+/**
+ * Which plugin placed a path of the workspace, as { name, module, version }, or null: what an item's row
+ * says it came with. An AI item is `ai-agents/<name>.md`, a skill `ai-skills/<name>/SKILL.md`. The first
+ * plugin to have placed a path owns it (isAnothers keeps a second one from taking it).
+ */
+function placedBy(relPath, record = readRecord()) {
+  const want = String(relPath || '').split(path.sep).join('/');
+  if (!want) return null;
+  for (const [name, entry] of Object.entries(record || {})) {
+    if (entry && Array.isArray(entry.placed) && entry.placed.includes(want)) {
+      return { name, module: String(entry.module || ''), version: String(entry.version || '') };
+    }
+  }
+  return null;
+}
 function writeRecord(data) {
   fs.writeFileSync(RECORD, `# Written by core/scripts/plugins.sh: what each installed plugin placed in this tree.\n${yaml.dump(data)}`);
 }
@@ -426,7 +441,7 @@ function status(name) {
   });
 }
 
-module.exports = { install, uninstall, status, reach, isActiveWorkspace, RECORD };
+module.exports = { install, uninstall, status, reach, isActiveWorkspace, placedBy, readRecord, RECORD };
 
 if (require.main === module) {
   const [verb, name] = process.argv.slice(2);

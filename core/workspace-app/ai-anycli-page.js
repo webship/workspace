@@ -108,11 +108,18 @@ function clisHtml() {
       inContainer() ? ' The dashboard runs in a container, so it sees a CLI whose command and folder are in there; for the others use the terminal.' : ''}</p>`;
 }
 
+/** "plugin <name>" under an item a plugin placed, or nothing. */
+function pluginOf(kind, name, record) {
+  const by = require('./plugin-install').placedBy(kind === 'ai-skills' ? `${kind}/${name}/SKILL.md` : `${kind}/${name}.md`, record);
+  return by ? `<br><span class="uk-text-meta any-cli-plugin" title="${esc(by.module || by.name)}${by.version ? ` ${esc(by.version)}` : ''}">plugin ${esc(by.name)}</span>` : '';
+}
+
 function itemsHtml(kind) {
   if (kind === 'ai-prompts') {
     return '<p class="uk-text-meta any-cli-none">A prompt is the launch command of a new session: it is run, not installed into a CLI.</p>';
   }
   const { clis, rows } = A.matrix(kind);
+  const record = require('./plugin-install').readRecord();
   if (!rows.length) return `<p class="uk-text-meta any-cli-none">No ${esc(A.KIND_NOUN[kind])} in ${esc(kind)}/ yet.</p>`;
   const usable = new Map(clis.map((c) => {
     let place = null;
@@ -121,7 +128,7 @@ function itemsHtml(kind) {
   }));
   const head = clis.map((c) => `<th>${esc(c.label)}${c.isDefault ? ' <span class="uk-text-meta">(default)</span>' : ''}</th>`).join('');
   const body = rows.map((r) => `<tr class="any-cli-item" data-item="${esc(r.name)}">
-      <td><code>${esc(r.name)}</code>${r.source ? `<br><span class="uk-text-meta">from ${esc(r.source)}</span> ${badge(r.sourceState)}` : ''}</td>
+      <td><code>${esc(r.name)}</code>${r.source ? `<br><span class="uk-text-meta">from ${esc(r.source)}</span> ${badge(r.sourceState)}` : ''}${pluginOf(kind, r.name, record)}</td>
       ${r.cells.map((cell) => {
         const vals = { workspace: kind, kind, name: r.name, cli: cell.cli };
         const can = usable.get(cell.cli);

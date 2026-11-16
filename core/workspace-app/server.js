@@ -505,6 +505,14 @@ function imagesGalleryDeps() {
   return { folderDocs: folderDocsHtml('images'), openWith: pluginOpenWith(workspaceDir('images'), { label: 'IDE', caption: 'files' }), viewSwitcher: viewSwitcherHtml('files') };
 }
 
+/** "· plugin <name>" for an item a plugin placed (its package and version in the title), or nothing. */
+function itemPluginHtml(key, rel, name, record) {
+  const base = [key, rel, name].filter(Boolean).join('/');
+  const by = require('./plugin-install').placedBy(key === 'ai-skills' ? `${base}/SKILL.md` : `${base}.md`, record);
+  if (!by) return '';
+  return `<span class="uk-text-meta item-plugin" title="Placed by the plugin ${esc(by.module || by.name)}${by.version ? ` ${esc(by.version)}` : ''}: an update of the plugin updates it, unless it was changed here">· plugin ${esc(by.name)}</span>`;
+}
+
 async function itemRowsHtml(key, state, sub) {
   if (key === 'images') return require('./images-page').galleryHtml(state || { per: 'all', page: 1, q: '', sort: defaultSort(), scope: 'here' }, sub, imagesGalleryDeps());
   const meta = loadWorkspaces()[key];
@@ -514,6 +522,8 @@ async function itemRowsHtml(key, state, sub) {
   const where = browsable ? filesBrowser.safeSub(key, sub) : { ok: true, rel: '' };
   const rel = where.ok ? (where.rel || '') : '';
   const items = listItems(key, rel);
+  // What each installed plugin placed, read once for the page: an item's row says which plugin it came with.
+  const placedRecord = require('./plugin-install').readRecord();
   const installable = !!INSTALL_TARGETS[key];
   const syncable = installable && !NO_CLAUDE_SYNC.has(key);
   const toWsOptions = syncable
@@ -685,7 +695,7 @@ async function itemRowsHtml(key, state, sub) {
             ? ` <span class="uk-text-meta item-declared" title="The name in its frontmatter, which is what Claude Code dispatches on">declares ${esc(it.front.name)}</span>` : ''}</span>
         <div class="item-meta-line">
           <span class="uk-text-meta item-machine" title="What you invoke it by${syncable ? ', and what --fetch and --install take' : ''}">${esc(it.name)}</span>
-          <span class="uk-text-meta item-time">· ${esc(humanTime(it.mtime))}</span>${installable ? `
+          <span class="uk-text-meta item-time">· ${esc(humanTime(it.mtime))}</span>${itemPluginHtml(key, rel, it.name, placedRecord)}${installable ? `
           ${syncable ? (inClaude.has(it.name) ? '<span class="uk-label uk-label-success" title="Installed in the global ~/.claude — every Claude Code session loads it">in ~/.claude</span>' : '<span class="uk-label" title="Not in ~/.claude yet — press Install">workspace only</span>') : ''}
           ${!inRepo.has(it.name) ? ''
             : differs === true ? `<span class="uk-label uk-label-warning" title="The copy in ${esc(AI_ITEMS_REPO())} differs from this folder's — Update takes the repo's version, Propose PR shares yours">repo changed</span> <button class="uk-button uk-button-primary uk-button-small" hx-post="/actions/update-one-item" ${vals} hx-target="#webship-workspace-output" hx-swap="innerHTML" title="Take ${esc(AI_ITEMS_REPO())}'s version of this ${esc(meta.noun)} into this folder — installing it anywhere stays a separate step"><span uk-icon="icon: refresh; ratio: .7"></span> Update</button>`
