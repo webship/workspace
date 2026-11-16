@@ -86,6 +86,26 @@ html.dark .theme-icon-moon { display: none; }
    so the word next to it is set in the brand face and the theme's ink. */
 .toolbar-logo, .toolbar-logo:hover { font-family: var(--font-primary); color: var(--text-default); }
 
+/* One row on a phone. The bar's two groups did not fit: at 390px the logo and its word (155px), the
+   assistant and the version on the left, Screens, the search with its "Ctrl K" hint (95px) and the theme
+   switch on the right, so each group wrapped inside itself — 191px tall at 320 to 390px, 144 at 414 and
+   480. Below 640px the side padding and the gaps close up and the key hint goes (a phone has no shortcut
+   to show; the icon and its name stay); below 384px the word beside the logo goes too (the logo is named
+   "Webship"). Every control keeps a target of at least 24x24. Prefixed with the bar's own classes: this
+   file is assembled before the ones that set these paddings, and the same selector there would win. */
+@media (max-width: 40em) {
+  .uk-navbar-container.toolbar .toolbar-inner { padding: 0 0.75rem; }
+  .uk-navbar-container.toolbar .uk-navbar-item { padding-right: 0.375rem; }
+  .uk-navbar-container.toolbar .toolbar-logo { gap: 0.5rem; }
+  .uk-navbar-container.toolbar .toolbar-product { padding-left: 0.5rem; }
+  .uk-navbar-container.toolbar .toolbar-nav .action-btn { padding: 0 0.375rem; }
+  .uk-navbar-container.toolbar .toolbar-nav-start { margin-left: 0.25rem; padding-left: 0.25rem; }
+  .uk-navbar-container.toolbar .palette-trigger .palette-trigger-key { display: none; }
+}
+@media (max-width: 24em) {
+  .uk-navbar-container.toolbar .toolbar-product { display: none; }
+}
+
 /* The release, beside the product name. Quiet by default — it is reference, not navigation —
  * and explicitly marked when it cannot be told, because a missing version must read as
  * missing rather than as nothing at all. */
