@@ -100,3 +100,37 @@ test('asking for the help is not an error, and a word the tool does not know is 
   assert.strictEqual(unknown.status, 1);
   assert.match(unknown.stderr, /there is no "explode" step/);
 });
+
+test('plugin, doctor and update are about the workspace they are run in, not ~/workspace', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-where-'));
+  const home = path.join(base, 'home');
+  const mine = path.join(base, 'sites', 'mine');
+  fs.mkdirSync(home, { recursive: true });
+  assert.strictEqual(run(['init', mine]).status, 0);
+  // A stand-in for the script, so the test reads which workspace was meant and with which arguments.
+  fs.writeFileSync(path.join(mine, 'core', 'scripts', 'plugins.sh'), '#!/usr/bin/env bash\necho "ROOT: $WORKSPACE_ROOT ARGS: $*"\n');
+  const clean = { HOME: home, WORKSPACE_ROOT: '', WEBSHIP_WORKSPACE_DIR: '' };
+  const at = (cwd, args) => spawnSync(process.execPath, [BIN, ...args], { cwd, encoding: 'utf8', env: { ...process.env, WEBSHIP_WORKSPACE_SKIP_NPM: '1', WEBSHIP_WORKSPACE_SKIP_DDEV: '1', ...clean } });
+  // From the workspace, and from a folder inside it.
+  for (const cwd of [mine, path.join(mine, 'core', 'workspace-app')]) {
+    const r = at(cwd, ['plugin', 'list']);
+    assert.strictEqual(r.status, 0, r.stderr);
+    assert.strictEqual(r.stdout.trim(), `ROOT: ${fs.realpathSync(mine)} ARGS: --list`);
+  }
+  // From a folder that is in no workspace: ~/workspace, and the message says where it looked.
+  const out = at(base, ['plugin', 'list']);
+  assert.strictEqual(out.status, 1);
+  assert.match(out.stderr, new RegExp(`No workspace at ${path.join(home, 'workspace').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+  // update: the workspace it stands in; where there is none it makes nothing.
+  const up = at(mine, ['update']);
+  assert.strictEqual(up.status, 0, up.stderr);
+  assert.match(up.stdout, new RegExp(`Updating the Webship Workspace at ${fs.realpathSync(mine).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+  const nowhere = path.join(base, 'not-a-workspace');
+  const no = at(base, ['update', nowhere]);
+  assert.strictEqual(no.status, 1);
+  assert.match(no.stderr, /No workspace at .*not-a-workspace: nothing to update/);
+  assert.ok(!fs.existsSync(nowhere), 'update made no folder');
+  // doctor: says when the folder it was given is no workspace.
+  const doc = at(base, ['doctor', nowhere]);
+  assert.match(doc.stdout, /No workspace at .*not-a-workspace/);
+});

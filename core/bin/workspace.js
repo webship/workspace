@@ -12,6 +12,9 @@
  *                                             with the version, or missing, with how to install it (it installs nothing)
  *   webship-workspace update [dir]            refresh the core of an existing workspace from this package
  *
+ * plugin, doctor and update are about the workspace you are standing in (or WORKSPACE_ROOT, or the dir
+ * you name); ~/workspace when you are in none.
+ *
  * The core ships empty: no workspace folders, no plugins. Everything is added later, one npm package
  * at a time, when you ask for it (`plugin require <name>` is `npm install @webship.co/workspace-<name>`
  * into the dashboard's package.json). The skeleton and the management stay in the core.
@@ -39,6 +42,24 @@ function run(cmd, args, cwd, env = {}) {
 }
 
 const APP_PACKAGE = path.join('core', 'workspace-app', 'package.json');
+
+const isWorkspace = (dir) => fs.existsSync(path.join(dir, 'core', 'scripts', 'plugins.sh'));
+
+/**
+ * The workspace a command is about: the folder that was named, else WORKSPACE_ROOT, else
+ * WEBSHIP_WORKSPACE_DIR, else the workspace this command is run in (the folder it stands in or one
+ * above it), else ~/workspace. Someone standing in ~/sites/acme-workspace means that one, never another.
+ */
+function workspaceRoot(dirArg) {
+  if (dirArg) return path.resolve(dirArg);
+  if (process.env.WORKSPACE_ROOT) return path.resolve(process.env.WORKSPACE_ROOT);
+  if (process.env.WEBSHIP_WORKSPACE_DIR) return path.resolve(process.env.WEBSHIP_WORKSPACE_DIR);
+  for (let dir = process.cwd(); ; dir = path.dirname(dir)) {
+    if (isWorkspace(dir)) return dir;
+    if (path.dirname(dir) === dir) break;
+  }
+  return path.join(os.homedir(), 'workspace');
+}
 
 /**
  * The dashboard's package.json after an update: the package's own, plus every dependency the
@@ -136,6 +157,7 @@ function doctor(root, { only = 'all', quiet = false } = {}) {
   const here = root && fs.existsSync(path.join(root, 'core', 'workspace-app', 'command-check.js'));
   const check = require(here ? path.join(root, 'core', 'workspace-app', 'command-check.js') : path.join(CORE_SRC, 'workspace-app', 'command-check.js'));
   const reports = [check.checkCore()];
+  if (only === 'all' && !here && !quiet) say(`No workspace at ${root}: the commands the core needs are listed, no plugin was looked at. Name the folder (webship-workspace doctor <dir>) or run it from inside the workspace.\n`);
   if (only === 'all' && here) { try { reports.push(...check.checkPlugins()); } catch (_) { /* the dashboard is not installed yet: the core alone */ } }
   if (quiet) {
     const text = check.missingText(reports);
@@ -147,7 +169,9 @@ function doctor(root, { only = 'all', quiet = false } = {}) {
 }
 
 function init(dirArg, { update = false } = {}) {
-  const dest = path.resolve(dirArg || process.env.WEBSHIP_WORKSPACE_DIR || path.join(os.homedir(), 'workspace'));
+  // init makes the folder it is given (or ~/workspace); update is about a workspace that exists.
+  const dest = update ? workspaceRoot(dirArg) : path.resolve(dirArg || process.env.WEBSHIP_WORKSPACE_DIR || path.join(os.homedir(), 'workspace'));
+  if (update && !isWorkspace(dest)) fail(`No workspace at ${dest}: nothing to update. Make one with:  webship-workspace init ${dirArg || ''}`.trimEnd());
   fs.mkdirSync(dest, { recursive: true });
   say(`${update ? 'Updating' : 'Making'} the Webship Workspace at ${dest}`);
   // Said before anything starts: what the core calls and this machine does not have.
@@ -181,21 +205,22 @@ function plugin(verb, name, flags = []) {
   if (verb === 'help' || verb === '--help' || verb === '-h') { say(usage); return; }
   if (!verb) fail(`Which step? ${usage}`);
   if (!verbs.includes(verb)) fail(`webship-workspace plugin: there is no "${verb}" step.\n${usage}`);
-  const root = process.env.WORKSPACE_ROOT || path.resolve(process.env.WEBSHIP_WORKSPACE_DIR || path.join(os.homedir(), 'workspace'));
+  const root = workspaceRoot();
   const script = path.join(root, 'core', 'scripts', 'plugins.sh');
-  if (!fs.existsSync(script)) fail(`No workspace at ${root} (core/scripts/plugins.sh is missing). Run: webship-workspace init`);
+  if (!fs.existsSync(script)) fail(`No workspace at ${root} (core/scripts/plugins.sh is missing). Run it from inside your workspace, or make one: webship-workspace init`);
   // A bare name means the npm package of that name: `plugin require git` is `npm install @webship.co/workspace-git`.
   const spec = verb === 'require' && name && !/[@:/]/.test(name) ? `@webship.co/workspace-${name}` : name;
   const args = [script, `--${verb}`];
   if (spec) args.push(spec);
   // The flags plugins.sh knows, passed as they are (--with-needs).
   args.push(...flags.filter((f) => f === '--with-needs'));
-  process.exit(run('bash', args, root) ? 0 : 1);
+  // The script works on the workspace it is in unless WORKSPACE_ROOT says otherwise: say which one was found.
+  process.exit(run('bash', args, root, { WORKSPACE_ROOT: root }) ? 0 : 1);
 }
 
 /** The usage text: the header of this file, so the two never drift apart. */
 function helpText() {
-  return fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 18).map((l) => l.replace(/^ \* ?/, '')).join('\n');
+  return fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 21).map((l) => l.replace(/^ \* ?/, '')).join('\n');
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -204,7 +229,7 @@ switch (cmd) {
   case 'update': init(rest[0], { update: true }); break;
   case 'plugin': plugin(rest[0], rest.slice(1).find((a) => !a.startsWith('--')), rest.slice(1).filter((a) => a.startsWith('--'))); break;
   case 'catalog': say(catalogText()); break;
-  case 'doctor': process.exit(doctor(path.resolve(rest[0] || process.env.WORKSPACE_ROOT || process.env.WEBSHIP_WORKSPACE_DIR || path.join(os.homedir(), 'workspace'))) ? 0 : 1); break;
+  case 'doctor': process.exit(doctor(workspaceRoot(rest[0])) ? 0 : 1); break;
   // Asking for the help is not a mistake: it goes to stdout and the exit code is 0.
   case undefined: case 'help': case '--help': case '-h': say(helpText()); break;
   case 'version': case '--version': case '-v': say(require(path.join(PKG_ROOT, 'package.json')).version); break;
