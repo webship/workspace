@@ -184,19 +184,28 @@ function init(dirArg, { update = false } = {}) {
     say('  installing the dashboard (npm install in core/workspace-app)…');
     if (!run('npm', ['install', '--no-audit', '--no-fund'], app)) fail('npm install failed in core/workspace-app.');
   }
+  // What the last line may say: the address only when the dashboard was really started.
+  let dashboard = 'skipped';
   if (!process.env.WEBSHIP_WORKSPACE_SKIP_DDEV) {
     const ddev = spawnSync('ddev', ['--version'], { encoding: 'utf8' });
     if (ddev.error || ddev.status !== 0) {
+      dashboard = 'no-ddev';
       say('  DDEV is not installed: the dashboard runs in a DDEV project. Install it (https://ddev.readthedocs.io) and run:  webship-workspace init ' + (dirArg || ''));
     } else {
       say('  starting the dashboard (ddev start in core/workspace-app)…');
-      run('ddev', ['start', '-y'], app);
+      dashboard = run('ddev', ['start', '-y'], app) ? 'started' : 'failed';
     }
   }
   say('');
-  say(`Done. The dashboard: https://workspace.ddev.site   (the tooling: ${dest}/core/scripts)`);
+  const start = `cd ${app} && ddev start`;
+  if (dashboard === 'started') say(`Done. The dashboard: https://workspace.ddev.site   (the tooling: ${dest}/core/scripts)`);
+  else if (dashboard === 'failed') say(`The workspace is at ${dest}, but the dashboard did not start: read what ddev said above, then:  ${start}`);
+  else if (dashboard === 'no-ddev') say(`The workspace is at ${dest}. The dashboard is not started: DDEV is missing. Once it is installed:  ${start}   (then https://workspace.ddev.site)`);
+  else say(`Done. The workspace is at ${dest}. The dashboard was not started (WEBSHIP_WORKSPACE_SKIP_DDEV is set); start it with:  ${start}   (then https://workspace.ddev.site)`);
   say('');
   say(catalogText());
+  // A dashboard that was asked for and did not come up is a failure a script must be able to see.
+  if (dashboard === 'failed') process.exitCode = 1;
 }
 
 function plugin(verb, name, flags = []) {

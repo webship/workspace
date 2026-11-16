@@ -134,3 +134,41 @@ test('plugin, doctor and update are about the workspace they are run in, not ~/w
   const doc = at(base, ['doctor', nowhere]);
   assert.match(doc.stdout, /No workspace at .*not-a-workspace/);
 });
+
+test('init gives the dashboard\'s address only when the dashboard was started', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-started-'));
+  const bin = path.join(base, 'bin');
+  fs.mkdirSync(bin);
+  const ddev = (startExit) => fs.writeFileSync(path.join(bin, 'ddev'), `#!/usr/bin/env bash\n[ "$1" = "--version" ] && { echo "ddev version v1.24.0" ; exit 0 ; }\necho "ddev $*"\nexit ${startExit}\n`, { mode: 0o755 });
+  const init = (dir, env) => spawnSync(process.execPath, [BIN, 'init', dir], { encoding: 'utf8', env: { ...process.env, WEBSHIP_WORKSPACE_SKIP_NPM: '1', WEBSHIP_WORKSPACE_SKIP_DDEV: '', ...env } });
+  const withDdev = { PATH: `${bin}:${process.env.PATH}` };
+
+  // Not asked to start it: no "Done. The dashboard: <address>", the line to start it instead.
+  const skipped = init(path.join(base, 'a'), { WEBSHIP_WORKSPACE_SKIP_DDEV: '1' });
+  assert.strictEqual(skipped.status, 0, skipped.stderr);
+  assert.doesNotMatch(skipped.stdout, /The dashboard: https/);
+  assert.match(skipped.stdout, /The dashboard was not started .*ddev start/);
+
+  // Started: the address.
+  ddev(0);
+  const started = init(path.join(base, 'b'), withDdev);
+  assert.strictEqual(started.status, 0, started.stderr);
+  assert.match(started.stdout, /Done\. The dashboard: https:\/\/workspace\.ddev\.site/);
+
+  // ddev start failed: said, with the line to try again, and the exit code is 1.
+  ddev(1);
+  const failed = init(path.join(base, 'c'), withDdev);
+  assert.strictEqual(failed.status, 1);
+  assert.doesNotMatch(failed.stdout, /Done\./);
+  assert.match(failed.stdout, /the dashboard did not start/);
+  assert.ok(fs.existsSync(path.join(base, 'c', 'core', 'config', 'settings.yml')), 'the workspace itself is there');
+
+  // No ddev on the machine at all.
+  const empty = path.join(base, 'empty-bin');
+  fs.mkdirSync(empty);
+  fs.symlinkSync(process.execPath, path.join(empty, 'node'));
+  const none = init(path.join(base, 'd'), { PATH: empty });
+  assert.strictEqual(none.status, 0, none.stderr);
+  assert.doesNotMatch(none.stdout, /Done\. The dashboard: https/);
+  assert.match(none.stdout, /The dashboard is not started: DDEV is missing/);
+});
