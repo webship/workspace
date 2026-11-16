@@ -545,3 +545,15 @@ esac
   assert.match(r.stdout, /restarted/);
   assert.strictEqual(execs(), 1, 'its own dashboard is restarted');
 });
+
+test('requiring a name that is not published says so once, and changes nothing', () => {
+  const t = tree();
+  const before = snapshot(t);
+  const r = sh(t, '--require', 'no-such-plugin');
+  assert.strictEqual(r.status, 1);
+  assert.match(r.stdout, /Not added: there is no package @webship\.co\/workspace-no-such-plugin to fetch/);
+  assert.match(r.stdout, /webship-workspace catalog/);
+  assert.doesNotMatch(r.stdout + r.stderr, /npm error/, 'not npm\'s wall of 404 lines');
+  assert.doesNotMatch(r.stdout, /Required\./);
+  assert.strictEqual(snapshot(t), before);
+});

@@ -85,3 +85,10 @@ test('a row of the catalogue wraps its line instead of cutting it, and an empty 
   assert.ok(!/\.plugin-catalog \.plugin-row-summary \{ white-space: nowrap; \}/.test(read('css/components/plugins-page.css')));
   assert.match(read('ui.js'), /querySelectorAll\('\.plugin-catalog-section'\)\.forEach\(\(g\) => \{ g\.hidden = /);
 });
+
+test('the catalogue offers only what is published: the four names that were never on npm are not in it, and no family is empty', () => {
+  const names = catalog().map((p) => p.name);
+  for (const gone of ['testing', 'webship-js', 'microsoft', 'apple']) assert.ok(!names.includes(gone), `${gone} is not offered until it is published`);
+  for (const f of FAMILIES) assert.ok(f.plugins.length > 0, `${f.label} has something to add`);
+  assert.ok(!FAMILIES.some((f) => f.id === 'drives'), 'a family with nothing published is not drawn');
+});
