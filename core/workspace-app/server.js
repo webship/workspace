@@ -5496,17 +5496,20 @@ async function handleAction(pathname, form, res, req = null) {
       const dir = workspaceDir(target);
       if (!fs.existsSync(path.join(dir, script))) return send('<div class="msg error">No such command in this workspace.</div>', 404);
       // The same shapes the build action accepts: names, flags, versions, paths — nothing
-      // that can escape an argument or smuggle a second command.
-      const rawArgs = String(form.args || '').trim();
-      if (!/^[a-zA-Z0-9 ._@^~:/=,\-]*$/.test(rawArgs)) return send('<div class="msg error">Arguments may hold letters, numbers, and ._@^~:/=,- only.</div>', 400);
-      const argv = rawArgs ? rawArgs.split(/\s+/) : [];
+      // that can escape an argument or smuggle a second command. An argument of several words is
+      // typed in quotes (a platform tool's --run "plugin list"): tool-args.js splits them, and each
+      // argument reaches the shell in single quotes.
+      const toolArgs = require('./tool-args');
+      const split = toolArgs.splitToolArgs(form.args);
+      if (!split.ok) return send(`<div class="msg error">${esc(split.error)}</div>`, 400);
+      const shown = toolArgs.shownArgs(split.argv);
       res.setHeader('HX-Trigger', 'refresh-projects');
       // A tool can be done in a second (--help, a list): its session stays open to be read, and the
       // next run replaces it once it has finished.
-      const label = `run ${script}${rawArgs ? ` ${rawArgs}` : ''}`;
+      const label = `run ${script}${shown ? ` ${shown}` : ''}`;
       const project = script.replace(/^cmd-|\.sh$/g, '');
       const started = await require('./actions/composer').startUnlessRunning({ workspace: target, project,
-        projectDir: dir, verb: 'run', cmdLine: `bash ${script}${rawArgs ? ` ${rawArgs}` : ''}; ${require('./linger').lingerTail(label)}`, label });
+        projectDir: dir, verb: 'run', cmdLine: `bash ${script}${split.argv.length ? ` ${toolArgs.shellArgs(split.argv)}` : ''}; ${require('./linger').lingerTail(label)}`, label });
       const answer = started.stillRunning ? { ...started, already: true } : started;
       return send(screenStartedHtml(answer, label, project), answer.ok ? 200 : (answer.already ? 409 : 500));
     }
@@ -7767,7 +7770,10 @@ Summarise what you changed and how to verify it`,
         </select>
         <p class="uk-text-meta cmd-flags-hint"></p>
         <input class="uk-input uk-margin-small-bottom" name="args" placeholder="Arguments, e.g. myproject --install --launch"
-               pattern="[a-zA-Z0-9 ._@^~:\\/=,\\-]*">
+               aria-label="Arguments" aria-describedby="cmd-args-hint"
+               title="Letters, numbers and ._@^~:/=,- ; an argument of several words goes in quotes"
+               pattern="${esc(require('./tool-args').ARGS_PATTERN)}">
+        <p class="uk-text-meta uk-margin-remove-top" id="cmd-args-hint">An argument of several words goes in quotes: <code>myproject --run "plugin list"</code>.</p>
         <button type="submit" class="uk-button uk-button-primary"><span uk-icon="icon: play; ratio: .8"></span> Run</button>
       </form>
     </div>`);
