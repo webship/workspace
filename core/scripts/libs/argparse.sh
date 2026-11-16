@@ -23,9 +23,9 @@ import os
 
 class MyArgumentParser(argparse.ArgumentParser):
     def print_help(self, file=None):
-        """Print help and exit with error"""
+        """Print help and exit with a code of its own: the shell side ends the script with 0."""
         super(MyArgumentParser, self).print_help(file=file)
-        sys.exit(1)
+        sys.exit(64)
 
 parser = MyArgumentParser(prog=os.path.basename("$0"),
             description="""$ARGPARSE_DESCRIPTION""")
@@ -63,7 +63,9 @@ EOF
     #
     # It corrupts quietly and the result depends on the working directory, which
     # is why it went unnoticed: a glob matching nothing survives untouched.
-    if python "$argparser" "$@" &> /dev/null; then
+    python "$argparser" "$@" &> /dev/null
+    parsed=$?
+    if [ $parsed -eq 0 ]; then
         eval "$(python "$argparser" "$@")"
         retval=0
     else
@@ -72,6 +74,12 @@ EOF
     fi
 
     rm "$argparser"
+    # -h / --help was asked for: the help is printed, and that is the whole run. It is an answer, not a
+    # failure, so the script ends here with 0 (the callers' `|| exit 1` would turn it into 1). A wrong
+    # or missing argument still returns 1 (argparse's own exit is 2), and the caller stops on it.
+    if [ $parsed -eq 64 ]; then
+        exit 0
+    fi
     return $retval
 }
 

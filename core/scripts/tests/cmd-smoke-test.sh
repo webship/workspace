@@ -56,9 +56,12 @@ for ws in "${workspaces[@]}" commands core/scripts; do
 
     # 2. argparse scripts: run --help (safe, exercises the full bootstrap chain)
     if [ -z "$err" ] && grep -q 'argparse "\$@"\|arg-${distribution_name}\|arg-\${distribution_name}\|/plugins/[a-z0-9-]*/args/arg-\|--help)' "$f"; then
-      if ! (cd "$dir" && timeout 30 bash "$f" --help >/tmp/cmd-smoke-out 2>&1); then
-        # argparse exits non-zero on --help in some versions; accept if usage was printed
-        if ! grep -qi "usage" /tmp/cmd-smoke-out; then
+      # --help is an answer, not a failure: the usage, and exit 0 (libs/argparse.sh ends the script there).
+      (cd "$dir" && timeout 30 bash "$f" --help >/tmp/cmd-smoke-out 2>&1) ; help_code=$?
+      if [ $help_code -ne 0 ]; then
+        if grep -qi "usage" /tmp/cmd-smoke-out; then
+          err="--help printed the usage and exited ${help_code}, not 0"
+        else
           err="--help: $(tail -1 /tmp/cmd-smoke-out | cut -c1-120)"
         fi
       fi
