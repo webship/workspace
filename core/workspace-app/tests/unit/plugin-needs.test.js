@@ -557,3 +557,45 @@ test('requiring a name that is not published says so once, and changes nothing',
   assert.doesNotMatch(r.stdout, /Required\./);
   assert.strictEqual(snapshot(t), before);
 });
+
+test('uninstall keeps what a person changed and says so: a command, a settings file that holds something; an untouched one goes', () => {
+  const t = tree();
+  folder(t.plugins, 'dev');
+  const dir = plugin(t.plugins, 'host', { commands: { types: ['sites'], workspaces: ['dev'], files: ['commands/cmd-tools-host.sh'] },
+    scripts: { functions: ['scripts/fun-host.sh'] }, settingsTemplate: 'config/plugin.host.settings.yml' });
+  fs.mkdirSync(path.join(dir, 'scripts'));
+  fs.writeFileSync(path.join(dir, 'scripts', 'fun-host.sh'), '# functions\n');
+  fs.writeFileSync(path.join(dir, 'config', 'plugin.host.settings.yml'), '# Host\napi_token: CHANGE_ME\n');
+  for (const n of ['dev', 'host']) { ok(sh(t, '--activate', n)); ok(sh(t, '--install', n)); }
+  const cmd = path.join(t.root, 'dev', 'cmd-tools-host.sh');
+  const fun = path.join(t.root, 'core', 'scripts', 'plugins', 'host', 'functions', 'fun-host.sh');
+  const conf = path.join(t.config, 'plugin.host.settings.yml');
+  for (const f of [cmd, fun, conf]) assert.ok(fs.existsSync(f), `${f} was placed`);
+  assert.ok(record(t).host.hashes['dev/cmd-tools-host.sh'], 'what was placed is recorded with its hash');
+
+  // Untouched: everything the install placed goes, the settings template included.
+  let r = ok(sh(t, '--uninstall', 'host'));
+  for (const f of [cmd, fun, conf]) assert.ok(!fs.existsSync(f), `${path.basename(f)} is gone`);
+  assert.doesNotMatch(r.stdout, /kept /);
+
+  // Changed by a person: a token in the settings, a line in the command.
+  ok(sh(t, '--activate', 'host')); ok(sh(t, '--install', 'host'));
+  fs.writeFileSync(conf, '# Host\napi_token: tok-123\n');
+  fs.appendFileSync(cmd, '# mine\n');
+  // A second install says the command was written again (a plugin's own files follow the package), and keeps the settings.
+  r = ok(sh(t, '--install', 'host'));
+  assert.match(r.stdout, /replaced dev\/cmd-tools-host\.sh \(it had been changed here/);
+  assert.match(fs.readFileSync(conf, 'utf8'), /tok-123/);
+  assert.doesNotMatch(ok(sh(t, '--install', 'host')).stdout, /replaced /, 'nothing changed since: nothing is said');
+  fs.appendFileSync(cmd, '# mine again\n');
+  r = ok(sh(t, '--uninstall', 'host'));
+  assert.match(r.stdout, /kept core\/config\/plugin\.host\.settings\.yml \(it holds your settings/);
+  assert.match(r.stdout, /kept dev\/cmd-tools-host\.sh \(edited here, so it stays\)/);
+  assert.match(fs.readFileSync(conf, 'utf8'), /tok-123/, 'the token a person put in is not deleted');
+  assert.match(fs.readFileSync(cmd, 'utf8'), /# mine again/);
+  assert.ok(!fs.existsSync(fun), 'what was not changed is gone');
+  assert.strictEqual(record(t).host, undefined);
+  // Added again: the settings a person kept are the ones in use.
+  ok(sh(t, '--activate', 'host')); ok(sh(t, '--install', 'host'));
+  assert.match(fs.readFileSync(conf, 'utf8'), /tok-123/);
+});

@@ -17,7 +17,10 @@ The same four steps are buttons on **Settings → Plugins**. `--install` is idem
 it placed in `core/config/plugins.installed.yml`, keeps a managed block in `.gitignore` so a dev
 clone never commits what an install placed, and says when the dashboard container needs
 `ddev restart` (a compose file or host mount the plugin brought). `--uninstall` removes exactly
-what `--install` placed.
+what `--install` placed, while it still is what was placed: the record keeps the hash of every file,
+so a file a person changed since (a command, a function) is kept, and so is the plugin's settings
+file once it holds anything but the template (a token, an account). The uninstall names each file it
+kept. A second `--install` writes the plugin's own files again and names the ones it replaced.
 
 A plugin is a node package with a `workspacePlugin` manifest in its `package.json` and an
 `index.js` exporting `register(api)` — or a folder under `core/workspace-app/plugins/<name>/` with

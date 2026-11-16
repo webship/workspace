@@ -227,7 +227,12 @@ test('install places what the manifest names, records it, carries the legacy blo
   assert.strictEqual((fs.readFileSync(path.join(t.root, '.gitignore'), 'utf8').match(/managed by/g) || []).length, 1);
   const u = run('uninstall');
   assert.strictEqual(u.status, 0, u.stderr);
-  for (const p of expect) assert.ok(!fs.existsSync(path.join(t.root, p)), `${p} is gone`);
+  // Everything the install placed goes, except the settings file: a person put `region: us` in it, so it
+  // stays and the uninstall says so.
+  const mine = 'core/config/plugin.x-cloud.settings.yml';
+  for (const p of expect.filter((x) => x !== mine)) assert.ok(!fs.existsSync(path.join(t.root, p)), `${p} is gone`);
+  assert.match(fs.readFileSync(path.join(t.root, mine), 'utf8'), /^region: us$/m, 'the settings a person changed stay');
+  assert.match(u.stdout, /kept core\/config\/plugin\.x-cloud\.settings\.yml \(it holds your settings/);
   assert.ok(!fs.existsSync(path.join(t.root, 'core', 'scripts', 'plugins', 'x-cloud')), 'the scripts folder is gone');
   assert.doesNotMatch(fs.readFileSync(path.join(t.root, '.gitignore'), 'utf8'), /cmd-tools-x-cloud/);
 });

@@ -152,6 +152,19 @@ function placeAiItems(plugin, entry, placed, hashes, notes) {
  * tests/features/plugins/), never a folder at the workspace root. An AI item goes only while it still is
  * what the plugin placed.
  */
+// Written once and then a person's: a workspace's settings file and its docs.
+const WRITTEN_ONCE = /^core\/config\/workspace\.[a-z0-9_-]+\.settings\.yml$|\/(AGENTS|CLAUDE|README)\.md$/;
+/** The plugin's own settings file, as a path of the tree (null when it has none). */
+function settingsPath(plugin) {
+  const m = (plugin && plugin.manifest) || {};
+  return m.settingsTemplate ? rel(path.join(CONFIG_DIR, m.settingsFile || `plugin.${plugin.name}.settings.yml`)) : null;
+}
+
+/** Whether the file at a path two plugins place is, right now, the copy another plugin placed (not an edit). */
+function isAnothers(record, name, p, now) {
+  return Object.entries(record).some(([other, e]) => other !== name && e && e.hashes && e.hashes[p] && e.hashes[p] === now);
+}
+
 function removePlaced(p, hashes) {
   const file = path.join(ROOT, p);
   if (hashes && hashes[p]) {
@@ -227,6 +240,10 @@ function install(name, { nested = false } = {}) {
   const placed = [];
   const hashes = {};
   const notes = Object.assign([], { kept: [] });   // what to say besides "placed", and the recorded paths that were left as they are
+  // What the last install placed and a person changed since. The plugin's own files (commands, functions,
+  // compose files, features) follow the package, so they are written again below; the install says which.
+  const was = (record[name] && record[name].hashes) || {};
+  const changedHere = new Set(Object.keys(was).filter((p) => { const now = hashOf(path.join(ROOT, p)); return now !== null && now !== was[p] && !isAnothers(record, name, p, now); }));
   let restart = false;
   const scripts = m.scripts || {};
   const into = path.join(SCRIPTS_DIR, 'plugins', name);
@@ -294,6 +311,17 @@ function install(name, { nested = false } = {}) {
   // What an earlier install placed and this one did not (a workspace that changed type, a file the
   // manifest dropped) goes away, so the tree never holds a stale copy.
   for (const old of before) if (!placed.includes(old)) removePlaced(old, (record[name] && record[name].hashes) || {});
+  // The hash of everything placed, so an uninstall can tell the plugin's copy from a file a person changed.
+  // A file that is written once (a settings file, a folder's docs) keeps the hash of what was first placed;
+  // one that was already there before any install has none, and is treated as the person's.
+  for (const p of placed) {
+    if (hashes[p]) continue;
+    if (WRITTEN_ONCE.test(p) || p === settingsPath(plugin)) { if (was[p]) hashes[p] = was[p]; else if (!before.has(p)) hashes[p] = hashOf(path.join(ROOT, p)); continue; }
+    const now = hashOf(path.join(ROOT, p));
+    if (now) hashes[p] = now;
+    if (changedHere.has(p) && now !== null) notes.push(`  replaced ${p} (it had been changed here; a plugin's own files follow the package)`);
+  }
+  for (const p of Object.keys(hashes)) if (hashes[p] === null) delete hashes[p];
   record[name] = { module: plugin.module, version: plugin.version, installed: new Date().toISOString(), placed };
   if (Object.keys(hashes).length) record[name].hashes = hashes;
   // What it needed and which plugin met each need, so an uninstall can still tell who relies on whom
@@ -345,14 +373,32 @@ function uninstall(name) {
   if (!entry) return { name, removed: [] };
   const removed = [];
   const notes = [];
+  const kept = [];
+  const plugin = pluginByName(name);
   for (const p of entry.placed || []) {
     // A workspace's own settings file and its docs stay: they hold what a person put there.
-    if (/^core\/config\/workspace\.[a-z0-9_-]+\.settings\.yml$/.test(p) || /\/(AGENTS|CLAUDE|README)\.md$/.test(p)) continue;
+    if (WRITTEN_ONCE.test(p)) continue;
+    // The plugin's own settings file holds what a person configured (a token, an account, a list): it goes
+    // only while it still is exactly what was placed. Anything else in it stays, and the uninstall says so.
+    if (/^core\/config\/plugin\.[a-z0-9_-]+\.settings\.yml$/.test(p) || p === settingsPath(plugin)) {
+      const now = hashOf(path.join(ROOT, p));
+      if (now === null) continue;
+      let untouched = !!(entry.hashes && entry.hashes[p]) && now === entry.hashes[p];
+      // A record written before hashes were kept for this file: the template of the package says.
+      if (!untouched && !(entry.hashes && entry.hashes[p]) && plugin && plugin.manifest.settingsTemplate) {
+        try { untouched = now === sha(fs.readFileSync(path.join(plugin.dir, plugin.manifest.settingsTemplate))); } catch (_) { /* no template to compare with: it stays */ }
+      }
+      if (!untouched) { kept.push(p); notes.push(`  kept ${p} (it holds your settings; delete the file if you do not want them)`); continue; }
+    }
+    // A path another plugin places too, holding that plugin's copy: it is theirs, and it stays without a word.
+    if (isAnothers(record, name, p, hashOf(path.join(ROOT, p)))) continue;
     const how = removePlaced(p, entry.hashes);
     if (how === 'removed') removed.push(p);
-    else if (how === 'kept') notes.push(`  kept ${p} (edited here, so it stays)`);
+    else if (how === 'kept') { kept.push(p); notes.push(`  kept ${p} (edited here, so it stays)`); }
   }
-  try { fs.rmSync(path.join(SCRIPTS_DIR, 'plugins', name), { recursive: true, force: true }); } catch (_) { /* nothing there */ }
+  // What is left of the plugin's own scripts folder goes too, unless a file a person changed is in it.
+  const own = `${rel(path.join(SCRIPTS_DIR, 'plugins', name))}/`;
+  if (!kept.some((p) => p.startsWith(own))) { try { fs.rmSync(path.join(SCRIPTS_DIR, 'plugins', name), { recursive: true, force: true }); } catch (_) { /* nothing there */ } }
   delete record[name];
   writeRecord(record);
   updateGitignore(record);
