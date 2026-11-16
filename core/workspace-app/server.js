@@ -5099,11 +5099,17 @@ async function handleAction(pathname, form, res, req = null) {
     // sits next to the archive, bring the project up and import it — all as
     // one streaming job. (file/projectName are regex-validated above, so
     // embedding them in the shell line is safe.)
-    const dbCandidates = [`${file.replace(/\.tar\.gz$/, '')}-db.sql.gz`, `${file.replace(/\.tar\.gz$/, '')}-db.sql`];
-    const dbFile = dbCandidates.map((f) => path.join(meta.backupsDir, f)).find((f) => fs.existsSync(f));
+    // An empty dump (a project with no database, backed up by an older command) is named, not imported:
+    // `ddev import-db` ends the restore with "failed to extract provided file: EOF" on it.
+    const { file: dbFile, empty: emptyDump } = require('./restore-dump').dumpBeside(meta.backupsDir, file);
     let shellLine = `set -e; echo "Extracting ${file}…"; tar -xzf '${archive}'`;
     if (dbFile) {
       shellLine += ` && if [ -f '${targetDir}/.ddev/config.yaml' ]; then cd '${targetDir}' && ddev start -y && echo "Importing database…" && ddev import-db --file='${dbFile}'; else echo "Not a DDEV project — import the DB dump manually: ${path.basename(dbFile)}"; fi`;
+    } else {
+      // No database to import (a site that runs without one): the project is still started, as a restore
+      // with a dump starts it, so the site answers when the restore ends.
+      if (emptyDump) shellLine += ` && echo "${emptyDump} is empty: the project had no database to export when it was backed up, so there is none to import."`;
+      shellLine += ` && if [ -f '${targetDir}/.ddev/config.yaml' ]; then cd '${targetDir}' && ddev start -y; fi`;
     }
     return screenAction(send, { workspace, project: projectName, projectDir: meta.dir,
       ownerDir: targetDir, verb: 'restore', cmdLine: shellLine, label: `restore ${file}` });
