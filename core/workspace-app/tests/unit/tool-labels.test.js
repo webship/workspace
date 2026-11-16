@@ -14,7 +14,10 @@ test('words or icons on the tool buttons is a style option: every style states i
   assert.ok(themes.length >= 4);
   for (const t of themes) assert.match(read('public', 'themes', t, 'theme.css'), /--pcard-tool-label: 0rem;/, `${t} theme.css`);
   const config = path.join(root, '..', 'config');
-  const yml = fs.readdirSync(config).filter((f) => /^theme\..+\.yml$/.test(f));
+  // The styles the core ships. themes.test.js makes and deletes `theme.test-made-<pid>.yml` in this same
+  // folder while the suite runs in parallel: that file is not a shipped style, and it may be gone between
+  // the listing and the read.
+  const yml = fs.readdirSync(config).filter((f) => /^theme\..+\.yml$/.test(f) && !/^theme\.test-made-/.test(f));
   assert.ok(yml.length >= 4);
   for (const f of yml) assert.match(fs.readFileSync(path.join(config, f), 'utf8'), /^\s*pcard-tool-label: 0rem$/m, f);
 });
