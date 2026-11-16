@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "npm run test:unit && npm run test:browser",
-    "test:unit": "node --test \"tests/unit/*.test.js\" \"plugins/*/tests/*.test.js\"",
+    "test:unit": "node --test tests/unit/*.test.js $(ls plugins/*/tests/*.test.js 2>/dev/null)",
     "test:browser": "cucumber-js --config cucumber.js"
   },
   "dependencies": {
