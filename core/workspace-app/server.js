@@ -5105,8 +5105,11 @@ async function handleAction(pathname, form, res, req = null) {
     let shellLine = `set -e; echo "Extracting ${file}…"; tar -xzf '${archive}'`;
     if (dbFile) {
       shellLine += ` && if [ -f '${targetDir}/.ddev/config.yaml' ]; then cd '${targetDir}' && ddev start -y && echo "Importing database…" && ddev import-db --file='${dbFile}'; else echo "Not a DDEV project — import the DB dump manually: ${path.basename(dbFile)}"; fi`;
-    } else if (emptyDump) {
-      shellLine += ` && echo "${emptyDump} is empty: the project had no database to export when it was backed up, so there is none to import."`;
+    } else {
+      // No database to import (a site that runs without one): the project is still started, as a restore
+      // with a dump starts it, so the site answers when the restore ends.
+      if (emptyDump) shellLine += ` && echo "${emptyDump} is empty: the project had no database to export when it was backed up, so there is none to import."`;
+      shellLine += ` && if [ -f '${targetDir}/.ddev/config.yaml' ]; then cd '${targetDir}' && ddev start -y; fi`;
     }
     return screenAction(send, { workspace, project: projectName, projectDir: meta.dir,
       ownerDir: targetDir, verb: 'restore', cmdLine: shellLine, label: `restore ${file}` });

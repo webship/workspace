@@ -56,3 +56,11 @@ test('the restore action takes its dump from dumpBeside and says when the dump i
   assert.doesNotMatch(restore, /fs\.existsSync\(f\)\)/, 'a dump is no longer taken because it merely exists');
   assert.match(restore, /is empty: the project had no database to export when it was backed up/);
 });
+
+test('a restored DDEV project with no database to import is still started, as one with a dump is', () => {
+  const server = fs.readFileSync(path.join(__dirname, '../../server.js'), 'utf8');
+  const restore = server.slice(server.indexOf("pathname === '/actions/restore'"), server.indexOf("pathname === '/actions/backup-delete'"));
+  const noDump = restore.slice(restore.indexOf('} else {'), restore.indexOf('return screenAction'));
+  assert.match(noDump, /if \[ -f '\$\{targetDir\}\/\.ddev\/config\.yaml' \]; then cd '\$\{targetDir\}' && ddev start -y; fi/);
+  assert.doesNotMatch(noDump, /import-db/, 'nothing is imported without a dump');
+});
