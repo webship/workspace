@@ -228,7 +228,11 @@ function removeHtml(p) {
     return `<p class="plugin-quiet">It is not active, so nothing of it is in the workspace and there is nothing to remove here. The package itself stays in the dashboard until it is taken out: <code>npm uninstall ${esc(p.module || p.name)}</code> in <code>core/workspace-app</code>.</p>`;
   }
   if ((p.neededBy || []).length) {
-    return `<p class="plugin-quiet">${esc(label)} cannot be deactivated or uninstalled while ${esc(p.neededBy.join(', '))} ${p.neededBy.length === 1 ? 'needs' : 'need'} it. Remove ${p.neededBy.length === 1 ? 'that one' : 'those'} first.</p>`;
+    // Reinstall removes nothing, so it stays: "Update to <version>, then Reinstall" is finished here for a
+    // plugin others need as for any other (#410). Deactivate and Uninstall wait for the plugins that need it.
+    const places = needsInstall(p.manifest) || !!(p.manifest.workspace && p.manifest.workspace.key);
+    const reinstall = p.step >= 1 && places ? `<p class="plugin-buttons">${postButton('install', p, p.step >= 2 ? 'Reinstall' : 'Install')}</p>` : '';
+    return `${reinstall}<p class="plugin-quiet">${esc(label)} cannot be deactivated or uninstalled while ${esc(p.neededBy.join(', '))} ${p.neededBy.length === 1 ? 'needs' : 'need'} it. Remove ${p.neededBy.length === 1 ? 'that one' : 'those'} first.${reinstall ? ' Reinstall places its files again and is safe to repeat.' : ''}</p>`;
   }
   const keep = [
     p.step >= 1 && needsInstall(p.manifest) ? postButton('install', p, p.step >= 2 ? 'Reinstall' : 'Install') : '',
