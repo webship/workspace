@@ -83,11 +83,14 @@
    to scan past on a page of twenty rows. */
 .screens-hand.is-waiting,
 .agent-live[title*="ask you"],
-.screens-waiting { animation: hand-wave 1.6s ease-in-out infinite; }
+.screens-waiting { animation: hand-wave 1.6s ease-in-out 3; }
 
+/* A ring around the label, not the label fading: at opacity .55 the words fell to 4.4:1 (the top bar's
+   "✋ 1 waiting", round 7). Three beats, under five seconds, then the amber label says it on its own: a
+   pulse that never stops is movement nobody can switch off from the page. */
 @keyframes hand-wave {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: .55; }
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50%      { box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--warning) 55%, transparent); }
 }
 
 .screens-hand.is-waiting { margin-left: .25rem; }
