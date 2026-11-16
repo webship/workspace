@@ -217,7 +217,11 @@
 .dock-mic.is-blocked { color: var(--danger); border-color: var(--danger); }
 @keyframes dock-pulse { 50% { filter: brightness(1.15); } }
 @keyframes dock-breathe { 50% { box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--brand-primary) 30%, transparent); } }
-@media (max-width: 59.99em) { .dock-talk span, .dock-talk kbd { display: none; } }
+/* On a narrow screen the Space key hint goes (a phone has no Space bar to hold); the icon and the words stay.
+   The rule hid every span in the button, and the icon is a span too: below 960px the button was an empty
+   blue pill, 240px wide with nothing on it. */
+.dock-talk span:not(.dock-talk-icon) { white-space: nowrap; }
+@media (max-width: 59.99em) { .dock-talk kbd { display: none; } }
 @media (prefers-reduced-motion: reduce) { .dock-talk.is-held, .dock-mic.is-listening { animation: none; } }
 .avatar-kit-range select { flex: 1; min-width: 0; padding: 0.2rem 0.4rem; font: inherit; font-size: 0.8125rem; border: 1px solid var(--line); border-radius: 0.4rem; background: var(--surface); color: inherit; }
 
