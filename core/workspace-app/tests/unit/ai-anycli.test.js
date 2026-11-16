@@ -623,3 +623,11 @@ test('a CLI with no place for a kind says so in plain words: "an agent", "a comm
     fs.rmSync(path.join(ROOT, 'ai-agents', 'worded.md'));
   }
 });
+
+test('every shipped CLI names its documentation at an https address, and Codex at the one its old address now redirects to', () => {
+  const shipped = require('js-yaml').load(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'config', 'ai.defaults.yml'), 'utf8'));
+  for (const [id, entry] of Object.entries(shipped.clis)) assert.match(String(entry.docs || ''), /^https:\/\/[a-z0-9.-]+\//, `${id}: docs`);
+  // developers.openai.com/codex answers 308 to learn.chatgpt.com/docs (read 2026-11-16).
+  assert.strictEqual(shipped.clis.codex.docs, 'https://learn.chatgpt.com/docs');
+  assert.doesNotMatch(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'config', 'ai.defaults.yml'), 'utf8'), /developers\.openai\.com/);
+});

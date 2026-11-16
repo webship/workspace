@@ -97,7 +97,7 @@ clis:
     vendor: OpenAI
     command: codex
     enabled: true
-    docs: https://developers.openai.com/codex
+    docs: https://learn.chatgpt.com/docs
     signed_in:
       - ~/.codex/auth.json
     signed_in_env:
