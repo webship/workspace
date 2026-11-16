@@ -1400,6 +1400,18 @@ function setAssistantView(view) {
   }
 }
 
+// The launcher hides itself as the panel opens, so focus fell to the page: it goes to the prompt, or to
+// the panel while the prompt is still being built.
+function focusAssistantPrompt() {
+  requestAnimationFrame(() => {
+    const chat = document.getElementById('ws-deep-chat');
+    const input = chat && chat.shadowRoot && chat.shadowRoot.querySelector('#text-input');
+    if (input) { input.focus(); return; }
+    const panel = document.querySelector('.assistant-side .assistant-panel');
+    if (panel) { if (!panel.hasAttribute('tabindex')) panel.tabIndex = -1; panel.focus(); }
+  });
+}
+
 function setAssistantOpen(open) {
   document.documentElement.classList.toggle('assistant-closed', !open);
   const row = document.querySelector('.actions-assistant');
@@ -1433,6 +1445,7 @@ document.addEventListener('click', (e) => {
     e.preventDefault();
     if (assistantView() === 'full') { window.location.href = '/assistant'; return; }
     setAssistantOpen(true);
+    focusAssistantPrompt();
   }
 }, true);
 

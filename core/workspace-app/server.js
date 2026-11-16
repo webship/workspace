@@ -1174,7 +1174,9 @@ try{var v=wsPref('ws-assistant-view',null)||'${style.assistantView}';
 if(['sidebar','wide','float','full'].indexOf(v)<0)v='sidebar';
 d.dataset.assistantView=v;
 var o=wsPref('ws-assistant-open',null);
-if(o===null)o='${style.assistantOpen}'==='no'?'0':'1';
+// Below 960px the panel floats over the page, so it starts closed there unless the person has opened it:
+// the launcher in the corner opens it. On a wider screen the setting is the default, as before.
+if(o===null)o=('${style.assistantOpen}'==='no'||(window.matchMedia&&matchMedia('(max-width: 59.99em)').matches))?'0':'1';
 if(o!=='1')d.classList.add('assistant-closed');}catch(e){d.dataset.assistantView='sidebar';}
 ${avatarOn ? `// The assistant's avatar, shown or not, before first paint: it takes the top of the panel.
 try{if(wsPref('ws-assistant-avatar','0')==='1')d.classList.add('assistant-avatar-on');}catch(e){}` : ''}
