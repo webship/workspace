@@ -177,7 +177,10 @@ function init(dirArg, { update = false } = {}) {
 
 function plugin(verb, name, flags = []) {
   const verbs = ['require', 'activate', 'install', 'configure', 'deactivate', 'uninstall', 'list', 'check', 'restart'];
-  if (!verbs.includes(verb)) fail(`plugin <${verbs.join('|')}> [name]`);
+  const usage = `webship-workspace plugin <${verbs.join('|')}> [name] [--with-needs]`;
+  if (verb === 'help' || verb === '--help' || verb === '-h') { say(usage); return; }
+  if (!verb) fail(`Which step? ${usage}`);
+  if (!verbs.includes(verb)) fail(`webship-workspace plugin: there is no "${verb}" step.\n${usage}`);
   const root = process.env.WORKSPACE_ROOT || path.resolve(process.env.WEBSHIP_WORKSPACE_DIR || path.join(os.homedir(), 'workspace'));
   const script = path.join(root, 'core', 'scripts', 'plugins.sh');
   if (!fs.existsSync(script)) fail(`No workspace at ${root} (core/scripts/plugins.sh is missing). Run: webship-workspace init`);
@@ -190,6 +193,11 @@ function plugin(verb, name, flags = []) {
   process.exit(run('bash', args, root) ? 0 : 1);
 }
 
+/** The usage text: the header of this file, so the two never drift apart. */
+function helpText() {
+  return fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 18).map((l) => l.replace(/^ \* ?/, '')).join('\n');
+}
+
 const [cmd, ...rest] = process.argv.slice(2);
 switch (cmd) {
   case 'init': init(rest[0]); break;
@@ -197,7 +205,9 @@ switch (cmd) {
   case 'plugin': plugin(rest[0], rest.slice(1).find((a) => !a.startsWith('--')), rest.slice(1).filter((a) => a.startsWith('--'))); break;
   case 'catalog': say(catalogText()); break;
   case 'doctor': process.exit(doctor(path.resolve(rest[0] || process.env.WORKSPACE_ROOT || process.env.WEBSHIP_WORKSPACE_DIR || path.join(os.homedir(), 'workspace'))) ? 0 : 1); break;
-  default:
-    say(fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 18).map((l) => l.replace(/^ \* ?/, '')).join('\n'));
-    process.exit(cmd ? 1 : 0);
+  // Asking for the help is not a mistake: it goes to stdout and the exit code is 0.
+  case undefined: case 'help': case '--help': case '-h': say(helpText()); break;
+  case 'version': case '--version': case '-v': say(require(path.join(PKG_ROOT, 'package.json')).version); break;
+  // A word this tool does not know is one: it is named, on stderr, before the help, and the exit code is 1.
+  default: fail(`webship-workspace: there is no "${cmd}" command.\n\n${helpText()}`);
 }
