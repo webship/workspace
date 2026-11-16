@@ -56,9 +56,27 @@ test('a "/" query never returns an agent, and "@" never returns a command', () =
 });
 
 test('a name that starts with what was typed ranks above one that merely contains it', () => {
-  const hits = suggestFor('@', 'workspace');
-  const starts = hits.findIndex((i) => i.name.toLowerCase().startsWith('workspace'));
-  const contains = hits.findIndex((i) => !i.name.toLowerCase().startsWith('workspace')
-    && i.name.toLowerCase().includes('workspace'));
-  if (starts !== -1 && contains !== -1) assert.ok(starts < contains, 'prefix match must come first');
+  // Items of its own, in a HOME made for the test: the machine's own inventory may have no name of either kind
+  // (a runner and a fresh clone have none), and the ranking was then never checked.
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-inv-home-'));
+  fs.mkdirSync(path.join(home, '.claude', 'agents'), { recursive: true });
+  for (const n of ['my-workspace-helper', 'workspace-keeper', 'unrelated-agent']) {
+    fs.writeFileSync(path.join(home, '.claude', 'agents', `${n}.md`), `---\nname: ${n}\ndescription: An agent made for this test.\n---\n`);
+  }
+  const saved = process.env.HOME;
+  process.env.HOME = home;
+  try {
+    // A workspace and project of their own, so the inventory is read for this HOME and not taken from the cache.
+    const hits = suggestFor('@', 'workspace', 'ranking-test', 'no-project');
+    const names = hits.map((i) => i.name);
+    assert.ok(names.includes('workspace-keeper') && names.includes('my-workspace-helper'), names.join(', '));
+    assert.ok(!names.includes('unrelated-agent'), 'what does not contain the words is not offered');
+    const at = (keep) => hits.map((i, n) => (keep(i.name.toLowerCase()) ? n : -1)).filter((n) => n !== -1);
+    const starts = at((n) => n.startsWith('workspace'));
+    const contains = at((n) => !n.startsWith('workspace') && n.includes('workspace'));
+    assert.ok(Math.max(...starts) < Math.min(...contains), `prefix matches first: ${names.join(', ')}`);
+  } finally {
+    process.env.HOME = saved;
+    fs.rmSync(home, { recursive: true, force: true });
+  }
 });
