@@ -2395,10 +2395,21 @@ function stylesPageHtml() {
     // Painted with this style's own values. Inline, because that is the one thing that beats both
     // our stylesheet and UIkit's — and because these values are data, not design decisions to keep
     // in a rule somewhere.
+    // Its tokens too, for what is inside it: the meta line, the buttons and the "In use" label read
+    // --text-subtle, --ink and --chip-ink, and took the dark half's light inks onto this light surface
+    // (1.17:1 for "Change its variables"). A card is a preview of its style's light half in either mode.
+    // The meta line is the dashboard's words about the style, so it gets the style's text colour rather
+    // than its subtle one (two styles' subtle ink is 3.7:1 on their own surface).
+    const tokens = [
+      ['--surface-card', p.surface], ['--line', p.line], ['--text-default', p.text],
+      ['--text-subtle', p.text], ['--text-subtle-2', p.text], ['--ink', p.ink || p.text],
+      ['--chip-ink', p.inverse || '#ffffff'], ['--text-inverse', p.inverse || '#ffffff'], ['--link', p.link || p.brand],
+    ].filter(([, v]) => v).map(([k, v]) => `${k}:${esc(v)}`);
     const skin = [
       p.surface ? `background:${esc(p.surface)}` : '',
       p.line ? `border-color:${esc(p.line)}` : '',
       p.text ? `color:${esc(p.text)}` : '',
+      ...tokens,
     ].filter(Boolean).join(';');
     const headStyle = [
       p.fontSecondary ? `font-family:${esc(p.fontSecondary)}` : '',

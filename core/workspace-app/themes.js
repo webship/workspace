@@ -350,6 +350,12 @@ function themePreview(name) {
     surface: value('surface-card') || value('surface'),
     line: value('line'),
     text: value('text-default'),
+    // The inks a card's contents are drawn in (meta line, buttons, the "In use" label), so a card is this
+    // style's light half in either mode rather than its surface under the dark half's inks.
+    subtle: value('text-subtle'),
+    ink: value('ink'),
+    inverse: value('text-inverse'),
+    link: value('link'),
     // What its type actually does, so a style with a different scale reads as one in the list.
     fontPrimary: value('font-primary'),
     fontSecondary: value('font-secondary'),
