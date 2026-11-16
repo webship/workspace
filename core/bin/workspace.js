@@ -265,6 +265,12 @@ function init(dirArg, { update = false } = {}) {
     say('  installing the dashboard (npm install in core/workspace-app)…');
     if (!run('npm', ['install', '--no-audit', '--no-fund'], app)) fail('npm install failed in core/workspace-app.');
   }
+  // Damage an earlier release did to settings.yml is repaired here, and said (settings-repair.js): the file
+  // itself is never replaced, and what was repaired is kept as it was.
+  if (update && fs.existsSync(path.join(app, 'node_modules', 'js-yaml'))) {
+    const repaired = spawnSync(process.execPath, ['settings-repair.js'], { cwd: app, encoding: 'utf8', env: { ...process.env, WORKSPACE_ROOT: dest } });
+    for (const line of String(repaired.stdout || '').split('\n').filter((l) => l.trim())) say(`  ${line}`);
+  }
   // The plugins are still the versions that placed their files: note how those shipped each file, so the
   // first plugin update after this one keeps a file a person changed (records from 1.0.15 and earlier lack it).
   if (update && fs.existsSync(path.join(app, 'node_modules', 'js-yaml'))) {
