@@ -349,8 +349,11 @@ is offered to three runners, in this order, and the first that takes it answers 
 
 There is no run in the page: no terminal is drawn at the bottom of it, by the dashboard or by a
 plugin (`api.capabilities.has('screens-only')`). After a start the page shows a short notice —
-what started, on what, and **Open in Screens**, which goes to `/screens?session=<name>`: that
-session first, with the end of its log, also after it has ended. When no runner can start a
+what started, on what, and **Open in Screens**, a link to `/screens?session=<name>`. A link to
+`/screens` opens Screens in the modal over the page one is on (the modal of the top bar's Screens
+button: `/fragments/screens` into `#editor-modal-body`), with that session first and the end of its
+log, also after it has ended. A plugin's own notice needs nothing more than that link; the address
+itself, typed or opened in a new tab, is the Screens page. When no runner can start a
 session the command is not started, and the answer says what is missing, the step that fixes it,
 and the command line to copy into a terminal of your own.
 

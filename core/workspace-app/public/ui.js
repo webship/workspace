@@ -2334,9 +2334,36 @@ function jobViewsToWindow() {
 }
 document.body.addEventListener('htmx:after:swap', jobViewsToWindow);
 
-// "Open in Screens": the notice a command starts with links to /screens?session=<name>. The Screens
-// page then shows that session first — its state and the end of its log while it runs, and the end
-// of its log when it has already ended — so a short command can be read after it is gone.
+// "Open in Screens": a session asked for by name is shown first — its state and the end of its log
+// while it runs, and the end of its log when it has already ended — so a short command can be read
+// after it is gone. One loader keeps that box fresh wherever it is drawn: in the Screens modal
+// (/fragments/screens?session=<name>) and on the Screens page (/screens?session=<name>).
+function followAskedSession(box, name) {
+  if (!box || box.dataset.following === '1') return;
+  box.dataset.following = '1';
+  const load = () => {
+    if (!box.isConnected) return;          // the modal closed, or the page moved on
+    fetch(`/fragments/screen-asked/${encodeURIComponent(name)}`)
+      .then((r) => (r.ok ? r.text() : ''))
+      .then((html) => {
+        if (!html || !box.isConnected) return;
+        // Somebody reading up the log is not pulled back to its end.
+        const pre = box.querySelector('.terminal-pre');
+        const follow = !pre || pre.scrollHeight - pre.scrollTop - pre.clientHeight < 24;
+        box.innerHTML = html;
+        const now = box.querySelector('.terminal-pre');
+        if (now && follow) now.scrollTop = now.scrollHeight;
+        if (box.querySelector('.is-running')) setTimeout(load, 3000);
+      })
+      .catch(() => { /* the list below still says what runs */ });
+  };
+  // Drawn by the server already (the modal): only a running one is asked about again.
+  if (box.querySelector('.screen-asked')) {
+    const pre = box.querySelector('.terminal-pre');
+    if (pre) pre.scrollTop = pre.scrollHeight;
+    if (box.querySelector('.is-running')) setTimeout(load, 3000);
+  } else load();
+}
 (function showAskedSession() {
   if (window.location.pathname !== '/screens') return;
   const name = new URLSearchParams(window.location.search).get('session') || '';
@@ -2348,24 +2375,42 @@ document.body.addEventListener('htmx:after:swap', jobViewsToWindow);
     box.id = 'screen-asked';
     // First in the page's card: above the list and above a panel a plugin draws over it.
     list.parentElement.prepend(box);
-    const load = () => fetch(`/fragments/screen-asked/${encodeURIComponent(name)}`)
-      .then((r) => (r.ok ? r.text() : ''))
-      .then((html) => {
-        if (!html) return;
-        // Somebody reading up the log is not pulled back to its end.
-        const pre = box.querySelector('.terminal-pre');
-        const follow = !pre || pre.scrollHeight - pre.scrollTop - pre.clientHeight < 24;
-        box.innerHTML = html;
-        const now = box.querySelector('.terminal-pre');
-        if (now && follow) now.scrollTop = now.scrollHeight;
-        if (box.querySelector('.is-running')) setTimeout(load, 3000);
-      })
-      .catch(() => { /* the list below still says what runs */ });
-    load();
+    followAskedSession(box, name);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', place);
   else place();
 })();
+document.body.addEventListener('htmx:after:swap', (e) => {
+  if (swappedEl(e)?.id !== 'editor-modal-body') return;
+  document.querySelectorAll('#editor-modal-body .screen-asked-box[data-asked-session]').forEach((box) => followAskedSession(box, box.dataset.askedSession));
+});
+
+// Screens open in the modal, over the page one is on — the same modal the top bar's Screens button
+// opens (/fragments/screens into #editor-modal-body), never a second kind. A link to /screens is
+// such an opening wherever it is drawn: the "Open in Screens" of a notice (the dashboard's or a
+// plugin runner's), "already running … Open in Screens", a row's "All screens", the rail's Screens
+// entry, "watch it on Screens". With ?session=<name> that session is first in the modal.
+// The address itself still works: typed, opened in a new tab (Ctrl/middle click), or followed from
+// the modal's own "the Screens page" link (data-screens-page), it is the page.
+function screensModalUrl(href) {
+  let u;
+  try { u = new URL(href, window.location.origin); } catch (_) { return ''; }
+  if (u.origin !== window.location.origin || u.pathname !== '/screens') return '';
+  const name = u.searchParams.get('session') || '';
+  return /^[a-z0-9][A-Za-z0-9._-]*$/.test(name) ? `/fragments/screens?session=${encodeURIComponent(name)}` : '/fragments/screens';
+}
+document.addEventListener('click', (e) => {
+  const a = e.target.closest && e.target.closest('a[href]');
+  if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  if (a.target === '_blank' || a.hasAttribute('download') || a.hasAttribute('data-screens-page')) return;
+  if (!window.htmx || !document.getElementById('editor-modal-body')) return;
+  const url = screensModalUrl(a.getAttribute('href'));
+  if (!url) return;
+  // On the Screens page its own entry in the rail is the page: there is nothing to open over it.
+  if (window.location.pathname === '/screens' && url === '/fragments/screens') return;
+  e.preventDefault();
+  window.htmx.ajax('GET', url, { target: '#editor-modal-body', swap: 'innerHTML' });
+});
 
 // Short results become a toast at the top.
 //
@@ -2668,7 +2713,9 @@ document.body.addEventListener('htmx:after:settle', (e) => {
     });
   }
   document.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-screens-cols]');
+    // The count buttons only. The modal wears data-screens-cols too (for its width): matched here, every
+    // click inside the Screens modal was cancelled, and a link in it — "the Screens page" — went nowhere.
+    const btn = e.target.closest('button[data-screens-cols]');
     if (!btn) return;
     e.preventDefault();
     try { localStorage.setItem(KEY, btn.dataset.screensCols); } catch (_) { /* private window */ }

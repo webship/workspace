@@ -7621,10 +7621,18 @@ Summarise what you changed and how to verify it`,
       if (pathname === '/fragments/screens') {
         // One rendering of the truth: the modal shows the same manager as the
         // page, so a session can never be "running" here and dead there.
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        // Every way of opening Screens lands here, in the modal over the page one is on: the top bar's
+        // button, a notice's "Open in Screens", a row's "All screens", the rail's Screens entry (ui.js
+        // sends a link to /screens here). `?session=<name>` puts that session first — running, with
+        // the end of its log, or ended, with the end of its log — and ui.js keeps it fresh while it runs.
+        const askedName = new URL(req.url, 'http://localhost').searchParams.get('session') || '';
+        const askedBox = /^[a-z0-9][A-Za-z0-9._-]*$/.test(askedName)
+          ? `<div class="screen-asked-box" data-asked-session="${esc(askedName)}">${await require('./screens').sessionAskedHtml(askedName)}</div>` : '';
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
         return res.end(`<div class="editor-card">
           <h3 class="uk-margin-small-bottom">Screen sessions</h3>
-          <p class="uk-text-meta">Detached terminals on this machine — agents at work, and anything started with cmd-tools-screen.sh. The full manager lives on <a href="/screens">the Screens page</a>.</p>
+          ${askedBox}
+          <p class="uk-text-meta">Detached terminals on this machine — agents at work, and anything started with cmd-tools-screen.sh. The full manager lives on <a href="/screens" data-screens-page>the Screens page</a>.</p>
           <div id="webship-workspace-projects">${await screensGridHtml()}</div>
         </div>`);
       }
