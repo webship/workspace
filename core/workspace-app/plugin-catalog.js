@@ -4,6 +4,9 @@
  * The core ships empty; this is what the empty dashboard suggests, what the Plugins page offers to
  * require, and what `webship-workspace catalog` prints. Every entry is an npm package
  * `@webship.co/workspace-<name>` (github.com/webship/workspace-<name>), turned on in four steps.
+ *
+ * Only what is published goes here: an entry is an offer, and `plugin require <name>` must be able to
+ * fetch it. A plugin that is planned but not on npm yet is added the day its first version is.
  */
 
 const SCOPE = '@webship.co';
@@ -73,13 +76,8 @@ const FAMILIES = [
     ['ide', 'Web IDE', 'VS Code in the browser, and the IDE menu'],
     ['jira', 'Jira', 'Jira work items, through the Teamwork Graph CLI'],
     ['google-drive', 'Google Drive', 'Sync a workspace folder to Google Drive, and its MCP server'],
-    ['testing', 'Testing', 'The Tests menu and the test reports'],
-    ['webship-js', 'Webship-js', 'Browser tests with webship-js'],
     ['screens', 'Screens and terminals', 'Screen sessions, terminals and container shells for every command'],
     ['avatar', 'Avatars', 'Avatars and the talking assistant'],
-  ] },
-  { id: 'drives', label: 'Cloud drives', about: 'Push a folder to a cloud drive.', plugins: [
-    ['microsoft', 'Microsoft', 'Push a folder to OneDrive or SharePoint'], ['apple', 'Apple iCloud', 'Push a folder to iCloud Drive'],
   ] },
 ];
 

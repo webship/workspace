@@ -234,7 +234,20 @@ case "${verb}" in
       export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="credential.https://github.com.helper" GIT_CONFIG_VALUE_0="!gh auth git-credential" ;
     fi
     before="$(plugin_names)" ;
-    ( cd "${APP}" && npm install --no-audit --no-fund "${name}" ) || exit 1 ;
+    # npm's own words go by as they are, except "no such package": that wall of 404 lines is one fact,
+    # said once, with where the names that do exist are listed.
+    npm_err="$(mktemp)" ;
+    if ! ( cd "${APP}" && npm install --no-audit --no-fund "${name}" 2> "${npm_err}" ) ; then
+      if grep -qE 'E404|404 Not Found|npm error 404' "${npm_err}" ; then
+        echo "Not added: there is no package ${name} to fetch (npm answered 404: not published, or the name is not a plugin's)." ;
+        echo "Nothing was changed. The plugins that can be added: webship-workspace catalog  (or Settings → Plugins)." ;
+      else
+        cat "${npm_err}" >&2 ;
+        echo "Not added: npm could not install ${name}. Nothing was activated or placed." ;
+      fi
+      rm -f "${npm_err}" ; exit 1 ;
+    fi
+    cat "${npm_err}" >&2 ; rm -f "${npm_err}" ;
     # What this package brought, and what each of those plugins needs from the workspace.
     fresh="$(comm -13 <(echo "${before}") <(plugin_names))" ;
     spec_given="${name}" ;
