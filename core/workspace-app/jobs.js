@@ -14,7 +14,14 @@
 
 const fs = require('fs');
 const path = require('path');
+const { AsyncLocalStorage } = require('async_hooks');
 const { spawn } = require('child_process');
+
+// Set while a plugin's runner is deciding how to run a command (pluginRun). A runner runs it in a screen
+// session or declines; it may not start it as a job in the page (#409): a plugin from before 1.0.13 still
+// offers that (screens 1.0.9 and older with runs.default_mode: page), and a workspace that updates the base
+// before its plugins would otherwise run commands there again.
+const insideRunner = new AsyncLocalStorage();
 
 const { esc } = require('./html');
 
@@ -120,6 +127,7 @@ function screenWrap({ session, inner, logFile }) {
 // (startInScreen). What is left is a view that follows something: the log of a session, a
 // plugin's own progress.
 function startJob(title, cmd, args, cwd, { timeoutMs = 15 * 60 * 1000, echoLine = '', key = null, phases = null, env = null } = {}) {
+  if (insideRunner.getStore()) throw new Error('a command runs in a screen session: a runner may not start it as a job in the page');
   const id = `${++jobSeq}-${Math.random().toString(36).slice(2, 8)}`;
   // `phases` — ordered output markers; the fragment counts which have appeared and renders an
   // honest progress bar.
@@ -353,10 +361,11 @@ function addRunner(fn) {
 async function pluginRun(opts, session) {
   for (const fn of runners) {
     try {
-      const answer = await fn({ ...opts, session });
+      const answer = await insideRunner.run(true, () => fn({ ...opts, session }));
       if (answer && typeof answer === 'object') return { session, ...answer };
     } catch (err) {
-      // A runner that throws must not lose the run: the next one, or the dashboard, takes it.
+      // A runner that throws must not lose the run: the next one, or the dashboard, takes it. That is also
+      // where a runner that tried to start a job in the page ends up: refused before anything ran.
       console.error(`a plugin's runner failed on ${session}: ${err.message}`);
     }
   }
