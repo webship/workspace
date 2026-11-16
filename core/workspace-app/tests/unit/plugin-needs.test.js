@@ -492,3 +492,23 @@ test('a plugin\'s commands and its agents, skills, commands and prompts land in 
   assert.ok(!enabled(t, 'wp'));
   assert.ok(has('ai-agents/cmd-tools-ai-agents.sh') && has('test/cmd-tools-test.sh'), 'the folders keep their own');
 });
+
+test('deactivate, uninstall and configure refuse a name that is no plugin here, and write nothing', () => {
+  const t = tree();
+  folder(t.plugins, 'dev');
+  const before = snapshot(t);
+  for (const verb of ['--deactivate', '--uninstall', '--configure']) {
+    const r = sh(t, verb, 'nope');
+    assert.strictEqual(r.status, 1, `${verb} nope: ${r.stdout}`);
+    assert.match(r.stdout, /No plugin named 'nope'/);
+    assert.doesNotMatch(r.stdout, /Deactivated|Uninstalled|has no settings file/);
+  }
+  assert.strictEqual(snapshot(t), before, 'settings.yml has no plugins.nope block, nothing else moved');
+  // A plugin whose package is gone while settings.yml still names it can still be turned off and taken out.
+  ok(sh(t, '--activate', 'dev'));
+  ok(sh(t, '--install', 'dev'));
+  fs.rmSync(path.join(t.plugins, 'dev'), { recursive: true });
+  assert.match(ok(sh(t, '--deactivate', 'dev')).stdout, /Deactivated/);
+  assert.strictEqual(enabled(t, 'dev'), false);
+  assert.match(ok(sh(t, '--uninstall', 'dev')).stdout, /Uninstalled/);
+});

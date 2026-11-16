@@ -60,6 +60,19 @@ set_plugin_setting() {
 
 plugin_module() { ( cd "${APP}" && node plugin-manifest.js --json "$1" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s||"null");process.stdout.write(p&&p.module?p.module:"")})' ) ; }
 plugin_known()  { ( cd "${APP}" && node plugin-manifest.js "$1" > /dev/null 2>&1 ) ; }
+# A name this workspace has something of: a plugin the dashboard can see, or one whose package is gone
+# while settings.yml or the install record still name it (that one can still be turned off and taken out).
+plugin_here() {
+  plugin_known "$1" && return 0 ;
+  ( cd "${APP}" && node -e '
+    const name = process.argv[1];
+    const has = (o) => !!o && Object.prototype.hasOwnProperty.call(o, name);
+    let recorded = false;
+    try { recorded = has(require("js-yaml").load(require("fs").readFileSync(require("./plugin-install").RECORD, "utf8"))); } catch (_) { /* no record yet */ }
+    process.exit(recorded || has(require("./workspaces").loadSettings().plugins) ? 0 : 1);
+  ' "$1" 2>/dev/null ) ;
+}
+no_such_plugin() { echo "No plugin named '$1' is here: nothing was changed. --list shows the plugins of this workspace." ; }
 # A plugin that IS a workspace folder names it in its manifest (workspace.key); activating it puts the
 # key on settings.yml's workspaces list (the dashboard's order), deactivating takes it off.
 plugin_workspace_key() { ( cd "${APP}" && node plugin-manifest.js --json "$1" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s||"null");const w=p&&p.manifest&&p.manifest.workspace;process.stdout.write(w&&w.key?String(w.key):"")})' ) ; }
@@ -252,6 +265,7 @@ case "${verb}" in
 
   --deactivate)
     [ -n "${name}" ] || { echo "Which plugin?" ; exit 1 ; } ;
+    plugin_here "${name}" || { no_such_plugin "${name}" ; exit 1 ; } ;
     refuse_if_needed deactivated || exit 1 ;
     set_plugin_setting "${name}" enabled false ;
     set_workspaces_list remove "$(plugin_workspace_key "${name}")" ;
@@ -283,6 +297,7 @@ case "${verb}" in
 
   --uninstall)
     [ -n "${name}" ] || { echo "Which plugin?" ; exit 1 ; } ;
+    plugin_here "${name}" || { no_such_plugin "${name}" ; exit 1 ; } ;
     refuse_if_needed uninstalled || exit 1 ;
     # Off the list first, so nothing another plugin places is put back into a folder that is going.
     key="$(plugin_workspace_key "${name}")" ;
@@ -296,6 +311,7 @@ case "${verb}" in
 
   --configure)
     [ -n "${name}" ] || { echo "Which plugin?" ; exit 1 ; } ;
+    plugin_known "${name}" || { echo "No plugin named '${name}' is installed in the dashboard. --require it first." ; exit 1 ; } ;
     file="$( cd "${APP}" && node -e 'const p=require("./plugin-manifest").pluginByName(process.argv[1]);process.stdout.write(p&&p.manifest.settingsFile?p.manifest.settingsFile:"")' "${name}" )" ;
     [ -n "${file}" ] || { echo "${name} has no settings file of its own." ; exit 0 ; } ;
     if [ ! -f "${WORKSPACE_ROOT}/core/config/${file}" ] ; then
