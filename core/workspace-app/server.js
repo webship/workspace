@@ -106,7 +106,7 @@ const buildOrderPage = require('./build-order-page');
 const { uikitIcons, tablerIcons, iconHtml, isKnownIcon } = require('./icons');
 const { PAGE_SIZES, defaultPageSize, PROJECT_FILTERS, SORTS, defaultSort, readPageState, setPageCookie, paginate, listControlsHtml, listPagerHtml } = require('./lists');
 const { commandBlock } = require('./command-block');
-const { HOME_URL, wsUrl } = require('./urls');
+const { HOME_URL, wsUrl, withRequest } = require('./urls');
 const { VIDEO_RE, AUDIO_RE, DOC_ARTIFACT_RE, humanTime, humanSize, tildePath } = require('./format');
 const audioVoice = require('./audio-voice');
 const videoEdit = require('./video-edit');
@@ -5863,7 +5863,11 @@ function serveStatic(pathname, res, req) {
 
 /* ---------------- server ---------------- */
 
-const server = http.createServer(async (req, res) => {
+// Each request is answered inside its own context, so a link a page draws (the logo, a workspace card) leads
+// back to the address it was asked on rather than always to the hub (urls.js).
+const server = http.createServer((req, res) => withRequest(req, () => onRequest(req, res)));
+
+async function onRequest(req, res) {
   // Set once, for all 56 HTML responses, rather than at each writeHead — which is why only
   // the graph viewer had them. Node merges setHeader with writeHead's object (writeHead
   // wins on a conflict), so a route that states its own headers is unaffected.
@@ -8219,7 +8223,7 @@ Summarise what you changed and how to verify it`,
     res.writeHead(500, { 'Content-Type': 'text/plain' });
     res.end(`Server error: ${err.message}`);
   }
-});
+}
 
 const PORT = process.env.PORT || 3000;
 // The browser terminal: /ws/screen/<session> attaches the WebSocket to the
