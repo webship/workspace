@@ -198,6 +198,25 @@ for arg in "${@:2}" ; do
     *) [ -z "${name}" ] && name="${arg}" ;;
   esac
 done
+# A plugin is named by its manifest, and that is not always the last word of its package
+# (@webship.co/workspace-google-drive is the plugin google-drive-sync). The catalogue and --require speak
+# of packages, so every other step takes the package's short name too and says which plugin it is.
+plugin_of_package() {
+  ( cd "${APP}" && node -e '
+    const want = process.argv[1].replace(/@[^@/]*$/, "");
+    const p = require("./plugin-manifest").installedPlugins().find((x) => x.module && (x.module === want || x.module.replace(/^@[^/]+\//, "") === `workspace-${want}`));
+    process.stdout.write(p ? p.name : "");
+  ' "$1" 2>/dev/null ) ;
+}
+case "${verb}" in
+  --activate|--install|--configure|--deactivate|--uninstall|--check)
+    if [ -n "${name}" ] && ! plugin_known "${name}" ; then
+      by_package="$(plugin_of_package "${name}")" ;
+      if [ -n "${by_package}" ] ; then
+        echo "→ '${name}' is the package of the plugin ${by_package}" ; name="${by_package}" ;
+      fi
+    fi ;;
+esac
 case "${verb}" in
   -h|--help|'') usage ; exit 0 ;;
 
@@ -270,7 +289,15 @@ case "${verb}" in
       fi
     done
     name="${spec_given}" ;
-    echo "Required. Next: --activate <name> (the name is the manifest's: --list shows it)." ;;
+    # The plugin this package is, by the name the next steps take: the one that just came, or the one
+    # the package already was.
+    came="$(echo ${fresh})" ;
+    [ -n "${came}" ] || came="$(plugin_of_package "${spec_given}")" ;
+    if [ -n "${came}" ] && [ "${came}" = "${came% *}" ] ; then
+      echo "Required. Next: --activate ${came}." ;
+    else
+      echo "Required. Next: --activate <name> (the name is the manifest's: --list shows it)." ;
+    fi ;;
 
   --activate)
     [ -n "${name}" ] || { echo "Which plugin? --list shows them." ; exit 1 ; } ;
