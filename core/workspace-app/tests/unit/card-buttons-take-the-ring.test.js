@@ -20,6 +20,11 @@ test('the card\'s focus is the link-coloured outline, not the halo', () => {
   assert.doesNotMatch(rule[1], /outline: 0/);
 });
 
+test('the state chip on a card takes the same ring', () => {
+  assert.match(cards, /\.pcard-status \.state-toggle:focus-visible \{ outline: 2px solid var\(--link\); outline-offset: 1px; \}/);
+  assert.doesNotMatch(cards, /outline: 2px solid var\(--subtle-brand\)/, 'the palest brand tint is 1.19:1 on the card');
+});
+
 test('it is the ring the rest of the dashboard has', () => {
   assert.match(base, /\.uk-button:focus-visible,[\s\S]*?\{\s*outline: 2px solid var\(--link\);\s*outline-offset: 2px;\s*\}/);
 });
