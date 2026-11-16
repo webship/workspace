@@ -37,7 +37,7 @@ const path = require('path');
 
 const { esc } = require('../html');
 const { ROOT, workspaceDir, loadWorkspaces } = require('../workspaces');
-const { startInScreen, screenStartedHtml, hostRunnerRequest } = require('../jobs');
+const { startInScreen, screenStartedHtml, screensLink, hostRunnerRequest } = require('../jobs');
 const { NAME_RE } = require('../validate');
 const { lingerTail, LINGER_MARK } = require('../linger');
 
@@ -178,8 +178,11 @@ async function startUnlessRunning(opts) {
   return started;
 }
 
+// Where a notice sends you to see a session: Screens, which opens in the modal over the page you are on
+// with that session first (ui.js) — the same place every other notice's "Open in Screens" leads. It was
+// a terminal in a new tab, a second way of opening a session that took you off the page.
 function terminalLink(session, text) {
-  return `<a href="/terminal/${encodeURIComponent(session)}" target="_blank" rel="noopener">${esc(text)}</a>`;
+  return `<a href="${screensLink(session)}">${esc(text)}</a>`;
 }
 
 async function composer_run({ form, send, workspace, pathname }) {

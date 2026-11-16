@@ -34,7 +34,7 @@ bash cmd-drupal11-recommended-project.sh mysite
 
 Every build goes through DDEV; the site answers at `https://mysite.ddev.site`.
 
-A command started from the dashboard (a build, a row's menu, a tool, a plugin step) runs in a screen session. The page shows a short notice, what started and **Open in Screens**, and never a terminal at the bottom of it: the output is on the **Screens** page, also after the session has ended. A fresh workspace needs nothing for this: `screen` is in the dashboard's image. Two cases need one step each:
+A command started from the dashboard (a build, a row's menu, a tool, a plugin step) runs in a screen session. The page shows a short notice, what started and **Open in Screens**, and never a terminal at the bottom of it: **Open in Screens** opens Screens in a window over the page you are on, with that session first; its output is there also after the session has ended. A fresh workspace needs nothing for this: `screen` is in the dashboard's image. Two cases need one step each:
 
 - The dashboard run with node on the machine (no container): `screen` must be installed there (`bash core/scripts/install.sh`, or `sudo apt install -y screen`).
 - Sessions on your own machine, attached with `screen -r <session>` from your own terminal: start the host runner once, `bash core/workspace-app/scripts/screen-host.sh --start`.

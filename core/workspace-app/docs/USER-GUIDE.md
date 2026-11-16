@@ -412,8 +412,9 @@ instead of leaving it looking busy for ever.
 
 Nothing you start draws a terminal at the bottom of the page. A build, a row's menu, a tool or a
 plugin step answers with a short notice at the top (what started, on what) and **Open in Screens**.
-That link opens the Screens page on that session: its state, **Open terminal**, and the end of its
-log, which is still there when the session has ended. If no screen session can be started, the
+That link opens Screens in a window over the page you are on, with that session first: its state,
+**Open terminal**, and the end of its log, which is still there when the session has ended. Escape
+closes it and you are where you were; the window's own link goes to the Screens page. If no screen session can be started, the
 command is not run: the notice says what is missing, the step that fixes it, and the command line
 to copy into your own terminal, and it stays until you close it.
 
