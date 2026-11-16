@@ -544,6 +544,7 @@ esac
   r = ok(restart());
   assert.match(r.stdout, /restarted/);
   assert.strictEqual(execs(), 1, 'its own dashboard is restarted');
+});
 
 test('requiring a name that is not published says so once, and changes nothing', () => {
   const t = tree();
