@@ -4,7 +4,7 @@
 
 # One place to see and manage every cmd-*.sh in the tree: list them, scaffold a
 # new one, clone one (retargeted at another workspace if asked), pull one down
-# from webship/workspace, diff against the repository, and hand one to the AI
+# from webship/workspace, sync them all, diff against the repository, and hand one to the AI
 # agent to file the issue and open the PR.
 
 # Bootstrap.
@@ -32,6 +32,8 @@ elif [ ! "${DIFF}" == '_none_' ] ; then
   commands_diff "${DIFF}" ;
 elif [ ! "${PROPOSE}" == '_none_' ] ; then
   commands_propose "${PROPOSE}" "${SUMMARY}" "$([ "${CONFIRM}" == 'yes' ] && echo yes || echo no)" ;
+elif [ "${SYNC}" == 'yes' ] ; then
+  commands_sync "$([ "${CONFIRM}" == 'yes' ] && echo yes || echo no)" "$([ "${OVERWRITE}" == 'yes' ] && echo yes || echo no)" ;
 elif [ "${LIST_REMOTE}" == 'yes' ] ; then
   commands_list_remote ;
 else
