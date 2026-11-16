@@ -455,3 +455,13 @@ html.dark #editor-modal .editor-card {
 /* An Upsun control on a project that is not linked yet. Present, because the workspace ships the
  * command — but quieter than a linked one, so a row of thirty unlinked projects does not read as
  * thirty cloud deployments. */
+
+/* A phone: a path or a command in the text breaks where it must. UIkit keeps inline code on one line,
+   so one long path made the whole page scroll sideways (docs, images, the AI folders, commands,
+   graphs, rag, videos, audio, designs). A block of code keeps its lines and scrolls in its own box. */
+@media (max-width: 39.9375em) {
+  :not(pre) > code, code.fname { white-space: normal; overflow-wrap: anywhere; }
+  .cmd-file { max-width: 100%; }
+  .lc-rest select { max-width: 100%; }
+  .lc-rest .lc-group { max-width: 100%; flex-wrap: wrap; }
+}
