@@ -1,28 +1,41 @@
 name: ci
+
 on:
   push:
     branches: ['1.0.x']
   pull_request:
+    branches: ['1.0.x']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   dashboard:
     name: dashboard unit tests, plugin cycle, cmd smoke test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # 24: the Node.js the dashboard runs on.
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
-      # The plugin packages live in private repositories of this organisation. A fine-grained token with
-      # read access to them goes in the WORKSPACE_PLUGINS_TOKEN secret; without it the job falls back to the
-      # workflow's own token, which reaches this repository only.
-      - run: git config --global url."https://x-access-token:${{ secrets.WORKSPACE_PLUGINS_TOKEN || github.token }}@github.com/".insteadOf "https://github.com/"
+          cache: npm
+          cache-dependency-path: core/workspace-app/package-lock.json
       - run: sudo apt-get install -y -qq python3-yaml
       - name: install the dashboard (plugins build on install)
         working-directory: core/workspace-app
         run: npm ci --no-audit --no-fund
       - name: unit tests
         working-directory: core/workspace-app
-        run: node --test tests/unit/*.test.js plugins/*/tests/*.test.js
+        run: npm run test:unit
       - name: the plugin cycle on a clean tree
         run: |
           bash core/scripts/plugins.sh --list
@@ -35,3 +48,27 @@ jobs:
           cd core/workspace-app && node plugin-install.js uninstall upsun
       - name: every cmd-*.sh parses and answers --help
         run: bash core/scripts/tests/cmd-smoke-test.sh
+
+  node-20:
+    # 20: the lowest Node.js the engines field accepts (">=20"), which the README and getting-started promise.
+    name: the command line and the unit tests on Node.js 20
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: core/workspace-app/package-lock.json
+      - run: sudo apt-get install -y -qq python3-yaml
+      - name: the command line (webship-workspace)
+        run: npm test
+      - name: install the dashboard
+        working-directory: core/workspace-app
+        run: npm ci --no-audit --no-fund
+      - name: unit tests
+        working-directory: core/workspace-app
+        run: npm run test:unit
