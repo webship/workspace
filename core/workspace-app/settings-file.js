@@ -413,6 +413,10 @@ function upsertSettingsList(file, dotted, items) {
       if (m[1].length === indent && m[2].replace(/\s+#.*$/, '').trim().replace(/^([^:]+):.*$/, '$1:') === `${parts[depth]}:`) { found = i; break; }
     }
     if (found < 0) break;
+    // An empty map in flow style on the way to the key (`targets: {}`, the way a template ships an empty map) is
+    // opened before anything is written under it: `targets: {}` followed by an indented `dev:` is not YAML, and the
+    // whole file stopped parsing. upsertSettingsValue does the same.
+    if (depth < parts.length - 1) lines[found] = lines[found].replace(/:\s*\{\}(\s*(#.*)?)$/, ':$1');
     parentLine = found;
   }
   // A plain word (a folder name: dev, ai-agents) is written bare: the bash tooling reads this file too
@@ -424,7 +428,7 @@ function upsertSettingsList(file, dotted, items) {
     const keyIndent = (lines[parentLine].match(/^\s*/) || [''])[0].length;
     let end = parentLine + 1;
     while (end < lines.length && (/^\s*-\s/.test(lines[end]) || /^\s*-$/.test(lines[end])) && (lines[end].match(/^\s*/) || [''])[0].length >= keyIndent) end += 1;
-    lines[parentLine] = lines[parentLine].replace(/:\s*(\[\])?\s*(#.*)?$/, ':$2').replace(/:$/, ':');
+    lines[parentLine] = lines[parentLine].replace(/:\s*(\[\]|\{\})?\s*(#.*)?$/, ':$2').replace(/:$/, ':');
     lines.splice(parentLine + 1, end - parentLine - 1, ...items.map((v) => `${' '.repeat(keyIndent + 2)}- ${quote(v)}`));
     if (!items.length) lines[parentLine] = lines[parentLine].replace(/:\s*(#.*)?$/, ': []$1');
   } else {

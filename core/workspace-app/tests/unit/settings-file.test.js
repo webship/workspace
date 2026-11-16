@@ -205,6 +205,38 @@ test('upsertSettingsList replaces a list in place, creates one that is missing, 
   assert.match(fs.readFileSync(file, 'utf8'), /account: me  # keep/);
 });
 
+test('upsertSettingsList opens an empty map in flow style on the way to the key, so the file still parses', () => {
+  // A template ships an empty map as `targets: {}` (the Google Drive plugin's does). Writing `targets.dev` under it
+  // used to keep the `{}` and indent the new key below it, which is not YAML: the whole file stopped parsing, and
+  // every setting in it (a client secret, a refresh token) read as empty.
+  const { upsertSettingsList } = require('../../settings-file');
+  const yaml = require('js-yaml');
+  const file = path.join(TMP, 'plugin.lists.settings.yml');
+  fs.writeFileSync(file, '# what is pushed\ntargets: {}\n# a comment after it\nexclude:\n  - node_modules\nnested:\n  deeper: {}  # empty\nlater: 1\n');
+  upsertSettingsList('plugin.lists.settings.yml', 'targets.dev', ['*.md', 'guide/']);
+  upsertSettingsList('plugin.lists.settings.yml', 'targets.docs', ['*.pdf']);
+  upsertSettingsList('plugin.lists.settings.yml', 'nested.deeper.list', ['x']);
+  const text = fs.readFileSync(file, 'utf8');
+  const y = yaml.load(text);
+  assert.deepStrictEqual(y.targets, { dev: ['*.md', 'guide/'], docs: ['*.pdf'] });
+  assert.deepStrictEqual(y.nested.deeper.list, ['x']);
+  assert.deepStrictEqual(y.exclude, ['node_modules'], 'the list after it is untouched');
+  assert.strictEqual(y.later, 1);
+  assert.doesNotMatch(text, /\{\}/, 'no empty map is left with keys under it');
+  assert.match(text, /^# what is pushed\ntargets:\n/m, 'the comment before it stays');
+  assert.match(text, /^# a comment after it$/m);
+  assert.match(text, /^ {2}deeper:  # empty$/m, 'the comment on the opened line stays');
+});
+
+test('upsertSettingsList replaces a key that is an empty map or list by the list', () => {
+  const { upsertSettingsList } = require('../../settings-file');
+  const file = path.join(TMP, 'plugin.lists2.settings.yml');
+  fs.writeFileSync(file, 'one: {}\ntwo: []\n');
+  upsertSettingsList('plugin.lists2.settings.yml', 'one', ['a']);
+  upsertSettingsList('plugin.lists2.settings.yml', 'two', ['b']);
+  assert.deepStrictEqual(require('js-yaml').load(fs.readFileSync(file, 'utf8')), { one: ['a'], two: ['b'] });
+});
+
 test('a map of secrets is secret all the way down, and a terminal is shown <hidden> for what is set, never for a comment', () => {
   const { settingsTextForTerminal, readSettingsText, SECRET_MASK } = require('../../settings-file');
   // `api_tokens: { <account>: <token> }`: the keys are account names, the values are the tokens.
