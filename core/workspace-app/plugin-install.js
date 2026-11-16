@@ -322,6 +322,9 @@ function install(name, { nested = false } = {}) {
     if (changedHere.has(p) && now !== null) notes.push(`  replaced ${p} (it had been changed here; a plugin's own files follow the package)`);
   }
   for (const p of Object.keys(hashes)) if (hashes[p] === null) delete hashes[p];
+  // What this install did not have to touch: recorded by the last one, and still exactly what was placed.
+  // An install says "placed" for what is new or was written again with other content, and counts the rest.
+  const unchanged = placed.filter((p) => before.has(p) && was[p] && hashes[p] === was[p] && !changedHere.has(p) && !notes.kept.includes(p));
   record[name] = { module: plugin.module, version: plugin.version, installed: new Date().toISOString(), placed };
   if (Object.keys(hashes).length) record[name].hashes = hashes;
   // What it needed and which plugin met each need, so an uninstall can still tell who relies on whom
@@ -332,7 +335,7 @@ function install(name, { nested = false } = {}) {
   // A workspace folder that arrives after the plugins that place things into folders: their commands
   // and AI items are placed into it now, so the order plugins were added in does not matter.
   if (!nested && ws && ws.key) for (const line of reach(name, `now that ${ws.key}/ is here`)) notes.push(line);
-  return { name, placed, notes, restart: restart || (ddev.hostMounts || []).length > 0 && !before.size };
+  return { name, placed, unchanged, notes, restart: restart || (ddev.hostMounts || []).length > 0 && !before.size };
 }
 
 /**
@@ -430,8 +433,11 @@ if (require.main === module) {
   try {
     if (verb === 'install' && name) {
       const r = install(name);
-      for (const p of r.placed) if (!r.notes.kept.includes(p)) console.log(`  placed ${p}`);
+      const same = new Set(r.unchanged || []);
+      for (const p of r.placed) if (!r.notes.kept.includes(p) && !same.has(p)) console.log(`  placed ${p}`);
       for (const n of r.notes) console.log(n);
+      // A second install of a plugin that did not change says so, instead of listing every file as placed again.
+      if (same.size) console.log(same.size === r.placed.length ? `  nothing to do: all ${same.size} file(s) are in place, as the plugin ships them` : `  ${same.size} more file(s) were already in place, unchanged`);
       console.log(r.restart ? 'RESTART_NEEDED' : 'RESTART_NOT_NEEDED');
     } else if (verb === 'uninstall' && name) {
       const r = uninstall(name);
