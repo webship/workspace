@@ -13,13 +13,20 @@
 #  4. workspace-name     — builder scripts must carry the "# workspace-name:"
 #                          header the dashboard shows in Build dropdowns
 #
-# Exit code: number of failing scripts (0 = all green).
+# Exit code: the number of failing scripts, at most 255 (0 = all green): an exit status is taken
+# modulo 256, so 256 failures would otherwise read as none.
+#
+# What a script prints is kept in a folder of this run's own (under TMPDIR), removed when the run ends:
+# two runs at once on one machine (two workspaces, CI and a person, the release check) used to write and
+# read the same two files in /tmp, and named each other's output as their own failure.
 
 # Find the workspace tooling from this script, so a fresh clone needs no setup.
 WORKSPACE_SCRIPTS="${WORKSPACE_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source ${WORKSPACE_SCRIPTS}/bootstrap.sh || exit 1
 
 pass=0; fail=0; failures=()
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/cmd-smoke.XXXXXX")" || { echo "cmd-smoke-test: cannot make a temporary folder" >&2; exit 1; }
+trap 'rm -rf "${tmp}"' EXIT
 
 # The registered workspaces, plus commands/ — which is a Settings section rather than
 # a workspace, but still ships a cmd-*.sh that must pass the same checks. Without it
@@ -50,19 +57,19 @@ for ws in "${workspaces[@]}" commands core/scripts; do
     err=""
 
     # 1. Syntax
-    if ! bash -n "$f" 2>/tmp/cmd-smoke-err; then
-      err="syntax: $(head -1 /tmp/cmd-smoke-err)"
+    if ! bash -n "$f" 2>"${tmp}/err"; then
+      err="syntax: $(head -1 "${tmp}/err")"
     fi
 
     # 2. argparse scripts: run --help (safe, exercises the full bootstrap chain)
     if [ -z "$err" ] && grep -q 'argparse "\$@"\|arg-${distribution_name}\|arg-\${distribution_name}\|/plugins/[a-z0-9-]*/args/arg-\|--help)' "$f"; then
       # --help is an answer, not a failure: the usage, and exit 0 (libs/argparse.sh ends the script there).
-      (cd "$dir" && timeout 30 bash "$f" --help >/tmp/cmd-smoke-out 2>&1) ; help_code=$?
+      (cd "$dir" && timeout 30 bash "$f" --help >"${tmp}/out" 2>&1) ; help_code=$?
       if [ $help_code -ne 0 ]; then
-        if grep -qi "usage" /tmp/cmd-smoke-out; then
+        if grep -qi "usage" "${tmp}/out"; then
           err="--help printed the usage and exited ${help_code}, not 0"
         else
-          err="--help: $(tail -1 /tmp/cmd-smoke-out | cut -c1-120)"
+          err="--help: $(tail -1 "${tmp}/out" | cut -c1-120)"
         fi
       fi
     fi
@@ -123,4 +130,4 @@ echo "=================================================="
 echo " cmd- smoke test: ${pass} passed, ${fail} failed"
 echo "=================================================="
 for f in "${failures[@]}"; do echo " ✗ $f"; done
-exit $fail
+exit $(( fail > 255 ? 255 : fail ))
