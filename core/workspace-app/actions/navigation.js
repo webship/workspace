@@ -169,6 +169,13 @@ async function nav_reset({ form, send }) {
 async function nav_run({ form, send }) {
   const use = String(form.use || '');
   if (!cc.findCommand(use)) return send(bad('No such command.'), 400);
+  // A command runs on something — a workspace folder, a project, a folder, a file — and an entry of the
+  // navigation is on every page, so it carries none. Without a target the command's own run form opens
+  // (the one the Commands page opens, in the modal), where the target is picked and Run is pressed. It
+  // answered "Pick a workspace." with nowhere to pick one.
+  if (!String(form.target_ws || '')) {
+    return send(`<span hidden hx-get="/fragments/cc/run/${encodeURIComponent(use)}" hx-trigger="load" hx-target="#editor-modal-body" hx-swap="innerHTML"></span>`);
+  }
   return require('./commands-center')['/actions/cc-run']({ form: { ...form, id: use }, send });
 }
 
