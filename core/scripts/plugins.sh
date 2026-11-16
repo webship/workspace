@@ -46,14 +46,19 @@ restart_app() {
     # The container is named after the DDEV project, not after the workspace: on a machine with two
     # workspaces the one that is up may be serving the other tree. It is restarted only when it has
     # THIS workspace mounted; restarting another workspace's dashboard would orphan what it is running.
-    local mounts ;
-    mounts="$(docker inspect ddev-workspace-web --format '{{range .Mounts}}{{println .Source}}{{end}}' 2>/dev/null)" ;
+    # A second workspace's dashboard has its own project name (ddev config --project-name, as
+    # settings.yml says to), so its container is ddev-<that name>-web, not ddev-workspace-web (#408).
+    local mounts project config ;
+    config="${WORKSPACE_ROOT}/core/workspace-app/.ddev/config.yaml" ;
+    [ -f "${config}" ] || config="${APP}/.ddev/config.yaml" ;
+    project="$(sed -n 's/^name:[[:space:]]*//p' "${config}" 2> /dev/null | head -1 | tr -d "\"' \r")" ;
+    mounts="$(docker inspect "ddev-${project:-workspace}-web" --format '{{range .Mounts}}{{println .Source}}{{end}}' 2>/dev/null)" ;
     if [ -z "${mounts}" ] ; then
       echo "The dashboard is not running; it will load the change when it starts." ;
     elif ! echo "${mounts}" | grep -qxF -e "${WORKSPACE_ROOT}" -e "$(cd "${WORKSPACE_ROOT}" 2>/dev/null && pwd -P)" ; then
       echo "The dashboard that is running serves another workspace, so it was not restarted; this one loads the change when its own dashboard starts." ;
     else
-      docker exec ddev-workspace-web supervisorctl restart webextradaemons:workspace-app 2>/dev/null \
+      docker exec "ddev-${project:-workspace}-web" supervisorctl restart webextradaemons:workspace-app 2>/dev/null \
         || echo "The dashboard is not running; it will load the change when it starts." ;
     fi
   fi
