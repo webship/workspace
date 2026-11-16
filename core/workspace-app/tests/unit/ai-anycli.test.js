@@ -488,3 +488,43 @@ test('the terminal: arguments, the verbs, an unknown kind', () => {
   fs.rmSync(path.join(ROOT, 'ai-prompts'), { recursive: true });
   assert.throws(() => A.sourceAdd('ai-prompts', 'webship/ai-agents', { say: lines() }), /There is no ai-prompts\/ workspace here/);
 });
+
+test('frontmatter a YAML parser rejects is read line by line and said, never dropped: the description reaches every CLI', () => {
+  // The usual case: an unquoted description with ": " in it. Claude Code reads it; a YAML parser does not.
+  const agent = '---\nname: deployer\ndescription: Use this agent to look after a site. It never deploys on its own: a deploy is the person\'s.\nmodel: fable\ntools:\n  - Bash\n  - Read\n---\n\n# deployer\n\nBody.\n';
+  const parsed = A.splitFrontmatter(agent);
+  assert.ok(parsed.invalid, 'the parser\'s reason is kept');
+  assert.strictEqual(parsed.front.name, 'deployer');
+  assert.strictEqual(parsed.front.description, 'Use this agent to look after a site. It never deploys on its own: a deploy is the person\'s.');
+  assert.deepStrictEqual(parsed.front.tools, ['Bash', 'Read']);
+  const md = A.CONVERTERS['agent-markdown'](agent, 'deployer');
+  assert.match(md.text, /^---\nname: deployer\ndescription: ['"]Use this agent to look after a site\. It never deploys on its own: a deploy is the person/);
+  assert.strictEqual(A.splitFrontmatter(md.text).invalid, '', 'what is written for the other CLI is valid YAML');
+  assert.strictEqual(A.splitFrontmatter(md.text).front.description, parsed.front.description);
+  assert.match(md.notes[0], /^the frontmatter is not valid YAML \(.+\): it was read line by line\./);
+  assert.match(md.notes[1], /^left out model, tools/);
+  for (const c of ['agent-toml', 'agent-toml-vibe']) {
+    const r = A.CONVERTERS[c](agent, 'deployer');
+    assert.match(r.text, /description = "Use this agent to look after a site\. It never deploys on its own: a deploy is the person's\."/, c);
+    assert.match(r.notes[0], /not valid YAML/, c);
+  }
+  const command = '---\ndescription: Start a spec with cmd-spdd.sh: name the target.\nargument-hint: \'<target> [topic]\'\n---\n\nStart: `$ARGUMENTS`\n';
+  const toml = A.CONVERTERS['command-toml'](command, 'start');
+  assert.match(toml.text, /^description = "Start a spec with cmd-spdd\.sh: name the target\."\nprompt = """/);
+  assert.match(toml.notes[0], /not valid YAML/);
+  const args = A.CONVERTERS['command-markdown-args'](command, 'start');
+  assert.strictEqual(A.splitFrontmatter(args.text).front.description, 'Start a spec with cmd-spdd.sh: name the target.');
+  const kept = A.CONVERTERS['command-markdown'](command, 'start');
+  assert.strictEqual(A.splitFrontmatter(kept.text).front['argument-hint'], '<target> [topic]', 'a quoted value is read without its quotes');
+  // Valid frontmatter says nothing about YAML, as before.
+  assert.strictEqual(A.splitFrontmatter(AGENT('tester')).invalid, '');
+  assert.ok(!A.CONVERTERS['agent-markdown'](AGENT('tester'), 'tester').notes.some((n) => /YAML/.test(n)));
+  // Said when it is installed.
+  write(path.join(ROOT, 'ai-agents', 'deployer.md'), agent);
+  const said = [];
+  A.install('ai-agents', 'deployer', 'gemini', { say: (s) => said.push(s) });
+  assert.ok(said.some((s) => /not valid YAML/.test(s)), said.join('\n'));
+  assert.match(fs.readFileSync(path.join(HOME, '.gemini', 'agents', 'deployer.md'), 'utf8'), /description: .*It never deploys on its own: a deploy/);
+  A.uninstall('ai-agents', 'deployer', 'gemini');
+  fs.rmSync(path.join(ROOT, 'ai-agents', 'deployer.md'));
+});

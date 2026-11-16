@@ -715,14 +715,49 @@ function sourceRemove(kind, id, { say = () => {}, keepItems = false, force = fal
 
 /* ------------------------------------------------------------------ converters */
 
-/** A Markdown item as { front, body }: the YAML block between the first two `---` lines, and the rest. */
+/**
+ * Frontmatter a YAML parser rejects, read line by line the way Claude Code reads it: `key: the rest of
+ * the line`, and `- value` lines under a key as its list. An unquoted description with ": " in it is the
+ * usual case; without this the item reached every other CLI with an empty description.
+ */
+function lenientFront(block) {
+  const unquote = (v) => {
+    const m = v.match(/^'((?:[^']|'')*)'$/);
+    if (m) return m[1].replace(/''/g, "'");
+    if (/^".*"$/.test(v)) { try { return String(JSON.parse(v)); } catch (_) { return v.slice(1, -1); } }
+    return v;
+  };
+  const front = {}; let last = '';
+  for (const line of String(block).split(/\r?\n/)) {
+    const m = line.match(/^([A-Za-z][A-Za-z0-9_-]*):[ \t]*(.*)$/);
+    if (m) { last = m[1]; const v = m[2].trim(); front[last] = v === '' ? [] : unquote(v); continue; }
+    const li = line.match(/^\s+-\s+(.*)$/);
+    if (li && last && Array.isArray(front[last])) front[last].push(unquote(li[1].trim()));
+  }
+  for (const [k, v] of Object.entries(front)) if (Array.isArray(v) && !v.length) front[k] = '';
+  return front;
+}
+
+/**
+ * A Markdown item as { front, body, had, invalid }: the YAML block between the first two `---` lines, and
+ * the rest. `invalid` is what the YAML parser said when it rejected the block; `front` is then the
+ * line-by-line reading, so nothing is silently lost.
+ */
 function splitFrontmatter(text) {
   const m = String(text).match(/^---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?([\s\S]*)$/);
-  if (!m) return { front: {}, body: String(text), had: false };
-  let front = {};
-  try { front = yaml.load(m[1]) || {}; } catch (_) { front = {}; }
-  return { front: isMap(front) ? front : {}, body: m[2], had: true };
+  if (!m) return { front: {}, body: String(text), had: false, invalid: '' };
+  let front = {}; let invalid = '';
+  try { front = yaml.load(m[1]) || {}; } catch (e) {
+    invalid = String((e && e.reason) || (e && e.message) || 'not valid YAML').split('\n')[0];
+    front = lenientFront(m[1]);
+  }
+  return { front: isMap(front) ? front : {}, body: m[2], had: true, invalid };
 }
+
+/** What a converter says when the frontmatter had to be read line by line. */
+const yamlNotes = (parsed) => (parsed.invalid
+  ? [`the frontmatter is not valid YAML (${parsed.invalid}): it was read line by line. Quote the value or reword it in the item, so every AI CLI reads the same`]
+  : []);
 
 function withFrontmatter(front, body) {
   const keys = Object.keys(front);
@@ -759,50 +794,56 @@ const CONVERTERS = {
 
   /** An agent for a CLI that reads Markdown with frontmatter: name, description, the body. */
   'agent-markdown': (text, name) => {
-    const { front, body } = splitFrontmatter(text);
+    const parsed = splitFrontmatter(text);
+    const { front, body } = parsed;
     const gone = dropped(front, ['name', 'description']);
     return { text: withFrontmatter({ name: String(front.name || name), description: String(front.description || '') }, body),
-      notes: gone.length ? [`left out ${gone.join(', ')}: Claude Code's own keys, so the agent has this CLI's defaults there`] : [] };
+      notes: [...yamlNotes(parsed), ...(gone.length ? [`left out ${gone.join(', ')}: Claude Code's own keys, so the agent has this CLI's defaults there`] : [])] };
   },
 
   /** An agent as TOML: name, description, developer_instructions. */
   'agent-toml': (text, name) => {
-    const { front, body } = splitFrontmatter(text);
+    const parsed = splitFrontmatter(text);
+    const { front, body } = parsed;
     const gone = dropped(front, ['name', 'description']);
     return { text: `name = ${tomlString(front.name || name)}\ndescription = ${tomlString(front.description || '')}\ndeveloper_instructions = ${tomlText(body.replace(/^\n+/, ''))}\n`,
-      notes: gone.length ? [`left out ${gone.join(', ')}: Claude Code's own keys`] : [] };
+      notes: [...yamlNotes(parsed), ...(gone.length ? [`left out ${gone.join(', ')}: Claude Code's own keys`] : [])] };
   },
 
   /** An agent as TOML for a CLI whose keys are agent_type, display_name, description, instructions. */
   'agent-toml-vibe': (text, name) => {
-    const { front, body } = splitFrontmatter(text);
+    const parsed = splitFrontmatter(text);
+    const { front, body } = parsed;
     const gone = dropped(front, ['name', 'description']);
     return { text: `agent_type = "subagent"\ndisplay_name = ${tomlString(front.name || name)}\ndescription = ${tomlString(front.description || '')}\ninstructions = ${tomlText(body.replace(/^\n+/, ''))}\n`,
-      notes: gone.length ? [`left out ${gone.join(', ')}: Claude Code's own keys`] : [] };
+      notes: [...yamlNotes(parsed), ...(gone.length ? [`left out ${gone.join(', ')}: Claude Code's own keys`] : [])] };
   },
 
   /** A command for a CLI that reads Markdown and $ARGUMENTS: description and argument-hint kept. */
   'command-markdown': (text) => {
-    const { front, body } = splitFrontmatter(text);
+    const parsed = splitFrontmatter(text);
+    const { front, body } = parsed;
     const keep = {};
     for (const k of ['description', 'argument-hint']) if (front[k] !== undefined) keep[k] = String(front[k]);
     const gone = dropped(front, ['description', 'argument-hint']);
-    return { text: withFrontmatter(keep, body), notes: gone.length ? [`left out ${gone.join(', ')}`] : [] };
+    return { text: withFrontmatter(keep, body), notes: [...yamlNotes(parsed), ...(gone.length ? [`left out ${gone.join(', ')}`] : [])] };
   },
 
   /** A command for a CLI that reads Markdown and {{args}}: description kept, $ARGUMENTS rewritten. */
   'command-markdown-args': (text) => {
-    const { front, body } = splitFrontmatter(text);
+    const parsed = splitFrontmatter(text);
+    const { front, body } = parsed;
     const gone = dropped(front, ['description']);
-    const notes = [...(gone.length ? [`left out ${gone.join(', ')}`] : []), ...bodyNotes(body)];
+    const notes = [...yamlNotes(parsed), ...(gone.length ? [`left out ${gone.join(', ')}`] : []), ...bodyNotes(body)];
     return { text: withFrontmatter(front.description !== undefined ? { description: String(front.description) } : {}, body.replace(ARGS_RE, '{{args}}')), notes };
   },
 
   /** A command as TOML: description, prompt, with $ARGUMENTS rewritten to {{args}}. */
   'command-toml': (text) => {
-    const { front, body } = splitFrontmatter(text);
+    const parsed = splitFrontmatter(text);
+    const { front, body } = parsed;
     const gone = dropped(front, ['description']);
-    const notes = [...(gone.length ? [`left out ${gone.join(', ')}`] : []), ...bodyNotes(body)];
+    const notes = [...yamlNotes(parsed), ...(gone.length ? [`left out ${gone.join(', ')}`] : []), ...bodyNotes(body)];
     const lines = [];
     if (front.description !== undefined) lines.push(`description = ${tomlString(front.description)}`);
     lines.push(`prompt = ${tomlText(body.replace(/^\n+/, '').replace(ARGS_RE, '{{args}}'))}`);
@@ -961,5 +1002,5 @@ module.exports = {
   parseSource, defaultSourceId, discover, contentHash, placeItem, gitEnv, forgeToken,
   lockFile, readLock, itemState, sourcesOf, sourcesStatus,
   sourceAdd, sourceCheck, sourceUpdate, sourceRemove,
-  splitFrontmatter, folderItems, cliPlace, converted, itemCliState, install, uninstall, matrix,
+  splitFrontmatter, lenientFront, folderItems, cliPlace, converted, itemCliState, install, uninstall, matrix,
 };
