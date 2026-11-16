@@ -35,13 +35,9 @@
 /* Toolbar spans full width; its content aligns with the shell */
 .toolbar-inner { padding:0 1.5rem; }
 
-/* Stack on tablets/phones: sidebar becomes a normal block above content */
+/* Tablets and phones: the page takes the whole width. The panel floats over it there (assistant-views.css);
+   it was made a block above the content here, which put a 512px band over every page on a phone. */
 @media (max-width: 59.9375em) {
-  .assistant-side {
-    position: static;
-    width: auto;
-    padding:0.875rem 0.875rem 0;
-  }
   .assistant-side .chat-log { max-height:20rem; }
   .app-content { margin-left: 0; }
 }

@@ -152,10 +152,13 @@ html:not(.assistant-closed) .assistant-when-closed { display: none; }
 html[data-page-assistant] .assistant-when-open { display: none; }
 
 /* Under 960px the sidebar views already give way to the page: a 25rem column on a phone is the
- * whole screen. The panel becomes the floating one, which is what there is room for. */
+ * whole screen. The panel becomes the floating one, which is what there is room for. It says so with
+ * position: fixed here: an older rule made it a block in the flow (position: static), so on a phone it
+ * sat above every page as a 512px band and the page started under it. */
 @media (max-width: 59.99em) {
   html[data-assistant-view="wide"] .assistant-side,
   html[data-assistant-view="sidebar"] .assistant-side {
+    position: fixed;
     top: auto;
     left: 0.75rem;
     right: 0.75rem;
@@ -166,6 +169,13 @@ html[data-page-assistant] .assistant-when-open { display: none; }
   }
   html[data-assistant-view="wide"] .app-content,
   html[data-assistant-view="sidebar"] .app-content { margin-left: 0; }
+  /* Open, the panel covers the bottom of the screen. What gets focus is scrolled above it, and the end of
+     the page can be scrolled above it too: without these, 54 of the 73 page controls a Tab reached at
+     390px were wholly under the panel. */
+  html[data-assistant-view="wide"]:not(.assistant-closed),
+  html[data-assistant-view="sidebar"]:not(.assistant-closed) { scroll-padding-bottom: calc(min(32rem, calc(100vh - 6rem)) + 1.5rem); }
+  html[data-assistant-view="wide"]:not(.assistant-closed) .app-content,
+  html[data-assistant-view="sidebar"]:not(.assistant-closed) .app-content { padding-bottom: calc(min(32rem, calc(100vh - 6rem)) + 1.5rem); }
 }
 
 /* On /assistant the panel IS the page: widening it and closing it are not things that page can do,
