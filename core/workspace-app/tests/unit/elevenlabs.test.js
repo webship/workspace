@@ -1,4 +1,4 @@
-const { test } = require('node:test');
+const { test, after } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
@@ -40,6 +40,12 @@ function tone(seconds) {
   return spawnSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', `sine=frequency=300:duration=${seconds.toFixed(2)}`, '-f', 'mp3', '-'], { maxBuffer: 1 << 26 }).stdout;
 }
 
+// Every stub ElevenLabs server this file starts. A test that fails before its own api.close() used to leave its
+// server listening, and the file never ended: in CI the whole job then waited for its time limit. The servers do
+// not hold the file open (unref), and all of them are closed when the file ends.
+const stubs = [];
+after(() => { for (const s of stubs) s.close(); });
+
 function stub() {
   const seen = [];
   const server = http.createServer((req, res) => {
@@ -63,6 +69,8 @@ function stub() {
       return json(404, {});
     });
   });
+  stubs.push(server);
+  server.unref();
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve({
     base: `http://127.0.0.1:${server.address().port}`, seen, close: () => server.close(),
     posts: () => seen.filter((r) => r.method === 'POST'),
