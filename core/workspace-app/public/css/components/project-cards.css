@@ -105,7 +105,8 @@ html[data-rows-view="grid-1"] #webship-workspace-projects .project-row { max-wid
 .pcard-status .state-toggle:is(:hover, :focus-visible) .state-word { visibility: hidden; }
 .pcard-status .state-toggle:is(:hover, :focus-visible) .state-act { visibility: visible; }
 .pcard-status .state-toggle:is(:hover, :focus-visible) { border-color: currentColor; }
-.pcard-status .state-toggle:focus-visible { outline: 2px solid var(--subtle-brand); outline-offset: 1px; }
+/* The state chip takes the card's ring too: --subtle-brand was 1.19:1 on the light card. */
+.pcard-status .state-toggle:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
 .pcard-status .agent-live { background: var(--subtle-brand); color: var(--link); }
 .pcard-status .agent-live.uk-label-warning { background: var(--warning); color: var(--brand-dark); }
 
@@ -224,8 +225,9 @@ html[data-rows-view="grid-1"] #webship-workspace-projects .project-row { max-wid
 
 /* A wide card is the same card, wider: the words need the room a one-row layout would take. */
 
-/* focus: the same ring the rest of the dashboard uses */
-.pcard :is(a, button):focus-visible { outline: 0; box-shadow: 0 0 0 0.1875rem var(--focus-ring); }
+/* focus: the same ring the rest of the dashboard uses — the link-coloured outline (base.css), not the halo
+   this rule kept after the rest moved off it: --focus-ring is 1.65:1 on the light card, 2.2:1 on the dark. */
+.pcard :is(a, button):focus-visible { outline: 2px solid var(--link); outline-offset: 2px; box-shadow: none; }
 
 @media (prefers-reduced-motion: no-preference) {
   .pcard-tools .uk-button, .pcard-count { transition: background-color 0.12s ease, color 0.12s ease; }
