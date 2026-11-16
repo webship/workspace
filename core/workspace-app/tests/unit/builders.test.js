@@ -80,23 +80,31 @@ test('a pinned builder says the release it installs, and pairs with a branch one
   // `11-0-x` is the branch (11.0.x-dev) and `11-0-0` is the released tag (~11.0.0). The label says
   // "Webship 11.0.0" beside "Webship 11.0.x": the last digit is the whole difference between a tag
   // and a branch, and it must be in the label. Asserted against the tree, in every workspace that builds.
+  // The version follows the name with no dash (`webship11-0-0`, `drupalcms2-1-0`): the pattern once asked for a
+  // dash before it, matched no builder at all, and this test passed for months without checking one.
   const { ROOT } = require('../../workspaces');
+  let pinned = 0;
   for (const ws of ['dev', 'test', 'demos', 'sandboxes']) {
     const dir = path.join(ROOT, ws);
     if (!fs.existsSync(dir)) continue;
     for (const f of findBuilderScripts(dir)) {
-      const twin = /-(\d+)-(\d+)-0-/.exec(f);
+      const twin = /(\d+)-(\d+)-0-/.exec(f);
       if (!twin) continue;
+      pinned += 1;
       const body = fs.readFileSync(path.join(dir, f), 'utf8');
       assert.match(body, /^(site_version|[a-z]+_version|site_template_version_default)="~/m,
         `${ws}/${f} is named as a release but does not pin one`);
       assert.ok(builderLabel(dir, f).includes(`${twin[1]}.${twin[2]}.0`),
         `${ws}/${f} installs ${twin[1]}.${twin[2]}.0 but its label does not say so: ${builderLabel(dir, f)}`);
-      // Every pinned builder is the twin of a branch one, never an orphan.
-      assert.ok(fs.existsSync(path.join(dir, f.replace(/-(\d+)-(\d+)-0-/, '-$1-$2-x-'))),
-        `${ws}/${f} has no branch twin`);
+      // Every pinned builder is the twin of a branch one, never an orphan: the branch of its minor version
+      // (11.0.0 and 11.0.x), or the line of its major one (Drupal CMS 2.1.0 and 2.x).
+      const minorLine = f.replace(/(\d+)-(\d+)-0-/, '$1-$2-x-');
+      const majorLine = f.replace(/(\d+)-(\d+)-0-/, '$1-x-');
+      assert.ok(fs.existsSync(path.join(dir, minorLine)) || fs.existsSync(path.join(dir, majorLine)),
+        `${ws}/${f} has no branch twin (${minorLine} or ${majorLine})`);
     }
   }
+  assert.ok(pinned > 0, 'no pinned builder found in dev, test, demos or sandboxes: the pattern no longer matches their names');
 });
 
 test('the test workspace really does offer every builder it ships', () => {
