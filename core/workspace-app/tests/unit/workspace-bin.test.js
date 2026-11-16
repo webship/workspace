@@ -73,3 +73,30 @@ test('update keeps the plugins a person required in the dashboard\'s package.jso
   assert.strictEqual(run(['update', dir]).status, 0);
   assert.deepStrictEqual(JSON.parse(fs.readFileSync(file, 'utf8')), after);
 });
+
+test('asking for the help is not an error, and a word the tool does not know is named', () => {
+  for (const args of [[], ['--help'], ['-h'], ['help']]) {
+    const r = run(args);
+    assert.strictEqual(r.status, 0, `${args.join(' ') || '(nothing)'} exits 0`);
+    assert.match(r.stdout, /webship-workspace init \[dir\]/);
+    assert.strictEqual(r.stderr, '');
+  }
+  const version = run(['--version']);
+  assert.strictEqual(version.status, 0);
+  assert.strictEqual(version.stdout.trim(), require('../../../../package.json').version);
+  const bad = run(['frobnicate']);
+  assert.strictEqual(bad.status, 1);
+  assert.match(bad.stderr, /there is no "frobnicate" command/);
+  assert.match(bad.stderr, /webship-workspace init \[dir\]/, 'the help follows');
+  assert.strictEqual(bad.stdout, '');
+  // The plugin steps the same way: the help is not an error, a missing or unknown step is.
+  const steps = run(['plugin', '--help']);
+  assert.strictEqual(steps.status, 0);
+  assert.match(steps.stdout, /plugin <require\|activate\|install/);
+  const none = run(['plugin']);
+  assert.strictEqual(none.status, 1);
+  assert.match(none.stderr, /Which step\?/);
+  const unknown = run(['plugin', 'explode', 'x']);
+  assert.strictEqual(unknown.status, 1);
+  assert.match(unknown.stderr, /there is no "explode" step/);
+});
