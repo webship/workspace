@@ -184,6 +184,13 @@ function init(dirArg, { update = false } = {}) {
     say('  installing the dashboard (npm install in core/workspace-app)…');
     if (!run('npm', ['install', '--no-audit', '--no-fund'], app)) fail('npm install failed in core/workspace-app.');
   }
+  // The plugins are still the versions that placed their files: note how those shipped each file, so the
+  // first plugin update after this one keeps a file a person changed (records from 1.0.15 and earlier lack it).
+  if (update && fs.existsSync(path.join(app, 'node_modules', 'js-yaml'))) {
+    const noted = spawnSync(process.execPath, ['plugin-install.js', 'remember'], { cwd: app, encoding: 'utf8', env: { ...process.env, WORKSPACE_ROOT: dest } });
+    const n = noted.status === 0 ? noted.stdout.split('\n').filter((l) => l.trim()).length : 0;
+    if (n) say(`  noted how the installed version of ${n} plugin(s) shipped what it placed: a file you changed is kept when the plugin is updated`);
+  }
   // What the last line may say: the address only when the dashboard was really started.
   let dashboard = 'skipped';
   if (!process.env.WEBSHIP_WORKSPACE_SKIP_DDEV) {
