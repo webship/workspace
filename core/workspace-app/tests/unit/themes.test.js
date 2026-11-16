@@ -9,7 +9,17 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+
+// This file makes styles (theme.<name>.yml) and moves a style's time: it does so in a copy of the config,
+// never in core/config itself. The suite runs its files in parallel, and other files copy that folder whole
+// for the server they start (copyConfig) or read every style in it: a style made and deleted here between
+// their listing and their read failed them at random, with ENOENT.
+const CONFIG = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-themes-config-'));
+fs.cpSync(path.join(__dirname, '..', '..', '..', 'config'), CONFIG, { recursive: true });
+process.env.WORKSPACE_CONFIG = CONFIG;
+process.on('exit', () => fs.rmSync(CONFIG, { recursive: true, force: true }));
 
 const { listThemes, themeLabel, resolveTheme, assembleCss, cssVersion,
   readThemeOverrides, themeOverridesCss, themeOverridesFile,
