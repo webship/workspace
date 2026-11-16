@@ -40,9 +40,14 @@ for arg in "$@"; do
     --check) CHECK_ONLY='yes' ;;
     -y|--yes) ASSUME_YES='yes' ;;
     -h|--help)
-      sed -n '3,19p' "$0" 2>/dev/null || true ;
+      sed -n '3,19p' "$0" 2>/dev/null | sed '/^#*$/d;s/^## \{0,1\}//' || true ;
       echo "Usage: install.sh [--check] [-y]" ;
       exit 0 ;;
+    # A mistyped option (--chek) must not be read as "no option": that is the full install, with sudo.
+    *)
+      echo "Unknown option: ${arg} (see --help)" ;
+      echo "Usage: install.sh [--check] [-y]" ;
+      exit 1 ;;
   esac
 done
 
