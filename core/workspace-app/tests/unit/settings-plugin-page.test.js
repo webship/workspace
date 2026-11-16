@@ -77,11 +77,21 @@ test('what it ships: commands with the folders they were placed in, AI items by 
   assert.match(html, /<summary>3 files placed on 2026-11-15<\/summary>/);
 });
 
-test('removing a plugin another one needs is refused in words, with no button to try', () => {
+test('removing a plugin another one needs is refused in words, with no button to try; Reinstall stays, so an update can be finished (#410)', () => {
   const needed = make('ai-agents', { label: 'AI Agents', workspace: { key: 'ai-agents' } }, 3, { neededBy: ['dev', 'jira'], placed: { installed: true } });
   const refused = page.removeHtml(needed);
   assert.match(refused, /cannot be deactivated or uninstalled while dev, jira need it/);
-  assert.ok(!refused.includes('<button'));
+  assert.ok(refused.includes('&quot;verb&quot;:&quot;install&quot;'), 'Reinstall is there');
+  assert.match(refused, />Reinstall</);
+  for (const verb of ['deactivate', 'uninstall']) assert.ok(!refused.includes(`&quot;verb&quot;:&quot;${verb}&quot;`), `no ${verb}`);
+  // The update notice sends the person here: the button it names is on the page.
+  const updated = make('ai-agents', { label: 'AI Agents', workspace: { key: 'ai-agents' } }, 3, { neededBy: ['dev'], placed: { installed: true } });
+  updated.state = { ...(updated.state || {}), update: '9.9.9' };
+  updated.module = '@webship.co/workspace-ai-agents';
+  assert.match(page.updateHtml(updated), /Then Reinstall, at the end of this page/);
+  assert.match(page.removeHtml(updated), />Reinstall</);
+  // A plugin that places nothing has nothing to reinstall.
+  assert.ok(!page.removeHtml(make('x-api', { label: 'X API' }, 3, { neededBy: ['dev'] })).includes('<button'));
   const free = make('jira', { label: 'Jira', settingsTemplate: 'config/x.yml' }, 3, { placed: { installed: true } });
   const html = page.removeHtml(free);
   for (const verb of ['install', 'deactivate', 'uninstall']) assert.ok(html.includes(`&quot;verb&quot;:&quot;${verb}&quot;`), verb);
