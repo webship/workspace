@@ -6,6 +6,8 @@
  *   node plugin-install.js status [<name>]    what is placed, what is not, as JSON
  *   node plugin-install.js reach              after the workspaces list changed: the installed plugins' commands and
  *                                             AI items go into the folders that are workspaces now, and out of the rest
+ *   node plugin-install.js remember [<name>]  note how the installed versions shipped what they placed (records from
+ *                                             1.0.15 and earlier lack it), before npm replaces a package
  *
  * A package in node_modules is code the dashboard can require; the workspace is a tree of bash
  * scripts, DDEV config and settings files that know nothing about node_modules. This is the
@@ -91,11 +93,14 @@ function workspacesOfTypes(types) {
   return Object.entries(all).filter(([, m]) => types.includes(m.type)).map(([key]) => key);
 }
 
+/** A file's bytes with the placeholders filled in (__WORKSPACE__ in a command): what an install writes. */
+function filled(data, fill) {
+  return fill ? Buffer.from(Object.entries(fill).reduce((t, [k, v]) => t.split(k).join(v), data.toString('utf8'))) : data;
+}
+
 function copyFile(src, dest, { fill } = {}) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  let data = fs.readFileSync(src);
-  if (fill) data = Buffer.from(Object.entries(fill).reduce((t, [k, v]) => t.split(k).join(v), data.toString('utf8')));
-  fs.writeFileSync(dest, data, { mode: fs.statSync(src).mode & 0o777 });
+  fs.writeFileSync(dest, filled(fs.readFileSync(src), fill), { mode: fs.statSync(src).mode & 0o777 });
 }
 
 // The AI items a plugin ships: the manifest's `ai` block, by kind, and the workspace folder of each kind.
@@ -160,6 +165,93 @@ function placeAiItems(plugin, entry, placed, hashes, notes) {
       }
     }
   }
+}
+
+/**
+ * The plugin's own files, and where an install puts each: its functions, args, machine scripts and host
+ * installer, its host mounts, its compose files, its commands (into the workspaces they belong to, or into
+ * `commandFolders` when given), its themes, the files of the workspace folder it is, its features.
+ * These follow the package: every install writes them again. `{ dest, src, fill }` or `{ dest, data }`.
+ */
+function ownFiles(plugin, { commandFolders = null } = {}) {
+  const m = plugin.manifest;
+  const name = plugin.name;
+  const from = (f) => path.join(plugin.dir, f);
+  const out = [];
+  const scripts = m.scripts || {};
+  const into = path.join(SCRIPTS_DIR, 'plugins', name);
+  for (const f of scripts.functions || []) out.push({ dest: path.join(into, 'functions', path.basename(f)), src: from(f) });
+  for (const f of scripts.args || []) out.push({ dest: path.join(into, 'args', path.basename(f)), src: from(f) });
+  for (const f of scripts.machine || []) out.push({ dest: path.join(into, path.basename(f)), src: from(f) });
+  if (scripts.hostInstall) out.push({ dest: path.join(into, 'host-install.sh'), src: from(scripts.hostInstall) });
+  const ddev = m.ddev || {};
+  if ((ddev.hostMounts || []).length) out.push({ dest: path.join(into, 'host-mounts.txt'), data: `${ddev.hostMounts.join('\n')}\n` });
+  for (const f of ddev.compose || []) out.push({ dest: path.join(DDEV_DIR, `docker-compose.plugin-${name}-${path.basename(f).replace(/^docker-compose\./, '')}`), src: from(f), compose: true });
+  const commands = m.commands || {};
+  if ((commands.files || []).length) {
+    // Named workspaces when the manifest lists them (only those that exist), else every one of the types.
+    let folders = commandFolders;
+    if (!folders) {
+      const named = (commands.workspaces || []).filter((ws) => /^[a-z0-9_-]+$/.test(ws) && isActiveWorkspace(ws));
+      folders = named.length ? named : workspacesOfTypes(commands.types || ['sites']);
+    }
+    for (const ws of folders.filter((w) => /^[a-z0-9_-]+$/.test(w))) {
+      for (const f of commands.files) out.push({ dest: path.join(ROOT, ws, path.basename(f)), src: from(f), fill: { __WORKSPACE__: ws } });
+    }
+  }
+  for (const f of m.themes || []) out.push({ dest: path.join(CONFIG_DIR, path.basename(f)), src: from(f) });
+  const ws = m.workspace || null;
+  if (ws && /^[a-z0-9_-]+$/.test(String(ws.key || ''))) {
+    for (const f of ws.files || []) out.push({ dest: path.join(ROOT, ws.key, path.basename(f)), src: from(f), fill: { __WORKSPACE__: ws.key } });
+  }
+  // webship-js features, under tests/features/plugins/<name>/: the dashboard's cucumber paths cover every
+  // folder below tests/features, so an installed plugin's scenarios run with `ddev test-dashboard browser`.
+  for (const f of m.features || []) out.push({ dest: path.join(ROOT, 'core', 'workspace-app', 'tests', 'features', 'plugins', name, path.basename(f)), src: from(f) });
+  return out;
+}
+
+/** What an install writes for one of the plugin's own files. */
+const contentOf = (o) => (o.data !== undefined ? Buffer.from(o.data) : filled(fs.readFileSync(o.src), o.fill));
+
+/** `<file>.yours`, or `<file>.yours-2` … when that is taken: where a person's changed copy is kept. */
+function freeName(base) {
+  if (!fs.existsSync(base)) return base;
+  for (let n = 2; ; n += 1) if (!fs.existsSync(`${base}-${n}`)) return `${base}-${n}`;
+}
+
+/**
+ * Note how the installed version shipped each file it placed, for an entry written before installs kept
+ * those hashes (up to 1.0.15 the record held them for AI items only). Read from that version's package while
+ * it is still in node_modules: plugins.sh --require runs this before npm replaces a package, and the update
+ * of the base runs it before any plugin is updated. The next install can then tell a person's edit from the
+ * old version's copy, and keep the edit. An entry whose package is no longer the version that placed its
+ * files is left alone: a hash taken from another version would call every file changed.
+ */
+function remember(only = '') {
+  const record = readRecord();
+  const lines = [];
+  let changed = false;
+  for (const [name, entry] of Object.entries(record)) {
+    if ((only && name !== only) || !entry || !Array.isArray(entry.placed)) continue;
+    const plugin = pluginByName(name);
+    if (!plugin || String(plugin.version || '') !== String(entry.version || '')) continue;
+    const hashes = { ...(entry.hashes || {}) };
+    const placedThen = new Set(entry.placed);
+    // Its commands went to the folders the record names, whatever the workspaces list says now.
+    const folders = [...new Set(entry.placed.map((p) => String(p).split('/')[0]))];
+    let added = 0;
+    for (const o of ownFiles(plugin, { commandFolders: folders })) {
+      const r = rel(o.dest);
+      if (!placedThen.has(r) || hashes[r]) continue;
+      try { hashes[r] = sha(contentOf(o)); added += 1; } catch (_) { /* the package lacks that file */ }
+    }
+    if (!added) continue;
+    entry.hashes = hashes;
+    changed = true;
+    lines.push(`  ${name}: noted how ${plugin.version} shipped ${added} placed file(s), so a change of yours is kept at its next install`);
+  }
+  if (changed) writeRecord(record);
+  return lines;
 }
 
 /**
@@ -260,41 +352,25 @@ function install(name, { nested = false } = {}) {
   const was = (record[name] && record[name].hashes) || {};
   const changedHere = new Set(Object.keys(was).filter((p) => { const now = hashOf(path.join(ROOT, p)); return now !== null && now !== was[p] && !isAnothers(record, name, p, now); }));
   let restart = false;
-  const scripts = m.scripts || {};
-  const into = path.join(SCRIPTS_DIR, 'plugins', name);
-  for (const f of scripts.functions || []) { const d = path.join(into, 'functions', path.basename(f)); copyFile(path.join(plugin.dir, f), d); placed.push(rel(d)); }
-  for (const f of scripts.args || []) { const d = path.join(into, 'args', path.basename(f)); copyFile(path.join(plugin.dir, f), d); placed.push(rel(d)); }
-  for (const f of scripts.machine || []) { const d = path.join(into, path.basename(f)); copyFile(path.join(plugin.dir, f), d); placed.push(rel(d)); }
-  if (scripts.hostInstall) { const d = path.join(into, 'host-install.sh'); copyFile(path.join(plugin.dir, scripts.hostInstall), d); placed.push(rel(d)); }
   const ddev = m.ddev || {};
-  if ((ddev.hostMounts || []).length) {
-    const d = path.join(into, 'host-mounts.txt');
-    fs.mkdirSync(into, { recursive: true });
-    fs.writeFileSync(d, `${ddev.hostMounts.join('\n')}\n`);
-    placed.push(rel(d));
-  }
-  for (const f of ddev.compose || []) {
-    const d = path.join(DDEV_DIR, `docker-compose.plugin-${name}-${path.basename(f).replace(/^docker-compose\./, '')}`);
-    const fresh = !fs.existsSync(d) || !fs.readFileSync(d).equals(fs.readFileSync(path.join(plugin.dir, f)));
-    copyFile(path.join(plugin.dir, f), d);
-    placed.push(rel(d));
-    if (fresh) restart = true;
-  }
-  const commands = m.commands || {};
-  if ((commands.files || []).length) {
-    // Named workspaces when the manifest lists them (only those that exist), else every one of the types.
-    const named = (commands.workspaces || []).filter((ws) => /^[a-z0-9_-]+$/.test(ws) && isActiveWorkspace(ws));
-    for (const ws of named.length ? named : workspacesOfTypes(commands.types || ['sites'])) {
-      for (const f of commands.files) {
-        const d = path.join(ROOT, ws, path.basename(f));
-        copyFile(path.join(plugin.dir, f), d, { fill: { __WORKSPACE__: ws } });
-        placed.push(rel(d));
-      }
+  // The plugin's own files follow the package: every install writes them again. One a person changed since
+  // the last install is first kept beside it as <file>.yours, and the install names both.
+  const yours = new Map();
+  for (const o of ownFiles(plugin)) {
+    const r = rel(o.dest);
+    const next = contentOf(o);
+    if (o.compose && (!fs.existsSync(o.dest) || !fs.readFileSync(o.dest).equals(next))) restart = true;
+    if (changedHere.has(r)) {
+      try {
+        if (!fs.readFileSync(o.dest).equals(next)) { const keep = freeName(`${o.dest}.yours`); fs.copyFileSync(o.dest, keep); yours.set(r, rel(keep)); }
+      } catch (_) { /* gone since: nothing to keep */ }
     }
+    if (o.src) copyFile(o.src, o.dest, { fill: o.fill });
+    else { fs.mkdirSync(path.dirname(o.dest), { recursive: true }); fs.writeFileSync(o.dest, next); }
+    placed.push(r);
   }
-  for (const f of m.themes || []) { const d = path.join(CONFIG_DIR, path.basename(f)); copyFile(path.join(plugin.dir, f), d); placed.push(rel(d)); }
   // A workspace folder the plugin IS (modules, themes, dev…): the folder, its settings file (placed once,
-  // never overwritten — it holds this machine's lists — and kept on uninstall) and its commands.
+  // never overwritten — it holds this machine's lists — and kept on uninstall); its commands are above.
   // --activate puts the key on settings.yml's workspaces list; --deactivate takes it off.
   const ws = m.workspace || null;
   if (ws && /^[a-z0-9_-]+$/.test(String(ws.key || ''))) {
@@ -306,11 +382,6 @@ function install(name, { nested = false } = {}) {
       if (!fs.existsSync(d)) copyFile(path.join(plugin.dir, ws.settingsTemplate), d);
       placed.push(rel(d));
     }
-    for (const f of ws.files || []) {
-      const d = path.join(folder, path.basename(f));
-      copyFile(path.join(plugin.dir, f), d, { fill: { __WORKSPACE__: ws.key } });
-      placed.push(rel(d));
-    }
     // Written once, for a person to edit: what the folder is for.
     for (const f of ws.docs || []) {
       const d = path.join(folder, path.basename(f));
@@ -318,14 +389,14 @@ function install(name, { nested = false } = {}) {
       placed.push(rel(d));
     }
   }
-  // webship-js features, under tests/features/plugins/<name>/: the dashboard's cucumber paths cover every
-  // folder below tests/features, so an installed plugin's scenarios run with `ddev test-dashboard browser`.
-  for (const f of m.features || []) { const d = path.join(ROOT, 'core', 'workspace-app', 'tests', 'features', 'plugins', name, path.basename(f)); copyFile(path.join(plugin.dir, f), d); placed.push(rel(d)); }
   placeAiItems(plugin, record[name], placed, hashes, notes);
   placeSettings(plugin, placed);
   // What an earlier install placed and this one did not (a workspace that changed type, a file the
   // manifest dropped) goes away, so the tree never holds a stale copy.
-  for (const old of before) if (!placed.includes(old)) removePlaced(old, (record[name] && record[name].hashes) || {});
+  for (const old of before) {
+    if (placed.includes(old)) continue;
+    if (removePlaced(old, (record[name] && record[name].hashes) || {}) === 'kept') notes.push(`  kept ${old} (this version no longer ships it, and it was changed here: it is yours now)`);
+  }
   // The hash of everything placed, so an uninstall can tell the plugin's copy from a file a person changed.
   // A file that is written once (a settings file, a folder's docs) keeps the hash of what was first placed;
   // one that was already there before any install has none, and is treated as the person's.
@@ -334,7 +405,7 @@ function install(name, { nested = false } = {}) {
     if (WRITTEN_ONCE.test(p) || p === settingsPath(plugin)) { if (was[p]) hashes[p] = was[p]; else if (!before.has(p)) hashes[p] = hashOf(path.join(ROOT, p)); continue; }
     const now = hashOf(path.join(ROOT, p));
     if (now) hashes[p] = now;
-    if (changedHere.has(p) && now !== null) notes.push(`  replaced ${p} (it had been changed here; a plugin's own files follow the package)`);
+    if (changedHere.has(p) && now !== null && yours.has(p)) notes.push(`  replaced ${p} (it had been changed here; a plugin's own files follow the package): your copy is kept as ${yours.get(p)}`);
   }
   for (const p of Object.keys(hashes)) if (hashes[p] === null) delete hashes[p];
   // What this install did not have to touch: recorded by the last one, and still exactly what was placed.
@@ -373,6 +444,8 @@ function reach(except = '', why = '') {
       const some = (list) => `${list.slice(0, 3).join(', ')}${list.length > 3 ? ', …' : ''}`;
       if (fresh.length) lines.push(`  ${other}: placed ${fresh.length} more file(s)${why ? ` ${why}` : ''} (${some(fresh)})`);
       if (gone.length) lines.push(`  ${other}: took ${gone.length} file(s) out of a folder that is no longer a workspace here (${some(gone)})`);
+      // What happened once to a person's file is said here too: a copy kept as .yours, a dropped file kept.
+      for (const n of again.notes || []) if (/^\s+replaced |no longer ships it/.test(n)) lines.push(`  ${other}: ${n.trim()}`);
     } catch (_) { /* its own needs are not met: its --install places them */ }
   }
   return lines;
@@ -441,7 +514,7 @@ function status(name) {
   });
 }
 
-module.exports = { install, uninstall, status, reach, isActiveWorkspace, placedBy, readRecord, RECORD };
+module.exports = { install, uninstall, status, reach, remember, ownFiles, isActiveWorkspace, placedBy, readRecord, RECORD };
 
 if (require.main === module) {
   const [verb, name] = process.argv.slice(2);
@@ -459,12 +532,14 @@ if (require.main === module) {
       for (const p of r.removed) console.log(`  removed ${p}`);
       for (const n of r.notes || []) console.log(n);
       console.log(r.restart ? 'RESTART_NEEDED' : 'RESTART_NOT_NEEDED');
+    } else if (verb === 'remember') {
+      for (const line of remember(name || '')) console.log(line);
     } else if (verb === 'reach') {
       for (const line of reach(name || '')) console.log(line);
     } else if (verb === 'status') {
       console.log(JSON.stringify(status(name), null, 2));
     } else {
-      console.error('usage: node plugin-install.js install|uninstall|status [<name>]');
+      console.error('usage: node plugin-install.js install|uninstall|status|remember|reach [<name>]');
       process.exit(2);
     }
   } catch (err) {

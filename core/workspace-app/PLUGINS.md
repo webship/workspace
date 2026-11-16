@@ -20,7 +20,11 @@ clone never commits what an install placed, and says when the dashboard containe
 what `--install` placed, while it still is what was placed: the record keeps the hash of every file,
 so a file a person changed since (a command, a function) is kept, and so is the plugin's settings
 file once it holds anything but the template (a token, an account). The uninstall names each file it
-kept. A second `--install` writes the plugin's own files again and names the ones it replaced.
+kept. A second `--install` writes the plugin's own files again: one a person changed is first kept
+beside it as `<file>.yours`, and the install names both; a file the new version no longer ships is
+kept when it was changed here, and said. Records written by 1.0.15 and earlier hold no hash for a
+plugin's own files, so `--require` (before npm replaces a package) and `webship-workspace update`
+note how the installed version shipped each of them first (`node plugin-install.js remember`).
 
 A plugin is a node package with a `workspacePlugin` manifest in its `package.json` and an
 `index.js` exporting `register(api)` — or a folder under `core/workspace-app/plugins/<name>/` with

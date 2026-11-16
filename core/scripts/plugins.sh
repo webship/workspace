@@ -266,6 +266,9 @@ case "${verb}" in
     if command -v gh > /dev/null 2>&1 && gh api user --jq .login > /dev/null 2>&1 ; then
       export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="credential.https://github.com.helper" GIT_CONFIG_VALUE_0="!gh auth git-credential" ;
     fi
+    # How the versions installed now shipped what they placed, noted before npm replaces one: an install can
+    # then tell a file a person changed from the old version's copy, and keep the change (#404).
+    ( cd "${APP}" && node plugin-install.js remember > /dev/null 2>&1 ) ;
     before="$(plugin_names)" ;
     # npm's own words go by as they are, except "no such package": that wall of 404 lines is one fact,
     # said once, with where the names that do exist are listed.
