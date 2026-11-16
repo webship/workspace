@@ -512,3 +512,36 @@ test('deactivate, uninstall and configure refuse a name that is no plugin here, 
   assert.strictEqual(enabled(t, 'dev'), false);
   assert.match(ok(sh(t, '--uninstall', 'dev')).stdout, /Uninstalled/);
 });
+
+test('a step restarts the dashboard only when the running container serves this workspace', () => {
+  const t = tree();
+  folder(t.plugins, 'dev');
+  ok(sh(t, '--activate', 'dev'));
+  // Stand-ins: no supervisor here (the host side), and a docker that says which tree the container has mounted.
+  const log = path.join(t.root, 'docker.log');
+  fs.writeFileSync(path.join(t.bin, 'supervisorctl'), '#!/usr/bin/env bash\nexit 1\n', { mode: 0o755 });
+  const docker = (mounted) => fs.writeFileSync(path.join(t.bin, 'docker'), `#!/usr/bin/env bash
+echo "$*" >> "${log}"
+case "$1" in
+  inspect) ${mounted === null ? 'exit 1' : `printf '%s\\n' "/var/run/docker.sock" "${mounted}"`} ;;
+  exec) echo "restarted" ;;
+esac
+`, { mode: 0o755 });
+  const restart = () => spawnSync('bash', [path.join(SCRIPTS, 'plugins.sh'), '--deactivate', 'dev'], { cwd: t.root, env: { ...env(t), WORKSPACE_PLUGINS_NO_RESTART: '' }, encoding: 'utf8', timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'] });
+  const execs = () => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '').split('\n').filter((l) => l.startsWith('exec ')).length;
+
+  docker('/home/someone/another-workspace');
+  let r = ok(restart());
+  assert.match(r.stdout, /serves another workspace, so it was not restarted/);
+  assert.strictEqual(execs(), 0, 'the other workspace\'s dashboard is left alone');
+
+  docker(null);
+  r = ok(restart());
+  assert.match(r.stdout, /The dashboard is not running/);
+  assert.strictEqual(execs(), 0);
+
+  docker(t.root);
+  r = ok(restart());
+  assert.match(r.stdout, /restarted/);
+  assert.strictEqual(execs(), 1, 'its own dashboard is restarted');
+});
