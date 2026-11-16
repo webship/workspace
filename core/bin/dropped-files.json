@@ -1,0 +1,116 @@
+{
+  "core/config/theme.upsun.yml": {
+    "releases": "1.0.0–1.0.8",
+    "sha256": [
+      "972fc2c2bcb5843a25a0472f6d10274afe75bc6f4c4b8dcf0144ed4aec234848"
+    ]
+  },
+  "core/scripts/plugins/jira/host-install.sh": {
+    "releases": "1.0.0–1.0.8",
+    "sha256": [
+      "5b269a3fd3c0b5c3d2d2589ce774b43da1a6462b632d9e388889253abd937b12"
+    ]
+  },
+  "core/scripts/plugins/jira/host-mounts.txt": {
+    "releases": "1.0.0–1.0.8",
+    "sha256": [
+      "477e6f5be076af0965ae42fb44d43d5c7d28ab4f7604ca9ad946ec0c62d7ae26"
+    ]
+  },
+  "core/scripts/plugins/upsun/args/arg-upsun.sh": {
+    "releases": "1.0.0–1.0.8",
+    "sha256": [
+      "0c12658cdbb746e87a75a096f1fc02af3d561485d3d23129529b7992c8f077a2"
+    ]
+  },
+  "core/scripts/plugins/upsun/functions/fun-upsun.sh": {
+    "releases": "1.0.0–1.0.8",
+    "sha256": [
+      "b12aac5c4d259ff398cc2b616b03a35a972fff5149bce2dc66a714288e14a73c"
+    ]
+  },
+  "core/scripts/plugins/upsun/host-install.sh": {
+    "releases": "1.0.0–1.0.8",
+    "sha256": [
+      "d4a6f6b8a63906619083283cdef786b52cebcec8b3a3bb4aaf284b80d28b819e"
+    ]
+  },
+  "core/scripts/plugins/upsun/host-mounts.txt": {
+    "releases": "1.0.0–1.0.8",
+    "sha256": [
+      "73ef5066d8e70b9d65cc6f06e44ff006d149dbfa198f030709a6e856cb466075"
+    ]
+  },
+  "core/scripts/plugins/upsun/upsun-ai.sh": {
+    "releases": "1.0.0–1.0.8",
+    "sha256": [
+      "fd6079592996c8d88108109d8d53ae674915c4787a24f35b031b37930420c527"
+    ]
+  },
+  "core/workspace-app/.ddev/docker-compose.plugin-jira-twg.yaml": {
+    "releases": "1.0.0–1.0.8",
+    "sha256": [
+      "9d890dc269fb36526cab2e73b8501d4734ece2d2049a1a4b6ba2e4c73303fde9"
+    ]
+  },
+  "core/workspace-app/.ddev/docker-compose.plugin-upsun-upsun-cli.yaml": {
+    "releases": "1.0.0–1.0.8",
+    "sha256": [
+      "0ed3a4aa388c753e9e0ea431048e77ce7b2d64bd55d6a6545c55f560f1f69ab1"
+    ]
+  },
+  "core/workspace-app/docs/screenshots/assistant/avatar-coffee.png": {
+    "releases": "1.0.0–1.0.3",
+    "sha256": [
+      "8746ac01378831562d61e2487c115678eea2d028834f546d36417f384af21e82"
+    ]
+  },
+  "core/workspace-app/docs/screenshots/assistant/avatar-pick-cookieman.png": {
+    "releases": "1.0.0–1.0.3",
+    "sha256": [
+      "8f364d2fa73873ad22d5cfe6bf4f199ebe230e6d15eccf03ab24995f3533e8e0"
+    ]
+  },
+  "core/workspace-app/docs/screenshots/assistant/avatar-status.png": {
+    "releases": "1.0.0–1.0.3",
+    "sha256": [
+      "49522efd294280856e4ff6fdcbc0d71ba16a15dcb3c03b53823444733789f67c"
+    ]
+  },
+  "core/workspace-app/docs/screenshots/readme/test-report-dark.png": {
+    "releases": "1.0.0–1.0.3",
+    "sha256": [
+      "717f25c7a35c71e16f84f0eee52f8c22d8600eee5fae0aff653fb110fd82ca83"
+    ]
+  },
+  "core/workspace-app/docs/screenshots/readme/test-report-light.png": {
+    "releases": "1.0.0–1.0.3",
+    "sha256": [
+      "d39af491283a9ed26f6eb6a07cd9e87eb630e92312c6eac9533c215caa7f67b4"
+    ]
+  },
+  "core/workspace-app/docs/screenshots/readme/test-scenarios.png": {
+    "releases": "1.0.0–1.0.3",
+    "sha256": [
+      "7c7856a182a87e317d66d2e9a41bd0eea143527403c7036b3658f1f73aa68b6a"
+    ]
+  },
+  "core/workspace-app/docs/screenshots/readme/test-steps.png": {
+    "releases": "1.0.0–1.0.3",
+    "sha256": [
+      "d8a7a9c243550d13705d0333f8607bcdc9dcd3c46a2eeed55033e85a29905788"
+    ]
+  },
+  "core/workspace-app/public/css/components/running-commands-as-toasts.css": {
+    "releases": "1.0.0–1.0.12",
+    "sha256": [
+      "f4cb3d058f18aea59904011a828c92ed45971e23a97112677d1db94e0988e133"
+    ]
+  },
+  "core/workspace-app/tests/features/plugins/jira/jira.feature": {
+    "releases": "1.0.0–1.0.8",
+    "sha256": [
+      "9421640a5ab39398412adf028a0d0dcf4d0efb2a4efaf59ef87073b182ee6ab1"
+    ]
+  }
+}

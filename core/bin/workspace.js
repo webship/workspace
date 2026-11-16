@@ -24,6 +24,7 @@
  *   WEBSHIP_WORKSPACE_SKIP_DDEV=1  do not start the dashboard
  */
 
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -151,6 +152,60 @@ function keepMachineDashboard(dest, old) {
   return kept;
 }
 
+// What the last init or update copied from the package, with the sha256 of each file: the next update
+// removes what that release shipped and this one does not, while it is still as shipped (#407).
+const SHIPPED = path.join('core', '.shipped-files');
+const sha256 = (file) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+
+/** The record of the last copy: { path: sha256 }, or null for a workspace made before the record existed. */
+function readShipped(dest) {
+  try {
+    const out = {};
+    for (const line of fs.readFileSync(path.join(dest, SHIPPED), 'utf8').split('\n')) {
+      const m = line.match(/^([0-9a-f]{64}) {2}(.+)$/);
+      if (m) out[m[2]] = m[1];
+    }
+    return out;
+  } catch (_) { return null; }
+}
+
+/**
+ * Remove what an earlier release shipped and this one does not (#407): from the record of the last copy,
+ * and, for a workspace made before that record, from dropped-files.json (each file 1.0.0 to 1.0.18 shipped
+ * and a later release dropped, with the hash of every released copy). A file is removed only while it is
+ * exactly as shipped, never when the new package ships it again, never when a plugin's install record
+ * claims it; a changed one stays and is named. Answers what to say.
+ */
+function removeDropped(dest, before, packaged) {
+  const known = {};
+  for (const [p, h] of Object.entries(before || {})) (known[p] = known[p] || new Set()).add(h);
+  try {
+    for (const [p, e] of Object.entries(JSON.parse(fs.readFileSync(path.join(CORE_SRC, 'bin', 'dropped-files.json'), 'utf8')))) {
+      for (const h of e.sha256 || []) (known[p] = known[p] || new Set()).add(h);
+    }
+  } catch (_) { /* a package without the list */ }
+  let record = '';
+  try { record = fs.readFileSync(path.join(dest, 'core', 'config', 'plugins.installed.yml'), 'utf8'); } catch (_) { /* no plugin installed */ }
+  const claimed = (p) => new RegExp(`^\\s*-\\s*['"]?${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]?\\s*$`, 'm').test(record);
+  const removed = [];
+  const said = [];
+  for (const [p, hashes] of Object.entries(known)) {
+    const file = path.join(dest, p);
+    if (packaged.has(p) || !fs.existsSync(file) || !fs.statSync(file).isFile() || claimed(p)) continue;
+    if (!hashes.has(sha256(file))) { said.push(`  kept ${p}: this release no longer ships it, and it was changed here`); continue; }
+    fs.rmSync(file);
+    removed.push(p);
+    // Its folder too when that leaves it empty, never one the package ships or one plugins place into.
+    for (let dir = path.dirname(file); ; dir = path.dirname(dir)) {
+      const rel = path.relative(dest, dir);
+      if (!rel || rel === 'core' || /^core\/(scripts\/plugins|workspace-app\/tests\/features\/plugins)$/.test(rel) || fs.existsSync(path.join(CORE_SRC, path.relative('core', rel)))) break;
+      try { fs.rmdirSync(dir); } catch (_) { break; }
+    }
+  }
+  if (removed.length) said.unshift(`  removed ${removed.length} file(s) an earlier release shipped and this one does not: ${removed.slice(0, 4).join(', ')}${removed.length > 4 ? ', …' : ''}`);
+  return said;
+}
+
 /** Copy core/ into the workspace, skipping what belongs to a running install, never overwriting a settings file. */
 function copyCore(dest) {
   const SKIP = new Set(['node_modules', 'actions.log', 'package-lock.json']);
@@ -158,6 +213,10 @@ function copyCore(dest) {
   // template (once), workspace and plugin settings come with their plugins, the install record is local.
   const NEVER = /^core\/config\/(settings\.yml|workspace\..*\.settings\.yml|plugin\..*\.settings\.yml|plugins\.installed\.yml)$|^core\/workspace-app\/\.ddev\/config\.local\.yaml$/;
   const KEEP_IF_PRESENT = /^core\/config\/style\.yml$/;
+  // shipped: what follows the package and was copied as it is (the record); packaged: every file the package
+  // has, whatever this copy did with it (kept, merged, never copied) — nothing in it is ever removed.
+  const shipped = new Map();
+  const packaged = new Set();
   const walk = (src, rel) => {
     for (const e of fs.readdirSync(src, { withFileTypes: true })) {
       if (SKIP.has(e.name)) continue;
@@ -165,14 +224,16 @@ function copyCore(dest) {
       const relPath = path.join(rel, e.name);
       const to = path.join(dest, relPath);
       if (e.isDirectory()) { fs.mkdirSync(to, { recursive: true }); walk(from, relPath); continue; }
+      packaged.add(relPath.split(path.sep).join('/'));
       if (NEVER.test(relPath)) continue;
-      if (KEEP_IF_PRESENT.test(relPath) && fs.existsSync(to)) continue;
+      if (KEEP_IF_PRESENT.test(relPath)) { if (!fs.existsSync(to)) { fs.copyFileSync(from, to); fs.chmodSync(to, fs.statSync(from).mode & 0o777); } continue; }
       fs.mkdirSync(path.dirname(to), { recursive: true });
       // The dashboard's package.json is the core's AND this machine's: `plugin require` wrote the
       // plugins a person added into it. An update takes the core's file and keeps what was added.
       if (relPath === APP_PACKAGE && fs.existsSync(to)) { fs.writeFileSync(to, mergeAppPackage(from, to)); continue; }
       fs.copyFileSync(from, to);
       fs.chmodSync(to, fs.statSync(from).mode & 0o777);
+      shipped.set(relPath.split(path.sep).join('/'), sha256(from));
     }
   };
   walk(CORE_SRC, 'core');
@@ -190,11 +251,19 @@ function copyCore(dest) {
       if (!e.isFile()) continue;
       const to = path.join(cmdDest, e.name);
       const own = /^cmd-.*\.sh$/.test(e.name);
+      packaged.add(`commands/${e.name}`);
       if (!own && fs.existsSync(to)) continue;
       fs.copyFileSync(path.join(cmdSrc, e.name), to);
-      if (own) fs.chmodSync(to, 0o755);
+      if (own) { fs.chmodSync(to, 0o755); shipped.set(`commands/${e.name}`, sha256(path.join(cmdSrc, e.name))); }
     }
   }
+  return { shipped, packaged };
+}
+
+/** Write the record of what this copy shipped. */
+function writeShipped(dest, shipped) {
+  const lines = [...shipped.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([p, h]) => `${h}  ${p}`);
+  fs.writeFileSync(path.join(dest, SHIPPED), `${lines.join('\n')}\n`);
 }
 
 /** settings.yml from the lean template: an empty workspaces list, no plugins, the placeholders to fill. */
@@ -248,7 +317,8 @@ function init(dirArg, { update = false } = {}) {
   // Said before anything starts: what the core calls and this machine does not have.
   doctor(null, { only: 'core', quiet: true });
   const machine = update ? readMachineDashboard(dest) : null;
-  copyCore(dest);
+  const shippedBefore = update ? readShipped(dest) : null;
+  const { shipped, packaged } = copyCore(dest);
   if (machine) {
     const kept = keepMachineDashboard(dest, machine);
     if (kept.length) say(`  kept this machine's dashboard: ${kept.join(', ')}`);
@@ -258,6 +328,8 @@ function init(dirArg, { update = false } = {}) {
       if (gid.status === 1 && /dashboard docker GID is/.test(gid.stdout || '')) say(String(gid.stdout).replace(/\n$/, ''));
     }
   }
+  if (update) for (const line of removeDropped(dest, shippedBefore, packaged)) say(line);
+  writeShipped(dest, shipped);
   const wroteSettings = writeSettings(dest);
   say(wroteSettings ? '  core/config/settings.yml written (empty: no workspaces, no plugins yet)' : '  core/config/settings.yml kept as it is');
   const app = path.join(dest, 'core', 'workspace-app');
