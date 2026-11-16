@@ -284,9 +284,23 @@ function init(dirArg, { update = false } = {}) {
       dashboard = run('ddev', ['start', '-y'], app) ? 'started' : 'failed';
     }
   }
+  // An update leaves a running dashboard on the version it holds in memory (ddev start does not restart a
+  // running app): it is restarted when it serves this workspace, by the rule a plugin step uses (#408).
+  let restart = '';
+  if (update && fs.existsSync(path.join(dest, 'core', 'scripts', 'plugins.sh'))) {
+    const r = spawnSync('bash', [path.join(dest, 'core', 'scripts', 'plugins.sh'), '--restart'], { cwd: dest, encoding: 'utf8', env: { ...process.env, WORKSPACE_ROOT: dest } });
+    restart = String(r.stdout || '').trim();
+  }
   say('');
   const start = `cd ${app} && ddev start`;
-  if (dashboard === 'started') say(`Done. The dashboard: https://workspace.ddev.site   (the tooling: ${dest}/core/scripts)`);
+  if (update) {
+    const version = require(path.join(PKG_ROOT, 'package.json')).version;
+    say(`Updated the workspace at ${dest} to ${version}.`);
+    if (dashboard === 'failed') say(`The dashboard did not start: read what ddev said above, then:  ${start}`);
+    else if (process.env.WORKSPACE_PLUGINS_NO_RESTART) say(`The dashboard was not restarted (WORKSPACE_PLUGINS_NO_RESTART is set). It runs ${version} once it is restarted:  cd ${app} && ddev restart`);
+    else if (/\bstarted\b/.test(restart) && !/not running|another workspace/.test(restart)) say(`The dashboard was restarted: it runs ${version} now.`);
+    else if (restart) say(restart);
+  } else if (dashboard === 'started') say(`Done. The dashboard: https://workspace.ddev.site   (the tooling: ${dest}/core/scripts)`);
   else if (dashboard === 'failed') say(`The workspace is at ${dest}, but the dashboard did not start: read what ddev said above, then:  ${start}`);
   else if (dashboard === 'no-ddev') say(`The workspace is at ${dest}. The dashboard is not started: DDEV is missing. Once it is installed:  ${start}   (then https://workspace.ddev.site)`);
   else say(`Done. The workspace is at ${dest}. The dashboard was not started (WEBSHIP_WORKSPACE_SKIP_DDEV is set); start it with:  ${start}   (then https://workspace.ddev.site)`);
