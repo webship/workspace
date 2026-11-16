@@ -29,7 +29,8 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: core/workspace-app/package-lock.json
-      - run: sudo apt-get install -y -qq python3-yaml
+      # ffmpeg and ffprobe: the media tests (video editing, voiceover, audio) skip themselves without them.
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml ffmpeg
       - name: install the dashboard (plugins build on install)
         working-directory: core/workspace-app
         run: npm ci --no-audit --no-fund
@@ -63,7 +64,8 @@ jobs:
           node-version: '20'
           cache: npm
           cache-dependency-path: core/workspace-app/package-lock.json
-      - run: sudo apt-get install -y -qq python3-yaml
+      # ffmpeg and ffprobe: the media tests (video editing, voiceover, audio) skip themselves without them.
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml ffmpeg
       - name: the command line (webship-workspace)
         run: npm test
       - name: install the dashboard
