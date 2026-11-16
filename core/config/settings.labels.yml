@@ -510,5 +510,5 @@ elevenlabs.region:
 elevenlabs.pronunciation:
   label: Pronunciation
   info: >-
-    Extra brand names to respell for the voice only, as "Word=Respelling; Word=Respelling". Built in:
-    Webship=Var-dot and Webship=Var-base. Scripts, captions and transcripts keep the real spelling.
+    Words a voice misreads, respelled for the voice only, as "Word=Respelling; Word=Respelling". None is built in.
+    Scripts, captions and transcripts keep the real spelling.

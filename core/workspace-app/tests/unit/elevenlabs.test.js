@@ -295,7 +295,7 @@ test('speak sends nothing without --confirm, then writes the audio once and refu
   assert.strictEqual(api.posts().length, 1, 'refusing to overwrite must happen before any request');
 });
 
-test('brand names are respelled only in the text sent to the voice: Webship as Var-dot, Webship as Var-base, plus settings', { skip: !media }, async () => {
+test('a word is respelled only in the text sent to the voice, from the settings; Webship is sent as written', { skip: !media }, async () => {
   const api = await stub();
   const dir = tmp();
   fs.writeFileSync(path.join(dir, 't.txt'), "This is Webship 11, Webship's Drupal distribution, from Acme.");
@@ -303,13 +303,26 @@ test('brand names are respelled only in the text sent to the voice: Webship as V
   const args = ['-a', 'speak', '--text-file', path.join(dir, 't.txt'), '--voice', VOICE, '--confirm'];
   const one = await run([...args, '--out', path.join(dir, 'a.mp3')], { env });
   assert.strictEqual(one.code, 0);
-  assert.strictEqual(JSON.parse(api.posts()[0].body.toString()).text, "This is Var-base 11, Var-dot's Drupal distribution, from Acme.");
+  assert.strictEqual(JSON.parse(api.posts()[0].body.toString()).text, "This is Webship 11, Webship's Drupal distribution, from Acme.", 'no word is respelled by default');
   const ws = workspace('elevenlabs:\n  pronunciation: "Acme=Ack-me"\n');
   const two = await run([...args, '--out', path.join(dir, 'b.mp3')], { env, ws });
   assert.strictEqual(two.code, 0);
-  assert.strictEqual(JSON.parse(api.posts()[1].body.toString()).text, "This is Var-base 11, Var-dot's Drupal distribution, from Ack-me.");
+  assert.strictEqual(JSON.parse(api.posts()[1].body.toString()).text, "This is Webship 11, Webship's Drupal distribution, from Ack-me.");
   assert.strictEqual(fs.readFileSync(path.join(dir, 't.txt'), 'utf8'), "This is Webship 11, Webship's Drupal distribution, from Acme.", 'the text file keeps the real spelling');
   api.close();
+});
+
+test('no respelling is built in: the library sends Webship as written, and the setting adds one', () => {
+  // The table used to hold two respellings keyed by the same word after a rename, and the last one won: every
+  // "Webship" was spoken as another company's product name. Read from the library itself, with no ffmpeg needed.
+  const lib = path.join(REPO, 'core', 'scripts', 'libs');
+  const py = (code, env = {}) => require('child_process').spawnSync('python3', ['-c', `import sys; sys.path.insert(0, ${JSON.stringify(lib)}); import elevenlabs; ${code}`], { encoding: 'utf8', env: { ...process.env, ELEVENLABS_PRONUNCIATION: '', ...env } });
+  const plain = py("print(elevenlabs.respell('This is Webship 11, from Acme.'))");
+  assert.strictEqual(plain.status, 0, plain.stderr);
+  assert.strictEqual(plain.stdout.trim(), 'This is Webship 11, from Acme.');
+  assert.strictEqual(py('print(len(elevenlabs.PRONUNCIATIONS))').stdout.trim(), '0');
+  const set = py("print(elevenlabs.respell('From Acme and Webship.'))", { ELEVENLABS_PRONUNCIATION: 'Acme=Ack-me' });
+  assert.strictEqual(set.stdout.trim(), 'From Ack-me and Webship.');
 });
 
 test('voiceover: a plan first, then speech per section placed on its window over the draft, with only changed sections re-sent', { skip: !media }, async () => {

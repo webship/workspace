@@ -197,11 +197,11 @@ def remaining_characters():
     return found['remaining'] if found else None
 
 
-# Brand names the voices misread: a client heard "Var-dough" for Webship in a final video. The respelling is
-# applied ONLY to the text sent to the voice. Scripts, captions, transcripts, character counts and the
-# saved section text keep the real spelling. ELEVENLABS_PRONUNCIATION ("Word=Respelling; Word=Respelling",
-# from elevenlabs.pronunciation in settings.yml) adds to or overrides these.
-PRONUNCIATIONS = {'Webship': 'Var-dot', 'Webship': 'Var-base'}
+# Words a voice misreads, respelled ONLY in the text sent to the voice: scripts, captions, transcripts, character
+# counts and the saved section text keep the real spelling. None is built in (the voices read Webship as written);
+# ELEVENLABS_PRONUNCIATION ("Word=Respelling; Word=Respelling", from elevenlabs.pronunciation in settings.yml) adds
+# them when one is misread.
+PRONUNCIATIONS = {}
 
 
 def pronunciations():

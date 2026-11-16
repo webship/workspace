@@ -12,8 +12,8 @@ elevenlabs:
   voice_id: ask
   model_id: eleven_v4
   region: global
-  # Brand names are respelled for the voice only (built in: Webship=Var-dot; Webship=Var-base). Add more as
-  # "Word=Respelling; Word=Respelling" when a voice misreads one.
+  # Words a voice misreads are respelled for the voice only, as "Word=Respelling; Word=Respelling".
+  # None is built in.
   pronunciation: ""
 ';
 
