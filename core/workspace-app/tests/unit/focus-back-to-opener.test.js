@@ -51,6 +51,7 @@ test('a row control keeps focus through a redraw of the project list', () => {
   const block = ui.slice(ui.indexOf('(function keepRowFocusThroughRedraws() {'));
   assert.ok(block.length, 'the keeper is there');
   assert.match(block, /row\.querySelector\('\.pcard-title'\)/, 'a row is found again by the title it is named by');
+  assert.match(block, /row\.querySelector\('\.item-machine'\)/, 'and an item row (a doc, an agent) by its machine name');
   assert.match(block, /a\.closest\('\.act-menu'\)/, 'a menu button by its menu');
   assert.match(block, /target\.focus\(\{ preventScroll: true \}\)/);
   // A field being typed in is the other keeper's, which also keeps its value and caret.
