@@ -201,3 +201,22 @@ html[data-rows-view^="grid"] #webship-workspace-projects > :is(h3, p, .list-cont
 @media (prefers-reduced-motion: reduce) {
   .screen-tile.is-waiting .term-glyph-cursor { animation: none; }
 }
+
+/* A session card's text shrinks with the dialog. The column is a flex item, and a flex item does not go
+   below its longest word unless it may: a session name (dev--r7-alpha--git-remotes), the "Waiting for you"
+   label and the screen -r line are each one long word. The Screens modal's body scrolled sideways because
+   of it — 322px of content in 258 at 320px, in 298 at 360px, 713 in 676 at 768. A name and a path may
+   break anywhere; a label breaks between its words only. UIkit keeps labels and inline code on one line
+   (white-space: nowrap), which no overflow-wrap can break. */
+.screen-tile .uk-flex-1 { min-width: 0; }
+.screen-tile .uk-flex-1 strong,
+.screen-tile code { overflow-wrap: anywhere; }
+.screen-tile .uk-label,
+.screen-tile code { white-space: normal; }
+/* On a phone the picture of the terminal sits above the words rather than beside them: beside them it
+   left the text a 110px column at 320px, too narrow for "DETACHED". */
+@media (max-width: 39.9375em) {
+  .screen-tile > .uk-flex { flex-wrap: wrap; row-gap: 0.5rem; }
+  .screen-tile > .uk-flex > .uk-flex-1 { flex-basis: 100%; }
+  .screen-tile .term-glyph { width: 3rem; }
+}

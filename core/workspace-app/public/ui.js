@@ -2440,6 +2440,17 @@ function flashResults(root) {
     }
     if (!msg.textContent.trim()) return;
     msg.classList.add('flash-toast');
+    // A notice is one sentence beside its mark. The toast is a flex row, so a notice whose words are not
+    // in one wrapper is laid out as a column per piece — "git status" | "on" | "r7-alpha" | "—" | "Open in
+    // Screens", each wrapping on its own on a phone. The dashboard's notices carry .notice-text; a plugin's
+    // may not, so a message that is not already one wrapper is put in one here.
+    const loose = [...msg.childNodes].filter((n) => n.nodeType === 1 || (n.nodeType === 3 && n.textContent.trim()));
+    if (!(loose.length === 1 && loose[0].nodeType === 1)) {
+      const text = document.createElement('div');
+      text.className = 'notice-text';
+      while (msg.firstChild) text.appendChild(msg.firstChild);
+      msg.appendChild(text);
+    }
     const isError = msg.classList.contains('error');
     const close = document.createElement('button');
     close.type = 'button';
@@ -2512,10 +2523,19 @@ document.body.addEventListener('htmx:after:swap', () => flashResults(document));
 
 document.addEventListener('click', (e) => {
   const close = e.target.closest('.flash-toast-close');
-  if (!close) return;
-  const toast = close.closest('.flash-toast');
+  // Following a notice's link is using the notice, so it closes as its × would. Its "Open in Screens"
+  // opens the Screens modal under it, and a notice sits above modals and is held while the pointer is
+  // over it — which, having just clicked it, the pointer is: it covered the modal's heading and its
+  // Close button until the pointer moved away. An error, or a notice that stays until it is closed (a
+  // command to copy), is kept: its link is one of the things to do with it, not the end of it.
+  const link = close ? null : e.target.closest('.flash-toast a[href]');
+  const toast = (close || link) ? (close || link).closest('.flash-toast') : null;
+  if (!toast) return;
+  if (link && (toast.classList.contains('error') || toast.classList.contains('flash-stay'))) return;
   const reload = !!toast.dataset.reloadOnClose;
-  toast.remove();
+  // After the click has done its own work (the link's navigation, or the modal it opens): removing the
+  // link while its click is still being handled is not something to rely on.
+  if (link) setTimeout(() => toast.remove(), 0); else toast.remove();
   // Dismissing early is still the toast closing, so the page still catches up. Someone who
   // clicks the × after starting a build wants it gone, not a stale list.
   if (reload) reloadForChanges();
