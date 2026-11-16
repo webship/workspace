@@ -169,6 +169,28 @@ test('a plugin runner is asked first, with the session name, and its answer is t
   assert.match(jobs.screenStartedHtml(refused, 'the refused', 'demo'), /already running/);
 });
 
+test('a runner may not run a command as a job in the page: refused before it runs, and the dashboard runs it in a screen session', async () => {
+  withScreen();
+  // What screens 1.0.9 does with runs.default_mode: page, from a workspace whose base is updated before its plugins.
+  let tried = 0;
+  jobs.addRunner(async (req) => {
+    if (req.verb !== 'declined') return null;   // the runner of the test above declines this one
+    tried += 1;
+    const id = jobs.startJob(`${req.label} on ${req.project}`, 'bash', ['-lc', req.cmdLine], req.projectDir);
+    return { ok: true, session: req.session, where: 'in the page', html: jobs.jobFragment(id).html };
+  });
+  const before = jobs.jobs.size;
+  const ran = await jobs.startInScreen(opts('declined'));
+  assert.strictEqual(tried, 1, 'the runner was asked');
+  assert.strictEqual(jobs.jobs.size, before, 'no job was started');
+  assert.deepStrictEqual({ ok: ran.ok, where: ran.where, session: ran.session }, { ok: true, where: 'dashboard', session: 'dev--demo--declined' });
+  assert.ok(askedLines().some((l) => l.includes('-dmS dev--demo--declined')), 'it runs in a screen session');
+  noTerminal(jobs.screenStartedHtml(ran, 'the declined', 'demo'));
+  // A plugin's own progress view outside a runner's call is still a job, drawn where it was asked for.
+  const id = jobs.startJob('a plugin\'s own progress', 'true', [], root);
+  assert.ok(jobs.jobs.has(id));
+});
+
 test('nothing is left that could draw a terminal at the bottom of the page', () => {
   const read = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
   assert.doesNotMatch(read('jobs.js'), /startInPage|where: 'page'/, 'no run in the page');
