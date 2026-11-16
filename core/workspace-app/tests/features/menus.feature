@@ -31,3 +31,17 @@ Feature: The menus on a project row
      Then ".uk-dropdown.uk-open" should be visible
       And I should see "Restart"
       And I should see "Describe (URLs, services)"
+
+  # Escape closes the menu and gives focus back to the button that opened it; it used to fall to the page.
+  @needs-project-dev
+  Scenario: Escape closes a row menu and gives focus back to its button
+    Given I am on "/dev"
+     When I focus on the element ".project-row >> nth=0 >> .act-menu-ddev button"
+      And I press the key "Enter"
+     Then ".uk-dropdown.uk-open" should be visible
+     When I wait 1 second
+      And I press the key "Tab"
+      And I press the key "Escape"
+      And I wait 1 second
+     Then ".uk-dropdown.uk-open" should not be visible
+      And the focused element should match ".act-menu-ddev button"

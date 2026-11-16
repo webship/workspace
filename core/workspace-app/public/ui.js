@@ -105,8 +105,15 @@ function sizeVideoPlayers(scope) {
 // the one that was swapped — the swapped element is what htmx:after:settle names.
 // Every listener below wants the element whose content just changed, so it asks
 // for it once, here, rather than trusting e.target.
+//
+// The event's detail carries the request's context, and the swapped element is its target
+// (detail.ctx.target); detail.target is not set. Read from detail.target alone this answered the
+// button that asked — so a modal opened by a row's Clone or Configure DDEV button (hx-target
+// #editor-modal-body) never learned who opened it, and closing it gave focus back to nothing.
 function swappedEl(e) {
-  return (e.detail && e.detail.target) || e.target;
+  const d = e.detail || {};
+  const t = d.target || (d.ctx && d.ctx.target);
+  return t && t.nodeType === 1 ? t : e.target;
 }
 
 // Open the editor modal whenever something is swapped into it, and put the list back
@@ -217,6 +224,16 @@ function nameEditorModal() {
   const h = dialog && dialog.querySelector('.modal-head h3, h3, h2');
   if (dialog && h) dialog.setAttribute('aria-label', h.textContent.replace(/\s+/g, ' ').trim());
 }
+// Who opened the modal, taken as it starts to open, whichever way it was opened: a button with
+// uk-toggle, a row button that shows it from hx-on::after:request (Clone, Configure DDEV, New screen
+// here…) before its content has arrived, or a script. The swap handler above only saw the ones whose
+// content came first; for the others the modal was already open by then, so nothing was recorded and
+// closing it gave focus back to nothing.
+document.addEventListener('beforeshow', (e) => {
+  if (!e.target || e.target.id !== 'editor-modal' || editorModalOpener) return;
+  const from = document.activeElement;
+  editorModalOpener = from && from !== document.body && !e.target.contains(from) ? from : null;
+});
 document.addEventListener('shown', (e) => {
   if (!e.target || e.target.id !== 'editor-modal') return;
   containEditorModal(true);
@@ -345,6 +362,28 @@ document.addEventListener('beforeshow', (e) => {
   const list = (t.matches && t.matches('[hx-trigger*="menu-opened"]')) ? t : t.querySelector('[hx-trigger*="menu-opened"]');
   if (list) list.dispatchEvent(new CustomEvent('menu-opened'));
 }, true);
+
+// A menu that closes with focus inside it gives focus back to the button that opened it.
+//
+// Escape closed a row menu (GIT, DDEV, SCREENS, a host's menu) and left focus on the item that had just
+// been hidden, so the browser dropped it to <body>: no ring anywhere, and the next Tab started again from
+// the top of the page. A pick that opens the editor modal had the same hole one step later — the item was
+// gone when the menu closed, so the modal had nothing to give focus back to. The menu's own button
+// (UIKit's targetEl) gets it, unless something else has taken it by then: a modal the pick opened, a field
+// it revealed.
+document.addEventListener('beforehide', (e) => {
+  const drop = e.target;
+  if (!window.UIkit || !drop || !drop.classList || !drop.classList.contains('uk-dropdown')) return;
+  if (!drop.contains(document.activeElement)) return;
+  let button = null;
+  try { button = window.UIkit.dropdown(drop).targetEl; } catch (_) { /* not a dropdown any more */ }
+  if (!button || typeof button.focus !== 'function') return;
+  setTimeout(() => {
+    const now = document.activeElement;
+    if (now && now !== document.body && !drop.contains(now)) return;
+    if (button.isConnected) button.focus();
+  }, 0);
+});
 
 // A pick closes the menu it was made in.
 //
@@ -876,6 +915,41 @@ document.addEventListener('shown', (e) => {
     field.focus({ preventScroll: true });
     try { field.setSelectionRange(k.start, k.end); } catch (_) { /* not a text field */ }
     if (searched !== k.value) field.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Unidentified' }));
+  });
+})();
+
+// The project list is drawn again when a modal closes (refresh-projects) and when a row changes, and the
+// button that had focus goes with the old markup: a row's SCREENS button got focus back from the modal it
+// opened, and lost it a moment later to <body> when the list was redrawn under it. The control is
+// remembered by its row (the title the card is named by) and its place in that row — its menu's slot, or
+// its order among the row's controls — and given back in the new markup.
+(function keepRowFocusThroughRedraws() {
+  let kept = null;
+  const controls = (row) => [...row.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter((el) => !el.closest('.uk-dropdown'));
+  const nameOf = (row) => { const t = row.querySelector('.pcard-title'); return t ? (t.getAttribute('title') || t.textContent.trim()) : ''; };
+  document.body.addEventListener('htmx:before:swap', (e) => {
+    kept = null;
+    const a = document.activeElement;
+    const ctx = (e.detail && e.detail.ctx) || {};
+    const target = ctx.target || (e.detail && e.detail.target) || e.target;
+    const into = target && target.nodeType === 1 ? target : null;
+    if (!a || a === document.body || !into || !into.contains(a)) return;
+    const row = a.closest('.project-row');
+    if (!row || !nameOf(row) || a.matches('input[name], textarea[name]')) return;
+    const menu = a.closest('.act-menu');
+    const slot = menu ? [...menu.classList].find((c) => /^act-menu-(?!hosting$|container$|lazy$)/.test(c)) : '';
+    kept = { name: nameOf(row), slot, index: controls(row).indexOf(a), target: into };
+  });
+  document.body.addEventListener('htmx:after:swap', () => {
+    if (!kept) return;
+    const k = kept; kept = null;
+    if (document.activeElement && document.activeElement !== document.body && k.target.contains(document.activeElement)) return;
+    const row = [...k.target.querySelectorAll('.project-row')].find((r) => nameOf(r) === k.name);
+    if (!row) return;
+    const inMenu = k.slot && row.querySelector(`.${CSS.escape(k.slot)} > button, .${CSS.escape(k.slot)} button`);
+    const target = inMenu || (k.index >= 0 ? controls(row)[k.index] : null);
+    if (target) target.focus({ preventScroll: true });
   });
 })();
 
