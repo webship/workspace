@@ -343,7 +343,9 @@ case "${verb}" in
     fi
     echo "Its settings: ${WORKSPACE_ROOT}/core/config/${file}" ;
     echo "Edit it there, or on the dashboard: https://workspace.ddev.site/settings/${file}" ;
-    sed 's/^\(.*token.*:\).*/\1 <hidden>/' "${WORKSPACE_ROOT}/core/config/${file}" ;;
+    # Shown as the dashboard shows it: a secret that is set reads <hidden> (a token, a key, a password,
+    # every value of a map of them), a placeholder stays, a comment is left alone.
+    ( cd "${APP}" && node -e 'process.stdout.write(require("./settings-file").settingsTextForTerminal(process.argv[1]) || "")' "${file}" ) ;;
 
   --restart) restart_app ;;
 
