@@ -14,7 +14,8 @@
 .help-section h2 { scroll-margin-top: 5rem; }
 mark.help-hit { background: var(--subtle-brand); color: inherit; border-radius: 0.125rem; padding: 0 0.0625rem; }
 @media (max-width: 59.9375em) {
-  .help-layout { grid-template-columns: 1fr; }
+  /* minmax(0, …): a plain 1fr is as wide as its widest line of code, which made a phone's page 1100px. */
+  .help-layout { grid-template-columns: minmax(0, 1fr); }
   .help-toc { position: static; max-height: none; }
 }
 /* base.css underlines a link in a list item; contents are navigation, not prose. */
