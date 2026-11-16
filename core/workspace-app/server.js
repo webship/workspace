@@ -3515,9 +3515,14 @@ async function screensMenuBody(ws, project) {
       ? s.session.slice(`${ws}--${project}--`.length) : s.session;
     // Dead is not runnable: `screen -ls` lists a session whose process is gone, and opening one
     // attaches to nothing. Saying so beats a terminal that comes up empty.
+    //
+    // A pick opens the Screens modal with this session first — its state and the end of its log — the
+    // same modal as the top bar's Screens button (a link to /screens?session=<name> is that, wherever it
+    // is drawn). It used to open the terminal window at once, the one way in that skipped the modal; the
+    // terminal is one click further, from the session's own "Open terminal" there.
     const dead = /dead/i.test(s.state || '');
     return `
-    <li data-entry="open a screen"><a href data-open-terminal="${esc(s.session)}" title="${esc(s.session)}${
+    <li data-entry="open a screen"><a href="/screens?session=${encodeURIComponent(s.session)}" title="${esc(s.session)}${
       s.started ? ` · started ${esc(s.started)}` : ''}">
       ${isAgent ? iconHtml('tabler:robot-face', 0.7) : '<span uk-icon="icon: laptop; ratio: .7"></span>'} ${esc(short)}
       <span class="screen-item-state">${
