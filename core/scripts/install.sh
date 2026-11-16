@@ -6,7 +6,7 @@
 ## Installs (or verifies) everything the Webship Workspace needs on a fresh
 ## machine: git, gh, curl, wget, jq, rsync, unzip, zip, sed, vim, links, lynx,
 ##          diffutils, htop, p7zip-full, gcc, g++, make, python3, gawk, screen, Node.js
-## (npm + npx, which also powers the skills.sh CLI), Docker, DDEV and
+## (npm + npx), Docker, DDEV and
 ## gitlab-ci-local, Claude Code, mkcert, and what each installed plugin asks for. Idempotent: whatever is already
 ## is left alone.
 ##
@@ -251,12 +251,6 @@ report mkcert  "package manager — signs the https certificates DDEV serves";
 report gitlab-ci-local "npm -g gitlab-ci-local";
 report claude  "npm -g @anthropic-ai/claude-code";
 echo "";
-if have npx ; then
-  echo "  ✓ skills.sh CLI    runs through npx (npx skills …), nothing to install";
-else
-  echo "  ✗ skills.sh CLI    needs npx (comes with Node.js)";
-fi
-echo "";
 # The hub domain, for the URLs this survey prints. Read from settings.yml when it is
 # there, so a machine with a custom hub_domain is told its own address rather than the
 # default one.
@@ -463,7 +457,7 @@ if missing gh && confirm "Install the GitHub CLI (gh)?" ; then
   esac
 fi
 
-if missing node && confirm "Install Node.js 24 (brings npm, npx and the skills.sh CLI)?" ; then
+if missing node && confirm "Install Node.js 24 (brings npm and npx)?" ; then
   case "${PKG}" in
     apt)
       wget -qO- https://deb.nodesource.com/setup_24.x | ${SUDO} bash - ;

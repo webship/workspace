@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# `--add <source>` and `--update`: the skills.sh verbs, on top of the lock file.
+# `--add <source>` and `--update`, on top of the lock file.
 #
 #   add     any GitHub repo -> ~/.claude (or one project's .claude/) + lock entry
 #   update  re-copy every lock entry whose source moved, nothing else
@@ -111,41 +111,11 @@ function ai_items_discover() {
   fi | sort -u ;
 }
 
-# The skills.sh CLI (github.com/vercel-labs/skills) is the ecosystem's own installer
-# for the skills kind — same SKILL.md format, richer source support, its own lock and
-# `update`. Delegate to it when node is here; agents and prompts stay on the bash path
-# because that CLI only handles skills. AI_ITEMS_NO_SKILLS_CLI=1 opts out.
-function ai_items_skills_cli_available() {
-  [ -n "${AI_ITEMS_NO_SKILLS_CLI}" ] && return 1 ;
-  command -v npx > /dev/null 2>&1 ;
-}
-
-# DISABLE_TELEMETRY: the CLI reports installed skill names to skills.sh for its
-# leaderboard — fine for public repos, not for client or private ones, so off always.
-function ai_items_skills_cli_add() {
-  local name="$1" source="$2" to="$3";
-  local skill_filter="${name:-*}";
-  [ "${skill_filter}" == '_all_' ] && skill_filter='*' ;
-  echo "Using the skills.sh CLI (npx skills add) — its own lock manages these; agents and prompts stay on the workspace tooling." ;
-  if [ -z "${to}" ] || [ "${to}" == '_none_' ] || [ "${to}" == 'claude' ] ; then
-    DISABLE_TELEMETRY=1 npx -y skills add "${source}" --skill "${skill_filter}" -a claude-code --copy -g -y ;
-  else
-    local project_dir="${WORKSPACE_ROOT}/${to}";
-    [ -d "${project_dir}" ] || { echo "No ${to}." >&2 ; return 1 ; }
-    ( cd "${project_dir}" && DISABLE_TELEMETRY=1 npx -y skills add "${source}" --skill "${skill_filter}" -a claude-code --copy -y ) ;
-  fi
-}
-
-function ai_items_skills_cli_update() {
-  local to="$1";
-  if [ -z "${to}" ] || [ "${to}" == '_none_' ] || [ "${to}" == 'claude' ] ; then
-    DISABLE_TELEMETRY=1 npx -y skills update -g -y ;
-  else
-    local project_dir="${WORKSPACE_ROOT}/${to}";
-    [ -d "${project_dir}" ] || return 0 ;
-    ( cd "${project_dir}" && DISABLE_TELEMETRY=1 npx -y skills update -p -y ) ;
-  fi
-}
+# Skills are fetched the way agents and commands are: read with git, copied as files, locked here.
+# The skills.sh installer is not used: it is a third-party package that would be downloaded and run
+# on this machine, with a lock of its own, on an add, an update and even a check. A skills.sh address
+# is still a source: `--source-add skills.sh/owner/repo/skill` reads the GitHub repository behind it
+# (core/docs/ai-items-any-cli.md).
 
 # Install items of one kind from any GitHub repo, and lock what was copied.
 #   name    one item, or _all_/empty for everything discovered
@@ -154,13 +124,6 @@ function ai_items_skills_cli_update() {
 function ai_items_add() {
   local kind="$1" name="$2" source="$3" to="${4:-}";
   name=$(ai_items_sanitize_name "${name}") || return 1 ;
-
-  if [ "${kind}" == 'ai-skills' ] && ai_items_skills_cli_available ; then
-    if ai_items_skills_cli_add "${name}" "${source}" "${to}" ; then
-      return 0 ;
-    fi
-    echo "skills.sh CLI could not add it — falling back to the workspace installer." ;
-  fi
 
   local parsed owner_repo ref subpath;
   parsed=$(ai_items_parse_source "${source}") || return 1 ;
@@ -217,8 +180,6 @@ function ai_items_update() {
   local target; target=$(ai_items_install_path "${kind}" "${to}") || return 1 ;
   local lock_file; lock_file=$(ai_items_lock_file "${target}") ;
 
-  # No workspace-tracked entries is not "nothing to do" for skills: the
-  # skills.sh CLI keeps its own lock, and its update below still runs.
   local rows="";
   if [ -f "${lock_file}" ]; then
     rows=$(ai_items_lock_rows "${lock_file}" "${kind}" "${name}") ;
@@ -282,16 +243,6 @@ function ai_items_update() {
 
   [ -n "${tmp_root}" ] && rm -rf "${tmp_root}" ;
   echo "Checked ${checked}, updated ${updated}.";
-
-  # Skills the skills.sh CLI installed live in ITS lock, not this one — its own
-  # update covers them, after the workspace-tracked entries above. Its update has
-  # no per-skill filter, so a NAMED update stays on the workspace lock alone
-  # rather than refreshing every CLI-tracked skill as a side effect.
-  if [ "${kind}" == 'ai-skills' ] && ai_items_skills_cli_available \
-     && { [ -z "${name}" ] || [ "${name}" == '_all_' ] ; } ; then
-    echo "skills.sh CLI (npx skills update):" ;
-    ai_items_skills_cli_update "${to}" || echo "  (skills.sh CLI update failed — workspace-tracked items above are done)" ;
-  fi
 
   [ "${updated}" -gt 0 ] && echo "Restart your Claude Code session to pick the updates up." ;
   return 0 ;

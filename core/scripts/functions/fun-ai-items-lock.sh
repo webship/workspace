@@ -100,7 +100,6 @@ function ai_items_check() {
   local lock_file; lock_file=$(ai_items_lock_file "${target}") ;
   if [ ! -f "${lock_file}" ]; then
     echo "No lock file at ${lock_file} — nothing workspace-tracked yet (installed before checking existed, or copied by hand).";
-    ai_items_skills_cli_check "${kind}" "${to}" ;
     return 0 ;
   fi
 
@@ -111,7 +110,6 @@ function ai_items_check() {
   local rows; rows=$(ai_items_lock_rows "${lock_file}" "${kind}" "${name}") ;
   if [ -z "${rows}" ]; then
     echo "  Nothing workspace-tracked for '${name:-_all_}'.";
-    ai_items_skills_cli_check "${kind}" "${to}" ;
     return 0 ;
   fi
 
@@ -159,17 +157,5 @@ function ai_items_check() {
     printf "  %-32s %-14s %s\n" "${item_name}" "(${source_type})" "${status}";
   done <<< "${rows}"
 
-  ai_items_skills_cli_check "${kind}" "${to}" ;
   return 0 ;
-}
-
-# Skills the skills.sh CLI installed live in ITS lock — its own `check` covers them.
-# Global scope only: that CLI's check reads ~/.agents/.skill-lock.json, not a project's.
-function ai_items_skills_cli_check() {
-  local kind="$1" to="$2";
-  [ "${kind}" == 'ai-skills' ] || return 0 ;
-  ai_items_skills_cli_available || return 0 ;
-  if [ -n "${to}" ] && [ ! "${to}" == '_none_' ] && [ ! "${to}" == 'claude' ] ; then return 0 ; fi
-  echo "skills.sh CLI (npx skills check):" ;
-  DISABLE_TELEMETRY=1 npx -y skills check || echo "  (skills.sh CLI check failed — the workspace-tracked report above stands)" ;
 }

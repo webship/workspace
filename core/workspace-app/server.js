@@ -4185,7 +4185,7 @@ function pageActionGroups(context) {
           sync('claude', 'home', 'From ~/.claude', `Copy this machine's webship-* ${meta.nounPlural} into this folder`),
           sync('install', 'push', 'Install all', `Install all of this folder's ${meta.nounPlural} into ~/.claude`, true),
           btn('default', 'plus-circle', 'Add from GitHub', `hx-get="/fragments/${esc(key)}/add-form" ${out}`,
-              `Install ${meta.nounPlural} from any GitHub repo${key === 'ai-skills' ? ' — skills go through the skills.sh CLI' : ''}`),
+              `Install ${meta.nounPlural} from any GitHub repo`),
           sync('check', 'search', 'Check installed', `Compare installed ${meta.nounPlural} against their source, changing nothing`),
           sync('update', 'refresh', 'Update installed', `Re-install every tracked ${meta.noun} into ~/.claude whose source moved`, true),
         ]),
@@ -7882,8 +7882,7 @@ Summarise what you changed and how to verify it`,
         return res.end(`
           <div class="uk-card uk-card-default uk-card-body uk-margin-top editor-card">
             <h3 class="uk-margin-small-bottom">Add ${esc(meta.nounPlural)} from any GitHub repo</h3>
-            <p class="uk-text-meta">owner/repo, owner/repo@branch, or a github.com URL — a /tree/ URL picks a branch and folder.${
-              key === 'ai-skills' ? ' Skills install through the <a href="https://skills.sh" target="_blank">skills.sh</a> CLI when Node is available, with its security assessment shown.' : ''}
+            <p class="uk-text-meta">owner/repo, owner/repo@branch, or a github.com URL — a /tree/ URL picks a branch and folder.
               Review third-party ${esc(meta.nounPlural)} before use — a session runs them with its full permissions.</p>
             <form class="uk-grid uk-grid-small" uk-grid hx-post="/actions/add-item" hx-target="#webship-workspace-output" hx-swap="innerHTML">
               <input type="hidden" name="workspace" value="${esc(key)}">
