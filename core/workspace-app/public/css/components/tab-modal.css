@@ -117,9 +117,13 @@
 .tabmodal-pane .nav-save,
 .tabmodal-pane .modal-actions { margin-inline: -1.5rem; padding-inline: 1.5rem; }
 
+/* Below 960px the list sits above the pane. Its row takes what the list needs, up to 45% of the modal: a
+   fixed 11rem went mostly to the title and the filter, and 68 tabs scrolled in an 84px box, two in view
+   at 390px. The title and its subtitle share a line. */
 @media (max-width: 59.9375em) {
-  .tabmodal { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
-  .tabmodal-nav { max-height: 11rem; border-right: 0; border-bottom: 1px solid var(--line); }
+  .tabmodal { grid-template-columns: 1fr; grid-template-rows: fit-content(45%) minmax(0, 1fr); }
+  .tabmodal-nav { padding-top: 0.75rem; border-right: 0; border-bottom: 1px solid var(--line); }
+  .tabmodal-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.5rem; padding-bottom: 0.375rem; }
 }
 
 /* ---------- The editor modal's own frame, for every modal ---------- */
