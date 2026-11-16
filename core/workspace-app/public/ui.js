@@ -927,7 +927,14 @@ document.addEventListener('shown', (e) => {
   let kept = null;
   const controls = (row) => [...row.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
     .filter((el) => !el.closest('.uk-dropdown'));
-  const nameOf = (row) => { const t = row.querySelector('.pcard-title'); return t ? (t.getAttribute('title') || t.textContent.trim()) : ''; };
+  // A project card by its title; an item row (a doc, an agent, a skill…) by its machine name, which it has
+  // instead — without it, closing a doc's editor gave focus back to Edit and the redraw took it away.
+  const nameOf = (row) => {
+    const t = row.querySelector('.pcard-title');
+    if (t) return t.getAttribute('title') || t.textContent.trim();
+    const m = row.querySelector('.item-machine');
+    return m ? `item:${m.textContent.trim()}` : '';
+  };
   document.body.addEventListener('htmx:before:swap', (e) => {
     kept = null;
     const a = document.activeElement;
