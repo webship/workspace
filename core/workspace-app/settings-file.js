@@ -35,13 +35,16 @@ const NOT_SECRET_PATHS = new Set(['account.pass']);
 
 const SECRET_NAME = /^(pass|password|passwd|token|api_key|apikey|secret|secret_key)$/i;
 const SECRET_SUFFIX = /(^|_)(token|secret|api_key|apikey|password|passwd)$/i;
+// The word `secret` anywhere in the name: AWS's `secret_access_key` was shown in clear (#431). Not `secrets`,
+// which names a map (below) or a switch about them (`scan_for_secrets`).
+const SECRET_WORD = /(^|_)secret(_|$)/i;
 // A map of secrets is named in the plural and keyed by whatever each one belongs to
 // (`api_tokens: { <account>: <token> }`): the keys under it say nothing, the name above them does.
 const SECRET_MAP = /(^|_)(tokens|secrets|api_keys|apikeys|passwords)$/i;
 
 function isSecretKey(key, dotted) {
   if (dotted && NOT_SECRET_PATHS.has(dotted)) return false;
-  if (SECRET_NAME.test(key) || SECRET_SUFFIX.test(key)) return true;
+  if (SECRET_NAME.test(key) || SECRET_SUFFIX.test(key) || SECRET_WORD.test(key)) return true;
   const above = dotted ? String(dotted).split('.').slice(0, -1) : [];
   return above.some((k) => SECRET_MAP.test(k));
 }
