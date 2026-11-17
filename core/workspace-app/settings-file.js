@@ -79,6 +79,23 @@ function listSettingsFiles() {
   return files.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 }
 
+/**
+ * A scalar as YAML reads it, for a field to show: `"https://x"` → `https://x`, `'it''s'` → `it's`, `""` → ``.
+ * The form showed the quotes, and a person who typed at the end of the value saved them into it (#330).
+ */
+function unquote(value) {
+  const v = String(value == null ? '' : value);
+  if (/^"[\s\S]*"$/.test(v) && v.length >= 2) {
+    try { return JSON.parse(v); } catch (_) { return v.slice(1, -1); }
+  }
+  if (/^'[\s\S]*'$/.test(v) && v.length >= 2) return v.slice(1, -1).replace(/''/g, "'");
+  return v;
+}
+
+/** The quote a scalar is written in on its line: '"', "'" or ''. */
+const quoteOf = (value) => (/^"[\s\S]*"$/.test(String(value)) && String(value).length >= 2 ? '"'
+  : /^'[\s\S]*'$/.test(String(value)) && String(value).length >= 2 ? "'" : '');
+
 // Flatten a settings file into editable rows, straight from its lines so the
 // order matches the file and nothing is invented.
 //
@@ -126,7 +143,9 @@ function rowsFromText(text) {
       if (/^\s*-\s+/.test(next)) rows.push({ line: i, dotted, key, value: '', list: true });
       return;
     }
-    rows.push({ line: i, dotted, key, value, leaf: String(dotted).split('.').slice(-1)[0], secret: isSecretKey(key, dotted), comment });
+    // `value` is the text on the line (quotes and all); `display` is what YAML reads, which a field shows; `quote`
+    // is how the line wrote it, so a save keeps a quoted value quoted.
+    rows.push({ line: i, dotted, key, value, display: unquote(value), quote: quoteOf(value), leaf: String(dotted).split('.').slice(-1)[0], secret: isSecretKey(key, dotted), comment });
   });
   return rows;
 }
@@ -137,7 +156,7 @@ function writeSettingsValues(file, updates) {
   const full = path.join(CONFIG_DIR, file);
   const lines = fs.readFileSync(full, 'utf8').split('\n');
   let changed = 0;
-  for (const { line, key, value, bool } of updates) {
+  for (const { line, key, value, bool, quote = '' } of updates) {
     const cur = lines[line];
     if (!cur) continue;
     const m = cur.match(/^(\s*)([A-Za-z0-9_.-]+):(\s*)(.*)$/);
@@ -149,7 +168,10 @@ function writeSettingsValues(file, updates) {
     const quoted = /^(".*"|'.*')$/.test(value);
     const needsQuote = !bool && !quoted
       && (/[:#]|^\s|\s$|^[@`!&*%|>{}\[\]?]|^-\s|^-$/.test(value) || (value !== '' && /^(y|n|yes|no|true|false|on|off|null|~)$/i.test(value)));
-    const out = needsQuote ? JSON.stringify(value) : value;
+    // A value the line wrote in quotes stays in them, so an emptied `account: ""` is still a string, not null.
+    const keepQuote = !bool && !quoted && quote;
+    const out = keepQuote === "'" ? `'${value.replace(/'/g, "''")}'`
+      : (keepQuote || needsQuote) ? JSON.stringify(value) : value;
     lines[line] = `${indentStr}${k}:${gap || ' '}${out}${comment ? comment[0] : ''}`;
     changed += 1;
   }
@@ -456,6 +478,7 @@ module.exports = {
   settingsTextForTerminal,
   writeSettingsText,
   rowsFromText,
+  unquote,
   SECRET_MASK,
   readListBlock,
   writeListBlock,

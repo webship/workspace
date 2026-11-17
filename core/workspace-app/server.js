@@ -2130,8 +2130,8 @@ function authorPreview(file, group) {
   // says so in its placeholder, but that is invisible once the field is focused and says
   // nothing about the username beside it.
   const state = group.rows.map((r) => {
-    const set = !unset(r.value);
-    return `<span class="cred-state ${set ? 'is-set' : ''}">${esc(r.leaf || r.dotted)}: ${set ? (r.secret ? 'set' : esc(r.value)) : 'not set'}</span>`;
+    const set = !unset(r.display);
+    return `<span class="cred-state ${set ? 'is-set' : ''}">${esc(r.leaf || r.dotted)}: ${set ? (r.secret ? 'set' : esc(r.display)) : 'not set'}</span>`;
   }).join('');
   return `<p class="settings-author uk-text-meta">Commits here will be authored as
     <code>--author="${esc(name || '(no contributor.name)')} &lt;${esc(email || '(no email)')}&gt;"</code>${
@@ -2240,14 +2240,14 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
         ${keyHtml(r, id, meta.label(r.dotted) || r.leaf || r.dotted, true)}
         <input class="uk-input" id="${id}"${describedBy(r, id)} name="v_${r.line}" type="password" value=""
-               placeholder="${r.value ? 'set — leave blank to keep it' : 'not set'}" autocomplete="new-password">
+               placeholder="${r.display ? 'set — leave blank to keep it' : 'not set'}" autocomplete="new-password">
         <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
         <input type="hidden" name="secret_${r.line}" value="1">
       </div>`;
     }
     const options = pluginOptionsByKey[r.dotted] || meta.options(r.dotted);
     if (options) {
-      const cur = String(r.value).trim();
+      const cur = String(r.display).trim();
       // An unknown value is kept as an extra option rather than silently corrected: the file
       // says one thing and the form must not quietly say another.
       const known = options.some(([v]) => v === cur);
@@ -2271,7 +2271,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
     // `speechSynthesis` has enumerated them. Rendered as a plain select so it still works, and still
     // submits the saved value, if that script never runs.
     if (r.dotted === 'assistant.voice_name') {
-      const cur = String(r.value).trim();
+      const cur = String(r.display).trim();
       const isDefault = ['default', 'auto', 'none', ''].includes(cur.toLowerCase());
       return `
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
@@ -2290,7 +2290,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
         ${keyHtml(r, id, meta.label(r.dotted) || r.leaf || r.dotted)}
         <input class="uk-input settings-number" id="${id}"${describedBy(r, id)} name="v_${r.line}" type="number"
-               value="${esc(String(r.value).trim())}"
+               value="${esc(String(r.display).trim())}"
                min="${numeric.min}" max="${numeric.max}" step="${numeric.step}"
                inputmode="decimal">
         ${numeric.unit ? `<span class="uk-text-meta settings-unit">${esc(numeric.unit)}</span>` : ''}
@@ -2313,16 +2313,16 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
         <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
       </div>`;
     }
-    if (isImageKey(r.key, r.value)) {
-      const exists = r.value && fs.existsSync(path.join(PUBLIC_DIR, r.value));
+    if (isImageKey(r.key, r.display)) {
+      const exists = r.display && fs.existsSync(path.join(PUBLIC_DIR, r.display));
       return `
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
         ${keyHtml(r, id, meta.label(r.dotted) || r.leaf || r.dotted)}
         <div class="image-field">
           <span class="image-preview">${exists
-            ? `<img src="/${esc(r.value)}" alt="">`
+            ? `<img src="/${esc(r.display)}" alt="">`
             : `<span class="image-missing" title="No such file in public/">?</span>`}</span>
-          <input class="uk-input" id="${id}"${describedBy(r, id)} name="v_${r.line}" value="${esc(r.value)}" data-mic="0"
+          <input class="uk-input" id="${id}"${describedBy(r, id)} name="v_${r.line}" value="${esc(r.display)}" data-mic="0"
                  data-image-field="1" autocomplete="off">
           <button class="uk-button uk-button-default uk-button-small" type="button"
                   hx-get="/fragments/settings/images?target=${encodeURIComponent(id)}"
@@ -2335,7 +2335,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
     return `
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
         ${keyHtml(r, id, meta.label(r.dotted) || r.leaf || r.dotted)}
-        <input class="uk-input" id="${id}"${describedBy(r, id)} name="v_${r.line}" value="${esc(r.value)}">
+        <input class="uk-input" id="${id}"${describedBy(r, id)} name="v_${r.line}" value="${esc(r.display)}">
         <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
       </div>`;
   };
@@ -5432,8 +5432,9 @@ async function handleAction(pathname, form, res, req = null) {
       // so the last value is the answer; String(['false','true']) would write "false,true".
       const value = String((Array.isArray(raw) ? raw[raw.length - 1] : raw) ?? '');
       if (form[`secret_${r.line}`] === '1' && value === '') { keptSecrets += 1; continue; }
-      if (value === r.value) continue;
-      updates.push({ line: r.line, key: r.key, value,
+      // The field showed the value as YAML reads it (#330): unchanged means equal to that, or to the line itself.
+      if (value === r.display || value === r.value) continue;
+      updates.push({ line: r.line, key: r.key, value, quote: r.quote,
         // The row already held a boolean, and the new value is one: write it unquoted so it
         // stays a YAML boolean. Quoting made `active: "true"` — a string, which the shell
         // reader compares against 'true' and never matches.
