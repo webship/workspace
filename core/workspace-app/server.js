@@ -87,7 +87,7 @@ const {
 // Optional features workspaces turn on from settings.yml `plugins:` — see PLUGINS.md.
 const {
   pluginActions, pluginFragment, pluginPage, pluginScripts, pluginScript, pluginUpload, pluginPageActionGroups, pluginProjectActionsHtml,
-  pluginRowMenus, menuShellHtml, pluginRowMenuSlot, pluginRowMenuBody, pluginWorkspaceView, pluginOpenWith, pluginFolderLinks, pluginProjectChipsHtml, pluginLabels,
+  pluginRowMenus, menuShellHtml, pluginRowMenuSlot, pluginRowMenuBody, pluginWorkspaceView, pluginOpenWith, pluginFolderLinks, pluginProjectChipsHtml, pluginLabels, pluginLabelsFor,
   pluginProjectBadgesHtml, pluginSettingsOptions, pluginWorkKeyLink, pluginWorkPrompt,
 } = require('./plugin-loader');
 // How a project row is arranged — the order of its buttons and of what is inside their menus (Commands → Buttons).
@@ -1449,19 +1449,34 @@ const { panelConfig, assistantIdentity, LANGUAGES, assistantSettings: speechAssi
  * Read fresh whenever the file changes, like every other settings file here: editing a label should
  * show up on reload, not on a restart.
  */
-let _labels = { at: 0, data: {} };
-function fieldMeta() {
+let _labels = { at: 0, data: {}, base: {} };
+function fieldMeta({ baseOnly = false } = {}) {
   const file = path.join(CONFIG_DIR, 'settings.labels.yml');
   try {
     const stamp = fs.statSync(file).mtimeMs;
-    // The plugins' labels under the file's: a plugin's own settings file is labelled by the plugin.
-    if (stamp !== _labels.at) _labels = { at: stamp, data: { ...pluginLabels(), ...(yamlLoad(fs.readFileSync(file, 'utf8')) || {}) } };
+    if (stamp !== _labels.at) {
+      const base = yamlLoad(fs.readFileSync(file, 'utf8')) || {};
+      // The plugins' labels under the file's, for the files no plugin owns (settings.yml, a workspace's).
+      _labels = { at: stamp, data: { ...pluginLabels(), ...base }, base };
+    }
   } catch (_) {
     // Absent or unreadable: every row falls back to its raw key, which is what shipped before this
     // file existed. A broken label file must not take the settings page down with it.
-    _labels = { at: 0, data: {} };
+    _labels = { at: 0, data: {}, base: {} };
   }
-  return _labels.data;
+  return baseOnly ? _labels.base : _labels.data;
+}
+
+/** The plugin that owns a settings file (its manifest's `settingsFile`, else `plugin.<name>.settings.yml`), or ''. */
+function settingsFileOwner(file) {
+  const named = (String(file || '').match(/^plugin\.(.+)\.settings\.yml$/) || [])[1] || '';
+  if (!named) return '';
+  try {
+    const { installedPlugins } = require('./plugin-manifest');
+    const p = installedPlugins().find((x) => x.manifest && x.manifest.settingsFile === file);
+    if (p) return p.name;
+  } catch (_) { /* no manifests to read: the file's own name says it */ }
+  return named;
 }
 
 /**
@@ -1473,25 +1488,38 @@ function fieldMeta() {
  * the `style.` entry it used to have. The old paths keep working for anyone whose settings.yml
  * still carries the block.
  */
-const metaFor = (dotted) => {
+const metaFor = (dotted, file = '', owner = settingsFileOwner(file)) => {
+  // A plugin's own file is labelled by that plugin, then by the dashboard's own labels — never by another
+  // plugin: Google Drive's client_id read "Service principal client id" (Azure's), GoDaddy's api_key
+  // "Acquia API key", GitLab's token GitHub's hint (#328).
+  if (owner) {
+    const own = pluginLabelsFor(owner);
+    const base = fieldMeta({ baseOnly: true });
+    return own[dotted] || base[dotted] || base[`style.${dotted}`] || {};
+  }
   const meta = fieldMeta();
   return meta[dotted] || meta[`style.${dotted}`] || {};
 };
-const FIELD_LABELS = new Proxy({}, { get: (_, k) => metaFor(String(k)).label });
-const FIELD_HINTS = new Proxy({}, { get: (_, k) => metaFor(String(k)).info });
-const FIELD_NUMBERS = new Proxy({}, { get: (_, k) => metaFor(String(k)).number });
-const FIELD_ENUMS = new Proxy({}, {
-  get: (_, k) => {
-    const o = metaFor(String(k)).options;
-    if (!o) return undefined;
-    // The language list is owned by speech.js, which validates against it. A copy here would drift.
-    if (o === 'from:speech-languages') return LANGUAGES;
-    // The themes on disk, so choosing one is a pick from what exists rather than a name typed from
-    // memory. themes.js owns the list; a copy here would go stale the first time one is added.
-    if (o === 'from:themes') return listThemes().map((t) => [t, `${themeLabel(t)} (${t})`]);
-    return Object.entries(o).map(([v, label]) => [v, label]);
-  },
-});
+/** The label, hint, number and options of the keys of ONE settings file: what its form asks. */
+const fieldMetaFor = (file) => {
+  const owner = settingsFileOwner(file);   // once per form: it reads the manifests
+  return {
+    label: (dotted) => metaFor(String(dotted), file, owner).label,
+    info: (dotted) => metaFor(String(dotted), file, owner).info,
+    number: (dotted) => metaFor(String(dotted), file, owner).number,
+    options: (dotted) => enumOptions(metaFor(String(dotted), file, owner).options),
+  };
+};
+/** A label file's `options`, as [value, label] pairs. */
+function enumOptions(o) {
+  if (!o) return undefined;
+  // The language list is owned by speech.js, which validates against it. A copy here would drift.
+  if (o === 'from:speech-languages') return LANGUAGES;
+  // The themes on disk, so choosing one is a pick from what exists rather than a name typed from
+  // memory. themes.js owns the list; a copy here would go stale the first time one is added.
+  if (o === 'from:themes') return listThemes().map((t) => [t, `${themeLabel(t)} (${t})`]);
+  return Object.entries(o).map(([v, label]) => [v, label]);
+}
 
 /**
  * A file name, as code.
@@ -1846,6 +1874,8 @@ function listEditorHtml(file, key, message, deleting) {
   const slug = key === 'workspaces' ? '' : `-${key.replace(/[^a-z0-9]+/g, '-')}`;
   const editorId = `list-editor${slug}`;
   const newId = `list-new${slug}`;
+  // Its name is the label of this file's key (a plugin's own list is labelled by that plugin, #328), else the key.
+  const listLabel = metaFor(key, file).label || key;
   const rows = block.items.map((name, i) => {
     const known = all[name];
     if (!ordered) {
@@ -1876,7 +1906,7 @@ function listEditorHtml(file, key, message, deleting) {
 
   // Trimmed: an outerHTML swap of text that starts with whitespace hands the after-swap handlers a text node.
   return `<div class="settings-row settings-row-block" id="${editorId}">
-      <label class="settings-key">${esc(key)} <span class="uk-text-meta">(${block.items.length}${ordered ? ', in card order' : ''})</span></label>
+      <label class="settings-key" for="${newId}">${esc(listLabel)} <span class="uk-text-meta">(${block.items.length}${ordered ? ', in card order' : ''})</span></label>
       <div>
         ${message || ''}
         ${ordered
@@ -1884,7 +1914,7 @@ function listEditorHtml(file, key, message, deleting) {
               data-file="${esc(file)}" data-key="${esc(key)}">${rows}</ol>`
           : `<ul class="set-list${block.items.length > 40 ? ' set-list-scroll' : ''}">${rows}</ul>`}
         <div class="ws-add">
-          <input class="uk-input" id="${newId}" name="newEntry"
+          <input class="uk-input" id="${newId}" name="newEntry" aria-label="Add to ${esc(listLabel)}"
                  placeholder="${esc(lm.placeholder || `new ${key.split('.').pop().replace(/s$/, '').replace(/_/g, ' ')}`)}"
                  pattern="${esc(lm.pattern || '[a-zA-Z0-9_.\-]+')}" autocomplete="off">
           <button type="button" form="list-editor-form" class="uk-button uk-button-primary uk-button-small"
@@ -1994,8 +2024,8 @@ let _cliStatusAt = 0;
 
 
 
-function fieldHint(dotted) {
-  const text = FIELD_HINTS[dotted]
+function fieldHint(dotted, meta = fieldMetaFor('')) {
+  const text = meta.info(dotted)
     || (/^git\.[a-z0-9_-]+\.host$/.test(dotted) ? 'The forge this block is for.' : '')
     || (/^git\.[a-z0-9_-]+\.username$/.test(dotted) ? 'The account name that forge knows you by.' : '')
     || (/^git\.[a-z0-9_-]+\.email$/.test(dotted) ? 'Address for commits pushed there. Blank falls back to contributor.email.' : '')
@@ -2173,15 +2203,17 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
     if (o) pluginOptionsByKey[r.dotted] = o;
   }
 
+  // Labels, hints, numbers and options of THIS file's keys: a plugin's own file is labelled by that plugin only (#328).
+  const meta = fieldMetaFor(file);
   // The comment written above a key in the file is its description, unless the dashboard has its own.
-  const described = (r) => (r.comment && !FIELD_HINTS[r.dotted]
+  const described = (r) => (r.comment && !meta.info(r.dotted)
     ? `<span class="settings-desc">${esc(r.comment.length > 240 ? `${r.comment.slice(0, 237)}...` : r.comment)}</span>` : '');
   // The label is the name of the field and nothing else. What explains it (the dashboard's hint, the
   // comment above the key in the file) and what is still to do (a value that is the placeholder) sit
   // beside it and are tied to the control with aria-describedby: a screen reader used to read a
   // 190-character paragraph as the name of a field, every time focus landed on it.
   const isTodo = (r) => !r.list && /CHANGE_ME/.test(String(r.value || ''));
-  const explained = (r) => `${fieldHint(r.dotted)}${described(r)}`;
+  const explained = (r) => `${fieldHint(r.dotted, meta)}${described(r)}`;
   const describedBy = (r, id) => {
     const ids = [explained(r) ? `${id}-hint` : '', isTodo(r) ? `${id}-todo` : ''].filter(Boolean);
     return ids.length ? ` aria-describedby="${ids.join(' ')}"` : '';
@@ -2206,14 +2238,14 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
     if (r.secret) {
       return `
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
-        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf || r.dotted, true)}
+        ${keyHtml(r, id, meta.label(r.dotted) || r.leaf || r.dotted, true)}
         <input class="uk-input" id="${id}"${describedBy(r, id)} name="v_${r.line}" type="password" value=""
                placeholder="${r.value ? 'set — leave blank to keep it' : 'not set'}" autocomplete="new-password">
         <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
         <input type="hidden" name="secret_${r.line}" value="1">
       </div>`;
     }
-    const options = pluginOptionsByKey[r.dotted] || FIELD_ENUMS[r.dotted];
+    const options = pluginOptionsByKey[r.dotted] || meta.options(r.dotted);
     if (options) {
       const cur = String(r.value).trim();
       // An unknown value is kept as an extra option rather than silently corrected: the file
@@ -2221,7 +2253,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
       const known = options.some(([v]) => v === cur);
       return `
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
-        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}
+        ${keyHtml(r, id, meta.label(r.dotted) || r.leaf || r.dotted)}
         <select class="uk-select" id="${id}"${describedBy(r, id)} name="v_${r.line}">
           ${options.map(([v, label]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(label)}</option>`).join('')}
           ${known ? '' : `<option value="${esc(cur)}" selected>${esc(cur)} — not a known value</option>`}
@@ -2243,7 +2275,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
       const isDefault = ['default', 'auto', 'none', ''].includes(cur.toLowerCase());
       return `
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
-        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf)}
+        ${keyHtml(r, id, meta.label(r.dotted) || r.leaf)}
         <select class="uk-select" id="${id}"${describedBy(r, id)} name="v_${r.line}" data-voice-name>
           <option value="default"${isDefault ? ' selected' : ''}>Default for the dictation language</option>
           ${isDefault ? '' : `<option value="${esc(cur)}" selected>${esc(cur)}</option>`}
@@ -2252,11 +2284,11 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
         <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
       </div>`;
     }
-    const numeric = FIELD_NUMBERS[r.dotted];
+    const numeric = meta.number(r.dotted);
     if (numeric) {
       return `
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
-        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}
+        ${keyHtml(r, id, meta.label(r.dotted) || r.leaf || r.dotted)}
         <input class="uk-input settings-number" id="${id}"${describedBy(r, id)} name="v_${r.line}" type="number"
                value="${esc(String(r.value).trim())}"
                min="${numeric.min}" max="${numeric.max}" step="${numeric.step}"
@@ -2272,7 +2304,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
       // When checked, both arrive and the later one wins (see the array handling in the save).
       return `
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
-        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}
+        ${keyHtml(r, id, meta.label(r.dotted) || r.leaf || r.dotted)}
         <label class="settings-toggle">
           <input type="hidden" name="v_${r.line}" value="false">
           <input class="settings-switch" type="checkbox" role="switch" id="${id}"${describedBy(r, id)} name="v_${r.line}" value="true" ${on ? 'checked' : ''}>
@@ -2285,7 +2317,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
       const exists = r.value && fs.existsSync(path.join(PUBLIC_DIR, r.value));
       return `
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
-        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}
+        ${keyHtml(r, id, meta.label(r.dotted) || r.leaf || r.dotted)}
         <div class="image-field">
           <span class="image-preview">${exists
             ? `<img src="/${esc(r.value)}" alt="">`
@@ -2302,7 +2334,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
     }
     return `
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
-        ${keyHtml(r, id, FIELD_LABELS[r.dotted] || r.leaf || r.dotted)}
+        ${keyHtml(r, id, meta.label(r.dotted) || r.leaf || r.dotted)}
         <input class="uk-input" id="${id}"${describedBy(r, id)} name="v_${r.line}" value="${esc(r.value)}">
         <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
       </div>`;

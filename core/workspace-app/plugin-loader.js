@@ -97,6 +97,10 @@ const cssFiles = [];         // absolute paths, appended to the stylesheet after
 const scriptFiles = [];      // { plugin, name, file }: browser scripts, served at /plugin-js/<plugin>/<name> and loaded after ui.js
 const uploads = {};          // '/actions/p/<plugin>/<name>' -> { handler({ req, res, body, searchParams, json }), maxBytes }
 let labels = {};             // settings labels, merged into settings.labels.yml's
+// The same labels kept with the plugin that gave them: '<plugin>' -> { '<dotted key>': { label, info, … } }. A plugin's
+// own settings file is labelled from its own map only, so two plugins with the same key (client_id, token, host)
+// never lend each other a label (#328).
+const labelsByPlugin = {};
 const badgeFns = [];         // ({ key, project, dir, sessions }) -> html | null, in the card's corner, refreshed with the screens poll
 const settingsOptionFns = []; // ({ file, dotted }) -> Promise<[value, label][] | null>
 const screenStartFns = [];   // async ({ session, workKey, workspace, project, dir, form }) -> html | ''
@@ -242,6 +246,7 @@ function makeApi(name, config) {
     },
     addLabels(map) {
       labels = { ...labels, ...map };
+      labelsByPlugin[name] = { ...(labelsByPlugin[name] || {}), ...(map || {}) };
     },
     // A badge in the project card's corner, sent with every screens poll (so it clears itself): what an
     // agent here is working on, say. `sessions` is this project's live screen list.
@@ -328,6 +333,7 @@ function applyManifest(name, plugin) {
       const data = yaml.load(fs.readFileSync(path.join(plugin.dir, m.labels), 'utf8')) || {};
       // Both the bare key, as the plugin's own settings file is edited, and the plugin-prefixed one.
       for (const [k, v] of Object.entries(data)) { labels[k] = v; labels[`plugin.${name}.${k}`] = v; }
+      labelsByPlugin[name] = { ...(labelsByPlugin[name] || {}), ...data };
     } catch (_) { /* no labels: the keys show as they are */ }
   }
 }
@@ -637,12 +643,14 @@ function pluginScript(pathname, res) {
 /** The upload registered at this path, `{ handler, maxBytes }`, or null. */
 const pluginUpload = (pathname) => uploads[pathname] || null;
 const pluginLabels = () => labels;
+/** The labels one plugin gave for its own settings keys (its manifest's `labels` and api.addLabels), or {}. */
+const pluginLabelsFor = (name) => labelsByPlugin[name] || {};
 
 loadPlugins();
 
 module.exports = {
   pluginActions: actions, pluginFragment, pluginPage, pluginPageActionGroups, pluginProjectActionsHtml,
-  pluginRowMenus, rowMenuHtml, menuShellHtml, pluginRowMenuSlot, pluginRowMenuBody, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginScripts, pluginScript, pluginUpload, pluginLabels,
+  pluginRowMenus, rowMenuHtml, menuShellHtml, pluginRowMenuSlot, pluginRowMenuBody, pluginProjectChipsHtml, pluginFolderSetups, pluginCssFiles, pluginScripts, pluginScript, pluginUpload, pluginLabels, pluginLabelsFor,
   pluginProjectBadgesHtml, pluginSettingsOptions, pluginScreenStarted, pluginWorkKeyLink, pluginWorkPrompt, pluginSessionLog, pluginAssistantContext, pluginAssistantTurn, pluginForge, pluginForges, pluginOpenWith, pluginFolderLinks, pluginWorkspaceView,
   pluginScreensPanelsHtml,
   loadedPlugins: loaded, pluginConfigs,
