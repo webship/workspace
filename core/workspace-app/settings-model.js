@@ -129,6 +129,10 @@ function stateOf(row, { latest = '', isNewer = () => false } = {}) {
       note: 'Something it needs is no longer here',
       action: { kind: 'post', verb: 'install', label: `Add ${picksText(unmet)}`, withNeeds: true } };
   }
+  // A command it needs, checked here and not found (#433). One that cannot be checked from where the dashboard
+  // runs (the host's, seen from the dashboard's container) is not known to be missing and changes nothing.
+  const noCommand = [...new Set((row.commands || []).filter((c) => c.kind === 'needs' && c.state === 'missing').map((c) => c.name))];
+  const noCommandText = noCommand.length ? `${noCommand.join(' and ')} ${noCommand.length === 1 ? 'is' : 'are'} not on this machine` : '';
   const missing = (row.placed && row.placed.missing) || [];
   if (missing.length) {
     return { ...base, id: 'files-missing', label: 'Files missing', tone: 'warning', icon: 'tabler:file-off', attention: true,
@@ -136,9 +140,15 @@ function stateOf(row, { latest = '', isNewer = () => false } = {}) {
       action: { kind: 'post', verb: 'install', label: 'Reinstall', withNeeds: false } };
   }
   if (row.step === 2) {
+    const todo = row.todo || [];
+    const said = todo.length ? `Still the placeholder: ${todo.join(', ')}` : 'Its settings are not filled in yet';
     return { ...base, id: 'needs-settings', label: 'Needs settings', tone: 'warning', icon: 'tabler:adjustments-alt', attention: true,
-      note: 'Its settings are not filled in yet',
+      note: noCommandText ? `${said}; ${noCommandText}` : said,
       action: { kind: 'link', href: `${page}#settings`, label: 'Configure' } };
+  }
+  if (noCommand.length) {
+    return { ...base, id: 'needs-command', label: `Needs ${noCommand.join(' and ')}`, tone: 'warning', icon: 'tabler:terminal-2', attention: true,
+      note: noCommandText, action: { kind: 'link', href: `${page}#needs`, label: 'How to install' } };
   }
   return { ...base, id: 'ready', label: 'Ready', tone: 'ok', icon: 'tabler:circle-check', attention: false,
     note: '', action: { kind: 'link', href: page, label: 'Open' } };

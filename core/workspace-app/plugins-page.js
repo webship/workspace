@@ -33,11 +33,24 @@ const STEPS = ['required', 'activated', 'installed', 'configured'];
  * inside a longer value ("https://CHANGE_ME.atlassian.net"). A comment that mentions it does not count.
  */
 function hasPlaceholder(text) {
-  return String(text || '').split('\n').some((line) => {
-    if (/^\s*#/.test(line)) return false;
-    const m = line.match(/^\s*(?:-\s+)?[A-Za-z0-9_.-]+\s*:\s*(.*)$/);
-    return !!m && /CHANGE_ME/.test(m[1].replace(/\s+#.*$/, ''));
-  });
+  return placeholderKeys(text).length > 0;
+}
+
+/** The keys of a settings file whose value still holds the placeholder, dotted (`git.token`), in file order (#433). */
+function placeholderKeys(text) {
+  const keys = [];
+  const stack = [];   // [{ indent, key }]
+  for (const line of String(text || '').split('\n')) {
+    if (/^\s*#/.test(line) || !line.trim()) continue;
+    const m = line.match(/^(\s*)(?:-\s+)?([A-Za-z0-9_.-]+)\s*:\s*(.*)$/);
+    if (!m) continue;
+    const indent = m[1].length;
+    while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop();
+    const value = m[3].replace(/\s+#.*$/, '');
+    if (value.trim() === '') { stack.push({ indent, key: m[2] }); continue; }
+    if (/CHANGE_ME/.test(value)) keys.push([...stack.map((x) => x.key), m[2]].join('.'));
+  }
+  return keys;
 }
 
 /** Where a plugin is on the way to ready. */
@@ -65,7 +78,11 @@ function rows() {
   return installedPlugins().map((p) => {
     const step = stepOf(p, configs[p.name], placed[p.name]);
     const wants = needs.check(p.name, st);
-    return { ...p, step, loaded: loaded.has(p.name), placed: placed[p.name] || {}, config: configs[p.name] || {},
+    // Which keys still hold the placeholder, so "Needs settings" can say which (#433).
+    let todo = [];
+    const file = p.manifest && p.manifest.settingsFile;
+    if (file) { try { todo = placeholderKeys(fs.readFileSync(path.join(CONFIG_DIR, file), 'utf8')); } catch (_) { /* no file yet: the note says so */ } }
+    return { ...p, step, todo, loaded: loaded.has(p.name), placed: placed[p.name] || {}, config: configs[p.name] || {},
       wants, commands: commandCheck.checkOwner(p.name, p.manifest).rows, needsLine: needs.summary(wants), neededBy: [...new Set(needs.dependents(p.name, st).map((d) => d.name))] };
   });
 }
@@ -199,4 +216,4 @@ function catalogHtml(added = new Set()) {
     </section>`;
 }
 
-module.exports = { pluginsPageHtml, catalogHtml, commandsSectionHtml, rows, stepOf, hasPlaceholder, needsInstall, STEPS };
+module.exports = { pluginsPageHtml, catalogHtml, commandsSectionHtml, rows, stepOf, hasPlaceholder, placeholderKeys, needsInstall, STEPS };

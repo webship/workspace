@@ -105,13 +105,13 @@ function stepsHtml(p) {
   return `<h3 class="plugin-section-head" id="plugin-steps-head">Turn it on: ${count} step${left === 1 ? '' : 's'} left</h3>${stepsListHtml(p)}`;
 }
 
-/** What is off beside the four steps: a need that went away, files that are gone, a need that cannot be met. */
+/** What is off beside the four steps: a need that went away, files that are gone, a need that cannot be met, a command it needs that is not on this machine. */
 function alertHtml(p) {
   const s = p.state;
-  if (!['needs', 'files-missing', 'problem'].includes(s.id)) return '';
+  if (!['needs', 'files-missing', 'problem', 'needs-command'].includes(s.id)) return '';
   return `<div class="plugin-alert is-${esc(s.tone)}" role="status">
       ${iconHtml(s.icon, 1)}
-      <div><p><strong>${esc(s.label)}.</strong> ${esc(s.note)}.</p>
+      <div><p><strong>${esc(s.label)}.</strong> ${esc(s.note)}.${s.id === 'needs-command' ? ` <a href="${esc(s.action.href)}">${esc(s.action.label)}</a>.` : ''}</p>
       ${s.action.kind === 'post' ? `<p>${actionHtml(p, { primary: true })} <span class="plugin-step-command">or: <code>${esc(command(s.action.verb, p.name, s.action.withNeeds))}</code></span></p>` : ''}</div>
     </div>`;
 }
