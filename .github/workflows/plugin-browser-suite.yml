@@ -1,0 +1,112 @@
+name: plugin browser suite
+
+# Called from a plugin's own CI (`uses: webship/workspace/.github/workflows/plugin-browser-suite.yml@1.0.x`):
+# a workspace from this repository, the calling plugin added from the pull request's own code — packed
+# the way npm would publish it — with the plugins it needs (from npm), the dashboard started with node,
+# and the plugin's webship-js features run against it. No DDEV, no account, nothing outside the runner.
+# A plugin that ships no webship-js feature fails here: every plugin carries its tests.
+on:
+  workflow_call:
+    inputs:
+      base-ref:
+        description: The branch or tag of webship/workspace the plugin is tested against.
+        type: string
+        default: '1.0.x'
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    name: the plugin's webship-js features against a dashboard started in the job
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: the plugin (the code under test)
+        uses: actions/checkout@v7
+        with:
+          path: plugin
+          persist-credentials: false
+      - name: the workspace (webship/workspace)
+        uses: actions/checkout@v7
+        with:
+          repository: webship/workspace
+          ref: ${{ inputs.base-ref }}
+          path: workspace
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml screen
+      - name: install the dashboard
+        working-directory: workspace/core/workspace-app
+        run: npm ci --no-audit --no-fund
+      - name: the browser (Chromium, as playwright.config.js asks)
+        working-directory: workspace/core/workspace-app
+        run: npx playwright install --with-deps chromium
+      - name: pack the plugin as npm would publish it
+        id: plugin
+        working-directory: plugin
+        run: |
+          npm ci --no-audit --no-fund
+          echo "name=$(node -p "require('./package.json').workspacePlugin.name")" >> "$GITHUB_OUTPUT"
+          echo "tarball=$GITHUB_WORKSPACE/plugin/$(npm pack --silent | tail -1)" >> "$GITHUB_OUTPUT"
+      - name: add the plugin, with what it needs
+        working-directory: workspace
+        env:
+          # Never restart a dashboard from here: the one this job starts comes up after the install.
+          WORKSPACE_PLUGINS_NO_RESTART: '1'
+        run: |
+          bash core/scripts/plugins.sh --require "${{ steps.plugin.outputs.tarball }}"
+          bash core/scripts/plugins.sh --activate "${{ steps.plugin.outputs.name }}" --with-needs
+          bash core/scripts/plugins.sh --install "${{ steps.plugin.outputs.name }}" --with-needs
+      - name: its webship-js features are installed
+        working-directory: workspace/core/workspace-app
+        run: |
+          dir="tests/features/plugins/${{ steps.plugin.outputs.name }}"
+          n=$(find "$dir" -name '*.feature' 2>/dev/null | wc -l)
+          if [ "$n" -eq 0 ]; then
+            echo "::error::The plugin ${{ steps.plugin.outputs.name }} ships no webship-js feature: add its tests in features/ and list them in the manifest's features."
+            exit 1
+          fi
+          echo "$n feature file(s) in $dir"
+      # What scenarios tagged @needs-project-<folder> and @needs-item-<folder> read: a placeholder project
+      # (a folder with a .ddev/config.yaml, no site) in every workspace folder, and an item in the AI folders.
+      - name: a placeholder project in every workspace folder, and an AI item
+        working-directory: workspace
+        run: |
+          for ws in $(node -e "const w=require('./core/workspace-app/workspaces');console.log((w.loadSettings().workspaces||[]).join(' '))"); do
+            [ -d "$ws" ] || continue
+            mkdir -p "$ws/ci-placeholder/.ddev"
+            printf 'name: ci-placeholder-%s\ntype: php\ndocroot: web\n' "$ws" > "$ws/ci-placeholder/.ddev/config.yaml"
+          done
+          if [ -d ai-agents ]; then printf -- '---\nname: ci-placeholder-agent\ndescription: Use this agent only in CI, as the item the browser suite opens.\n---\n\nNothing to do.\n' > ai-agents/ci-placeholder-agent.md; fi
+          if [ -d ai-prompts ]; then printf 'An item the browser suite opens in CI.\n\n```\nclaude "Nothing to do."\n```\n' > ai-prompts/ci-placeholder-prompt.md; fi
+      - name: start the dashboard
+        working-directory: workspace/core/workspace-app
+        run: |
+          PORT=3000 nohup node server.js > dashboard.log 2>&1 &
+          for i in $(seq 1 60); do curl -fsS -o /dev/null http://127.0.0.1:3000/ && exit 0; sleep 1; done
+          cat dashboard.log
+          exit 1
+      - name: the plugin's webship-js features
+        working-directory: workspace/core/workspace-app
+        env:
+          LAUNCH_URL: http://127.0.0.1:3000
+          PLUGIN: ${{ steps.plugin.outputs.name }}
+        run: |
+          cat > plugin-only.cucumber.js <<'JS'
+          const base = require('./cucumber.js').default;
+          module.exports = { default: { ...base, paths: [`tests/features/plugins/${process.env.PLUGIN}/**/*.feature`] } };
+          JS
+          npx cucumber-js --config plugin-only.cucumber.js
+      - name: the report and the dashboard's log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: plugin-browser-suite
+          path: |
+            workspace/core/workspace-app/tests/reports/
+            workspace/core/workspace-app/dashboard.log
+          retention-days: 14
+          if-no-files-found: ignore
