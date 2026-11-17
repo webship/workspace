@@ -104,6 +104,8 @@ test('every file has a hint of its own: the sentence about paths and API keys is
 });
 
 test('a description that only repeats the name is not a summary', () => {
-  assert.strictEqual(model.summaryOf(plugin('some-cms', { label: 'Some CMS' }, { description: 'Some CMS for Webship Workspace: builders and tools.' })), '');
+  assert.strictEqual(model.summaryOf(plugin('some-cms', { label: 'Some CMS' }, { description: 'Some CMS for Webship Workspace.' })), '');
+  // What comes after "<Name> for Webship Workspace:" is what it is (#435).
+  assert.strictEqual(model.summaryOf(plugin('some-cms', { label: 'Some CMS' }, { description: 'Some CMS for Webship Workspace: builders and tools.' })), 'Builders and tools');
   assert.strictEqual(model.summaryOf(plugin('some-cms', { label: 'Some CMS' }, { description: 'Builders for Some CMS sites for Webship Workspace.' })), 'Builders for Some CMS sites');
 });
