@@ -2284,6 +2284,18 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
         <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
       </div>`;
     }
+    // A list or a map written on one line (`projects: []`, `targets: {}`) is not a text: typed into, it was saved as a
+    // string the plugin then ignored (#441). Shown as it is, edited in the Raw YAML tab; the form posts nothing for it.
+    const flow = String(r.value).trim();
+    if (/^\[.*\]$|^\{.*\}$/.test(flow)) {
+      return `
+      <div class="settings-row">
+        ${keyHtml(r, id, meta.label(r.dotted) || r.leaf || r.dotted)}
+        <input class="uk-input settings-readonly" id="${id}" value="${esc(flow)}" readonly aria-describedby="${id}-flow">
+        <span class="uk-text-meta" id="${id}-flow">A ${flow.startsWith('[') ? 'list' : 'map'}: edit it in the
+          <a href="/settings/${encodeURIComponent(file)}?raw=1">Raw YAML</a> tab.</span>
+      </div>`;
+    }
     const numeric = meta.number(r.dotted);
     if (numeric) {
       return `
