@@ -2240,7 +2240,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
         ${keyHtml(r, id, meta.label(r.dotted) || r.leaf || r.dotted, true)}
         <input class="uk-input" id="${id}"${describedBy(r, id)} name="v_${r.line}" type="password" value=""
-               placeholder="${r.display ? 'set — leave blank to keep it' : 'not set'}" autocomplete="new-password">
+               placeholder="${isTodo(r) ? 'not set — still the placeholder' : r.display ? 'set — leave blank to keep it' : 'not set'}" autocomplete="new-password">
         <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
         <input type="hidden" name="secret_${r.line}" value="1">
       </div>`;
