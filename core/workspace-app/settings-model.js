@@ -7,7 +7,7 @@
  * tested without a workspace, and so the home page, a plugin's page and the modal cannot disagree.
  */
 
-const { FAMILIES: CATALOG } = require('./plugin-catalog');
+const { FAMILIES: CATALOG, SCOPE } = require('./plugin-catalog');
 
 /** The families Settings groups plugins by, in the order they are shown. */
 const FAMILIES = [
@@ -26,9 +26,19 @@ const familyById = (id) => FAMILIES.find((f) => f.id === id) || FAMILIES[FAMILIE
 const FROM_CATALOG = { workspaces: 'folders', drives: 'features' };
 const catalogIndex = () => {
   const map = new Map();
-  for (const f of CATALOG) for (const [name, label, summary] of f.plugins) map.set(name, { family: FROM_CATALOG[f.id] || f.id, label, summary });
+  for (const f of CATALOG) {
+    for (const [name, label, summary] of f.plugins) {
+      const entry = { family: FROM_CATALOG[f.id] || f.id, label, summary };
+      map.set(name, entry);
+      // Also by its package: a plugin whose manifest name is not its catalogue id (Google Drive is
+      // `google-drive-sync` in its manifest, `google-drive` in the catalogue) is still found (#435).
+      map.set(`module:${SCOPE}/workspace-${name}`, entry);
+    }
+  }
   return map;
 };
+/** A plugin's catalogue entry: by its name, else by its package. */
+const listedIn = (index, plugin, name) => index.get(name) || (plugin && plugin.module ? index.get(`module:${plugin.module}`) : undefined);
 
 const isAiFolder = (name) => /^ai-[a-z0-9-]+$/.test(String(name || ''));
 const shipsBuilder = (m = {}) => ((m.commands || {}).files || []).some((f) => /cmd-[a-z0-9.-]+-project\.sh$/.test(String(f)));
@@ -43,7 +53,7 @@ function familyOf(plugin, index = catalogIndex()) {
   const name = (plugin && plugin.name) || m.name || '';
   if (m.family && FAMILY_IDS.has(String(m.family))) return String(m.family);
   if (isAiFolder(name)) return 'ai';
-  const listed = index.get(name);
+  const listed = listedIn(index, plugin, name);
   if (listed && FAMILY_IDS.has(listed.family)) return listed.family;
   if (m.workspace && m.workspace.key) return 'folders';
   if (shipsBuilder(m)) return 'platforms';
@@ -53,7 +63,10 @@ function familyOf(plugin, index = catalogIndex()) {
 const firstSentence = (text) => {
   const t = String(text || '').replace(/\s+/g, ' ').trim();
   const m = t.match(/^(.{20,140}?[.:])(\s|$)/);
-  return (m ? m[1].replace(/[.:]$/, '') : t.slice(0, 140)).trim();
+  if (m) return m[1].replace(/[.:]$/, '').trim();
+  if (t.length <= 140) return t.replace(/[.:]$/, '').trim();
+  // Longer than a line: cut at a word, and say it goes on.
+  return `${t.slice(0, 140).replace(/[\s,;:]+\S*$/, '')}…`;
 };
 
 /**
@@ -64,10 +77,14 @@ const firstSentence = (text) => {
 function summaryOf(plugin, index = catalogIndex()) {
   const m = (plugin && plugin.manifest) || {};
   if (m.summary) return String(m.summary).replace(/\s+/g, ' ').trim().slice(0, 160);
-  const listed = index.get((plugin && plugin.name) || '');
+  const listed = listedIn(index, plugin, (plugin && plugin.name) || '');
   if (listed && listed.summary) return listed.summary;
   // "Drupal for Webship Workspace" says nothing the name beside it has not said; backticks are markup, not words.
-  const said = firstSentence(String((plugin && plugin.description) || '').replace(/`/g, '')).replace(/\s+for (the )?Webship Workspace$/i, '');
+  // A description that opens "<Name> for Webship Workspace: …" says it after the colon (#435).
+  const text = String((plugin && plugin.description) || '').replace(/`/g, '').replace(/\s+/g, ' ').trim();
+  const lead = text.match(/^[^:.]{1,60}?\s+for (the )?Webship Workspace:\s*(.+)$/i);
+  const said = lead ? firstSentence(lead[2]).replace(/^./, (c) => c.toUpperCase())
+    : firstSentence(text).replace(/\s+for (the )?Webship Workspace$/i, '');
   return said.toLowerCase() === nameOf(plugin, index).toLowerCase() ? '' : said;
 }
 
@@ -76,7 +93,7 @@ function nameOf(plugin, index = catalogIndex()) {
   const m = (plugin && plugin.manifest) || {};
   const id = (plugin && plugin.name) || m.name || '';
   if (m.label) return String(m.label);
-  const listed = index.get(id);
+  const listed = listedIn(index, plugin, id);
   if (listed && listed.label) return listed.label;
   return id.split('-').filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
 }
