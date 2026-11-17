@@ -314,6 +314,9 @@ function readSettingsText(file) {
     if (!dotted) return line;
     const m = line.match(SECRET_LINE);
     if (!m || !m[3].trim()) return line;
+    // A placeholder is no secret: it says what is left to fill, as `--configure` shows it (#439).
+    const value = unquote(m[3].replace(/\s+#.*$/, '').trim());
+    if (value === '' || /^CHANGE_ME/.test(value)) return line;
     masked.push(dotted);
     return `${m[1]}${m[2]}: ${SECRET_MASK}`;
   });
