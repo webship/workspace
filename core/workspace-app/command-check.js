@@ -38,6 +38,9 @@ const PACKAGES = {
   docker: { apt: 'docker.io', dnf: 'docker', brew: '--cask docker' },
   script: { apt: 'bsdutils', dnf: 'util-linux', brew: 'util-linux' },
   ssh: { apt: 'openssh-client', dnf: 'openssh-clients', brew: 'openssh' },
+  // The database clients a pull uses: there is no package called mysqldump or pg_dump (#437).
+  mysqldump: { apt: 'default-mysql-client', dnf: 'community-mysql', brew: 'mysql-client' },
+  pg_dump: { apt: 'postgresql-client', dnf: 'postgresql', brew: 'libpq' },
 };
 
 /** How to install a command, in plain words: the owner's hint, or the package on the common systems. */
