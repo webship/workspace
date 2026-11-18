@@ -363,6 +363,8 @@ async function assistantReply(message, ctx, thread = null, { voice = false, avat
   // is in front of an agent that remembers none of it, which reads as memory and is not.
   //
   // --no-session-persistence is therefore gone: it is the flag that threw the session away.
+  // No argument of a command can hold a NUL: one typed or pasted into the message is dropped.
+  message = String(message).replace(/\0/g, '');
   const sessionId = (thread && thread.sessionId) || null;
   const wanted = sessionId || crypto.randomUUID();
   // What the avatar's browser shows, when it is open: read from it rather than guessing.
