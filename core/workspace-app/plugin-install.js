@@ -98,9 +98,10 @@ function filled(data, fill) {
   return fill ? Buffer.from(Object.entries(fill).reduce((t, [k, v]) => t.split(k).join(v), data.toString('utf8'))) : data;
 }
 
-function copyFile(src, dest, { fill } = {}) {
+function copyFile(src, dest, { fill, mode } = {}) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.writeFileSync(dest, filled(fs.readFileSync(src), fill), { mode: fs.statSync(src).mode & 0o777 });
+  fs.writeFileSync(dest, filled(fs.readFileSync(src), fill), { mode: mode || (fs.statSync(src).mode & 0o777) });
+  if (mode) fs.chmodSync(dest, mode);
 }
 
 // The AI items a plugin ships: the manifest's `ai` block, by kind, and the workspace folder of each kind.
@@ -379,7 +380,11 @@ function install(name, { nested = false } = {}) {
     if (ws.settingsTemplate) {
       const d = path.join(CONFIG_DIR, `workspace.${ws.key}.settings.yml`);
       // Recorded every time, placed only once: a path an earlier install recorded and this one does not is removed as stale.
-      if (!fs.existsSync(d)) copyFile(path.join(plugin.dir, ws.settingsTemplate), d);
+      // Owner-only, like the plugin settings files: a workspace's file can hold a password (Penpot's) or a token
+      // (RAG's). It was placed with the package file's mode, readable by every account of the machine; one placed
+      // that way before is made owner-only on the next install.
+      if (!fs.existsSync(d)) copyFile(path.join(plugin.dir, ws.settingsTemplate), d, { mode: 0o600 });
+      else { try { const m = fs.statSync(d).mode & 0o777; if (m & 0o077) fs.chmodSync(d, m & 0o700); } catch (_) { /* unreadable: left */ } }
       placed.push(rel(d));
     }
     // Written once, for a person to edit: what the folder is for.

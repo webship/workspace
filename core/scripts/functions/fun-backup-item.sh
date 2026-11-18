@@ -31,6 +31,12 @@ function backup_workspace_item() {
   local name="$1";
   local target;
 
+  # A backup holds the project whole: its settings with their database password, its .env files, and the
+  # database dump the workspace's script writes next to it. Owner-only, like the settings files: the
+  # archive and the dump were made with the shell's umask, readable by every account of the machine. Set
+  # for the rest of the backup script, so the dump it exports after this is owner-only too.
+  umask 077 ;
+
   if ! target=$(resolve_workspace_item "${name}") ; then
     echo "Nothing to back up: no '${name}' in $(pwd)." ;
     return 1 ;
