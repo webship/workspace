@@ -98,3 +98,9 @@ test('an answer kept with live markup before the fix comes back from the history
   assert.deepStrictEqual(h[2], { role: 'ai', text: 'docs' });
   assert.deepStrictEqual(h[3], { role: 'ai', html: thread.turns[3].html }, 'a safe answer keeps its markup');
 });
+
+test('the filter ships in the npm package: the files list names the .lua, which "*.js" would not take', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', '..', 'package.json'), 'utf8'));
+  assert.ok(pkg.files.includes('core/workspace-app/markdown-safe.lua'), 'package.json files');
+  assert.ok(fs.existsSync(require('../../markdown').FILTER), 'markdown.js points at it');
+});
