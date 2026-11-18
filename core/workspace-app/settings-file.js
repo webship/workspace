@@ -42,6 +42,17 @@ const SECRET_WORD = /(^|_)secret(_|$)/i;
 // (`api_tokens: { <account>: <token> }`): the keys under it say nothing, the name above them does.
 const SECRET_MAP = /(^|_)(tokens|secrets|api_keys|apikeys|passwords)$/i;
 
+/**
+ * Write a settings file so that only its owner can read it. These files hold tokens, keys and passwords;
+ * settings.yml is made 600 by the installer and the plugin files by `--install`, but the raw editor's
+ * save wrote a new file and renamed it over the old one, with the process's umask (664 here, 644 on most
+ * machines), and every other write kept whatever mode it found. Written owner-only, and left owner-only.
+ */
+function writePrivate(full, text) {
+  fs.writeFileSync(full, text, { mode: 0o600 });
+  try { fs.chmodSync(full, 0o600); } catch (_) { /* the write itself succeeded */ }
+}
+
 function isSecretKey(key, dotted) {
   if (dotted && NOT_SECRET_PATHS.has(dotted)) return false;
   if (SECRET_NAME.test(key) || SECRET_SUFFIX.test(key) || SECRET_WORD.test(key)) return true;
@@ -178,7 +189,7 @@ function writeSettingsValues(file, updates) {
     lines[line] = `${indentStr}${k}:${gap || ' '}${out}${comment ? comment[0] : ''}`;
     changed += 1;
   }
-  fs.writeFileSync(full, lines.join('\n'));
+  writePrivate(full, lines.join('\n'));
   return changed;
 }
 
@@ -215,7 +226,7 @@ function writeListBlock(file, key, items) {
     return i === -1 ? `${block.indent}- ${n}` : block.raw[i];
   });
   lines.splice(block.start + 1, block.end - block.start, ...rendered);
-  fs.writeFileSync(full, lines.join('\n'));
+  writePrivate(full, lines.join('\n'));
 }
 
 /**
@@ -244,7 +255,7 @@ function writeWorkspacePresentation(file, icon, subtitle) {
     if (subtitle) rendered.push(`  subtitle: ${JSON.stringify(subtitle)}`);
     if (!rendered.length) return;
     while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
-    fs.writeFileSync(full, `${[...lines, 'presentation:', ...rendered].join('\n')}\n`);
+    writePrivate(full, `${[...lines, 'presentation:', ...rendered].join('\n')}\n`);
     return;
   }
 
@@ -275,7 +286,7 @@ function writeWorkspacePresentation(file, icon, subtitle) {
   const stillHasKeys = lines.slice(start + 1, end + 1).some((l) => /^\s+[A-Za-z0-9_-]+:/.test(l));
   if (!stillHasKeys) lines.splice(start, end - start + 1);
 
-  fs.writeFileSync(full, lines.join('\n'));
+  writePrivate(full, lines.join('\n'));
 }
 
 
@@ -368,7 +379,8 @@ function writeSettingsText(file, text, { yaml }) {
 
   const out = lines.join('\n');
   const tmp = `${full}.tmp-${process.pid}`;
-  fs.writeFileSync(tmp, out.endsWith('\n') ? out : `${out}\n`);
+  // Owner-only from the start: the new file takes the old one's place.
+  writePrivate(tmp, out.endsWith('\n') ? out : `${out}\n`);
   fs.renameSync(tmp, full);
   return { kept };
 }
@@ -416,7 +428,7 @@ function upsertSettingsValue(file, dotted, value) {
     while (lines.length && lines[lines.length - 1] === '') lines.pop();
     lines.push('', ...add, '');
   }
-  fs.writeFileSync(full, lines.join('\n'));
+  writePrivate(full, lines.join('\n'));
   return 1;
 }
 
@@ -469,7 +481,7 @@ function upsertSettingsList(file, dotted, items) {
       lines.push('', ...add, '');
     }
   }
-  fs.writeFileSync(full, lines.join('\n'));
+  writePrivate(full, lines.join('\n'));
 }
 
 module.exports = {
