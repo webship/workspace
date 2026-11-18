@@ -23,6 +23,7 @@
     "core/scripts",
     "core/workspace-app/*.js",
     "core/workspace-app/actions",
+    "core/workspace-app/images-providers",
     "core/workspace-app/commands",
     "core/workspace-app/docs",
     "core/workspace-app/public",
