@@ -31,7 +31,15 @@ function run(cmd, args, cwd, { timeoutMs = 15 * 60 * 1000, env } = {}) {
   return new Promise((resolve) => {
     // stdin must be closed ('ignore') — ddev wraps commands in `docker exec -i`,
     // which hangs indefinitely on an open-but-silent stdin pipe.
-    const child = spawn(cmd, args, { cwd, env: env || jobEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
+    // spawn throws, rather than emitting 'error', on an argument it cannot pass (a NUL in it): answered
+    // like a command that could not start, never a promise that rejects in a route nobody awaits.
+    let child;
+    try {
+      child = spawn(cmd, args, { cwd, env: env || jobEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (err) {
+      resolve({ ok: false, code: -1, stdout: '', stderr: String(err && err.message || err) });
+      return;
+    }
     let stdout = '';
     let stderr = '';
     const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);

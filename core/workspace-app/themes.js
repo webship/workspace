@@ -34,7 +34,8 @@ const THEMES_DIR = path.join(PUBLIC_DIR, 'themes');
  * only a release can add. It works because a theme is a palette: with every token in the YAML there
  * is nothing left for a stylesheet to say.
  */
-const THEME_NAME_RE = /^[a-z][a-z0-9-]*$/;
+// It becomes theme.<name>.yml: bounded, or the file cannot be written (ENAMETOOLONG).
+const THEME_NAME_RE = /^[a-z][a-z0-9-]{0,39}$/;
 
 function listThemes() {
   const names = new Set();
@@ -256,7 +257,7 @@ function assembleCss(wanted) {
 function createTheme({ name, label, from }) {
   const clean = String(name || '').trim().toLowerCase();
   if (!THEME_NAME_RE.test(clean)) {
-    return { ok: false, error: 'A style name is lowercase letters, digits and hyphens, starting with a letter.' };
+    return { ok: false, error: 'A style name is lowercase letters, digits and hyphens, starting with a letter, 40 at most.' };
   }
   if (listThemes().includes(clean) || fs.existsSync(path.join(THEMES_DIR, clean))) {
     return { ok: false, error: `A style called ${clean} already exists.` };

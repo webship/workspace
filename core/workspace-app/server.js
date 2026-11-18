@@ -4911,7 +4911,25 @@ function logRejected(pathname, form, workspace, status, html) {
 /** Actions that belong to no workspace folder, so they answer on a workspace that has none yet. */
 const DASHBOARD_ACTIONS = new Set(['/actions/plugins', '/actions/job-stop']);
 
+/**
+ * Every action, answered whatever happens inside it. The area modules' actions were wrapped; the branches
+ * below and the plugins' actions were not, and the POST route does not wait for the promise, so one that
+ * threw (a NUL in a chat message, a style name too long for a file, a plugin's mistake) was an unhandled
+ * rejection: Node ended the process, and every job in memory with it.
+ */
 async function handleAction(pathname, form, res, req = null) {
+  try {
+    return await handleActionUnguarded(pathname, form, res, req);
+  } catch (err) {
+    console.error('action failed:', pathname, err);
+    eventLog.logEvent('error', 'action.failed', { action: pathname, workspace: String((form && form.workspace) || ''), error: eventLog.clip(err && err.message || err, 300), stack: eventLog.clip(err && err.stack, 1200) });
+    if (res.headersSent) { try { res.end(); } catch (_) { /* closed */ } return undefined; }
+    res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+    return res.end(`<div class="msg error">That action failed: <code>${esc(String(err && err.message || err).slice(0, 300))}</code></div>`);
+  }
+}
+
+async function handleActionUnguarded(pathname, form, res, req = null) {
   // Not guessed: a form that names no workspace belongs to the one the page it came from is in.
   const workspace = form.workspace || hostWorkspaceOf(req) || 'dev';
   const send = (html, status = 200) => {
@@ -8297,6 +8315,13 @@ Summarise what you changed and how to verify it`,
   } catch (err) {
     // Log the stack before answering: a 500 whose cause is only in the browser is a 500 nobody can
     // fix, and if the response has already started, writeHead throws over the top of the real error.
+    // A malformed %-escape in the address (decodeURIComponent throws URIError) is the request's mistake, not
+    // the server's: it is said so with a 400, on every route that decodes a name.
+    if (err instanceof URIError) {
+      if (res.headersSent) return res.end();
+      res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return res.end('Bad request: the address holds a malformed %-escape.');
+    }
     console.error('request failed:', pathname, err && err.stack ? err.stack : err);
     if (res.headersSent) return res.end();
     res.writeHead(500, { 'Content-Type': 'text/plain' });
