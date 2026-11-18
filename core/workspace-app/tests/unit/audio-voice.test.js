@@ -522,7 +522,11 @@ test('a sound or music request without confirmation is refused', async () => {
 const screens = () => path.join(root, '.screens');
 function hostSays(sessions) {
   fs.mkdirSync(screens(), { recursive: true });
-  fs.writeFileSync(path.join(screens(), 'host-sessions.json'), JSON.stringify({ at: Date.now(), host: 'test', sessions: sessions.map((session) => ({ session })) }));
+  // Beside and renamed, as the runner writes it: a read of a file rewritten in place every 80 ms found it half
+  // written now and then, took the runner for down, and the test failed with a 500 on a busy machine.
+  const file = path.join(screens(), 'host-sessions.json');
+  fs.writeFileSync(`${file}.tmp`, JSON.stringify({ at: Date.now(), host: 'test', sessions: sessions.map((session) => ({ session })) }));
+  fs.renameSync(`${file}.tmp`, file);
 }
 const gen = (base, q) => fetch(`${base}/fragments/audio/generation?${new URLSearchParams(q)}`);
 
