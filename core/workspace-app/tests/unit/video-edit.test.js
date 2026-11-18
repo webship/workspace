@@ -248,11 +248,19 @@ test('each video row offers Edit, and the rail offers Edit a video', async () =>
 // ---- the action --------------------------------------------------------------------------------------------
 
 const screens = () => path.join(root, '.screens');
+/** The runner's list, written as the runner writes it (#465): beside, then renamed over. Rewritten in place every
+ *  80 ms, a read of it now and then found it half written, took the runner for down, and the action failed. */
+function hostSays(sessions) {
+  const file = path.join(screens(), 'host-sessions.json');
+  fs.writeFileSync(`${file}.tmp`, JSON.stringify({ at: Date.now(), host: 'test', sessions }));
+  fs.renameSync(`${file}.tmp`, file);
+}
+
 function hostRuns(asked) {
   fs.mkdirSync(path.join(screens(), 'queue'), { recursive: true });
   fs.mkdirSync(path.join(screens(), 'results'), { recursive: true });
   return setInterval(() => {
-    fs.writeFileSync(path.join(screens(), 'host-sessions.json'), JSON.stringify({ at: Date.now(), host: 'test', sessions: [] }));
+    hostSays([]);
     for (const f of fs.readdirSync(path.join(screens(), 'queue'))) {
       if (!f.endsWith('.json')) continue;
       const req = JSON.parse(fs.readFileSync(path.join(screens(), 'queue', f), 'utf8'));
@@ -293,12 +301,12 @@ test('the action refuses what the form should never send, and asks before a paid
 test('when the new version is there the modal shows it and offers to edit it again', async () => {
   const base = await serve();
   const q = { kind: 'video', file: 'demo-v9.mp4', session: 'videos--demo-v9--edit', t0: String(Date.now() - 20000), engine: '', edit: '1' };
-  fs.writeFileSync(path.join(screens(), 'host-sessions.json'), JSON.stringify({ at: Date.now(), host: 'test', sessions: [{ session: 'videos--demo-v9--edit' }] }));
+  hostSays([{ session: 'videos--demo-v9--edit' }]);
   const running = await (await fetch(`${base}/fragments/audio/generation?${new URLSearchParams(q)}`)).text();
   assert.match(running, /Making <strong>demo-v9\.mp4<\/strong> <span/);
   assert.match(running, /edit=1/, 'the next poll still knows it is an edit');
   fs.writeFileSync(videos('demo-v9.mp4'), Buffer.alloc(100, 1));
-  fs.writeFileSync(path.join(screens(), 'host-sessions.json'), JSON.stringify({ at: Date.now(), host: 'test', sessions: [] }));
+  hostSays([]);
   const done = await fetch(`${base}/fragments/audio/generation?${new URLSearchParams(q)}`);
   assert.strictEqual(done.headers.get('hx-trigger'), 'refresh-projects');
   const html = await done.text();
