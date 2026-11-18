@@ -76,7 +76,8 @@ test('the old attach detaches itself before the new one opens', () => {
 test('the server adapts the window and reaps the whole attach', () => {
   assert.match(server, /exec screen -A -x \$\{session\}/, '-A adapts the window to this display');
   assert.match(server, /detached: true/, 'its own process group');
-  assert.match(server, /process\.kill\(-child\.pid, 'SIGHUP'\)/, 'so the group can be killed, not just script');
+  // SIGTERM, not SIGHUP: script carries on after a SIGHUP and keeps its client attached (terminal-close.test.js).
+  assert.match(server, /process\.kill\(-child\.pid, 'SIGTERM'\)/, 'so the group can be killed, not just script');
   assert.match(server, /screen fits a window to EVERY attached display/, 'and the reason is written down');
 });
 
@@ -98,6 +99,6 @@ test('nothing but a real child may go in termChildren', () => {
   // shutdown loop, over the real children.
   const adds = [...server.matchAll(/termChildren\.add\(([^)]*)\)/g)].map((m) => m[1].trim());
   assert.deepEqual(adds, ['child'], 'only the child itself');
-  assert.match(server, /for \(const c of termChildren\) \{[\s\S]{0,200}process\.kill\(-c\.pid, 'SIGHUP'\)/);
+  assert.match(server, /for \(const c of termChildren\) \{[\s\S]{0,200}process\.kill\(-c\.pid, 'SIGTERM'\)/);
   assert.match(server, /it is also what MAX_TERMINALS counts, so nothing else may ever be put in it/);
 });

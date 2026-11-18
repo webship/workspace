@@ -8332,8 +8332,8 @@ for (const sig of ['exit', 'SIGTERM', 'SIGINT']) {
     // The group, so `script` and the `screen -x` client inside it both go. termChildren holds only
     // real children: it is also what MAX_TERMINALS counts, so nothing else may ever be put in it.
     for (const c of termChildren) {
-      try { process.kill(-c.pid, 'SIGHUP'); } catch (_) {
-        try { c.kill('SIGHUP'); } catch (__) { /* gone */ }
+      try { process.kill(-c.pid, 'SIGTERM'); } catch (_) {
+        try { c.kill('SIGTERM'); } catch (__) { /* gone */ }
       }
     }
     if (sig !== 'exit') process.exit(0);
@@ -8417,9 +8417,12 @@ server.on('upgrade', (req, socket, head) => {
     const reap = () => {
       stopRepaints();
       termChildren.delete(child);
-      // The group, not the process: -pid reaches `script` and the screen client it exec'd.
-      try { process.kill(-child.pid, 'SIGHUP'); } catch (_) {
-        try { child.kill('SIGHUP'); } catch (__) { /* gone */ }
+      // SIGTERM to `script`'s group. Not SIGHUP: `script` (util-linux) carries on after a SIGHUP, and the
+      // `screen -x` client is not in this group at all (script gives it a session of its own on the pty), so
+      // both stayed, attached, one more per window ever closed. `script` ends on SIGTERM and hangs up its pty,
+      // and the hangup detaches the client. The session itself runs on.
+      try { process.kill(-child.pid, 'SIGTERM'); } catch (_) {
+        try { child.kill('SIGTERM'); } catch (__) { /* gone */ }
       }
     };
     child.on('exit', () => { stopRepaints(); termChildren.delete(child); try { ws.close(); } catch (_) { /* closed */ } });
