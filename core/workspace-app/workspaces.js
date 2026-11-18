@@ -526,6 +526,11 @@ function exposureRisk() {
       reasons.push(`hub_domain is ${hub}, which is not a local address`);
     }
   } catch (_) { /* ignore */ }
+  // The dashboard's own socket, when it was started with node and told to listen past loopback (request-guard.js).
+  try {
+    const bind = require('./request-guard').bindExposure();
+    if (bind) reasons.push(bind);
+  } catch (_) { /* ignore */ }
   _exposure = { at: Date.now(), value: reasons };
   return reasons;
 }
