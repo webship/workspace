@@ -229,7 +229,7 @@ if (WebSocketServer) {
   const children = new Set();
   for (const sig of ['exit', 'SIGTERM', 'SIGINT']) {
     process.on(sig, () => {
-      for (const c of children) { try { c.kill('SIGHUP'); } catch (_) { /* gone */ } }
+      for (const c of children) { try { c.kill('SIGTERM'); } catch (_) { /* gone */ } }
       if (sig !== 'exit') process.exit(0);
     });
   }
@@ -245,7 +245,8 @@ if (WebSocketServer) {
         `stty cols ${cols} rows ${rows} 2>/dev/null; exec screen -x ${session}`, '/dev/null'],
       { cwd: process.env.HOME, env: { ...process.env, TERM: 'xterm-256color' } });
       children.add(child);
-      const reap = () => { children.delete(child); try { child.kill('SIGHUP'); } catch (_) { /* gone */ } };
+      // SIGTERM: `script` carries on after a SIGHUP, and its `screen -x` client with it (server.js says why).
+      const reap = () => { children.delete(child); try { child.kill('SIGTERM'); } catch (_) { /* gone */ } };
       child.stdout.on('data', (d) => { try { ws.send(d); } catch (_) { /* closing */ } });
       child.stderr.on('data', (d) => { try { ws.send(d); } catch (_) { /* closing */ } });
       child.on('exit', () => { children.delete(child); try { ws.close(); } catch (_) { /* closed */ } });
