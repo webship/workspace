@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { esc } = require('../html');
+const { shWords } = require('../shell-quote');
 const { humanSize, humanTime } = require('../format');
 const { ROOT, loadWorkspaces, workspaceDir } = require('../workspaces');
 const {
@@ -82,7 +83,7 @@ async function rag_server_new({ form, res, send, workspace, pathname }) {
     ragWriteBinding(workspace, projectName, name);
     ragInvalidate();
     return screenAction(send, { workspace: 'rag', project: name, projectDir: ragDir, verb: 'milvus-build',
-      cmdLine: `bash ${JSON.stringify(script)} ${JSON.stringify(name)}`, label: `build the RAG server ${name}` });
+      cmdLine: `bash ${shWords([script, name])}`, label: `build the RAG server ${name}` });
 }
 
   // Build or rebuild a project's RAG index. The script does the work — this only guards the
@@ -108,7 +109,7 @@ async function ragify({ form, res, send, workspace, pathname }) {
     // BM25 inside the database: no embedding model, no API key, nothing leaves the machine. Long
     // timeout because a large tree is thousands of chunks.
     const started = await startInScreen({ workspace, project: projectName, projectDir: dir, ownerDir: path.join(dir, projectName), verb: 'ragify',
-      cmdLine: `bash ${JSON.stringify(script)} ${JSON.stringify(projectName)}`, label: 'ragify' });
+      cmdLine: `bash ${shWords([script, projectName])}`, label: 'ragify' });
     return send(screenStartedHtml(started, 'ragify', projectName), started.ok ? 200 : (started.already ? 409 : 500));
 }
 

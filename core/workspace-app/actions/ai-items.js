@@ -16,6 +16,7 @@ const { ROOT, loadWorkspaces, workspaceDir, isValidWorkspace } = require('../wor
 const filesBrowser = require('../files-browser');
 const { screenAction } = require('../jobs');
 const { NAME_RE, ITEM_NAME_RE } = require('../validate');
+const { shq, shWords } = require('../shell-quote');
 const {
   INSTALL_TARGETS, NO_CLAUDE_SYNC, AI_ITEMS_REPO, AI_ITEMS_REPO_PATHS, AI_ITEMS_PROJECT_PATHS,
   itemFile, invalidateRepoCaches,
@@ -77,7 +78,7 @@ async function fetch_item({ form, res, send, workspace, pathname }) {
     invalidateRepoCaches(key);
     return screenAction(send, { workspace: key, project: name, projectDir: dir,
       verb: toClaude ? 'fetch' : 'copy',
-      cmdLine: `bash ${script} ${JSON.stringify(name)} ${flag}`,
+      cmdLine: `bash ${script} ${shq(name)} ${flag}`,
       label: toClaude ? `fetch ${name} into ~/.claude` : `copy ${name} into ${key}/` });
   }
 
@@ -111,7 +112,7 @@ async function add_item({ form, res, send, workspace, pathname }) {
     }
     invalidateRepoCaches(key);
     return screenAction(send, { workspace: key, project: name || `all-${key}`, projectDir: dir, verb: 'add',
-      cmdLine: `bash ${args.map((a) => JSON.stringify(a)).join(' ')}`,
+      cmdLine: `bash ${shWords(args)}`,
       label: `add ${name || `all ${key}`} → ${where}` });
   }
 
@@ -128,7 +129,7 @@ async function update_one_item({ form, res, send, workspace, pathname }) {
     // Take the repo's version of this one item into THIS FOLDER only. These folders are
     // the staging area where items get worked on; reaching ~/.claude or a project is a
     // separate, explicit Install.
-    const shellLine = `bash ${script} ${JSON.stringify(name)} --pull`;
+    const shellLine = `bash ${script} ${shq(name)} --pull`;
     invalidateRepoCaches(key);
     return screenAction(send, { workspace: key, project: name, projectDir: dir, verb: 'update',
       cmdLine: shellLine, label: `update ${name}` });
@@ -231,7 +232,7 @@ async function propose_item({ form, res, send, workspace, pathname }) {
     if (confirmed) args.push('--confirm');
     return screenAction(send, { workspace, project: name, projectDir: meta.dir,
       verb: confirmed ? 'propose' : 'propose-dry-run',
-      cmdLine: `bash ${args.map((a) => JSON.stringify(a)).join(' ')}`,
+      cmdLine: `bash ${shWords(args)}`,
       label: confirmed ? `propose ${name} upstream` : `what proposing ${name} would do` });
   }
 
@@ -250,7 +251,7 @@ async function clone_item({ form, res, send, workspace, pathname }) {
     // inline response.
     const args = [`${name}`, '--clone-to', cloneTo];
     if (purpose) args.push('--purpose', purpose);
-    const shellLine = `bash cmd-tools-ai-items.sh ${args.map((a) => JSON.stringify(a)).join(' ')}`;
+    const shellLine = `bash cmd-tools-ai-items.sh ${shWords(args)}`;
     res.setHeader('HX-Trigger', 'refresh-projects');
     return screenAction(send, { workspace, project: cloneTo, projectDir: meta.dir, verb: 'clone',
       cmdLine: shellLine, label: `clone ${name} to ${cloneTo}` });
@@ -274,7 +275,7 @@ async function generate_item({ form, res, send, workspace, pathname }) {
     const file = itemFile(workspace, name);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const genPrompt = `Write ${SPECS[workspace]}\n\nWhat it should do: ${description}\n\nOutput ONLY the raw file content — no surrounding commentary, no code fences.`;
-    const shellLine = `set -e; echo "Generating ${meta.noun} '${name}' with AI…"; claude -p ${JSON.stringify(genPrompt)} --allowedTools Read Glob Grep --disallowedTools Write Edit Bash --no-session-persistence > ${JSON.stringify(file)}; echo "Written: ${path.relative(ROOT, file)}"; head -20 ${JSON.stringify(file)}`;
+    const shellLine = `set -e; echo "Generating ${meta.noun} '${name}' with AI…"; claude -p ${shq(genPrompt)} --allowedTools Read Glob Grep --disallowedTools Write Edit Bash --no-session-persistence > ${shq(file)}; echo "Written: ${path.relative(ROOT, file)}"; head -20 ${shq(file)}`;
     return screenAction(send, { workspace, project: name, projectDir: meta.dir, verb: 'generate',
       cmdLine: shellLine, label: `generate the ${meta.noun} ${name}` });
   }
