@@ -163,9 +163,15 @@ function loadWorkspaces() {
   return map;
 }
 
+// Folders of the tree that are not a workspace and must never be served as one: `core` holds the dashboard and
+// core/config (settings.yml with every key and token: a workspace called `core` served it at
+// /files/core/config/settings.yml), `backups` every workspace's backups, `commands` the commands tool.
+const RESERVED_WORKSPACES = new Set(['core', 'backups', 'commands', 'node_modules']);
+
 function _loadWorkspacesFresh() {
   const settings = loadSettings();
-  const names = Array.isArray(settings.workspaces) ? settings.workspaces : [];
+  const names = (Array.isArray(settings.workspaces) ? settings.workspaces : [])
+    .filter((n) => typeof n === 'string' && !RESERVED_WORKSPACES.has(n));
   const backupsRoot = settings.backups || path.join(ROOT, 'backups');
 
   const map = {};
@@ -536,6 +542,7 @@ function exposureRisk() {
 }
 
 module.exports = {
+  RESERVED_WORKSPACES,
   appVersion, exposureRisk,
   sourceOf,
   commandDescription,
