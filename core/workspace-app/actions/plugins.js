@@ -18,7 +18,8 @@ const VERBS = new Set(['require', 'activate', 'install', 'configure', 'deactivat
 const WITH_NEEDS = new Set(['require', 'activate', 'install']);
 const NAME_RE = /^[a-z0-9-]+$/;
 // An npm spec: a package name, github:owner/repo[#ref], a git+https url, a tarball or a path. Nothing a shell could read as more than one word.
-const SPEC_RE = /^[A-Za-z0-9@:/._#+~-]+$/;
+// Never a leading dash: npm would read `--dry-run` or `-g` in the spec's place as an option of its own.
+const SPEC_RE = /^[A-Za-z0-9@./~][A-Za-z0-9@:/._#+~-]*$/;
 
 module.exports = {
   '/actions/plugins': async ({ form, send }) => {

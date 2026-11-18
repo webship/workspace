@@ -6,7 +6,9 @@
  * outside the tree.
  */
 
-const NAME_RE = /^[a-zA-Z0-9_\-]+$/;
+// Never a leading dash: a name is passed to scripts and tools as an argument, and `--orphans` or `--help`
+// as a project name was read as an option (Remove listed the machine's orphans, Backup printed its help).
+const NAME_RE = /^[a-zA-Z0-9_][a-zA-Z0-9_-]*$/;
 // A file item — a doc, a worklog, an agent — is named after its file, and those
 // names carry dots: a version in a report name, a time in a dated worklog. The
 // project rule above refuses them, which made Edit answer 400 on real files. This

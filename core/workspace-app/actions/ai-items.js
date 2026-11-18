@@ -94,7 +94,8 @@ async function add_item({ form, res, send, workspace, pathname }) {
     }
     // The script re-validates the source; this only keeps junk out of the job line.
     const source = String(form.source || '').trim();
-    if (!/^(https:\/\/github\.com\/[\w./@-]+|[\w.-]+\/[\w.-]+(@[\w./-]+)?)$/.test(source) || source.includes('..')) {
+    // The owner never starts with a dash: the source is the argument after --add, and would be read as an option.
+    if (!/^(https:\/\/github\.com\/[\w./@-]+|\w[\w.-]*\/[\w.-]+(@[\w./-]+)?)$/.test(source) || source.includes('..')) {
       return send('<div class="msg error">Use owner/repo, owner/repo@branch, or a github.com URL.</div>', 400);
     }
     const name = String(form.name || '').trim();
