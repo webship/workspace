@@ -342,9 +342,13 @@ function publish() {
   // With the waiting flag, so the dashboard's list shows it without asking anything:
   // the file the page already reads is the one that carries it.
   listSessionsWithState((rows) => {
+    // Written beside and renamed over: written in place, a read at that moment (it is rewritten every two
+    // seconds) found an empty or half file, took the runner for down and ran the command in the container.
     try {
-      fs.writeFileSync(path.join(STORE, 'host-sessions.json'),
-        JSON.stringify({ at: Date.now(), host: require('os').hostname(), sessions: rows }));
+      const file = path.join(STORE, 'host-sessions.json');
+      const tmp = `${file}.${process.pid}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify({ at: Date.now(), host: require('os').hostname(), sessions: rows }));
+      fs.renameSync(tmp, file);
     } catch (_) { /* the dashboard will see a stale file and say so */ }
   });
 }
