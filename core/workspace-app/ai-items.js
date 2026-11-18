@@ -204,6 +204,36 @@ function itemFile(key, name) {
   return path.join(dir, `${name}.md`);
 }
 
+/**
+ * Is `file` inside `dir` once links are followed? The file when it is there, or else the nearest folder
+ * above it that is; a link that leads nowhere is not inside (writing to it would create its target).
+ *
+ * An item can be a link: a folder synced from a repository can hold `notes.md -> ~/.bashrc`. The editor
+ * read what such a link pointed at, and Save wrote through it, outside the workspace.
+ */
+function insideFolder(dir, file) {
+  let base;
+  try { base = fs.realpathSync(dir); } catch (_) { return false; }
+  let probe = file;
+  for (;;) {
+    let there = false;
+    try { fs.lstatSync(probe); there = true; } catch (_) { there = false; }
+    if (there) break;
+    const up = path.dirname(probe);
+    if (up === probe) return false;
+    probe = up;
+  }
+  let real;
+  try { real = fs.realpathSync(probe); } catch (_) { return false; }
+  return real === base || real.startsWith(base + path.sep);
+}
+
+/** An item's file, or null when it (or a skill's folder) is a link out of its workspace folder. */
+function itemFileInside(key, name) {
+  const file = itemFile(key, name);
+  return insideFolder(workspaceDir(key), file) ? file : null;
+}
+
 // Where an install can land besides the global ~/.claude: any real project, so a session started
 // under it (and only there) sees the item. Site workspaces only — a "project" in `docs/` or
 // `agents/` itself would be another item, not something Claude Code scopes to.
@@ -219,5 +249,5 @@ function invalidateRepoCaches() {
 module.exports = {
   INSTALL_TARGETS, NO_CLAUDE_SYNC, AI_ITEMS_REPO, AI_ITEMS_REF, AI_ITEMS_REPO_PATHS, AI_ITEMS_PROJECT_PATHS,
   listClaudeItems, listRepoItems, repoItemBlobs, gitBlobSha, repoDiffers,
-  ITEM_TEMPLATES, itemFile, installTargetWorkspaces, invalidateRepoCaches,
+  ITEM_TEMPLATES, itemFile, itemFileInside, insideFolder, installTargetWorkspaces, invalidateRepoCaches,
 };

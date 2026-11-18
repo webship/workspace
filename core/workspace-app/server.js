@@ -81,7 +81,7 @@ function projectScreenCount(dir) {
 
 const {
   INSTALL_TARGETS, NO_CLAUDE_SYNC, AI_ITEMS_REPO, AI_ITEMS_REPO_PATHS,
-  listClaudeItems, listRepoItems, repoItemBlobs, repoDiffers, ITEM_TEMPLATES, itemFile,
+  listClaudeItems, listRepoItems, repoItemBlobs, repoDiffers, ITEM_TEMPLATES, itemFile, itemFileInside, insideFolder,
   installTargetWorkspaces,
 } = require('./ai-items');
 // Optional features workspaces turn on from settings.yml `plugins:` — see PLUGINS.md.
@@ -5039,6 +5039,7 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
     if (!isValidWorkspace(workspace)) return send('<div class="msg error">Unknown workspace.</div>', 400);
     if (!ITEM_RESERVED_FILES.has(file)) return send('<div class="msg error">That is not a folder doc.</div>', 400);
     const full = path.join(workspaceDir(workspace), file);
+    if (!insideFolder(workspaceDir(workspace), full)) return send(`<div class="msg error">${fname(file)} is a link out of the folder: it is not written from here.</div>`, 400);
     try {
       fs.writeFileSync(full, String(form.content ?? ''), 'utf8');
     } catch (e) {
@@ -5744,7 +5745,8 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
     const name = String(form.name || '');
     if (!ITEM_NAME_RE.test(name)) return send('<div class="msg error">Invalid name.</div>', 400);
     const meta = loadWorkspaces()[workspace];
-    if (!fs.existsSync(itemFile('docs', name))) return send('<div class="msg error">Doc not found.</div>', 404);
+    const md = itemFileInside('docs', name);
+    if (!md || !fs.existsSync(md)) return send('<div class="msg error">Doc not found.</div>', 404);
     return screenAction(send, { workspace, project: name, projectDir: meta.dir, verb: 'html',
       cmdLine: `set -e; pandoc '${name}.md' -o '${name}.html' --standalone --metadata title='${name}' && echo "HTML written: ${name}.html"`,
       label: `render ${name}.html` });
@@ -5767,8 +5769,8 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
     const name = String(form.name || '');
     if (!ITEM_NAME_RE.test(name)) return send('<div class="msg error">Invalid name.</div>', 400);
     const meta = loadWorkspaces()[workspace];
-    const md = itemFile('docs', name);
-    if (!fs.existsSync(md)) return send('<div class="msg error">Doc not found.</div>', 404);
+    const md = itemFileInside('docs', name);
+    if (!md || !fs.existsSync(md)) return send('<div class="msg error">Doc not found.</div>', 404);
     return screenAction(send, { workspace, project: name, projectDir: meta.dir, verb: 'pdf',
       cmdLine: `set -e; pandoc '${name}.md' -o '${name}.pdf' --pdf-engine=weasyprint --metadata title='${name}' -V margin-top=18mm -V margin-bottom=18mm -V margin-left=16mm -V margin-right=16mm && echo "PDF written: ${name}.pdf"`,
       label: `render ${name}.pdf` });
@@ -6435,8 +6437,9 @@ async function onRequest(req, res) {
         const key = editMatch[1];
         const name = decodeURIComponent(editMatch[2]);
         if (!ITEM_NAME_RE.test(name)) { res.writeHead(400); return res.end('bad name'); }
-        const file = itemFile(key, name);
-        if (!fs.existsSync(file)) { res.writeHead(404); return res.end('not found'); }
+        // Not through a link out of the folder: the editor showed what it pointed at, and Save wrote to it.
+        const file = itemFileInside(key, name);
+        if (!file || !fs.existsSync(file)) { res.writeHead(404); return res.end('not found'); }
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(editorFormHtml(key, name, fs.readFileSync(file, 'utf8'), false));
       }
@@ -6936,7 +6939,8 @@ async function onRequest(req, res) {
         if (!where.ok || !/^[^/\\]+$/.test(name) || name === '.' || name === '..') { res.writeHead(400); return res.end('bad name'); }
         const full = path.join(where.abs, name);
         const ext = path.extname(name).toLowerCase();
-        if (!fs.existsSync(full) || !fs.statSync(full).isFile() || !REVIEWABLE_RE.test(name)) {
+        // The file itself is checked as its folder is: a link out of the workspace is not reviewed.
+        if (!filesBrowser.realFileIn(workspaceDir(key), rel) || !fs.existsSync(full) || !fs.statSync(full).isFile() || !REVIEWABLE_RE.test(name)) {
           res.writeHead(404); return res.end('not reviewable');
         }
         const src = filePath(key, rel);
