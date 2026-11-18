@@ -386,10 +386,27 @@ async function ownScreenUp() {
   return out.code !== -1;
 }
 
+// The sessions this process is starting right now. Two identical requests at one moment (a double click, two
+// tabs) both asked `screen -ls`, both found nothing and both started: six presses were six copies of one
+// command, six builds into one folder. Asking and starting are one step for this process now: a start of a
+// session that is being started is answered "already running"; once it has started, `screen -ls` (or the
+// host runner) says so as before.
+const starting = new Set();
+
 async function startInScreen(opts) {
+  const session = screenSessionName(opts.project, opts.verb, opts.workspace);
+  if (starting.has(session)) return { ok: false, session, already: true, where: 'dashboard' };
+  starting.add(session);
+  try {
+    return await startInScreenOnce(opts, session);
+  } finally {
+    starting.delete(session);
+  }
+}
+
+async function startInScreenOnce(opts, session) {
   const { project, projectDir, ownerDir, verb, cmdLine, label, workspace } = opts;
   const { ROOT } = require('./workspaces');
-  const session = screenSessionName(project, verb, workspace);
   const taken = await pluginRun({ project, projectDir, ownerDir, verb, cmdLine, label, workspace }, session);
   if (taken) return taken;
   const logDir = path.join(ROOT, '.screens');
