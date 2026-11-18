@@ -179,17 +179,28 @@ function writeSettingsValues(file, updates) {
     const comment = rest.match(/\s+#.*$/);
     // Quote when the value could otherwise change type or break the parse.
     // A value that already is a quoted scalar ("" from an emptied field, '…' from a form) is kept as it is.
-    const quoted = /^(".*"|'.*')$/.test(value);
+    // A newline or another control character typed or pasted into a field ended the line early: the rest
+    // became a line of its own and the file stopped parsing. Such a value is always double-quoted, where
+    // YAML reads \n and \uXXXX back as the characters they were.
+    const control = /[\u0000-\u001f\u007f]/.test(value);
+    const quoted = !control && /^(".*"|'.*')$/.test(value);
     const needsQuote = !bool && !quoted
-      && (/[:#]|^\s|\s$|^[@`!&*%|>{}\[\]?]|^-\s|^-$/.test(value) || (value !== '' && /^(y|n|yes|no|true|false|on|off|null|~)$/i.test(value)));
+      && (control || /[:#]|^\s|\s$|^[@`!&*%|>{}\[\]?]|^-\s|^-$/.test(value) || (value !== '' && /^(y|n|yes|no|true|false|on|off|null|~)$/i.test(value)));
     // A value the line wrote in quotes stays in them, so an emptied `account: ""` is still a string, not null.
-    const keepQuote = !bool && !quoted && quote;
+    const keepQuote = !bool && !quoted && !control && quote;
     const out = keepQuote === "'" ? `'${value.replace(/'/g, "''")}'`
       : (keepQuote || needsQuote) ? JSON.stringify(value) : value;
     lines[line] = `${indentStr}${k}:${gap || ' '}${out}${comment ? comment[0] : ''}`;
     changed += 1;
   }
-  writePrivate(full, lines.join('\n'));
+  // A file that parsed is never written in a shape that does not: the whole configuration would go with it.
+  const next = lines.join('\n');
+  const yaml = require('js-yaml');
+  const parses = (text) => { try { yaml.load(text); return true; } catch (_) { return false; } };
+  if (parses(fs.readFileSync(full, 'utf8')) && !parses(next)) {
+    throw new Error('the file would not parse after that change, so nothing was written');
+  }
+  writePrivate(full, next);
   return changed;
 }
 
