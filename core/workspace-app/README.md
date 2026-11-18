@@ -180,6 +180,14 @@ What keeps that acceptable is that nothing is reachable from the network: DDEV's
 `127.0.0.1` (`router_bind_all_interfaces: false`, its default) and the machine answers nothing
 on its LAN address.
 
+Started with node on the machine (`PORT=3000 node server.js`), the dashboard listens on `127.0.0.1`
+only; in a container it listens on the container's interfaces and the router decides what reaches it.
+`WORKSPACE_LISTEN=<address>` opens it wider, and the banner below then says so. Whatever the address,
+a request is answered only under a name the dashboard is known by — `localhost`, an IP address,
+`*.ddev.site`, the hub domain and its subdomains, and the names in `WORKSPACE_ALLOWED_HOSTS` — so a
+page of another site whose name was pointed at this machine (DNS rebinding) is refused, its terminal
+socket included (`request-guard.js`).
+
 **Two settings end that**, and both get changed for a good-looking reason:
 
 | setting | why someone changes it |

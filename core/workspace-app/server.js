@@ -97,6 +97,8 @@ const commandsPage = require('./commands-page');
 const { assistantReply } = require('./assistant');
 const chats = require('./chat-threads');
 const googleAuth = require('./auth-google');
+// Which address the server listens on, and which host names it answers to (DNS rebinding).
+const requestGuard = require('./request-guard');
 const changelog = require('./changelog');
 const rail = require('./navigation');
 const versionCheck = require('./version-check');
@@ -5943,6 +5945,13 @@ async function onRequest(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  // Answered only under a name this dashboard is known by. A page of another site whose name was pointed
+  // at this machine (DNS rebinding) sends that name as Host and as Origin, which passed the same-origin
+  // check below and let it run actions (request-guard.js).
+  if (!requestGuard.hostAllowed(req.headers.host, { hub: hubDomain(), extra: requestGuard.extraHosts() })) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end(requestGuard.refusalText(req.headers.host));
+  }
   let { pathname } = new URL(req.url, 'http://localhost');
 
   // Workspace subdomains: <ws>.workspace.ddev.site serves that workspace's
@@ -8313,6 +8322,12 @@ for (const sig of ['exit', 'SIGTERM', 'SIGINT']) {
   });
 }
 server.on('upgrade', (req, socket, head) => {
+  // The same names as every request: a terminal is a shell, and a rebound name must not reach one.
+  if (!requestGuard.hostAllowed(req.headers.host, { hub: hubDomain(), extra: requestGuard.extraHosts() })) {
+    socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+    socket.destroy();
+    return;
+  }
   const u = new URL(req.url, 'http://x');
   // A terminal is a shell: with sign-in on, no cookie means no socket.
   if (!googleAuth.upgradeAllowed(req)) {
@@ -8406,7 +8421,12 @@ process.on('uncaughtExceptionMonitor', (err) => {
   eventLog.logEvent('fatal', 'process.crashed', { error: eventLog.clip(err && err.message || err, 300), stack: eventLog.clip(err && err.stack, 1200) });
 });
 
-server.listen(PORT, () => {
+// 127.0.0.1 when started with node on a machine, every interface inside a container (the router in front of
+// it decides what reaches it), or WORKSPACE_LISTEN: request-guard.js says why.
+const LISTEN_HOST = requestGuard.listenHost();
+server.listen(PORT, LISTEN_HOST, () => {
+  const where = server.address();
+  requestGuard.setBound(where && where.address);
   // What the core and the activated plugins call and this machine does not have: said once, at the start.
   setImmediate(() => {
     try {
@@ -8416,7 +8436,9 @@ server.listen(PORT, () => {
       if (text) console.warn(`Commands this machine does not have (Settings → Plugins lists them; nothing is installed for you):\n${text}`);
     } catch (err) { console.warn('command check skipped:', err.message); }
   });
-  console.log(`workspace-dashboard (node:http + HTMX) listening on :${PORT}`);
+  console.log(`workspace-dashboard (node:http + HTMX) listening on ${LISTEN_HOST || '*'}:${PORT}`);
+  const exposed = requestGuard.bindExposure();
+  if (exposed) console.warn(`Reachable from other machines: ${exposed}. It has no login unless Sign in with Google is on: anyone who can reach the port can run commands as you.`);
   eventLog.logEvent('info', 'app.started', { version: appVersion(), pid: process.pid, port: PORT });
   // Ask once at boot, so the FIRST page render already knows whether the Web IDE is up.
   // The probe answers optimistically until it has run — which is right for a slow first
