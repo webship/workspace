@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { esc } = require('../html');
+const { shq } = require('../shell-quote');
 const { humanSize, humanTime } = require('../format');
 const { ROOT, loadWorkspaces, workspaceDir } = require('../workspaces');
 const {
@@ -124,7 +125,7 @@ async function ddev_verb({ form, res, send, workspace, pathname }) {
       try { fs.mkdirSync(outDir, { recursive: true }); } catch (_) { /* the session reports it */ }
       const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
       const dump = path.join(outDir, `${projectName}--before-sql-drop--${stamp}.sql.gz`);
-      line = `echo "Backing the database up first…" && ddev export-db --gzip --file ${JSON.stringify(dump)}`
+      line = `echo "Backing the database up first…" && ddev export-db --gzip --file ${shq(dump)}`
         + ` && echo "Saved ${dump}" && ${line}`;
     }
     // `ddev restart` recreates the router like start and stop do, so it queues with
@@ -161,7 +162,7 @@ async function ddev_import_db({ form, send, workspace }) {
   const file = path.join(backupsDir, dump.name);
   const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
   const cmdLine = `echo "Taking a snapshot first…" && ddev snapshot --name before-import-${stamp}`
-    + ` && ddev import-db --file ${JSON.stringify(file)}`
+    + ` && ddev import-db --file ${shq(file)}`
     + ` && echo "Imported ${dump.name}. The database as it was is the snapshot before-import-${stamp}."`;
   const started = await startInScreen({
     workspace, project: projectName, projectDir, verb: 'import-db', cmdLine, label: `ddev import-db ${dump.name}`,

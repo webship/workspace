@@ -17,6 +17,7 @@ const path = require('path');
 const { esc } = require('../html');
 const { workspaceDir } = require('../workspaces');
 const { jobFragment, runningJobKey, startJob, listProjects , startInScreen, screenStartedHtml } = require('../jobs');
+const { shWords } = require('../shell-quote');
 const { NAME_RE } = require('../validate');
 const { checksDeclaredOf } = require('../checks');
 
@@ -85,7 +86,7 @@ async function checks_run({ form, send, workspace }) {
   const only = String(form.only || '').trim();
   const args = [SCRIPT, t.projectName, ...(only && /^[a-z,]+$/.test(only) ? ['--only', only] : [])];
   const started = await startInScreen({ workspace, project: t.projectName, projectDir: t.dir, verb: 'checks',
-    cmdLine: `bash ${args.map((a) => JSON.stringify(a)).join(' ')}`, label: 'checks' });
+    cmdLine: `bash ${shWords(args)}`, label: 'checks' });
   return send(screenStartedHtml(started, 'checks', t.projectName), started.ok ? 200 : (started.already ? 409 : 500));
 }
 

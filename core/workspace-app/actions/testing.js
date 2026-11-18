@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { esc } = require('../html');
+const { shWords } = require('../shell-quote');
 const { humanSize, humanTime } = require('../format');
 const { ROOT, loadWorkspaces, workspaceDir } = require('../workspaces');
 const {
@@ -108,7 +109,7 @@ async function testing_configure({ form, res, send, workspace, pathname }) {
     }
     const args = isRun ? [script, projectName, '--run'] : [script, projectName];
     const started = await startInScreen({ workspace, project: projectName, projectDir: dir, ownerDir: path.join(dir, projectName),
-      verb: isRun ? 'tests' : 'tests-setup', cmdLine: `bash ${JSON.stringify(script)} ${JSON.stringify(projectName)}${isRun ? ' --run' : ''}`,
+      verb: isRun ? 'tests' : 'tests-setup', cmdLine: `bash ${shWords([script, projectName])}${isRun ? ' --run' : ''}`,
       label: isRun ? 'run the tests' : 'set up testing' });
     return send(screenStartedHtml(started, isRun ? 'run the tests' : 'set up testing', projectName), started.ok ? 200 : (started.already ? 409 : 500));
 }

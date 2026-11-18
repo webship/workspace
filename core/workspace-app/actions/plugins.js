@@ -9,6 +9,7 @@ const path = require('path');
 
 const { ROOT } = require('../workspaces');
 const { screenStartedHtml } = require('../jobs');
+const { shWords } = require('../shell-quote');
 const { startUnlessRunning } = require('./composer');
 const { lingerTail } = require('../linger');
 const { pluginByName } = require('../plugin-manifest');
@@ -40,7 +41,7 @@ module.exports = {
     const label = `plugin ${verb} ${arg}`;
     // A session left open from the last time (its step done, waiting to be read) is replaced; one still at work is left alone.
     const started = await startUnlessRunning({ workspace: 'plugins', project: what, projectDir: ROOT, verb,
-      cmdLine: `bash ${args.map((a) => JSON.stringify(a)).join(' ')}; ${lingerTail(label)}`, label });
+      cmdLine: `bash ${shWords(args)}; ${lingerTail(label)}`, label });
     // The page that asked shows the plugin's state: it is told when the step is done (refresh-projects), not reloaded.
     const answer = started.stillRunning ? { ...started, already: true } : { ...started, watch: true };
     return send(screenStartedHtml(answer, label, what), answer.ok ? 200 : (answer.already ? 409 : 500));

@@ -99,6 +99,8 @@ const chats = require('./chat-threads');
 const googleAuth = require('./auth-google');
 // Which address the server listens on, and which host names it answers to (DNS rebinding).
 const requestGuard = require('./request-guard');
+// A value as one word of a bash line, in single quotes (shell-quote.js): JSON.stringify is not that.
+const { shq, shWords } = require('./shell-quote');
 const changelog = require('./changelog');
 const rail = require('./navigation');
 const versionCheck = require('./version-check');
@@ -4982,7 +4984,7 @@ async function handleAction(pathname, form, res, req = null) {
     // Full distribution builds (composer create-project + install) can far
     // exceed the default 15m on a cold composer cache.
     // Echo the exact final command as the first terminal line.
-    let cmdLine = `bash ${[script, projectName, ...flags].map((a) => JSON.stringify(a)).join(' ')}`;
+    let cmdLine = `bash ${shWords([script, projectName, ...flags])}`;
     // Claude Code after the build: its own session, started by the build's last step so it waits for a good build.
     let after = null;
     if (form.ai_after === '1') {
@@ -5037,7 +5039,7 @@ async function handleAction(pathname, form, res, req = null) {
     if (!script) return send('<div class="msg error">No backup script in this workspace.</div>', 400);
     if (!NAME_RE.test(String(form.projectName || ''))) return send('<div class="msg error">Invalid project name.</div>', 400);
     const started = await startInScreen({ workspace, project: String(form.projectName), projectDir: dir, ownerDir: path.join(dir, String(form.projectName)), verb: 'backup',
-      cmdLine: `bash ${JSON.stringify(script)} ${JSON.stringify(String(form.projectName))}`, label: 'backup' });
+      cmdLine: `bash ${shWords([script, String(form.projectName)])}`, label: 'backup' });
     return send(screenStartedHtml(started, 'backup', String(form.projectName)), started.ok ? 200 : (started.already ? 409 : 500));  }
 
   if (pathname === '/actions/remove') {
@@ -5059,7 +5061,7 @@ async function handleAction(pathname, form, res, req = null) {
     // the person did not tick is still refused there, with the reason.
     const withForce = form.force === 'yes' ? ' --force' : '';
     const started = await startInScreen({ workspace, project: String(form.projectName), projectDir: dir, ownerDir: path.join(dir, String(form.projectName)), verb: 'remove',
-      cmdLine: `bash ${JSON.stringify(script)} ${JSON.stringify(String(form.projectName))}${withBackup}${withForce}`,
+      cmdLine: `bash ${shWords([script, String(form.projectName)])}${withBackup}${withForce}`,
       label: `remove the project${withBackup ? ' (with a backup first)' : ''}${withForce ? ' (forced past the git guard)' : ''}` });
     return send(screenStartedHtml(started, 'remove the project', String(form.projectName)), started.ok ? 200 : (started.already ? 409 : 500));  }
 
@@ -5093,7 +5095,7 @@ async function handleAction(pathname, form, res, req = null) {
     res.setHeader('HX-Trigger', 'refresh-projects');
     return screenAction(send, { workspace, project: proj, projectDir: meta.dir, ownerDir: dir,
       verb: 'hostnames',
-      cmdLine: `bash ${JSON.stringify(script)} ${JSON.stringify(proj)}${args}`,
+      cmdLine: `bash ${shWords([script, proj])}${args}`,
       label: pathname.endsWith('remove') ? `remove the hostname ${label}` : 'add a hostname' });
   }
 
@@ -5136,7 +5138,7 @@ async function handleAction(pathname, form, res, req = null) {
       phases.push('Tailoring the clone');
       const targetDir = path.join(workspaceDir(toWorkspace), to);
       const tailor = `You are in ${targetDir}, a freshly cloned DDEV project named ${to} (cloned from ${src} — the source must not be touched). Apply this change to THIS clone only, using ddev drush / ddev composer via Bash where needed: ${prompt}`;
-      shellLine += ` && echo && echo "Tailoring the clone with Claude Code…" && cd ${JSON.stringify(targetDir)} && claude -p ${JSON.stringify(tailor)} --allowedTools Bash Read Write Edit Glob Grep --no-session-persistence`;
+      shellLine += ` && echo && echo "Tailoring the clone with Claude Code…" && cd ${shq(targetDir)} && claude -p ${shq(tailor)} --allowedTools Bash Read Write Edit Glob Grep --no-session-persistence`;
     }
     return screenAction(send, { workspace: toWorkspace, project: to, projectDir: meta.dir,
       ownerDir: path.join(workspaceDir(toWorkspace), to), verb: 'clone',
@@ -5502,7 +5504,7 @@ async function handleAction(pathname, form, res, req = null) {
     // Every one of these is a command too, so every one of them is a session.
     // `rawArgv` callers pass a whole shell line instead of arguments.
     const runJob = (title, args, timeoutMin, rawArgv = null) => {
-      const line = rawArgv ? rawArgv[1] : `bash cmd-tools-commands.sh ${args.map((a) => JSON.stringify(a)).join(' ')}`;
+      const line = rawArgv ? rawArgv[1] : `bash cmd-tools-commands.sh ${shWords(args)}`;
       const verb = String(pathname.split('/').pop() || 'commands');
       return screenAction(send, { workspace: 'commands', project: (file || 'commands').replace(/^cmd-|\.sh$/g, ''),
         projectDir: cmdDir, verb, cmdLine: line, label: verb.replace(/-/g, ' ') });
@@ -5624,20 +5626,20 @@ async function handleAction(pathname, form, res, req = null) {
       const dest = path.join(workspaceDir(target), name);
       const shell = [
         `set -e`,
-        `bash ${JSON.stringify(path.join(ROOT, 'commands', 'cmd-tools-commands.sh'))} ${args.map((a) => JSON.stringify(a)).join(' ')}`,
+        `bash ${shWords([path.join(ROOT, 'commands', 'cmd-tools-commands.sh'), ...args])}`,
         `echo`,
         `echo "Writing the body with the AI assistant…"`,
-        `claude -p "$(cat ${JSON.stringify(promptFile(commandAuthorPrompt({ workspace: target, file: name, purpose, scaffoldPath: dest })))})"` +
-          ` --allowedTools Read Glob Grep --disallowedTools Write Edit Bash --no-session-persistence > ${JSON.stringify(`${dest}.ai`)}`,
+        `claude -p "$(cat ${shq(promptFile(commandAuthorPrompt({ workspace: target, file: name, purpose, scaffoldPath: dest })))})"` +
+          ` --allowedTools Read Glob Grep --disallowedTools Write Edit Bash --no-session-persistence > ${shq(`${dest}.ai`)}`,
         // Models sometimes fence the file despite being told not to — and a fenced file can still
         // parse (backticks pair), so bash -n alone does not catch it. Strip fence lines outright.
-        `sed -i -e '1{/^\\x60\\x60\\x60/d}' -e '${/^\\x60\\x60\\x60/d}' ${JSON.stringify(`${dest}.ai`)}`,
-        `bash -n ${JSON.stringify(`${dest}.ai`)} || { echo "The AI wrote a script bash refuses to parse — the scaffold is untouched and the attempt is at ${name}.ai"; exit 1; }`,
-        `chmod --reference=${JSON.stringify(dest)} ${JSON.stringify(`${dest}.ai`)}`,
-        `mv ${JSON.stringify(`${dest}.ai`)} ${JSON.stringify(dest)}`,
+        `sed -i -e '1{/^\\x60\\x60\\x60/d}' -e '${/^\\x60\\x60\\x60/d}' ${shq(`${dest}.ai`)}`,
+        `bash -n ${shq(`${dest}.ai`)} || { echo "The AI wrote a script bash refuses to parse — the scaffold is untouched and the attempt is at ${name}.ai"; exit 1; }`,
+        `chmod --reference=${shq(dest)} ${shq(`${dest}.ai`)}`,
+        `mv ${shq(`${dest}.ai`)} ${shq(dest)}`,
         `echo "Written: ${target}/${name}"`,
         `echo`,
-        `bash ${JSON.stringify(dest)} --help 2>&1 | head -20 || true`,
+        `bash ${shq(dest)} --help 2>&1 | head -20 || true`,
       ].join('; ');
       return runJob(`🤖 New command <strong>${esc(name)}</strong> in ${esc(target)}, written for its purpose`,
         null, 10, ['-c', shell]);
@@ -5664,14 +5666,14 @@ async function handleAction(pathname, form, res, req = null) {
       const shell = [
         `set -e`,
         `echo "Asking the assistant to change ${file}…"`,
-        `claude -p "$(cat ${JSON.stringify(promptPath)})" --allowedTools Read Glob Grep --disallowedTools Write Edit Bash --no-session-persistence > ${JSON.stringify(proposal)}`,
-        `rm -f ${JSON.stringify(promptPath)}`,
-        `test -s ${JSON.stringify(proposal)} || { echo "The assistant returned nothing."; rm -f ${JSON.stringify(proposal)}; exit 1; }`,
+        `claude -p "$(cat ${shq(promptPath)})" --allowedTools Read Glob Grep --disallowedTools Write Edit Bash --no-session-persistence > ${shq(proposal)}`,
+        `rm -f ${shq(promptPath)}`,
+        `test -s ${shq(proposal)} || { echo "The assistant returned nothing."; rm -f ${shq(proposal)}; exit 1; }`,
         // Refused here rather than at Apply: an unparseable proposal is a failed attempt, and
         // offering it as a choice would be offering a way to break the command.
-        `bash -n ${JSON.stringify(proposal)} || { echo; echo "bash refuses to parse what came back, so it is not offered. The command is untouched."; rm -f ${JSON.stringify(proposal)}; exit 1; }`,
+        `bash -n ${shq(proposal)} || { echo; echo "bash refuses to parse what came back, so it is not offered. The command is untouched."; rm -f ${shq(proposal)}; exit 1; }`,
         `echo`,
-        `diff -u ${JSON.stringify(r.full)} ${JSON.stringify(proposal)} || true`,
+        `diff -u ${shq(r.full)} ${shq(proposal)} || true`,
         `echo`,
         `echo "Proposal written. Re-open ${file} in the editor to apply or throw it away."`,
       ].join('; ');
@@ -5738,7 +5740,7 @@ async function handleAction(pathname, form, res, req = null) {
     if (!/^https?:\/\/[a-zA-Z0-9.:\/_-]+$/.test(url)) return send('<div class="msg error">Invalid URL.</div>', 400);
     const meta = loadWorkspaces()[workspace];
     return screenAction(send, { workspace, project: name, projectDir: meta.dir, verb: 'screenshot',
-      cmdLine: `set -e; chromium --headless --disable-gpu --no-sandbox --hide-scrollbars --window-size=1440,1200 --screenshot='${name}.png' ${JSON.stringify(url)} && echo "Screenshot written: ${name}.png"`,
+      cmdLine: `set -e; chromium --headless --disable-gpu --no-sandbox --hide-scrollbars --window-size=1440,1200 --screenshot='${name}.png' ${shq(url)} && echo "Screenshot written: ${name}.png"`,
       label: `screenshot ${name}.png` });
   }
 
@@ -5764,7 +5766,7 @@ async function handleAction(pathname, form, res, req = null) {
     if (!fs.existsSync(projectDir)) return send('<div class="msg error">Site/project not found.</div>', 404);
     const docsDir = workspaceDir('docs');
     const prompt = `Write comprehensive documentation (Markdown, no code fences around the whole document) about the site/project at ${projectDir}. Inspect the real files (composer.json, .ddev/config.yaml, README, directory layout) with your tools. Cover: what it is, the stack and versions, how to start it with ddev, its URL, notable modules/packages, and folder structure. Start with a # title.`;
-    const shellLine = `set -e; echo "Generating documentation for ${projectName}…"; claude -p ${JSON.stringify(prompt)} --allowedTools Read Glob Grep Bash --disallowedTools Write Edit --no-session-persistence > '${docsDir}/${docName}.md'; echo "Markdown written: ${docName}.md"; cd '${docsDir}'; pandoc '${docName}.md' -o '${docName}.pdf' --pdf-engine=weasyprint --metadata title='${docName}' -V margin-top=18mm -V margin-bottom=18mm -V margin-left=16mm -V margin-right=16mm; echo "PDF written: ${docName}.pdf"`;
+    const shellLine = `set -e; echo "Generating documentation for ${projectName}…"; claude -p ${shq(prompt)} --allowedTools Read Glob Grep Bash --disallowedTools Write Edit --no-session-persistence > '${docsDir}/${docName}.md'; echo "Markdown written: ${docName}.md"; cd '${docsDir}'; pandoc '${docName}.md' -o '${docName}.pdf' --pdf-engine=weasyprint --metadata title='${docName}' -V margin-top=18mm -V margin-bottom=18mm -V margin-left=16mm -V margin-right=16mm; echo "PDF written: ${docName}.pdf"`;
     return screenAction(send, { workspace: 'docs', project: docName, projectDir: docsDir, verb: 'generate-doc',
       cmdLine: shellLine, label: `generate the doc ${docName}` });
   }
@@ -5801,9 +5803,14 @@ async function handleAction(pathname, form, res, req = null) {
     // each has its own list, which is not the Webship distribution's.
     if (!distribution) distribution = drupalBaseOfProject(path.join(dir, projectName));
     if (!distribution) distribution = 'webship';
+    // Read from the project's own folders, so it is checked like a name and quoted like any value: a folder
+    // called `x$(…)` under profiles/contrib reached this line bare, and the shell ran it.
+    if (!/^[a-z0-9][a-z0-9_-]*$/.test(distribution)) {
+      return send(`<div class="msg error">${esc(projectName)}'s profile folder is not a plain name (<code>${esc(distribution.slice(0, 60))}</code>), so its user list cannot be chosen.</div>`, 400);
+    }
     return screenAction(send, { workspace, project: projectName, projectDir: dir,
       ownerDir: path.join(dir, projectName), verb: act.verb,
-      cmdLine: `bash ${act.script} ${projectName} ${distribution}`, label: act.label });
+      cmdLine: `bash ${shWords([act.script, projectName, distribution])}`, label: act.label });
   }
 
 
