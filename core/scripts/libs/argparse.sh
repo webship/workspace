@@ -19,6 +19,10 @@ from __future__ import print_function
 import sys
 import argparse
 import os
+try:
+    from shlex import quote
+except ImportError:  # Python 2
+    from pipes import quote
 
 
 class MyArgumentParser(argparse.ArgumentParser):
@@ -40,12 +44,16 @@ for arg in [a for a in dir(args) if not a.startswith('_')]:
     key = arg.upper()
     value = getattr(args, arg, None)
 
+    # Each value in single quotes (shlex.quote), because the shell evals these lines. In double quotes, as
+    # they were, a command substitution in a value ran, and a double quote in it ended the quotes: every
+    # script that takes an argument ran what it was given, whoever gave it (a form, the assistant, a
+    # person, a plugin). This text sits in an unquoted heredoc: no dollar sign or backtick in it.
     if isinstance(value, bool) or value is None:
-        print('{0}="{1}";'.format(key, 'yes' if value else ''))
+        print('{0}={1};'.format(key, quote('yes' if value else '')))
     elif isinstance(value, list):
-        print('{0}=({1});'.format(key, ' '.join('"{0}"'.format(s) for s in value)))
+        print('{0}=({1});'.format(key, ' '.join(quote(str(s)) for s in value)))
     else:
-        print('{0}="{1}";'.format(key, value))
+        print('{0}={1};'.format(key, quote(str(value))))
 EOF
 
     # Define variables corresponding to the options if the args can be
