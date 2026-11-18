@@ -2552,27 +2552,9 @@ function styleNewFormHtml(from) {
 }
 
 
-/**
- * Markdown to HTML, through pandoc's `gfm-raw_html`.
- *
- * The same path the assistant's replies take, and for the same reason: `-raw_html` DROPS embedded
- * HTML rather than passing it through, so a document cannot inject markup by being read. These are
- * files from 52 git checkouts nobody on this machine necessarily wrote.
- *
- * A pandoc that is missing or fails returns null, and every caller falls back to showing the text
- * rather than showing nothing.
- */
-function renderMarkdown(md) {
-  return new Promise((resolve) => {
-    const child = spawn('pandoc', ['-f', 'gfm-raw_html', '-t', 'html'], { stdio: ['pipe', 'pipe', 'pipe'] });
-    let out = '';
-    child.stdout.on('data', (d) => { out += d; });
-    child.on('close', (code) => resolve(code === 0 ? out : null));
-    child.on('error', () => resolve(null));
-    child.stdin.write(String(md));
-    child.stdin.end();
-  });
-}
+// Markdown to HTML for files nobody on this machine necessarily wrote (a CHANGELOG from a checkout, the
+// user guide): markdown.js, where embedded HTML becomes text and only safe links are kept.
+const { renderMarkdown } = require('./markdown');
 
 /* ---------------- the changelog reader ---------------- */
 

@@ -91,6 +91,10 @@ function appendTurn(thread, turn) {
   return writeThread({ ...thread, turns: [...thread.turns, t] });
 }
 
+// An answer kept before markdown.js made answers safe can hold markup that runs: it comes back as text.
+const UNSAFE_HTML = /<(script|iframe|object|embed|svg|math|style|link|meta|base|form)\b|\son[a-z]+\s*=|(?:href|src|action)\s*=\s*["']?\s*(?:javascript|vbscript|data):/i;
+const plain = (html) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/[ \t]+/g, ' ').trim();
+
 /**
  * The transcript as deep-chat's `history`. Its own shape: `role` is 'user' or 'ai', and a message
  * carries either `text` or `html` — the assistant's replies are already rendered markdown, so they
@@ -99,7 +103,7 @@ function appendTurn(thread, turn) {
 function historyFor(thread) {
   return (thread.turns || [])
     .map((t) => (t.role === 'ai'
-      ? (t.html ? { role: 'ai', html: t.html } : { role: 'ai', text: t.text || '' })
+      ? (t.html && !UNSAFE_HTML.test(t.html) ? { role: 'ai', html: t.html } : { role: 'ai', text: t.text || plain(t.html) })
       : { role: 'user', text: t.text || '' }))
     .filter((m) => m.html || m.text);
 }

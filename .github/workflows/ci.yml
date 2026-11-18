@@ -30,7 +30,8 @@ jobs:
           cache: npm
           cache-dependency-path: core/workspace-app/package-lock.json
       # ffmpeg and ffprobe: the media tests (video editing, voiceover, audio) skip themselves without them.
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml ffmpeg
+      # pandoc: the safe-markdown test (markdown-safe.test.js) skips itself without it.
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml ffmpeg pandoc
       - name: install the dashboard (plugins build on install)
         working-directory: core/workspace-app
         run: npm ci --no-audit --no-fund
@@ -65,7 +66,8 @@ jobs:
           cache: npm
           cache-dependency-path: core/workspace-app/package-lock.json
       # ffmpeg and ffprobe: the media tests (video editing, voiceover, audio) skip themselves without them.
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml ffmpeg
+      # pandoc: the safe-markdown test (markdown-safe.test.js) skips itself without it.
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml ffmpeg pandoc
       - name: the command line (webship-workspace)
         run: npm test
       - name: install the dashboard

@@ -12,7 +12,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
 const crypto = require('crypto');
 
 const { esc } = require('./html');
@@ -93,6 +92,18 @@ function pageContextFor(ctx) {
     }
   }
   return pageContext;
+}
+
+/**
+ * Is this the address of a site on this machine: a project (*.ddev.site), a page of this dashboard (its hub
+ * domain), or localhost? What an OPEN line may open; nothing else is opened from an answer.
+ */
+function localSiteUrl(u) {
+  let host;
+  try { host = new URL(String(u)).hostname.toLowerCase().replace(/^\[|\]$/g, ''); } catch (_) { return false; }
+  const hub = String(hubDomain() || '').toLowerCase();
+  return host === 'localhost' || host.endsWith('.localhost') || host === '127.0.0.1' || host === '::1'
+    || host === 'ddev.site' || host.endsWith('.ddev.site') || (!!hub && (host === hub || host.endsWith(`.${hub}`)));
 }
 
 /** The id of a YouTube video link, or null. */
@@ -290,7 +301,7 @@ async function assistantReply(message, ctx, thread = null, { voice = false, avat
     '  the per-project built images behind, invisible until the disk is full.',
     'After acting, end your reply with directives, each alone on its own line, so the interface can react:',
     'NAVIGATE:/<workspace>   (go to that workspace page, e.g. NAVIGATE:/dev — or its backups page: NAVIGATE:/dev/backups; NAVIGATE:/screens for the screen sessions)',
-    'OPEN:<https url>        (open a site in a new tab, e.g. after ddev start)',
+    'OPEN:<https url>        (open a site of this machine in a new tab, e.g. after ddev start: *.ddev.site or a workspace page; any other address is not opened)',
     'REFRESH                 (refresh the visible project list)',
     'PROMPT MODE. The mode selector lists only the commands of the workspace the user is on (every',
     'workspace on the home page), so a command they pick is always one that belongs here. When you',
@@ -414,8 +425,10 @@ async function assistantReply(message, ctx, thread = null, { voice = false, avat
     // Accepts /<workspace> and /<workspace>/backups
     const nav = line.match(/^\s*NAVIGATE:\/([a-z0-9_-]+)(\/backups)?\s*$/);
     if (nav) { directive.navigate = isValidWorkspace(nav[1]) ? wsUrl(nav[1], nav[2] || '') : HOME_URL(); return false; }
+    // A site of this machine only (localSiteUrl). An address anywhere else stays in the text as words: a
+    // line the agent repeated from a file or a page it read must not open another site.
     const open = line.match(/^\s*OPEN:(https?:\/\/\S+)\s*$/);
-    if (open) { directive.open = open[1]; return false; }
+    if (open && localSiteUrl(open[1])) { directive.open = open[1]; return false; }
     // The agent's proposal in Auto mode: keep the workspace and summary,
     // render them as a confirm card rather than leaving a bare marker.
     const plan = line.match(/^\s*PLAN:([a-z0-9_-]+)\|(.+)$/);
@@ -464,18 +477,12 @@ async function assistantReply(message, ctx, thread = null, { voice = false, avat
         <a class="uk-button uk-button-default uk-button-small" href="${esc(wsUrl(directive.plan.workspace))}">Go to ${esc(directive.plan.workspace)}</a>
       </div>
     </div>` : '';
-  const mdResult = await new Promise((resolve) => {
-    const child = spawn('pandoc', ['-f', 'gfm-raw_html', '-t', 'html'], { stdio: ['pipe', 'pipe', 'pipe'] });
-    let out = '';
-    child.stdout.on('data', (d) => { out += d; });
-    child.on('close', (code) => resolve(code === 0 ? out : null));
-    child.on('error', () => resolve(null));
-    child.stdin.write(reply);
-    child.stdin.end();
-  });
+  // The answer is shown, never run: embedded HTML becomes text and a link keeps only a safe address (markdown.js).
+  // The agent reads files, pages and command output, any of which can try to put markup in its answer.
+  const mdResult = await require('./markdown').renderMarkdown(reply);
   if (mdResult) replyHtml = mdResult;
 
   return { replyHtml: `${replyHtml}${planHtml}`, directive, sessionId: newSessionId };
 }
 
-module.exports = { assistantReply, pageContextFor, youtubeId, AVATAR_GESTURES, AVATAR_MOVE_SETS, AVATAR_BIG_MOVES };
+module.exports = { assistantReply, pageContextFor, youtubeId, localSiteUrl, AVATAR_GESTURES, AVATAR_MOVE_SETS, AVATAR_BIG_MOVES };
