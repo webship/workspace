@@ -19,7 +19,7 @@ const { NAME_RE, ITEM_NAME_RE } = require('../validate');
 const { shq, shWords } = require('../shell-quote');
 const {
   INSTALL_TARGETS, NO_CLAUDE_SYNC, AI_ITEMS_REPO, AI_ITEMS_REPO_PATHS, AI_ITEMS_PROJECT_PATHS,
-  itemFile, invalidateRepoCaches,
+  itemFile, itemFileInside, invalidateRepoCaches,
 } = require('../ai-items');
 
 async function save_item({ form, res, send, workspace, pathname }) {
@@ -29,7 +29,9 @@ async function save_item({ form, res, send, workspace, pathname }) {
     if (!ITEM_NAME_RE.test(name)) return send('<div class="msg error">A name starts with a letter or digit and holds letters, digits, dots, dashes and underscores.</div>', 400);
     const content = String(form.content || '').replace(/\r\n/g, '\n');
     if (content.length > 500000) return send('<div class="msg error">Content too large.</div>', 400);
-    const file = itemFile(workspace, name);
+    // Never through a link out of the folder: Save wrote to whatever such a link pointed at.
+    const file = itemFileInside(workspace, name);
+    if (!file) return send('<div class="msg error">That item is a link out of its workspace folder: it is not read or written from here.</div>', 400);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, content);
     res.setHeader('HX-Trigger', 'refresh-projects');
@@ -141,7 +143,8 @@ async function install_item({ form, res, send, workspace, pathname }) {
     if (NO_CLAUDE_SYNC.has(workspace)) return send('<div class="msg error">Prompts run a new screen session — they do not install into ~/.claude or a project.</div>', 400);
     const name = String(form.name || '');
     if (!ITEM_NAME_RE.test(name)) return send('<div class="msg error">Invalid name.</div>', 400);
-    const src = itemFile(workspace, name);
+    const src = itemFileInside(workspace, name);
+    if (!src) return send('<div class="msg error">That item is a link out of its workspace folder: it is not read or written from here.</div>', 400);
     if (!fs.existsSync(src)) return send('<div class="msg error">Item not found.</div>', 404);
 
     // Global by default; a chosen workspace + project puts it in that project's own .claude/
@@ -272,7 +275,8 @@ async function generate_item({ form, res, send, workspace, pathname }) {
       'ai-commands': `a Claude Code CLI slash command markdown file. It MUST start with YAML frontmatter delimited by --- lines containing a one-line description: saying what the command does, and argument-hint: saying what to type after it (quote the hint). After the frontmatter: a # /${name} heading, a line that reads what was typed after the command from $ARGUMENTS, the arguments said in words, and precise numbered steps.`,
       'ai-prompts': `a reusable prompt file kept in this workspace's prompts folder (nothing installs into ~/.claude). Plain markdown, no frontmatter: just the complete, well-structured prompt text a user would paste or run repeatedly. Make it specific and actionable.`,
     };
-    const file = itemFile(workspace, name);
+    const file = itemFileInside(workspace, name);
+    if (!file) return send('<div class="msg error">That item is a link out of its workspace folder: it is not read or written from here.</div>', 400);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const genPrompt = `Write ${SPECS[workspace]}\n\nWhat it should do: ${description}\n\nOutput ONLY the raw file content — no surrounding commentary, no code fences.`;
     const shellLine = `set -e; echo "Generating ${meta.noun} '${name}' with AI…"; claude -p ${shq(genPrompt)} --allowedTools Read Glob Grep --disallowedTools Write Edit Bash --no-session-persistence > ${shq(file)}; echo "Written: ${path.relative(ROOT, file)}"; head -20 ${shq(file)}`;
