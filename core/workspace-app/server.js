@@ -1824,6 +1824,9 @@ function addWorkspace(name) {
   if (!/^[a-z][a-z0-9\-]*$/.test(name)) {
     return { error: 'A workspace name is lowercase letters, digits and hyphens, starting with a letter.' };
   }
+  if (require('./workspaces').RESERVED_WORKSPACES.has(name)) {
+    return { error: `${name} is a folder of the workspace itself, not a workspace: pick another name.` };
+  }
   if (block.items.includes(name)) return { error: `${name} is already a workspace.` };
 
   const notes = [];
