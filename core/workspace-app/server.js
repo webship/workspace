@@ -149,7 +149,8 @@ const {
   startInScreen, screenStartedHtml, screenAction, screenSessionName,
 } = require('./jobs');
 const { assembleCss, cssVersion, listThemes, themeLabel, createTheme, themePreview, isYamlOnlyTheme } = require('./themes');
-const NAME_RE = /^[a-zA-Z0-9_\-]+$/;
+// The same rule as validate.js: never a leading dash, which a script would read as an option.
+const { NAME_RE } = require('./validate');
 
 // The app's own documentation, beside the screenshots it references: one file for
 // both the /help page and whoever reads it in the repository.
@@ -5121,7 +5122,7 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
     // bar reports what has actually happened, never a guess.
     const asWorktree = form.worktree === 'yes';
     const branch = String(form.branch || '').trim();
-    if (branch && !/^[A-Za-z0-9._/-]+$/.test(branch)) return send('<div class="msg error">Invalid branch name.</div>', 400);
+    if (branch && !/^[A-Za-z0-9_][A-Za-z0-9._/-]*$/.test(branch)) return send('<div class="msg error">Invalid branch name.</div>', 400);
     if (asWorktree && !projectHasGit(path.join(meta.dir, src))) {
       return send(`<div class="msg error">'${esc(src)}' is not a git checkout, so there is no repository to add a worktree to.</div>`, 400);
     }
