@@ -35,7 +35,7 @@ the same shape, which is how one is developed before it gets a repository.
 ```json
 "workspacePlugin": {
   "name": "upsun",                                   // its settings key and route namespace
-  "label": "Upsun",
+  "label": "Upsun",                                  // its name as people write it; also the casing of its name in its AI items' titles
   "settingsFile": "plugin.upsun.settings.yml",       // core/config/<file>, created from…
   "settingsTemplate": "config/plugin.upsun.settings.yml",
   "legacySettingsKey": "upsun",                      // the settings.yml block it replaces: its values carry over
