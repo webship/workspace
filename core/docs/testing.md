@@ -34,7 +34,7 @@ bash cmd-tools-testing.sh mysite --remove-steps diffy         # exactly what --a
   install`) in the container. What it added is written in `tests/step-packs.json`, so `--remove-steps`
   takes out exactly that; a pack a platform plugin or a person added is never taken out. Running it
   again adds what a first run missed and changes nothing else.
-- **Settings** a pack reads (`worldParameters` in its README) that the project does not set are named,
+- **Settings** a pack reads (the `worldParameters` its README shows, or a `cucumber.js` it ships) that the project does not set are named,
   with the handles of the accounts its features log in as. Nothing is filled in: accounts and keys are yours.
 - **Two platforms, two profiles.** Platform packs share phrases on purpose (the webship-js FAQ, "Can I
   load several step packs in one project?"), so a second one gets a profile of its own in `cucumber.js`

@@ -448,6 +448,11 @@ function settingsToFill(src, readme, profile = 'default') {
   return out;
 }
 
+/** The cucumber.js an installed pack ships, if it ships one: its worldParameters are settings it reads too. */
+function packConfigOf(projectDir, name) {
+  return readText(path.join(projectDir, 'node_modules', ...name.split('/'), 'cucumber.js')) || '';
+}
+
 /** The README of a pack: the installed one, else the registry's. '' when neither can be read. */
 async function readmeOf(projectDir, name, opts = {}) {
   const local = readText(path.join(projectDir, 'node_modules', ...name.split('/'), 'README.md'));
@@ -664,7 +669,7 @@ function indentOf(text) {
  * install, in the project's container). `{ ok, code, changed: [], notes: [], fill: [], profile }`;
  * code 3 is "it needs a profile of its own and this cucumber.js has no default profile to build one on".
  */
-function addPack(projectDir, pack, { readme = '', metaOf } = {}) {
+function addPack(projectDir, pack, { readme = '', packConfig = packConfigOf(projectDir, pack.name), metaOf } = {}) {
   const name = pack.name;
   const out = { ok: true, code: 0, name, changed: [], notes: [], fill: [], profile: '' };
   const pkgFile = path.join(projectDir, 'package.json');
@@ -758,7 +763,8 @@ function addPack(projectDir, pack, { readme = '', metaOf } = {}) {
   if (meta(name).kind === 'extension' && meta(name).base && !deps[meta(name).base] && !readCucumber(newSrc).packs.some((p) => p.name === meta(name).base)) {
     out.notes.push(`${name} builds on ${meta(name).base}.${pack.note ? ` ${pack.note}` : ` Add it too if this pack does not bring it along: --add-steps ${shortName(meta(name).base)}.`}`);
   }
-  out.fill = settingsToFill(newSrc, readme, out.profile || 'default');
+  // What to fill in: the settings the README shows, and those of the cucumber.js the pack ships, if any.
+  out.fill = settingsToFill(newSrc, [readme, packConfig].filter(Boolean).join('\n'), out.profile || 'default');
   return out;
 }
 
@@ -1107,7 +1113,7 @@ module.exports = {
   PACK_RE, SEARCH_URLS, ORG_URL, CORE_GLOB, CORE_SETTINGS, MARK, RECORD, DAY,
   packName, dirName, shortName, docsUrl,
   shippedList, knownPacks, describePack, cacheFile, fetchRegistry, listPacks,
-  objectKeys, readCucumber, projectSettings, readmeSettings, settingsToFill, globFor, readmeOf,
+  objectKeys, readCucumber, projectSettings, readmeSettings, settingsToFill, globFor, readmeOf, packConfigOf,
   projectState, notInstalled, profileFor, placeFor, featureFiles,
   addPack, removePack, copyExamples,
   projectHost, fetchSitePage, detectPacks, suggestFor,
