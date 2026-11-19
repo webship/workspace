@@ -339,7 +339,7 @@ const NAME_WORDS = {
 // Connectors read wrong title-cased: "Figma To Vartheme" is not how anyone says it.
 const NAME_SMALL = new Set(['to', 'for', 'from', 'and', 'or', 'with', 'in', 'on', 'of', 'the', 'a', 'as']);
 
-function humanItemName(machine) {
+function humanItemName(machine, casing = {}) {
   const prepared = String(machine)
     // A release line is written 9-2-x in a filename and 9.2.x everywhere a person says it.
     .replace(/(\d+)-(\d+)-x\b/g, '$1.$2.x')
@@ -351,6 +351,8 @@ function humanItemName(machine) {
     .map((w, i) => {
       const k = w.toLowerCase();
       if (k === 'mr/pr') return 'MR/PR';
+      // The casing the plugin that placed the item gives its own name: "WooCommerce Tester".
+      if (Object.prototype.hasOwnProperty.call(casing, k)) return casing[k];
       if (NAME_WORDS[k]) return NAME_WORDS[k];
       if (i > 0 && NAME_SMALL.has(k)) return k;
       if (/^[0-9]/.test(w)) return w;                       // 9.2.x, 11, 1.0.x
@@ -511,6 +513,13 @@ function imagesGalleryDeps() {
 }
 
 /** "· plugin <name>" for an item a plugin placed (its package and version in the title), or nothing. */
+/** The casing of the words of a plugin's name, for an item that plugin placed ({} for any other). */
+function itemCasing(key, rel, name, record, casings) {
+  const base = [key, rel, name].filter(Boolean).join('/');
+  const by = require('./plugin-install').placedBy(key === 'ai-skills' ? `${base}/SKILL.md` : `${base}.md`, record);
+  return (by && casings.get(by.name)) || {};
+}
+
 function itemPluginHtml(key, rel, name, record) {
   const base = [key, rel, name].filter(Boolean).join('/');
   const by = require('./plugin-install').placedBy(key === 'ai-skills' ? `${base}/SKILL.md` : `${base}.md`, record);
@@ -529,6 +538,9 @@ async function itemRowsHtml(key, state, sub) {
   const items = listItems(key, rel);
   // What each installed plugin placed, read once for the page: an item's row says which plugin it came with.
   const placedRecord = require('./plugin-install').readRecord();
+  // How each installed plugin writes its own name (its label), read once for the page as well.
+  const { installedPlugins, nameCasing } = require('./plugin-manifest');
+  const casings = new Map(installedPlugins().map((p) => [p.name, nameCasing(p.name, (p.manifest || {}).label)]));
   const installable = !!INSTALL_TARGETS[key];
   const syncable = installable && !NO_CLAUDE_SYNC.has(key);
   const toWsOptions = syncable
@@ -695,7 +707,7 @@ async function itemRowsHtml(key, state, sub) {
     return `
     <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small project-row">
       <div class="item-row-body">
-        <span class="uk-text-bold"><span uk-icon="icon: file-edit; ratio: .8"></span> ${esc(humanItemName(it.name))}${
+        <span class="uk-text-bold"><span uk-icon="icon: file-edit; ratio: .8"></span> ${esc(humanItemName(it.name, itemCasing(key, rel, it.name, placedRecord, casings)))}${
           it.front && it.front.name && it.front.name !== it.name
             ? ` <span class="uk-text-meta item-declared" title="The name in its frontmatter, which is what Claude Code dispatches on">declares ${esc(it.front.name)}</span>` : ''}</span>
         <div class="item-meta-line">

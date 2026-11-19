@@ -67,6 +67,24 @@ function pluginByName(name) {
   return installedPlugins().find((p) => p.name === name) || null;
 }
 
+/**
+ * How a plugin writes the words of its own name, read from its label: `woocommerce` labelled
+ * "WooCommerce" gives { woocommerce: 'WooCommerce' }, and `django-cms` labelled "django CMS" gives
+ * { django: 'django', cms: 'CMS' }. A label that does not spell the name word for word ("Magento Open
+ * Source" for `magento`) gives nothing, and the usual title case stands.
+ */
+function nameCasing(name, label) {
+  const parts = String(name || '').toLowerCase().split('-').filter(Boolean);
+  const words = String(label || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length || parts.length !== words.length) return {};
+  const out = {};
+  for (let i = 0; i < parts.length; i += 1) {
+    if (words[i].toLowerCase() !== parts[i]) return {};
+    out[parts[i]] = words[i];
+  }
+  return out;
+}
+
 /** Whether the manifest names anything an install has to place. */
 function needsInstall(m = {}) {
   const s = m.scripts || {};
@@ -81,7 +99,7 @@ function placesSomething(m = {}) {
   return needsInstall(m) || !!(m.workspace && m.workspace.key);
 }
 
-module.exports = { installedPlugins, pluginByName, packageDir, needsInstall, placesSomething, APP_DIR, PLUGINS_DIR };
+module.exports = { installedPlugins, pluginByName, packageDir, needsInstall, placesSomething, nameCasing, APP_DIR, PLUGINS_DIR };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
