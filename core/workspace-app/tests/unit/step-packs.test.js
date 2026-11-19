@@ -306,6 +306,16 @@ test('settings a pack reads are named for the person to fill in, never invented'
   assert.deepStrictEqual(sp.addPack(set, pack('drupal-core'), { readme }).fill, []);
 });
 
+test('the settings in the cucumber.js an installed pack ships count too', () => {
+  const dir = project();
+  install(dir, '@webship-js/joomla-steps', { version: '2.2.3', readme: 'No settings block in this README.' });
+  fs.writeFileSync(path.join(dir, 'node_modules', '@webship-js', 'joomla-steps', 'cucumber.js'),
+    "module.exports = { default: { worldParameters: { launchUrl: 'x', adminPath: '/administrator', users: { admin: {} } } } };\n");
+  const r = sp.addPack(dir, pack('joomla'), { readme: 'No settings block in this README.' });
+  assert.deepStrictEqual(r.fill.map((f) => f.key).sort(), ['adminPath', 'users']);
+  assert.deepStrictEqual(r.fill.find((f) => f.key === 'users').missingUsers, ['admin']);
+});
+
 test('a cucumber.js that cannot take a pack stops with what to do, and changes nothing', () => {
   // One line of step files: nothing to insert a line into.
   const oneLine = project({ cucumber: "module.exports = { default: { require: ['node_modules/webship-js/tests/step-definitions/**/*.js'], paths: [] } };\n" });
