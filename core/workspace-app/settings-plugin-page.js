@@ -225,7 +225,12 @@ function shipsHtml(p, { record = null, workspaces = new Set() } = {}) {
 function removeHtml(p) {
   const label = p.label || p.manifest.label || p.name;
   if (p.step < 1 && !(p.placed && p.placed.installed)) {
-    return `<p class="plugin-quiet">It is not active, so nothing of it is in the workspace and there is nothing to remove here. The package itself stays in the dashboard until it is taken out: <code>npm uninstall ${esc(p.module || p.name)}</code> in <code>core/workspace-app</code>.</p>`;
+    // Nothing of it is in the workspace: what is left is the package and its line in settings.yml (#493).
+    if ((p.neededBy || []).length) {
+      return `<p class="plugin-quiet">It is not active, and nothing of it is in the workspace. ${esc(p.neededBy.join(', '))} ${p.neededBy.length === 1 ? 'needs' : 'need'} it, so it stays in the dashboard.</p>`;
+    }
+    return `<p class="plugin-buttons"><span class="plugin-buttons-apart">${postButton('remove', p, 'Remove', { danger: true, confirm: `Remove ${label}? Its package leaves the dashboard and plugins.${p.name} leaves settings.yml. Its settings file, if it has one, stays. Require brings it back.` })}</span></p>
+    <p class="plugin-quiet">It is not active, and nothing of it is in the workspace. Remove takes its package out of the dashboard (<code>npm uninstall ${esc(p.module || p.name)}</code>) and its line out of <code>settings.yml</code>.</p>`;
   }
   if ((p.neededBy || []).length) {
     // Reinstall removes nothing, so it stays: "Update to <version>, then Reinstall" is finished here for a

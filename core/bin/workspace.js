@@ -4,7 +4,7 @@
  *
  *   webship-workspace init [dir]              make a workspace at dir (default ~/workspace): the core, an
  *                                             empty settings file, the dashboard installed and started
- *   webship-workspace plugin <verb> <name>    require | activate | install | configure | deactivate | uninstall | list | check
+ *   webship-workspace plugin <verb> <name>    require | activate | install | configure | deactivate | uninstall | remove | list | check
  *                                             add --with-needs to require, activate or install and the plugins
  *                                             it needs are added first, in the same run
  *   webship-workspace catalog                 the plugins you can add, by family
@@ -389,7 +389,7 @@ function init(dirArg, { update = false } = {}) {
 }
 
 function plugin(verb, name, flags = []) {
-  const verbs = ['require', 'activate', 'install', 'configure', 'deactivate', 'uninstall', 'list', 'check', 'restart'];
+  const verbs = ['require', 'activate', 'install', 'configure', 'deactivate', 'uninstall', 'remove', 'list', 'check', 'restart'];
   const usage = `webship-workspace plugin <${verbs.join('|')}> [name] [--with-needs]`;
   if (verb === 'help' || verb === '--help' || verb === '-h') { say(usage); return; }
   if (!verb) fail(`Which step? ${usage}`);

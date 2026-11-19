@@ -9,6 +9,8 @@
 ##   bash core/scripts/plugins.sh --configure <name>           its own settings file, created from the template
 ##   bash core/scripts/plugins.sh --deactivate <name>          enabled: false (the files stay)
 ##   bash core/scripts/plugins.sh --uninstall <name>           remove what --install placed
+##   bash core/scripts/plugins.sh --remove <name>              after --uninstall: the package out of the dashboard
+##                                                             (npm uninstall) and plugins.<name> out of settings.yml
 ##   bash core/scripts/plugins.sh --check [<name>]             the commands the core and the plugins need on this
 ##                                                             machine: found, with the version, or missing, with
 ##                                                             how to install it (nothing is installed for you)
@@ -228,7 +230,7 @@ plugin_of_package() {
   ' "$1" 2>/dev/null ) ;
 }
 case "${verb}" in
-  --activate|--install|--configure|--deactivate|--uninstall|--check)
+  --activate|--install|--configure|--deactivate|--uninstall|--remove|--check)
     if [ -n "${name}" ] && ! plugin_known "${name}" ; then
       by_package="$(plugin_of_package "${name}")" ;
       if [ -n "${by_package}" ] ; then
@@ -384,7 +386,46 @@ case "${verb}" in
     echo "${out}" | grep -v '^RESTART_' ;
     set_plugin_setting "${name}" enabled false ;
     [ -n "${key}" ] && ( cd "${APP}" && node plugin-install.js reach "${name}" 2>/dev/null ) ;
-    echo "Uninstalled and deactivated. The package stays in node_modules: npm uninstall <module> in core/workspace-app removes it." ;
+    echo "Uninstalled and deactivated. The package stays in node_modules: --remove ${name} takes it out, with plugins.${name} in settings.yml." ;
+    restart_app ;;
+
+  --remove)
+    # The last step back: the package out of the dashboard and its record out of settings.yml, so Settings
+    # lists only the plugins this workspace has. Only once nothing it placed is left (--uninstall takes
+    # its files out the way they came, and keeps a file a person changed).
+    [ -n "${name}" ] || { echo "Which plugin?" ; exit 1 ; } ;
+    plugin_here "${name}" || { no_such_plugin "${name}" ; exit 1 ; } ;
+    if ( cd "${APP}" && node -e 'const r = require("./plugin-install").readRecord(); process.exit(r && r[process.argv[1]] ? 0 : 1)' "${name}" ) ; then
+      echo "${name} still has files in this workspace: --uninstall ${name} first, then --remove ${name}. Nothing was changed." ;
+      exit 1 ;
+    fi
+    refuse_if_needed removed || exit 1 ;
+    # Read before the package goes: where it comes from (an npm package, or a folder in plugins/) and the
+    # settings files it named.
+    where="$( cd "${APP}" && node -e '
+      const p = require("./plugin-manifest").pluginByName(process.argv[1]);
+      const own = require("./package.json");
+      const deps = { ...(own.dependencies || {}), ...(own.devDependencies || {}) };
+      if (p && p.module && deps[p.module]) process.stdout.write(`npm\t${p.module}`);
+      else if (p) process.stdout.write(`folder\t${p.dir}`);
+    ' "${name}" 2>/dev/null )" ;
+    kept="$(settings_files_of "${name}")" ;
+    module="" ;
+    case "${where}" in
+      npm*)
+        module="${where#npm	}" ;
+        echo "→ npm uninstall ${module} (core/workspace-app)" ;
+        ( cd "${APP}" && npm uninstall --no-audit --no-fund "${module}" ) || { echo "npm could not uninstall ${module}: nothing else was changed." ; exit 1 ; } ;;
+      folder*)
+        echo "${name} is a folder in the dashboard, not an npm package: ${where#folder	} stays. Delete it to take the plugin's code out too." ;;
+    esac
+    if ( cd "${APP}" && node -e 'process.exit(require("./settings-file").removeSettingsKey("settings.yml", `plugins.${process.argv[1]}`) ? 0 : 1)' "${name}" ) ; then
+      echo "plugins.${name} taken out of core/config/settings.yml." ;
+    fi
+    for file in ${kept} ; do
+      [ -f "${WORKSPACE_ROOT}/core/config/${file}" ] && echo "core/config/${file} stays: it holds the values you set. Delete it when you no longer want them." ;
+    done
+    echo "Removed: ${name}${module:+ (${module})} is no longer in this workspace. --require brings it back." ;
     restart_app ;;
 
   --configure)

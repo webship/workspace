@@ -513,6 +513,26 @@ test('deactivate, uninstall and configure refuse a name that is no plugin here, 
   assert.match(ok(sh(t, '--uninstall', 'dev')).stdout, /Uninstalled/);
 });
 
+test('--remove takes plugins.<name> out of settings.yml, and only once --uninstall took its files out', () => {
+  const t = tree();
+  folder(t.plugins, 'dev');
+  ok(sh(t, '--activate', 'dev'));
+  ok(sh(t, '--install', 'dev'));
+  const refused = sh(t, '--remove', 'dev');
+  assert.strictEqual(refused.status, 1);
+  assert.match(refused.stdout, /dev still has files in this workspace: --uninstall dev first, then --remove dev\. Nothing was changed\./);
+  assert.ok(settings(t).plugins.dev, 'still there');
+  ok(sh(t, '--uninstall', 'dev'));
+  assert.strictEqual(enabled(t, 'dev'), false);
+  const r = ok(sh(t, '--remove', 'dev'));
+  assert.match(r.stdout, /plugins\.dev taken out of core\/config\/settings\.yml/);
+  assert.match(r.stdout, /dev is a folder in the dashboard, not an npm package: .* stays/);
+  assert.match(r.stdout, /core\/config\/workspace\.dev\.settings\.yml stays: it holds the values you set/);
+  assert.deepStrictEqual(settings(t).plugins, {}, 'an empty map, not a null');
+  assert.ok(!fs.existsSync(path.join(t.root, 'npm.log')), 'a folder plugin is not npm\'s to uninstall');
+  assert.strictEqual(sh(t, '--remove', 'nope').status, 1);
+});
+
 test('a step restarts the dashboard only when the running container serves this workspace', () => {
   const t = tree();
   folder(t.plugins, 'dev');

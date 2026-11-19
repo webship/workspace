@@ -444,6 +444,57 @@ function upsertSettingsValue(file, dotted, value) {
 }
 
 /**
+ * Take one dotted key out, with everything under it (a plugin's `plugins.<name>` block), and leave the
+ * rest of the file byte for byte, comments included. A comment at the key's own level or above belongs to
+ * what follows and stays. A parent left with no key reads as an empty map (`plugins: {}`, the way the
+ * lean template ships it), never as null. 0 when the key is not there.
+ */
+function removeSettingsKey(file, dotted) {
+  const full = path.join(CONFIG_DIR, file);
+  const lines = fs.readFileSync(full, 'utf8').split('\n');
+  const parts = dotted.split('.');
+  let from = -1;
+  let parentLine = -1;
+  for (let depth = 0, at = 0; depth < parts.length; depth += 1) {
+    const indent = depth * 2;
+    let found = -1;
+    for (let i = at; i < lines.length; i += 1) {
+      const m = lines[i].match(/^(\s*)(\S.*)$/);
+      if (!m || m[2].startsWith('#')) continue;
+      if (m[1].length < indent) break;                        // left the parent's block
+      if (m[1].length !== indent) continue;
+      const bare = m[2].replace(/\s+#.*$/, '').trim();
+      if (bare === `${parts[depth]}:` || bare.startsWith(`${parts[depth]}: `)) { found = i; break; }
+    }
+    if (found < 0) return 0;
+    if (depth === parts.length - 1) from = found;
+    else { parentLine = found; at = found + 1; }
+  }
+  const indent = (parts.length - 1) * 2;
+  let to = from + 1;
+  while (to < lines.length) {
+    const m = lines[to].match(/^(\s*)(\S.*)$/);
+    if (m && m[1].length <= indent) break;
+    to += 1;
+  }
+  while (to > from + 1 && lines[to - 1].trim() === '') to -= 1;   // blank lines after it belong to what follows
+  lines.splice(from, to - from);
+  if (parentLine >= 0) {
+    const pIndent = (parts.length - 2) * 2;
+    let child = false;
+    for (let i = parentLine + 1; i < lines.length; i += 1) {
+      const m = lines[i].match(/^(\s*)(\S.*)$/);
+      if (!m) continue;
+      if (m[1].length > pIndent) { if (!m[2].startsWith('#')) { child = true; break; } continue; }
+      break;
+    }
+    if (!child) lines[parentLine] = lines[parentLine].replace(/^(\s*[^\s:#][^:#]*):(\s*(?:#.*)?)$/, '$1: {}$2');
+  }
+  writePrivate(full, lines.join('\n'));
+  return 1;
+}
+
+/**
  * Set a dotted key to a LIST, in place: the existing items under it are replaced and the rest of the file is
  * left alone; a key (or the path to it) the file lacks is created. An item is quoted unless it is a plain
  * word, since a bare * starts a YAML alias and a bare `true` is not a string.
@@ -503,6 +554,7 @@ module.exports = {
   writeSettingsValues,
   upsertSettingsValue,
   upsertSettingsList,
+  removeSettingsKey,
   readSettingsText,
   settingsTextForTerminal,
   writeSettingsText,

@@ -98,6 +98,14 @@ test('removing a plugin another one needs is refused in words, with no button to
   assert.match(html, /hx-confirm="Uninstall Jira\?/, 'the question names the action and the plugin');
 });
 
+test('a plugin that is not active and placed nothing offers Remove; one another plugin needs does not (#493)', () => {
+  const html = page.removeHtml(make('jira', { label: 'Jira' }, 0));
+  assert.ok(html.includes('&quot;verb&quot;:&quot;remove&quot;'), 'Remove runs plugins.sh --remove');
+  assert.match(html, /hx-confirm="Remove Jira\?/, 'the question names the action and the plugin');
+  assert.match(html, /plugin-buttons-apart/, 'drawn apart, as Uninstall is');
+  assert.ok(!page.removeHtml(make('dev', { label: 'Dev' }, 0, { neededBy: ['wp'] })).includes('<button'), 'none while another plugin needs it');
+});
+
 test('the state part is drawn again when a step has run; the form beside it is not; an unknown plugin is a 404 that says where to add it', () => {
   const p = make('jira', { label: 'Jira' }, 0);
   const html = page.pluginPageHtml(p, { files: [], known: new Set() });
