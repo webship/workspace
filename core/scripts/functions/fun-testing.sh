@@ -210,7 +210,15 @@ function testing_configure() {
   if [ -f "${project_path}/package.json" ] ; then
     echo "";
     echo "Installing the JS dependencies and the chromium browser.";
-    ddev ${runner} install || true ;
+    # A failed install leaves the project without webship-js or its step packs: say so and stop,
+    # rather than calling the testing set up (the browser steps after it stay best-effort).
+    if ! ddev ${runner} install ; then
+      echo "";
+      echo "  ${runner} install failed in ${doc_name}/${PROJECT_NAME}, so testing is not set up. Its error is above.";
+      echo "  A package npm cannot find (a step pack not published yet, a mistyped name) is a common cause:";
+      echo "  correct package.json, then run this command again.";
+      return 1 ;
+    fi
     testing_ensure_browser_libs "${project_path}" || true ;
     testing_install_browsers || true ;
   fi
