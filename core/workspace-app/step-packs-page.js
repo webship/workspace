@@ -92,7 +92,7 @@ async function stepPacksPanelHtml({ workspace, project, projectDir, busy = false
           ${off ? `disabled title="${esc(offWhy)}"` : 'title="Install what package.json lists"'}>Install</button>`);
       }
       buttons.push(`<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/steps-examples" hx-vals='${vals({ pack: p.name })}' ${out}
-        ${busy ? `disabled title="${esc(offWhy)}"` : `title="${esc(`Copy the features ${p.name} ships into tests/features/${p.dir}/, never over a file`)}"`}>Copy examples</button>`);
+        ${busy ? `disabled title="${esc(offWhy)}"` : `title="${esc(`Copy the features ${p.name} ships into tests/features/${p.dir}/, and the files they use, never over a file`)}"`}>Copy examples</button>`);
       buttons.push(has.ours
         ? `<button class="uk-button uk-button-default uk-button-small arm-step" hx-post="/actions/steps-remove" hx-vals='${vals({ pack: p.name, confirm: 'yes' })}' ${out}
             hx-trigger="confirmed-remove" ${busy ? `disabled title="${esc(offWhy)}"` : `title="${esc(`Remove ${p.name}: what Add put in package.json and cucumber.js`)}"`}>Remove</button>`
@@ -128,7 +128,8 @@ async function stepPacksPanelHtml({ workspace, project, projectDir, busy = false
         project's webship-js suite. <strong>Add</strong> puts it in <code>package.json</code> and <code>cucumber.js</code> and installs it in the
         project's container; a second platform gets a <code>cucumber.js</code> profile of its own, because platform packs share their
         phrases. <strong>Remove</strong> takes out exactly what Add put in. <strong>Copy examples</strong> copies the features a pack ships
-        into <code>tests/features/&lt;pack&gt;/</code>, never over a file. Each runs <code>cmd-tools-testing.sh</code> in a screen.
+        into <code>tests/features/&lt;pack&gt;/</code>, and the files they use into <code>tests/assets/</code> and <code>tests/fixtures/</code>,
+        never over a file. Each runs <code>cmd-tools-testing.sh</code> in a screen.
         ${sourceNote(packs)}</p>
       ${ready ? '' : `<div class="msg error step-packs-not-ready">This project has no webship-js stack yet (<code>package.json</code> and <code>cucumber.js</code>).
         <button class="uk-button uk-button-default uk-button-small" hx-post="/actions/testing-configure" hx-vals='${vals({})}' ${out}${busy ? ' disabled' : ''}>Set up the testing environment</button></div>`}

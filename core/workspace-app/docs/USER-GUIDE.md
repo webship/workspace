@@ -347,8 +347,9 @@ The packs the project has come first.
   which settings the pack reads that the project does not set yet (its accounts, a key): you fill them
   in. A second platform gets a `cucumber.js` profile of its own, because platform packs share their
   phrases; its row says *profile <name>*, and **Run one feature…** runs its features with it.
-- **Copy examples** copies the features the pack ships into `tests/features/<pack>/`, never over a file
-  you have. They are in **Run one feature…** at once.
+- **Copy examples** copies the features the pack ships into `tests/features/<pack>/`, and the files they
+  use (an image to upload, a document) into `tests/assets/` and `tests/fixtures/`, never over a file you
+  have. They are in **Run one feature…** at once.
 - **Remove** asks first, then takes out exactly what Add put in. A pack a platform plugin added (the
   WordPress plugin adds its own) has no Remove here. The features you copied stay: they are yours.
 

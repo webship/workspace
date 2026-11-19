@@ -56,5 +56,5 @@ parser.add_argument('--examples',
                     dest='STEPS_EXAMPLES',
                     metavar='PACKS',
                     default="_none_",
-                    help='Copy the example features a pack ships into tests/features/<pack>/, never over a file (comma-separated for several). Example: --examples wordpress')
+                    help='Copy the example features a pack ships into tests/features/<pack>/, and the files they use into tests/assets/ and tests/fixtures/, never over a file (comma-separated for several). Example: --examples wordpress')
 ARGEOF
