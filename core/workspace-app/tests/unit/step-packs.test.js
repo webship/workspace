@@ -96,7 +96,7 @@ test('a pack is only ever @webship-js/<name>-steps, whatever is typed', () => {
 
 test('the shipped list: real packs, a kind each, extensions on a base it knows', () => {
   const { packs, upcoming } = sp.shippedList();
-  assert.ok(packs.length >= 19, 'the 19 packs on npm on 2026-11-19');
+  assert.ok(packs.length >= 24, 'the 24 packs on npm on 2026-11-19');
   for (const p of [...packs, ...upcoming]) {
     assert.match(p.name, sp.PACK_RE, p.name);
     assert.ok(['platform', 'extension', 'any-site'].includes(p.kind), `${p.name}: ${p.kind}`);
@@ -158,9 +158,9 @@ test('the list: npm unreachable and nothing cached gives the list shipped with t
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-steps-root-'));
   const list = await sp.listPacks({ root, fetchImpl: fakeFetch({ 'https://': new Error('offline') }) });
   assert.strictEqual(list.source, 'shipped');
-  assert.ok(list.packs.length >= 19);
+  assert.ok(list.packs.length >= 24);
   assert.ok(list.packs.every((p) => p.docs.startsWith('https://webship.co/docs/webship-js/2.0.x/')));
-  assert.ok(!list.packs.some((p) => p.short === 'bootstrap'), 'a pack that is not on npm yet is not offered');
+  assert.ok(!list.packs.some((p) => p.short === 'filament'), 'a pack that is not on npm yet is not offered');
 });
 
 test('add: the dev dependency at its release line, the glob after webship-js\'s own, written down for remove', () => {
@@ -372,7 +372,7 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
 
   const dir = project();
   const before = [read(dir, 'package.json'), read(dir, 'cucumber.js')];
-  const list = all.filter((p) => p.short !== 'bootstrap');   // only what is on npm is ever offered
+  const list = all.filter((p) => p.short !== 'bootstrap');   // a pack missing from the list (not on npm) is never offered
   let asked = '';
   const s = await sp.suggestFor(dir, { list, fetchPage: async (u) => { asked = u; return { status: 200, headers: {}, html: '<meta name="generator" content="WordPress 6.8"><link href="/bootstrap.min.css" rel="stylesheet">' }; } });
   assert.strictEqual(asked, 'https://stepsdemo.ddev.site/');

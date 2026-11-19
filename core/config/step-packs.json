@@ -3,6 +3,8 @@
   "packs": [
     { "name": "@webship-js/astro-steps", "title": "Astro", "summary": "Astro static and server-rendered sites.", "version": "2.1.3", "kind": "platform", "logo": "astro.svg", "detect": [{ "generator": "^Astro\\b" }] },
     { "name": "@webship-js/backdrop-cms-steps", "title": "Backdrop CMS", "summary": "Backdrop CMS: content, the administration bar, layouts, menus, roles and permissions.", "version": "2.0.2", "kind": "platform", "logo": "backdrop-cms.png", "detect": [{ "generator": "^Backdrop CMS" }] },
+    { "name": "@webship-js/bootstrap-steps", "title": "Bootstrap", "summary": "The components of any site built with Bootstrap 5.3 or 4.6: dialogs, side panels, menus, accordions, tabs, the navigation bar, alerts, carousels, tooltips and form states.", "version": "2.0.0", "kind": "any-site", "logo": "bootstrap.svg", "detect": [{ "asset": "bootstrap(\\.bundle)?(\\.min)?\\.(css|js)(\\?|$)" }] },
+    { "name": "@webship-js/codeigniter-steps", "title": "CodeIgniter", "summary": "CodeIgniter apps with Shield: sign-in, the login link, groups and permissions, messages, CSRF, error pages and the debug toolbar.", "version": "2.0.0", "kind": "platform", "logo": "codeigniter.svg" },
     { "name": "@webship-js/craft-cms-steps", "title": "Craft CMS", "summary": "Craft CMS: the control panel, element indexes, entries, drafts, fields and assets.", "version": "2.0.3", "kind": "platform", "logo": "craftcms.svg", "detect": [{ "poweredBy": "Craft CMS" }, { "generator": "^Craft CMS" }] },
     { "name": "@webship-js/diffy-steps", "title": "Diffy", "summary": "Visual regression with Diffy screenshots and comparisons.", "version": "2.1.1", "kind": "any-site", "logo": "diffy.svg" },
     { "name": "@webship-js/django-cms-steps", "title": "django CMS", "summary": "django CMS pages and the toolbar.", "version": "2.2.3", "kind": "platform", "logo": "django-cms.png", "detect": [{ "generator": "django CMS" }] },
@@ -13,20 +15,18 @@
     { "name": "@webship-js/hubspot-cms-steps", "title": "HubSpot CMS", "summary": "HubSpot CMS pages, forms and chat.", "version": "2.2.4", "kind": "platform", "logo": "hubspot.svg", "detect": [{ "generator": "HubSpot" }] },
     { "name": "@webship-js/jira-steps", "title": "Jira", "summary": "Jira Software Data Center: issues, search and filters, boards, backlog and sprints, dashboards.", "version": "2.0.2", "kind": "platform", "logo": "jira.svg", "detect": [{ "html": "name=\"application-name\" content=\"JIRA\"" }] },
     { "name": "@webship-js/joomla-steps", "title": "Joomla", "summary": "Joomla sites and their administrator.", "version": "2.2.3", "kind": "platform", "logo": "joomla.svg", "detect": [{ "generator": "Joomla" }] },
+    { "name": "@webship-js/laravel-steps", "title": "Laravel", "summary": "Laravel apps: the official starter kits, sign-in and settings, mail, error pages and maintenance mode.", "version": "2.0.0", "kind": "platform", "logo": "laravel.svg" },
     { "name": "@webship-js/magento-steps", "title": "Magento", "summary": "Magento Open Source: the admin, the catalog, the cart and the checkout.", "version": "2.0.3", "kind": "platform", "logo": "magento.svg", "detect": [{ "asset": "/static/version\\d+/frontend/" }] },
     { "name": "@webship-js/odoo-steps", "title": "Odoo", "summary": "Odoo back-office and website apps.", "version": "2.1.4", "kind": "platform", "logo": "odoo.svg", "detect": [{ "generator": "^Odoo\\b" }] },
     { "name": "@webship-js/prestashop-steps", "title": "PrestaShop", "summary": "PrestaShop: the back office, the catalog, the cart and the checkout.", "version": "2.0.3", "kind": "platform", "logo": "prestashop.svg", "detect": [{ "generator": "PrestaShop" }, { "html": "var prestashop\\s*=" }] },
     { "name": "@webship-js/squarespace-steps", "title": "Squarespace", "summary": "Squarespace sites and commerce.", "version": "2.2.2", "kind": "platform", "logo": "squarespace.svg", "detect": [{ "html": "This is Squarespace\\." }] },
+    { "name": "@webship-js/symfony-steps", "title": "Symfony", "summary": "Symfony apps: the form login, flash messages and form errors, CSRF, error pages, the debug toolbar, and the official Demo application.", "version": "2.0.0", "kind": "platform", "logo": "symfony.svg" },
     { "name": "@webship-js/typo3-steps", "title": "TYPO3", "summary": "TYPO3 front ends and the backend.", "version": "2.2.2", "kind": "platform", "logo": "typo3.svg", "detect": [{ "generator": "TYPO3" }] },
     { "name": "@webship-js/webflow-steps", "title": "Webflow", "summary": "Webflow sites and their forms.", "version": "2.1.3", "kind": "platform", "logo": "webflow.svg", "detect": [{ "generator": "^Webflow\\b" }] },
+    { "name": "@webship-js/woocommerce-steps", "title": "WooCommerce", "summary": "Shops on WordPress: the store front, the product page, the cart, the checkout, my account, the orders admin and the shop's mail.", "version": "2.0.0", "kind": "extension", "base": "@webship-js/wordpress-steps", "logo": "woocommerce.svg", "note": "It brings @webship-js/wordpress-steps along: a shop project adds this one pack.", "detect": [{ "html": "woocommerce" }] },
     { "name": "@webship-js/wordpress-steps", "title": "WordPress", "summary": "WordPress sites and the block editor.", "version": "2.2.4", "kind": "platform", "logo": "wordpress.svg", "detect": [{ "generator": "^WordPress\\b" }] }
   ],
   "upcoming": [
-    { "name": "@webship-js/bootstrap-steps", "title": "Bootstrap", "summary": "Bootstrap components on any site.", "kind": "any-site", "detect": [{ "asset": "bootstrap(\\.bundle)?(\\.min)?\\.(css|js)(\\?|$)" }] },
-    { "name": "@webship-js/woocommerce-steps", "title": "WooCommerce", "summary": "WooCommerce stores on WordPress.", "kind": "extension", "base": "@webship-js/wordpress-steps", "detect": [{ "html": "woocommerce" }] },
-    { "name": "@webship-js/filament-steps", "title": "Filament", "summary": "Filament admin panels on Laravel.", "kind": "extension", "base": "@webship-js/laravel-steps" },
-    { "name": "@webship-js/laravel-steps", "title": "Laravel", "summary": "Laravel applications and the starter kits.", "kind": "platform" },
-    { "name": "@webship-js/symfony-steps", "title": "Symfony", "summary": "Symfony applications.", "kind": "platform" },
-    { "name": "@webship-js/codeigniter-steps", "title": "CodeIgniter", "summary": "CodeIgniter applications.", "kind": "platform" }
+    { "name": "@webship-js/filament-steps", "title": "Filament", "summary": "Filament admin panels on Laravel.", "kind": "extension", "base": "@webship-js/laravel-steps" }
   ]
 }
