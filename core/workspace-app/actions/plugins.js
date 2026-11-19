@@ -14,7 +14,7 @@ const { startUnlessRunning } = require('./composer');
 const { lingerTail } = require('../linger');
 const { pluginByName } = require('../plugin-manifest');
 
-const VERBS = new Set(['require', 'activate', 'install', 'configure', 'deactivate', 'uninstall']);
+const VERBS = new Set(['require', 'activate', 'install', 'configure', 'deactivate', 'uninstall', 'remove']);
 const WITH_NEEDS = new Set(['require', 'activate', 'install']);
 const NAME_RE = /^[a-z0-9-]+$/;
 // An npm spec: a package name, github:owner/repo[#ref], a git+https url, a tarball or a path. Nothing a shell could read as more than one word.

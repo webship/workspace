@@ -19,7 +19,9 @@ clone never commits what an install placed, and says when the dashboard containe
 `ddev restart` (a compose file or host mount the plugin brought). `--uninstall` removes exactly
 what `--install` placed, while it still is what was placed: the record keeps the hash of every file,
 so a file a person changed since (a command, a function) is kept, and so is the plugin's settings
-file once it holds anything but the template (a token, an account). The uninstall names each file it
+file once it holds anything but the template (a token, an account). After it, `--remove` takes the
+package out of the dashboard (`npm uninstall`) and `plugins.<name>` out of `settings.yml`, so Settings
+lists only the plugins the workspace has; its settings file stays. The uninstall names each file it
 kept. A second `--install` writes the plugin's own files again: one a person changed is first kept
 beside it as `<file>.yours`, and the install names both; a file the new version no longer ships is
 kept when it was changed here, and said. Records written by 1.0.15 and earlier hold no hash for a
