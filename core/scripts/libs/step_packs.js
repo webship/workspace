@@ -842,17 +842,58 @@ function removePack(projectDir, name) {
   if (features.length) {
     out.left.push(`${folder}/ (${features.length} feature${features.length === 1 ? '' : 's'}) stays: features are yours. Without the pack their steps are undefined, so delete the folder if you no longer want it (rm -r ${folder}).`);
   }
+  const files = (rec.examples || []).filter((f) => !f.startsWith(`${folder.split(path.sep).join('/')}/`) && fs.existsSync(path.join(projectDir, ...f.split('/'))));
+  if (files.length) {
+    out.left.push(`${files.join(', ')} (the file${files.length === 1 ? '' : 's'} its examples use) ${files.length === 1 ? 'stays' : 'stay'} as well.`);
+  }
   const keepExamples = rec.examples;
   delete rec.devDependency; delete rec.require; delete rec.profile; delete rec.createdProfile;
   record.packs[name] = keepExamples ? { examples: keepExamples } : {};
-  if (!features.length) delete record.packs[name];
+  if (!features.length && !files.length) delete record.packs[name];
   writeRecord(projectDir, record);
   return out;
 }
 
-/** Copy the example features a pack ships into tests/features/<pack>/, never over a file. */
+// Where a pack keeps the files its features use (an image to upload, a document), and where those features look
+// for them in a project: by name in tests/assets/ (webship-js's assetsFolder), or as tests/fixtures/<file>.
+const EXAMPLE_FILE_DIRS = ['tests/assets', 'tests/fixtures'];
+
+/** Every regular file under a folder, as paths relative to it. Symbolic links are not followed. */
+function plainFiles(dir, max = 500) {
+  const out = [];
+  const walk = (d, rel) => {
+    let entries = [];
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch (_) { return; }
+    for (const e of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (out.length >= max) return;
+      if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+      const r = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) walk(path.join(d, e.name), r);
+      else if (e.isFile()) out.push(r);
+    }
+  };
+  walk(dir, '');
+  return out;
+}
+
+/** Copy one file, never over one: 'copied', or 'kept' when a file of that name is already there. */
+function copyNew(from, to) {
+  try {
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.copyFileSync(from, to, fs.constants.COPYFILE_EXCL);
+    return 'copied';
+  } catch (e) {
+    if (e && e.code === 'EEXIST') return 'kept';
+    throw e;
+  }
+}
+
+/**
+ * Copy the example features a pack ships into tests/features/<pack>/, and the files they use into the project's
+ * tests/assets/ and tests/fixtures/, never over a file.
+ */
 function copyExamples(projectDir, name) {
-  const out = { ok: true, code: 0, name, copied: [], kept: [], notes: [], folder: path.join('tests', 'features', dirName(name)) };
+  const out = { ok: true, code: 0, name, copied: [], kept: [], files: [], keptFiles: [], notes: [], folder: path.join('tests', 'features', dirName(name)) };
   const pkgDir = path.join(projectDir, 'node_modules', ...name.split('/'));
   if (!installedVersion(projectDir, name)) {
     return { ...out, ok: false, code: 4, error: `${name} is not installed in this project yet.` };
@@ -862,19 +903,23 @@ function copyExamples(projectDir, name) {
   if (!files.length) { out.notes.push(`${name} ships no example features.`); return out; }
   const dest = path.join(projectDir, out.folder);
   for (const rel of files) {
-    const to = path.join(dest, ...rel.split('/'));
-    try {
-      fs.mkdirSync(path.dirname(to), { recursive: true });
-      fs.copyFileSync(path.join(from, ...rel.split('/')), to, fs.constants.COPYFILE_EXCL);
-      out.copied.push(rel);
-    } catch (e) {
-      if (e && e.code === 'EEXIST') out.kept.push(rel); else throw e;
+    const done = copyNew(path.join(from, ...rel.split('/')), path.join(dest, ...rel.split('/')));
+    (done === 'copied' ? out.copied : out.kept).push(rel);
+  }
+  // The files the features use, into the same folders of the project, which every pack shares.
+  for (const folder of EXAMPLE_FILE_DIRS) {
+    const src = path.join(pkgDir, ...folder.split('/'));
+    if (!isDir(src)) continue;
+    for (const rel of plainFiles(src)) {
+      const done = copyNew(path.join(src, ...rel.split('/')), path.join(projectDir, ...folder.split('/'), ...rel.split('/')));
+      (done === 'copied' ? out.files : out.keptFiles).push(`${folder}/${rel}`);
     }
   }
-  if (out.copied.length) {
+  if (out.copied.length || out.files.length) {
     const record = readRecord(projectDir);
     const rec = record.packs[name] || {};
-    rec.examples = [...new Set([...(rec.examples || []), ...out.copied.map((r) => `${out.folder.split(path.sep).join('/')}/${r}`)])].sort();
+    const features = out.copied.map((r) => `${out.folder.split(path.sep).join('/')}/${r}`);
+    rec.examples = [...new Set([...(rec.examples || []), ...features, ...out.files])].sort();
     record.packs[name] = rec;
     writeRecord(projectDir, record);
   }
@@ -1091,7 +1136,11 @@ async function main(argv) {
       if (!r.ok) { status = r.code || 1; fail(`${w.name}: ${r.error}`); continue; }
       say(`${w.name}: ${r.copied.length} example feature${r.copied.length === 1 ? '' : 's'} copied into ${r.folder}/${r.kept.length ? `, ${r.kept.length} left as ${r.kept.length === 1 ? 'it was' : 'they were'} (a file of that name is already there)` : ''}.`);
       r.copied.forEach((c) => say(`  + ${r.folder}/${c}`));
-      r.kept.forEach((c) => say(`  = ${r.folder}/${c} (kept)`));
+      // A second run keeps everything: name a few, count the rest.
+      if (r.kept.length <= 5) r.kept.forEach((c) => say(`  = ${r.folder}/${c} (kept)`));
+      if (r.files.length || r.keptFiles.length) say(`  The files its features use (${r.files.length} copied${r.keptFiles.length ? `, ${r.keptFiles.length} kept as they were` : ''}):`);
+      r.files.forEach((c) => say(`  + ${c}`));
+      if (r.keptFiles.length <= 5) r.keptFiles.forEach((c) => say(`  = ${c} (kept: a file of that name is already there)`));
       r.notes.forEach((c) => say(`  ${c}`));
     }
     return status;
@@ -1115,7 +1164,7 @@ module.exports = {
   shippedList, knownPacks, describePack, cacheFile, fetchRegistry, listPacks,
   objectKeys, readCucumber, projectSettings, readmeSettings, settingsToFill, globFor, readmeOf, packConfigOf,
   projectState, notInstalled, profileFor, placeFor, featureFiles,
-  addPack, removePack, copyExamples,
+  addPack, removePack, copyExamples, EXAMPLE_FILE_DIRS,
   projectHost, fetchSitePage, detectPacks, suggestFor,
   main,
 };

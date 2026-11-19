@@ -292,6 +292,33 @@ test('examples: copied into tests/features/<pack>/, never over a file, and left 
   assert.ok(fs.existsSync(path.join(dir, 'tests', 'features', 'diffy-steps', 'more', '02-all.feature')), 'features are the person\'s: remove leaves them');
 });
 
+test('examples bring the files their features use into tests/assets and tests/fixtures, never over one', () => {
+  // wordpress-steps ships tests/assets/ (found by name there), the other packs tests/fixtures/ (named from the root).
+  const dir = project();
+  sp.addPack(dir, pack('wordpress'));
+  install(dir, '@webship-js/wordpress-steps', { features: { 'media.feature': 'Feature: media\n' } });
+  const at = path.join(dir, 'node_modules', '@webship-js', 'wordpress-steps');
+  fs.mkdirSync(path.join(at, 'tests', 'assets'), { recursive: true });
+  fs.writeFileSync(path.join(at, 'tests', 'assets', 'webshipco.png'), 'png');
+  fs.mkdirSync(path.join(at, 'tests', 'fixtures', 'images'), { recursive: true });
+  fs.writeFileSync(path.join(at, 'tests', 'fixtures', 'pixel.png'), 'pack pixel');
+  fs.writeFileSync(path.join(at, 'tests', 'fixtures', 'images', 'b.png'), 'b');
+  fs.mkdirSync(path.join(dir, 'tests', 'fixtures'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'tests', 'fixtures', 'pixel.png'), 'mine');
+  const r = sp.copyExamples(dir, '@webship-js/wordpress-steps');
+  assert.deepStrictEqual(r.copied, ['media.feature']);
+  assert.deepStrictEqual(r.files, ['tests/assets/webshipco.png', 'tests/fixtures/images/b.png']);
+  assert.deepStrictEqual(r.keptFiles, ['tests/fixtures/pixel.png']);
+  assert.strictEqual(read(dir, 'tests/fixtures/pixel.png'), 'mine', 'a file that is there is never overwritten');
+  assert.strictEqual(read(dir, 'tests/assets/webshipco.png'), 'png');
+  const rec = JSON.parse(read(dir, sp.RECORD)).packs['@webship-js/wordpress-steps'];
+  assert.ok(rec.examples.includes('tests/assets/webshipco.png') && !rec.examples.includes('tests/fixtures/pixel.png'), 'only what was copied is written down');
+  // Removing the pack names them in what it leaves behind, and deletes none of them.
+  const gone = sp.removePack(dir, '@webship-js/wordpress-steps');
+  assert.match(gone.left.join(' '), /tests\/assets\/webshipco\.png, tests\/fixtures\/images\/b\.png \(the files its examples use\) stay as well/);
+  assert.ok(fs.existsSync(path.join(dir, 'tests', 'assets', 'webshipco.png')));
+});
+
 test('settings a pack reads are named for the person to fill in, never invented', () => {
   const readme = "```js\nworldParameters: {\n  launchUrl: process.env.LAUNCH_URL,\n  minWaitTime: { page: 3000 },\n  users: {\n    admin: { username: 'admin', password: process.env.ADMIN_PASS },\n    'content editor': { username: 'editor' },\n  },\n  diffy: { projectId: 0, breakpoints: '640,1200' }, // or DIFFY_*\n  formTimeLimit: 5,\n}\n```";
   const dir = project();

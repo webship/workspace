@@ -43,7 +43,9 @@ bash cmd-tools-testing.sh mysite --remove-steps diffy         # exactly what --a
   extension with its base go in one profile. `--run --profile jira` runs a profile; a `--path` inside a
   profile's folder picks it by itself. When `cucumber.js` has no default profile to build one on, the
   command stops and prints the profile to write.
-- **Examples** are copied, never over a file, and stay when the pack is removed (the command says so).
+- **Examples** are copied, never over a file, and stay when the pack is removed (the command says so). The
+  files they use (an image to upload, a document) come along, from the pack's `tests/assets/` and
+  `tests/fixtures/` into the project's own: the features name them from there.
 - **A suggestion, never an install:** setting testing up reads the site's front page (a generator meta tag,
   Bootstrap's CSS or JS) and prints the pack that would fit it.
 - **In the dashboard**, a site's **Tests** menu has the same: **Extra steps…** (every pack with its logo,
