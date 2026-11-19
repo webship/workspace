@@ -112,16 +112,21 @@ test('a rebuilt tarball replaces the one before it, so package.json changes and 
   assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).devDependencies['@webship-js/demo-steps'], `file:${after}`);
 });
 
-test('a tarball never replaces the same pack from npm: it is taken out first, and nothing changes', () => {
-  const pkg = '{\n  "name": "project-name",\n  "devDependencies": {\n    "@webship-js/demo-steps": "^2.0.0"\n  }\n}\n';
-  const dir = project({ pkg });
-  const r = add(dir, sp.localPack(tarball(packFolder())));
-  assert.strictEqual(r.ok, false);
-  assert.strictEqual(r.code, 2);
-  assert.match(r.error, /already has @webship-js\/demo-steps \(\^2\.0\.0\).*--remove-steps demo/);
-  assert.strictEqual(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'), pkg);
-  assert.strictEqual(fs.readFileSync(path.join(dir, 'cucumber.js'), 'utf8'), SCAFFOLD);
-  assert.ok(!fs.existsSync(path.join(dir, 'tests', 'step-packs')));
+test('a tarball takes the place of a line a plugin\'s hook wrote, and --remove-steps puts that line back (#507)', () => {
+  for (const where of ['devDependencies', 'dependencies']) {
+    const pkg = `{\n  "name": "project-name",\n  "${where}": {\n    "@webship-js/demo-steps": "^2.0.0"\n  }\n}\n`;
+    const dir = project({ pkg });
+    const r = add(dir, sp.localPack(tarball(packFolder())));
+    assert.ok(r.ok, r.error);
+    assert.ok(r.notes.some((n) => n.includes(`package.json had @webship-js/demo-steps ^2.0.0 (${where}), which --add-steps did not write`)), r.notes.join('\n'));
+    const after = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+    assert.match(after[where]['@webship-js/demo-steps'], /^file:tests\/step-packs\//, `in ${where}, where the line was`);
+    if (where === 'dependencies') assert.strictEqual(after.devDependencies, undefined, 'no second line in devDependencies');
+    const gone = sp.removePack(dir, '@webship-js/demo-steps');
+    assert.ok(gone.changed.includes(`package.json: @webship-js/demo-steps back to ^2.0.0 (${where}), as it was before the tarball`), gone.changed.join('\n'));
+    assert.strictEqual(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'), pkg, 'package.json is back as it was');
+    assert.ok(!fs.existsSync(path.join(dir, 'tests', 'step-packs')), 'and the tarball is gone');
+  }
 });
 
 test('a folder is packed with npm first, then added the same way', { skip: spawnSync('npm', ['--version']).status !== 0 && 'npm is not on this machine' }, () => {
