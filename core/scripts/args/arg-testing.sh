@@ -46,7 +46,7 @@ parser.add_argument('--add-steps',
                     dest='ADD_STEPS',
                     metavar='PACKS',
                     default="_none_",
-                    help='Add one or more step packs, comma-separated: the dev dependency at its latest release line, its step definitions in cucumber.js after webship-js\'s own (a second platform pack gets a profile of its own), then npm install in the container. Example: --add-steps diffy,wordpress')
+                    help='Add one or more step packs, comma-separated: the dev dependency at its latest release line, its step definitions in cucumber.js after webship-js\'s own (a second platform pack gets a profile of its own), then npm install in the container. A pack not on npm yet is given by its tarball (npm pack) or its folder: copied into tests/step-packs/ of the project. Example: --add-steps diffy,wordpress')
 parser.add_argument('--remove-steps',
                     dest='REMOVE_STEPS',
                     metavar='PACKS',

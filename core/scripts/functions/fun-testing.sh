@@ -294,6 +294,7 @@ function testing_steps_list() {
   node "${TESTING_STEP_PACKS_JS}" list "${project_path}" --label="${doc_name}/${PROJECT_NAME}" || return 1 ;
   echo "";
   echo "  Add:      bash cmd-tools-testing.sh ${PROJECT_NAME} --add-steps <name>[,<name>…]   (diffy, wordpress-steps or @webship-js/diffy-steps)";
+  echo "            a pack not on npm yet: its tarball (npm pack) or its folder, e.g. --add-steps ../webship-js-x-steps-2.0.0.tgz";
   echo "  Examples: bash cmd-tools-testing.sh ${PROJECT_NAME} --examples <name>";
   echo "  Remove:   bash cmd-tools-testing.sh ${PROJECT_NAME} --remove-steps <name>";
 }
@@ -313,6 +314,20 @@ function testing_steps_add() {
     fi
     return 1 ;
   fi
+  # A pack given as a tarball or a folder (proven before it is on npm) is a path from where the command
+  # was run: made absolute before the cd below. A name, @webship-js/<name>-steps included, stays a name.
+  local item items=() ;
+  IFS=',' read -ra items <<< "${ADD_STEPS}" ;
+  ADD_STEPS="" ;
+  for item in "${items[@]}" ; do
+    item="${item#"${item%%[![:space:]]*}"}" ; item="${item%"${item##*[![:space:]]}"}" ;
+    [ -n "${item}" ] || continue ;
+    case "${item}" in
+      @*) ;;
+      */*|*.tgz) [ -e "${item}" ] && item="$(cd "$(dirname "${item}")" && pwd)/$(basename "${item}")" ;;
+    esac
+    ADD_STEPS="${ADD_STEPS:+${ADD_STEPS},}${item}" ;
+  done
   cd "${project_path}" || return 1 ;
   echo "";
   echo "Adding step packs to ${doc_name}/${PROJECT_NAME}: ${ADD_STEPS}";
