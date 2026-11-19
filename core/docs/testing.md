@@ -39,8 +39,9 @@ bash cmd-tools-testing.sh mysite --remove-steps diffy         # exactly what --a
   folder, which is packed with `npm pack` first. The tarball is copied into the project's
   `tests/step-packs/`, where its container sees it, and `devDependencies` points there
   (`file:tests/step-packs/webship-js-x-steps-2.0.0-<hash>.tgz`). A rebuilt tarball, added the same way,
-  replaces the one before it and is installed again. It never replaces the same pack from npm: take that
-  out first with `--remove-steps`, which also deletes the copied tarball.
+  replaces the one before it and is installed again. It may take the place of a line `--add-steps` did not
+  write (a platform plugin's testing hook writes its pack's npm line before that pack is on npm): what
+  was there is written down, and `--remove-steps` puts it back, and deletes the copied tarball.
 - **Settings** a pack reads (the `worldParameters` its README shows, or a `cucumber.js` it ships) that the project does not set are named,
   with the handles of the accounts its features log in as. Nothing is filled in: accounts and keys are yours.
 - **Two platforms, two profiles.** Platform packs share phrases on purpose (the webship-js FAQ, "Can I

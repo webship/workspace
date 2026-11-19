@@ -743,12 +743,11 @@ function addPack(projectDir, pack, { readme = '', packConfig = packConfigOf(proj
   const meta = metaOf || ((n) => (n === name ? pack : describePack({ name: n }, known)));
   const record = readRecord(projectDir);
   const rec = { ...(record.packs[name] || {}) };
-  // A tarball replaces only a tarball this added before: a pack from npm (or one a person or a plugin
-  // added) is taken out first, so --remove-steps can always take out exactly what was put in.
+  // A tarball may take the place of a line --add-steps did not write: a platform plugin's testing hook
+  // writes its pack's npm line, before that pack is on npm (#507). What was there is written down, and
+  // --remove-steps puts it back, so it still takes out exactly what --add-steps changed.
   const had = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) }[name];
-  if (local && had && !rec.tarball) {
-    return { ...out, ok: false, code: 2, error: `package.json already has ${name} (${had}), and not from a tarball --add-steps copied: take it out first (--remove-steps ${shortName(name)}), then add the tarball.` };
-  }
+  const hadIn = pkg.devDependencies && pkg.devDependencies[name] !== undefined ? 'devDependencies' : 'dependencies';
   const layout = readCucumber(src);
   const glob = globFor(name, readme);
 
@@ -815,12 +814,17 @@ function addPack(projectDir, pack, { readme = '', packConfig = packConfigOf(proj
     out.notes.push(`package.json already has ${name} (${deps[name]}): left as it is.`);
   } else {
     const range = local ? `file:${file}` : rangeFor(pack.version);
+    if (local && had && !rec.devDependency && !rec.replaced) {
+      rec.replaced = { spec: had, in: hadIn };
+      out.notes.push(`package.json had ${name} ${had} (${hadIn}), which --add-steps did not write: the tarball takes its place, and --remove-steps puts it back.`);
+    }
+    const where = rec.replaced ? rec.replaced.in : 'devDependencies';
     // A devDependencies block this makes is taken out again with the last pack in it.
-    if (!pkg.devDependencies) record.createdDevDependencies = true;
-    pkg.devDependencies = { ...(pkg.devDependencies || {}), [name]: range };
+    if (where === 'devDependencies' && !pkg.devDependencies) record.createdDevDependencies = true;
+    pkg[where] = { ...(pkg[where] || {}), [name]: range };
     newPkg = `${JSON.stringify(pkg, null, indentOf(pkgText))}\n`;
     rec.devDependency = range;
-    out.changed.push(`package.json: ${name} ${range} (devDependencies)`);
+    out.changed.push(`package.json: ${name} ${range} (${where})`);
     if (local) {
       // The tarball this pack came from before goes: the new one replaces it.
       if (rec.tarball && rec.tarball !== file) {
@@ -906,7 +910,13 @@ function removePack(projectDir, name) {
       const pkgText = readText(pkgFile);
       let pkg = null;
       try { pkg = JSON.parse(pkgText); } catch (_) { pkg = null; }
-      if (pkg && pkg.devDependencies && pkg.devDependencies[name]) {
+      const where = rec.replaced ? rec.replaced.in : 'devDependencies';
+      if (pkg && pkg[where] && pkg[where][name] && rec.replaced) {
+        // The line a tarball took the place of comes back, as it was.
+        pkg[where][name] = rec.replaced.spec;
+        fs.writeFileSync(pkgFile, `${JSON.stringify(pkg, null, indentOf(pkgText))}\n`);
+        out.changed.push(`package.json: ${name} back to ${rec.replaced.spec} (${where}), as it was before the tarball`);
+      } else if (pkg && pkg.devDependencies && pkg.devDependencies[name]) {
         delete pkg.devDependencies[name];
         if (!Object.keys(pkg.devDependencies).length && record.createdDevDependencies) {
           delete pkg.devDependencies;
@@ -915,7 +925,7 @@ function removePack(projectDir, name) {
         fs.writeFileSync(pkgFile, `${JSON.stringify(pkg, null, indentOf(pkgText))}\n`);
         out.changed.push(`package.json: ${name} taken out of devDependencies`);
       } else {
-        out.notes.push(`package.json no longer lists ${name} in devDependencies: left as it is.`);
+        out.notes.push(`package.json no longer lists ${name} in ${where}: left as it is.`);
       }
     }
     if (rec.tarball) {
@@ -939,7 +949,7 @@ function removePack(projectDir, name) {
     out.left.push(`${files.join(', ')} (the file${files.length === 1 ? '' : 's'} its examples use) ${files.length === 1 ? 'stays' : 'stay'} as well.`);
   }
   const keepExamples = rec.examples;
-  delete rec.devDependency; delete rec.require; delete rec.profile; delete rec.createdProfile; delete rec.tarball;
+  delete rec.devDependency; delete rec.require; delete rec.profile; delete rec.createdProfile; delete rec.tarball; delete rec.replaced;
   record.packs[name] = keepExamples ? { examples: keepExamples } : {};
   if (!features.length && !files.length) delete record.packs[name];
   writeRecord(projectDir, record);
