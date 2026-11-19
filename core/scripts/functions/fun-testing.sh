@@ -54,6 +54,10 @@ readonly TESTING_BROWSERS_PATH='/mnt/ddev-global-cache/ms-playwright';
 # the libraries survive restarts, rebuilds and a `ddev delete` + rebuild.
 readonly TESTING_BROWSER_LIBS_BUILD='.ddev/web-build/Dockerfile.playwright';
 
+# The webship-js extra-steps packs (@webship-js/*-steps): listing, adding, removing and copying the
+# examples of one. The dashboard's Extra steps panel requires the same file, so the two never disagree.
+readonly TESTING_STEP_PACKS_JS="${WORKSPACE_SCRIPTS}/libs/step_packs.js";
+
 function testing_write_browser_libs_build() {
   local project_path="$1";
   mkdir -p "${project_path}/.ddev/web-build" || return 1 ;
@@ -223,6 +227,10 @@ function testing_configure() {
     ddev drush cache:rebuild > /dev/null 2>&1 ;
   fi
 
+  # What the site shows (a generator meta tag, Bootstrap's CSS or JS on the front page) may say which
+  # step pack fits it. Printed, never installed: adding one is the person's call.
+  testing_steps_suggest "${project_path}" ;
+
   echo "";
   echo "*---------------------------------------------------------------------*";
   echo "  Testing is set up on ${doc_name}/${PROJECT_NAME} ($(testing_stack "${project_path}")).";
@@ -230,9 +238,128 @@ function testing_configure() {
   echo "  Run it:      bash cmd-tools-testing.sh ${PROJECT_NAME} --run";
   echo "  One feature: bash cmd-tools-testing.sh ${PROJECT_NAME} --run --path tests/features/<name>.feature";
   echo "  By tag:      bash cmd-tools-testing.sh ${PROJECT_NAME} --run --tags @critical";
+  echo "  Step packs:  bash cmd-tools-testing.sh ${PROJECT_NAME} --list-steps";
   echo "";
   echo "  The report lands in tests/reports/, and the dashboard's Tests menu reads it.";
   echo "*---------------------------------------------------------------------*";
+}
+
+# Start the project when it is not running; leave it alone when it is (see testing_run).
+function testing_ensure_running() {
+  if ddev describe -j 2>/dev/null | grep -q '"status":"running"' ; then
+    return 0 ;
+  fi
+  ddev start -y ;
+}
+
+# The packs a project's package.json lists and node_modules does not hold yet, one per line.
+function testing_steps_not_installed() {
+  node "${TESTING_STEP_PACKS_JS}" missing "$1" 2>/dev/null ;
+}
+
+# Install the JS dependencies in the project's container: after a pack is added or taken out, so
+# node_modules matches package.json (npm also prunes what is no longer listed).
+function testing_steps_install() {
+  local project_path="$1" runner;
+  runner="$(testing_package_runner "${project_path}")";
+  echo "";
+  echo "Installing the JS dependencies in the container (ddev ${runner} install).";
+  testing_ensure_running || return 1 ;
+  ddev ${runner} install ;
+}
+
+# A suggestion, never an install: the pack that would fit what the site's front page shows.
+function testing_steps_suggest() {
+  local project_path="$1" lines;
+  lines="$(timeout 40 node "${TESTING_STEP_PACKS_JS}" suggest "${project_path}" 2>/dev/null)" || return 0 ;
+  [ -n "${lines}" ] || return 0 ;
+  echo "";
+  echo "A step pack that would fit this site (a suggestion: nothing is installed):";
+  echo "${lines//<project>/${PROJECT_NAME}}";
+}
+
+# Every pack, with whether this project has it.
+function testing_steps_list() {
+  local project_path="${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}";
+  testing_require_project "${project_path}" || return 1 ;
+  echo "";
+  node "${TESTING_STEP_PACKS_JS}" list "${project_path}" --label="${doc_name}/${PROJECT_NAME}" || return 1 ;
+  echo "";
+  echo "  Add:      bash cmd-tools-testing.sh ${PROJECT_NAME} --add-steps <name>[,<name>…]   (diffy, wordpress-steps or @webship-js/diffy-steps)";
+  echo "  Examples: bash cmd-tools-testing.sh ${PROJECT_NAME} --examples <name>";
+  echo "  Remove:   bash cmd-tools-testing.sh ${PROJECT_NAME} --remove-steps <name>";
+}
+
+# Add one or more packs: package.json and cucumber.js (step_packs.js add), then npm install in the
+# container when something changed or a listed pack is not installed yet. Idempotent.
+function testing_steps_add() {
+  local project_path="${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}" before after status;
+  testing_require_project "${project_path}" || return 1 ;
+  if [ ! -f "${project_path}/package.json" ] || [ ! -f "${project_path}/cucumber.js" ] ; then
+    if [ "$(testing_stack "${project_path}")" == 'in-project' ] ; then
+      echo "${doc_name}/${PROJECT_NAME} sets its suite up with its own command (init-full-automated-testing), and has no" ;
+      echo "  cucumber.js and package.json at its root: add the pack where its suite keeps them, by hand." ;
+    else
+      echo "${doc_name}/${PROJECT_NAME} has no webship-js stack yet (package.json and cucumber.js)." ;
+      echo "  Set it up first: bash cmd-tools-testing.sh ${PROJECT_NAME}" ;
+    fi
+    return 1 ;
+  fi
+  cd "${project_path}" || return 1 ;
+  echo "";
+  echo "Adding step packs to ${doc_name}/${PROJECT_NAME}: ${ADD_STEPS}";
+  before="$(cksum < package.json)";
+  node "${TESTING_STEP_PACKS_JS}" add "${project_path}" "${ADD_STEPS}" ;
+  status=$? ;
+  after="$(cksum < package.json)";
+  if [ "${before}" != "${after}" ] || [ -n "$(testing_steps_not_installed "${project_path}")" ] ; then
+    testing_steps_install "${project_path}" || return 1 ;
+  fi
+  if [ ${status} -ne 0 ] ; then
+    echo "";
+    echo "  Not every pack could be added: the reason is above. What could be added was.";
+    return ${status} ;
+  fi
+  echo "";
+  echo "  Its examples: bash cmd-tools-testing.sh ${PROJECT_NAME} --examples <name>";
+  echo "  Check the steps without a browser: bash cmd-tools-testing.sh ${PROJECT_NAME} --dry-run";
+}
+
+# Take out exactly what --add-steps put in, then npm install so node_modules follows package.json.
+function testing_steps_remove() {
+  local project_path="${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}" before after;
+  testing_require_project "${project_path}" || return 1 ;
+  cd "${project_path}" || return 1 ;
+  echo "";
+  echo "Taking step packs out of ${doc_name}/${PROJECT_NAME}: ${REMOVE_STEPS}";
+  before="$(cksum < package.json 2>/dev/null)";
+  node "${TESTING_STEP_PACKS_JS}" remove "${project_path}" "${REMOVE_STEPS}" || return 1 ;
+  after="$(cksum < package.json 2>/dev/null)";
+  if [ "${before}" != "${after}" ] ; then
+    testing_steps_install "${project_path}" || return 1 ;
+  fi
+}
+
+# Copy the example features a pack ships, never over a file. A pack in package.json that is not
+# installed yet is installed first.
+function testing_steps_examples() {
+  local project_path="${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}" status;
+  testing_require_project "${project_path}" || return 1 ;
+  cd "${project_path}" || return 1 ;
+  node "${TESTING_STEP_PACKS_JS}" examples "${project_path}" "${STEPS_EXAMPLES}" ;
+  status=$? ;
+  if [ ${status} -eq 4 ] && [ -n "$(testing_steps_not_installed "${project_path}")" ] ; then
+    testing_steps_install "${project_path}" || return 1 ;
+    node "${TESTING_STEP_PACKS_JS}" examples "${project_path}" "${STEPS_EXAMPLES}" ;
+    status=$? ;
+  fi
+  if [ ${status} -eq 4 ] ; then
+    echo "  Add it first: bash cmd-tools-testing.sh ${PROJECT_NAME} --add-steps ${STEPS_EXAMPLES}";
+    return 1 ;
+  fi
+  [ ${status} -eq 0 ] || return ${status} ;
+  echo "";
+  echo "  Run one: bash cmd-tools-testing.sh ${PROJECT_NAME} --run --path tests/features/<pack>/<name>.feature";
 }
 
 # Run the suite. Everything happens inside DDEV — the browsers are in the web container, and the
@@ -296,6 +423,15 @@ function testing_run() {
     env_prefix="${env_prefix} FEATURES=\"${features}\"";
     filter="${filter} ";
   fi
+  # A feature in the folder of a profile --add-steps made runs in that profile: its steps are not
+  # loaded by the default one.
+  local profile="${TESTING_PROFILE:-_none_}";
+  if [ "${profile}" == '_none_' ] && [ ! "${TESTING_PATH}" == '_none_' ] ; then
+    profile="$(node "${TESTING_STEP_PACKS_JS}" profile-for "${project_path}" "${TESTING_PATH}" 2>/dev/null)";
+    [ "${profile}" == 'default' ] || [ -z "${profile}" ] && profile='_none_';
+    [ "${profile}" == '_none_' ] || echo "  ${TESTING_PATH} belongs to the profile ${profile}: running with --profile ${profile}.";
+  fi
+  [ ! "${profile}" == '_none_' ] && filter="${filter} --profile \"${profile}\"";
   [ ! "${TAGS}" == '_none_' ] && filter="${filter} --tags \"${TAGS}\"";
   [ ! "${RETRY}" == '_none_' ] && filter="${filter} --retry ${RETRY}";
   # --dry-run compiles the suite and matches every step against the definitions without opening a
@@ -343,6 +479,11 @@ function testing_run() {
     echo "  Every failed step leaves a screenshot and a DOM dump; each scenario leaves a recording.";
   fi
   echo "";
+  local others;
+  others="$(node "${TESTING_STEP_PACKS_JS}" profiles "${project_path}" 2>/dev/null | tr '\n' ' ')";
+  if [ -n "${others}" ] && [ "${profile}" == '_none_' ] ; then
+    echo "  This ran the default profile. The project has others too: ${others}(--profile <name>).";
+  fi
   echo "  Report:      ${doc_name}/${PROJECT_NAME}/tests/reports/cucumber_report.html";
   echo "  Screenshots: ${doc_name}/${PROJECT_NAME}/tests/screenshots/";
   echo "  Recordings:  ${doc_name}/${PROJECT_NAME}/tests/videos/";
@@ -352,11 +493,19 @@ function testing_run() {
 }
 
 function testing_command() {
+  # The step-pack verbs are things to do of their own: with one of them, the setup only runs when asked.
+  local steps='no';
+  { [ "${LIST_STEPS}" == 'yes' ] || [ "${ADD_STEPS:-_none_}" != '_none_' ] || [ "${REMOVE_STEPS:-_none_}" != '_none_' ] \
+    || [ "${STEPS_EXAMPLES:-_none_}" != '_none_' ] ; } && steps='yes';
   # --configure is the default, so it is only meaningful as a word — except together with --run,
   # where "set it up and then run it" is a real thing to ask for and used to lose the setup half.
-  if [ "${CONFIGURE}" == 'yes' ] || { [ ! "${RUN}" == 'yes' ] && [ ! "${DRY_RUN}" == 'yes' ] ; } ; then
+  if [ "${CONFIGURE}" == 'yes' ] || { [ ! "${RUN}" == 'yes' ] && [ ! "${DRY_RUN}" == 'yes' ] && [ "${steps}" == 'no' ] ; } ; then
     testing_configure || return 1 ;
   fi
+  [ "${LIST_STEPS}" == 'yes' ] && { testing_steps_list || return 1 ; }
+  [ "${ADD_STEPS:-_none_}" != '_none_' ] && { testing_steps_add || return 1 ; }
+  [ "${STEPS_EXAMPLES:-_none_}" != '_none_' ] && { testing_steps_examples || return 1 ; }
+  [ "${REMOVE_STEPS:-_none_}" != '_none_' ] && { testing_steps_remove || return 1 ; }
   if [ "${RUN}" == 'yes' ] || [ "${DRY_RUN}" == 'yes' ] ; then
     testing_run ;
   fi

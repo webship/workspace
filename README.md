@@ -35,7 +35,7 @@ An npm package `@webship.co/workspace-<name>` (repository `github.com/webship/wo
 - [Getting started](core/docs/getting-started.md) — the first hour: install, add a workspace folder, build a site.
 - [Plugins](core/docs/plugins.md) — the four steps, the families, writing one.
 - [Workspaces](core/docs/workspaces.md) — folders, types, builders and the `cmd-*.sh` commands.
-- [Testing](core/docs/testing.md) — unit tests and the webship-js browser suite.
+- [Testing](core/docs/testing.md) — unit tests, the webship-js browser suite, and the webship-js step packs a project can add (`cmd-tools-testing.sh <project> --list-steps`).
 - [Releases](core/docs/releases.md) — versions, npm, and how changes land (issues and pull requests).
 - [The plugin contract](core/workspace-app/PLUGINS.md) — the manifest and the api, for plugin authors.
 
