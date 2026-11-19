@@ -1,0 +1,27 @@
+/* The Extra steps panel (a project's webship-js step packs) and its run picker: step-packs-page.js. */
+.step-pack-list .step-pack-line { display: flex; align-items: flex-start; gap: .75rem; }
+.step-pack-list .step-pack-logo {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 8px;
+  /* Paper whichever way the dashboard is lit, so a dark mark (Ghost, Squarespace) still reads on a dark page. */
+  background: var(--paper); box-shadow: inset 0 0 0 1px var(--line);
+  /* The puzzle piece of a pack with no logo: ink that reads on paper in both modes, like code on its own ground. */
+  color: var(--code-bg);
+}
+.step-pack-list .step-pack-logo img { width: 28px; height: 28px; object-fit: contain; }
+.step-pack-list .step-pack-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
+.step-pack-list .step-pack-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem; }
+.step-pack-list .step-pack-name { font-weight: 600; }
+.step-pack-list .step-pack-id { font-size: .8rem; overflow-wrap: anywhere; }
+.step-pack-list .step-pack-state { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+.step-pack-list .step-pack-why { font-size: .875rem; }
+.step-pack-list .step-pack-actions { flex: 0 0 auto; display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: .35rem; }
+.step-packs .step-packs-not-ready { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.features-picker .feature-line { display: flex; align-items: center; gap: .5rem; }
+.features-picker .feature-line .feature-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.features-picker .feature-folder { font-family: var(--font-code, monospace); font-size: .9rem; }
+/* On a phone the buttons go under the text rather than squeezing it to a column of single words. */
+@media (max-width: 640px) {
+  .step-pack-list .step-pack-line { flex-wrap: wrap; }
+  .step-pack-list .step-pack-actions { flex-basis: 100%; justify-content: flex-start; padding-left: calc(40px + .75rem); }
+}

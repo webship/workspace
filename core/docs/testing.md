@@ -46,6 +46,10 @@ bash cmd-tools-testing.sh mysite --remove-steps diffy         # exactly what --a
 - **Examples** are copied, never over a file, and stay when the pack is removed (the command says so).
 - **A suggestion, never an install:** setting testing up reads the site's front page (a generator meta tag,
   Bootstrap's CSS or JS) and prints the pack that would fit it.
+- **In the dashboard**, a site's **Tests** menu has the same: **Extra steps…** (every pack with its logo,
+  version, what it is for and its docs page; Add, Remove, Copy examples) and **Run one feature…** (the
+  project's features, the copied examples among them). Each button runs this command in a screen session
+  ([the user guide](../workspace-app/docs/USER-GUIDE.md#test-it)).
 
 ## A plugin
 

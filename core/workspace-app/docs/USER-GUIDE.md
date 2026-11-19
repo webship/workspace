@@ -326,6 +326,35 @@ npm there would write a second lock file.
 It runs like COMPOSER: in a screen session, as `ddev npm` / `ddev yarn` in a DDEV project, and in the
 dashboard's DDEV container anywhere else (`corepack yarn` when the project pins a Yarn version).
 
+### Test it
+
+The **Tests** menu on a site's row sets its testing up and runs it, with webship-js (Playwright and
+Cucumber). **Set up the testing environment** adds the stack to the project, in its container (DDEV by
+default), and **Run the tests** runs the whole suite; the report is in the same menu when it is done.
+Both run in a screen session. When the site's front page shows what it is built with (a generator meta
+tag, Bootstrap's CSS or JS), the setup prints the step pack that would fit it; it installs nothing.
+
+**Run one feature…** lists every feature under `tests/features/`, folder by folder, each with **Run**.
+
+**Extra steps…** lists the webship-js step packs (`@webship-js/<name>-steps`), each with its logo, its
+version, what it is for and its docs page. A pack adds the steps of one platform (WordPress, Drupal, Jira
+…) or of a service any site can use (Diffy), so a scenario reads as a sentence instead of a selector.
+The packs the project has come first.
+
+![Extra steps](screenshots/projects/extra-steps.png)
+
+- **Add** puts the pack in `package.json` and `cucumber.js` and installs it in the container. It says
+  which settings the pack reads that the project does not set yet (its accounts, a key): you fill them
+  in. A second platform gets a `cucumber.js` profile of its own, because platform packs share their
+  phrases; its row says *profile <name>*, and **Run one feature…** runs its features with it.
+- **Copy examples** copies the features the pack ships into `tests/features/<pack>/`, never over a file
+  you have. They are in **Run one feature…** at once.
+- **Remove** asks first, then takes out exactly what Add put in. A pack a platform plugin added (the
+  WordPress plugin adds its own) has no Remove here. The features you copied stay: they are yours.
+
+Each button runs `cmd-tools-testing.sh` in a screen session, the same command you can type:
+`--list-steps`, `--add-steps diffy`, `--examples diffy`, `--remove-steps diffy`.
+
 ### Run any command on anything
 
 **Commands**, in the rail, lists every command the dashboard can run and what each one runs on: a

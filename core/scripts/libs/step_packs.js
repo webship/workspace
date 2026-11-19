@@ -179,8 +179,9 @@ async function fetchRegistry(opts = {}) {
 /**
  * The packs, newest answer first: the day-old cache, then npm, then a stale cache, then the list shipped
  * with the core. `{ source: 'cache'|'npm'|'stale-cache'|'shipped', at, error, packs: [describePack] }`.
+ * WORKSPACE_STEPS_OFFLINE=1 never asks npm (a machine with no network, a test).
  */
-async function listPacks({ root, refresh = false, offline = false, now = Date.now(), fetchImpl } = {}) {
+async function listPacks({ root, refresh = false, offline = process.env.WORKSPACE_STEPS_OFFLINE === '1', now = Date.now(), fetchImpl } = {}) {
   const file = cacheFile(root);
   const cached = readJson(file);
   const usable = cached && Array.isArray(cached.packs) && cached.packs.length > 0;

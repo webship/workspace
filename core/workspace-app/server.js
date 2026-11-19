@@ -3519,6 +3519,8 @@ function testsMenuBody({ key, dir, p, gates }) {
       <li data-entry="testing environment"><a href hx-post="/actions/testing-configure" ${vals()} class="${busy ? 'uk-disabled' : ''}"><span uk-icon="icon: cog; ratio: .7"></span> ${stack === 'none' ? 'Set up the testing environment' : 'Re-apply the testing environment'}${busy ? ' (running…)' : ''}</a></li>
       ${busy ? `<li><a href="/terminal/${encodeURIComponent(testsSession)}" target="_blank" title="Open the session the suite is running in"><span uk-icon="icon: laptop; ratio: .7"></span> Watch it run in <code>${esc(testsSession)}</code></a></li>` : ''}
       ${stack === 'none' ? '' : `<li><a href hx-post="/actions/testing-run" ${vals()} class="${busy ? 'uk-disabled' : ''}" title="${esc(ready && !ready.ready ? `It will install ${ready.missing.join(' and ')} first, which rebuilds the web image` : 'Run the suite')}"><span uk-icon="icon: play; ratio: .7"></span> Run the tests${busy ? ' (running…)' : ''}</a></li>`}
+      ${stack === 'none' ? '' : `<li data-entry="run one feature"><a href hx-get="/fragments/projects/features/${esc(key)}/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML" uk-toggle="target: #editor-modal" title="Every feature of the project, the copied examples among them, each with Run"><span uk-icon="icon: play-circle; ratio: .7"></span> Run one feature…</a></li>`}
+      <li data-entry="extra steps"><a href hx-get="/fragments/projects/steps/${esc(key)}/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML" uk-toggle="target: #editor-modal" title="The webship-js step packs: add, remove, copy their examples">${iconHtml('tabler:puzzle', 0.7)} Extra steps…</a></li>
       ${reports.length ? `<li class="uk-nav-divider"></li>
       <li class="uk-nav-header" data-group="reports">${reports.length} report${reports.length > 1 ? 's' : ''}</li>
       ${reports.map((r, i) => `<li><a href hx-get="/fragments/${esc(key)}/test-report/${encodeURIComponent(p)}?report=${i}" hx-target="#editor-modal-body" hx-swap="innerHTML" uk-toggle="target: #editor-modal" title="${esc(`${r.rel} · ${humanTime(r.mtime)}`)}"><span uk-icon="icon: file-text; ratio: .7"></span> ${esc(reportLabel(r))}</a></li>`).join('')}` : ''}` : ''}
@@ -4829,6 +4831,7 @@ const ACTIONS = {
   ...require('./actions/ddev-addons'),
   ...require('./actions/rag'),
   ...require('./actions/testing'),
+  ...require('./actions/step-packs'),
   ...require('./actions/checks'),
   ...require('./actions/plugins'),
   ...require('./actions/ai-items'),
@@ -7287,6 +7290,24 @@ async function onRequest(req, res) {
             q: aQs.get('q') || '',
             page: aQs.get('page') || 1,
           });
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(html);
+        } }
+      // A project's Extra steps panel (the webship-js step packs) and its run picker. Rendering is
+      // step-packs-page.js; this resolves the project and whether a testing command is running on it.
+      { const sp = pathname.match(/^\/fragments\/projects\/(steps|features)\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);
+        if (sp && isValidWorkspace(sp[2]) && NAME_RE.test(sp[3])) {
+          const [, spKind, spWs, spProj] = sp;
+          const spDir = path.join(workspaceDir(spWs), spProj);
+          if (!fs.existsSync(spDir) || !fs.existsSync(path.join(workspaceDir(spWs), 'cmd-tools-testing.sh'))) {
+            res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+            return res.end('<div class="msg error">No such project here, or this workspace has no testing command.</div>');
+          }
+          const busy = ['steps', 'tests', 'tests-setup'].some((v) => sessionLive(spWs, spProj, v));
+          const { stepPacksPanelHtml, featuresPickerHtml } = require('./step-packs-page');
+          const html = spKind === 'steps'
+            ? await stepPacksPanelHtml({ workspace: spWs, project: spProj, projectDir: spDir, busy })
+            : featuresPickerHtml({ workspace: spWs, project: spProj, projectDir: spDir, busy });
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
           return res.end(html);
         } }
