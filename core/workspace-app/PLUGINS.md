@@ -438,6 +438,10 @@ core's own tools look for, so the row menus of a project of that platform work l
 | `add_<name>_users`, `cancel_<name>_users` | the same tools | Create and remove those accounts with the platform's own CLI; without them the Drupal way (drush) is used. |
 | `testing_configure_<name>` | `cmd-tools-testing.sh <project>` | Runs in the project once the testing stack is scaffolded: adds the platform's step pack to `package.json` and `cucumber.js`. Returns 0 and changes nothing for a project that is not its own. |
 
+A step pack that belongs to no platform plugin (Diffy, a second platform) is added with
+`cmd-tools-testing.sh <project> --add-steps <pack>` (`core/scripts/libs/step_packs.js`, [Testing](../docs/testing.md)).
+It leaves what a hook added alone: `--remove-steps` only takes out what `--add-steps` put in.
+
 `<name>` is the DDEV project type (`wordpress`, `typo3`, `magento2`, …): the Users menu of a project
 row reads it from the project's `.ddev/config.yaml`. A Drupal project is named by what it holds: the
 install profile under `profiles/contrib` when there is one, else `drupal_cms` when its
