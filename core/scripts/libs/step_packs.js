@@ -10,10 +10,13 @@
  * One module, two callers, like checks_plan.js beside it: `cmd-tools-testing.sh` shells out to it
  * (`node step_packs.js <verb> …`) and the dashboard requires it for the Extra steps panel, so the
  * panel and the command can never disagree about what a project has. No dependencies: Node's own
- * fs, path, https and dns, so it runs wherever the workspace runs (Node.js 20 or later).
+ * modules, so it runs wherever the workspace runs (Node.js 20 or later); a pack given as a file is
+ * read with tar, and a pack given as a folder is packed with npm.
  *
  * The rules it keeps:
- *   - a name is only ever one of `@webship-js/<name>-steps`, and only one the list holds is added;
+ *   - a name is only ever one of `@webship-js/<name>-steps`, and only one the list holds is added,
+ *     unless it is given as a tarball (`npm pack`) or a folder, to prove it before it is on npm: the
+ *     tarball is copied into the project's tests/step-packs/, where its container sees it;
  *   - idempotent: a second run adds what the first missed and never resets anything;
  *   - `remove` takes out exactly what `add` put in (written down in tests/step-packs.json), nothing else;
  *   - examples are copied, never over a file;
@@ -31,6 +34,9 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const dns = require('dns');
+const os = require('os');
+const crypto = require('crypto');
+const { spawnSync } = require('child_process');
 
 const SCOPE = '@webship-js/';
 const PACK_RE = /^@webship-js\/[a-z0-9][a-z0-9-]*-steps$/;
@@ -55,6 +61,8 @@ const DEFAULT_FEATURES = 'tests/features/**/*.feature';
 // The comment on every require line this adds, so a reader of cucumber.js knows where it came from.
 const MARK = '// step pack: cmd-tools-testing.sh --add-steps';
 const RECORD = path.join('tests', 'step-packs.json');
+// Where a pack given as a tarball is copied, inside the project, so its container sees it. Always '/'.
+const LOCAL_DIR = 'tests/step-packs';
 const RECORD_ABOUT = 'What cmd-tools-testing.sh --add-steps and --examples changed in this project, so --remove-steps takes out exactly that. Written by the Webship Workspace.';
 const SHIPPED_FILE = path.join(__dirname, '..', '..', 'config', 'step-packs.json');
 const DEFAULT_ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -665,11 +673,61 @@ function indentOf(text) {
 }
 
 /**
+ * A pack given as a path instead of a name (webship/workspace#491): a tarball `npm pack` made, or the
+ * folder of a pack, which is packed here with npm. That is how a pack is proven on a real project
+ * before it is on npm. `null` for a name; `{ error }` for a path that is not a pack; else
+ * `{ name, version, source, packedIn, readme }`, where `source` is the tarball and `packedIn` the
+ * temporary folder npm packed a folder into (the caller removes it). Nothing is copied here.
+ */
+function localPack(input) {
+  const given = String(input || '');
+  // A name, scoped or not (@webship-js/diffy-steps, diffy), is not a path.
+  if (given.startsWith('@') || (!/[\\/]/.test(given) && !/\.tgz$/.test(given))) return null;
+  const abs = path.resolve(given);
+  let st;
+  try { st = fs.statSync(abs); } catch (_) { return { error: `${given}: there is no such file or folder.` }; }
+  let source = abs;
+  let packedIn = '';
+  if (st.isDirectory()) {
+    if (!fs.existsSync(path.join(abs, 'package.json'))) return { error: `${given}: a folder with no package.json is not a pack.` };
+    packedIn = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-step-pack-'));
+    const r = spawnSync('npm', ['pack', '--silent', '--pack-destination', packedIn, abs], { encoding: 'utf8' });
+    const file = r.status === 0 ? String(r.stdout || '').trim().split('\n').pop().trim() : '';
+    if (!file || !fs.existsSync(path.join(packedIn, file))) {
+      fs.rmSync(packedIn, { recursive: true, force: true });
+      const why = r.error ? (r.error.code === 'ENOENT' ? 'npm is not on this machine' : r.error.message) : String(r.stderr || '').trim().split('\n').pop();
+      return { error: `${given}: npm pack could not pack this folder${why ? ` (${why})` : ''}. Run npm pack in it and give the .tgz.` };
+    }
+    source = path.join(packedIn, file);
+  } else if (!/\.tgz$/.test(abs)) {
+    return { error: `${given}: give a .tgz (what npm pack makes) or the folder of a pack.` };
+  }
+  const member = (name) => {
+    const r = spawnSync('tar', ['-xzOf', source, `package/${name}`], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    return r.status === 0 ? r.stdout : null;
+  };
+  let pkg = null;
+  try { pkg = JSON.parse(member('package.json') || ''); } catch (_) { pkg = null; }
+  if (!pkg || !PACK_RE.test(pkg.name || '')) {
+    if (packedIn) fs.rmSync(packedIn, { recursive: true, force: true });
+    return { error: `${given}: not a webship-js step pack (its package.json names ${pkg && pkg.name ? pkg.name : 'nothing'}; a pack is @webship-js/<name>-steps).` };
+  }
+  return { name: pkg.name, version: String(pkg.version || ''), source, packedIn, readme: member('README.md') || '' };
+}
+
+/** Where addPack copies a local pack: its name, version and the start of its content's hash, so a rebuilt
+ *  tarball gets a new file, package.json changes, and the caller installs it again. */
+function localPackFile(name, version, source) {
+  const hash = crypto.createHash('sha256').update(fs.readFileSync(source)).digest('hex').slice(0, 8);
+  return `${LOCAL_DIR}/${name.slice(1).replace('/', '-')}-${version || '0.0.0'}-${hash}.tgz`;
+}
+
+/**
  * Add one pack: package.json, cucumber.js, the record. Never installs anything (the caller runs npm
  * install, in the project's container). `{ ok, code, changed: [], notes: [], fill: [], profile }`;
  * code 3 is "it needs a profile of its own and this cucumber.js has no default profile to build one on".
  */
-function addPack(projectDir, pack, { readme = '', packConfig = packConfigOf(projectDir, pack.name), metaOf } = {}) {
+function addPack(projectDir, pack, { readme = '', packConfig = packConfigOf(projectDir, pack.name), metaOf, local = null } = {}) {
   const name = pack.name;
   const out = { ok: true, code: 0, name, changed: [], notes: [], fill: [], profile: '' };
   const pkgFile = path.join(projectDir, 'package.json');
@@ -685,6 +743,12 @@ function addPack(projectDir, pack, { readme = '', packConfig = packConfigOf(proj
   const meta = metaOf || ((n) => (n === name ? pack : describePack({ name: n }, known)));
   const record = readRecord(projectDir);
   const rec = { ...(record.packs[name] || {}) };
+  // A tarball replaces only a tarball this added before: a pack from npm (or one a person or a plugin
+  // added) is taken out first, so --remove-steps can always take out exactly what was put in.
+  const had = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) }[name];
+  if (local && had && !rec.tarball) {
+    return { ...out, ok: false, code: 2, error: `package.json already has ${name} (${had}), and not from a tarball --add-steps copied: take it out first (--remove-steps ${shortName(name)}), then add the tarball.` };
+  }
   const layout = readCucumber(src);
   const glob = globFor(name, readme);
 
@@ -742,19 +806,38 @@ function addPack(projectDir, pack, { readme = '', packConfig = packConfigOf(proj
 
   const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
   let newPkg = null;
-  if (deps[name]) {
+  let copy = null;
+  const file = local ? localPackFile(name, local.version, local.source) : '';
+  if (local && deps[name] === `file:${file}`) {
+    out.notes.push(`package.json already has ${name} from this tarball (${file}): left as it is.`);
+    if (!fs.existsSync(path.join(projectDir, ...file.split('/')))) copy = file;
+  } else if (deps[name] && !local) {
     out.notes.push(`package.json already has ${name} (${deps[name]}): left as it is.`);
   } else {
-    const range = rangeFor(pack.version);
+    const range = local ? `file:${file}` : rangeFor(pack.version);
     // A devDependencies block this makes is taken out again with the last pack in it.
     if (!pkg.devDependencies) record.createdDevDependencies = true;
     pkg.devDependencies = { ...(pkg.devDependencies || {}), [name]: range };
     newPkg = `${JSON.stringify(pkg, null, indentOf(pkgText))}\n`;
     rec.devDependency = range;
     out.changed.push(`package.json: ${name} ${range} (devDependencies)`);
+    if (local) {
+      // The tarball this pack came from before goes: the new one replaces it.
+      if (rec.tarball && rec.tarball !== file) {
+        fs.rmSync(path.join(projectDir, ...rec.tarball.split('/')), { force: true });
+        out.changed.push(`${rec.tarball} deleted (replaced)`);
+      }
+      rec.tarball = file;
+      copy = file;
+    }
   }
 
   if (newSrc !== src) fs.writeFileSync(cucFile, newSrc);
+  if (copy) {
+    fs.mkdirSync(path.join(projectDir, ...LOCAL_DIR.split('/')), { recursive: true });
+    fs.copyFileSync(local.source, path.join(projectDir, ...copy.split('/')));
+    out.changed.push(`${copy} (copied from ${local.packedIn ? 'the folder, packed with npm pack' : local.source})`);
+  }
   if (newPkg) fs.writeFileSync(pkgFile, newPkg);
   if (newSrc !== src || newPkg) {
     record.packs[name] = rec;
@@ -835,6 +918,15 @@ function removePack(projectDir, name) {
         out.notes.push(`package.json no longer lists ${name} in devDependencies: left as it is.`);
       }
     }
+    if (rec.tarball) {
+      const file = path.join(projectDir, ...rec.tarball.split('/'));
+      if (fs.existsSync(file)) {
+        fs.rmSync(file, { force: true });
+        out.changed.push(`${rec.tarball} deleted`);
+      }
+      const folder = path.join(projectDir, ...LOCAL_DIR.split('/'));
+      try { if (!fs.readdirSync(folder).length) fs.rmdirSync(folder); } catch (_) { /* not there, or not empty */ }
+    }
   }
   // What stays: the examples --examples copied (features are yours to keep or delete), and settings you filled in.
   const folder = path.join('tests', 'features', dirName(name));
@@ -847,7 +939,7 @@ function removePack(projectDir, name) {
     out.left.push(`${files.join(', ')} (the file${files.length === 1 ? '' : 's'} its examples use) ${files.length === 1 ? 'stays' : 'stay'} as well.`);
   }
   const keepExamples = rec.examples;
-  delete rec.devDependency; delete rec.require; delete rec.profile; delete rec.createdProfile;
+  delete rec.devDependency; delete rec.require; delete rec.profile; delete rec.createdProfile; delete rec.tarball;
   record.packs[name] = keepExamples ? { examples: keepExamples } : {};
   if (!features.length && !files.length) delete record.packs[name];
   writeRecord(projectDir, record);
@@ -1084,31 +1176,43 @@ async function main(argv) {
 
   // Every pack named, checked against the list before anything is touched.
   const resolve = (input) => {
+    // A tarball or a folder: a pack proven before it is on npm. Only add takes one; the others take its name.
+    const local = verb === 'add' ? localPack(input) : null;
+    if (local && local.error) return { input, error: local.error };
+    if (local) return { input, name: local.name, pack: describePack({ name: local.name, version: local.version }), local };
+    if (verb !== 'add' && !input.startsWith('@') && (/[\\/]/.test(input) || /\.tgz$/.test(input))) return { input, error: `${input}: name the pack (bootstrap, @webship-js/bootstrap-steps), not its file.` };
     const name = packName(input);
     const pack = name && list.packs.find((p) => p.name === name);
     return { input, name, pack };
   };
   const wanted = args.flatMap((a) => a.split(',')).map((s) => s.trim()).filter(Boolean).map(resolve);
+  const unreadable = wanted.filter((w) => w.error);
+  if (unreadable.length) {
+    wanted.forEach((w) => { if (w.local && w.local.packedIn) fs.rmSync(w.local.packedIn, { recursive: true, force: true }); });
+    return fail(unreadable.map((w) => w.error).join('\n'), 2);
+  }
   if (['add', 'remove', 'examples'].includes(verb)) {
     if (!wanted.length) return fail(`Name a pack: ${verb} <project dir> <pack>[,<pack>…] (e.g. diffy, wordpress-steps or @webship-js/diffy-steps).`, 2);
     const has = projectState(dir).packs;
     const unknown = wanted.filter((w) => !w.name || (!w.pack && !(verb !== 'add' && has[w.name])));
     if (unknown.length) {
       return fail(`Not a webship-js step pack this list knows: ${unknown.map((u) => u.input).join(', ')}.\n`
-        + `  The list (${sourceLine(list)}): ${list.packs.map((p) => p.short).join(', ')}.\n  See them all: cmd-tools-testing.sh <project> --list-steps`, 2);
+        + `  The list (${sourceLine(list)}): ${list.packs.map((p) => p.short).join(', ')}.\n  See them all: cmd-tools-testing.sh <project> --list-steps\n`
+        + '  A pack not on npm yet: give its tarball (npm pack) or its folder instead of its name.', 2);
     }
   }
 
   if (verb === 'add') {
     let status = 0;
     for (const w of wanted) {
-      const readme = await readmeOf(dir, w.name, { offline });
+      const readme = w.local ? w.local.readme : await readmeOf(dir, w.name, { offline });
       const known = new Map(list.packs.map((p) => [p.name, p]));
-      const metaOf = (n) => known.get(n) || describePack({ name: n });
-      const r = addPack(dir, w.pack, { readme, metaOf });
+      const metaOf = (n) => (n === w.name && w.local ? w.pack : known.get(n) || describePack({ name: n }));
+      const r = addPack(dir, w.pack, { readme, metaOf, local: w.local || null });
+      if (w.local && w.local.packedIn) fs.rmSync(w.local.packedIn, { recursive: true, force: true });
       say('');
       if (!r.ok) { status = r.code || 1; fail(`${w.name}: ${r.error}`); continue; }
-      say(`${w.name} (${w.pack.version || 'latest'}${w.pack.kind === 'any-site' ? ', for any site' : ''}):`);
+      say(`${w.name} (${w.pack.version || 'latest'}${w.local ? ', from a tarball' : ''}${w.pack.kind === 'any-site' ? ', for any site' : ''}):`);
       r.changed.forEach((c) => say(`  ${c}`));
       r.notes.forEach((c) => say(`  ${c}`));
       if (!r.changed.length) say('  Nothing to add: it was all there already.');
@@ -1164,7 +1268,7 @@ module.exports = {
   shippedList, knownPacks, describePack, cacheFile, fetchRegistry, listPacks,
   objectKeys, readCucumber, projectSettings, readmeSettings, settingsToFill, globFor, readmeOf, packConfigOf,
   projectState, notInstalled, profileFor, placeFor, featureFiles,
-  addPack, removePack, copyExamples, EXAMPLE_FILE_DIRS,
+  addPack, removePack, copyExamples, EXAMPLE_FILE_DIRS, localPack, localPackFile, LOCAL_DIR,
   projectHost, fetchSitePage, detectPacks, suggestFor,
   main,
 };
