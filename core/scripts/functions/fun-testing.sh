@@ -217,6 +217,18 @@ function testing_addon_failure_says() {
   fi
 }
 
+# Is the webship-js add-on installed in this project? DDEV keeps a manifest of every add-on it installed, and the
+# add-on's own config file is the part that matters: both there means a setup has what it needs without a new fetch.
+function testing_addon_installed() {
+  local project_path="$1" ;
+  [ -f "${project_path}/.ddev/addon-metadata/ddev-webship-js/manifest.yaml" ] && [ -f "${project_path}/.ddev/config.webship-js.yml" ] ;
+}
+
+# The version DDEV recorded for the installed add-on, or nothing.
+function testing_addon_version() {
+  sed -nE 's/^version: *"?([^"]*)"?[[:space:]]*$/\1/p' "$1/.ddev/addon-metadata/ddev-webship-js/manifest.yaml" 2>/dev/null | head -n 1 ;
+}
+
 # Set the testing environment up on an existing project. Idempotent: the in-project command checks
 # what is installed before it installs anything, and the webship add-on preserves every file it
 # finds, so a second run adds what a first run missed rather than resetting the suite.
@@ -248,17 +260,27 @@ function testing_configure() {
       addon_log="$(mktemp)" ;
       ddev add-on get webship/ddev-webship-js 2>&1 | tee "${addon_log}" ;
       addon_status=${PIPESTATUS[0]} ;
-      if [ "${addon_status}" -ne 0 ] ; then
+      if [ "${addon_status}" -ne 0 ] && testing_addon_installed "${project_path}" ; then
+        # Getting it again is how a project picks up a newer add-on, not what the setup needs: a fetch that failed
+        # (a network hiccup, GitHub's rate limit) leaves the one the project has, and the setup goes on with it (#545).
+        echo "";
+        echo "  Getting the add-on again did not work (DDEV's words are above); this project already has it.";
+        grep -qi 'rate limit' "${addon_log}" && echo "  GitHub answered with its rate limit: a token avoids it (export DDEV_GITHUB_TOKEN=\$(gh auth token))." ;
+        local kept ; kept="$(testing_addon_version "${project_path}")" ;
+        echo "  The setup goes on with the add-on it has${kept:+ (${kept})}; run it again later for a newer one.";
+        rm -f "${addon_log}" ;
+      elif [ "${addon_status}" -ne 0 ] ; then
         echo "";
         testing_addon_failure_says "${addon_log}" ;
         rm -f "${addon_log}" ;
         return 1 ;
+      else
+        rm -f "${addon_log}" ;
+        # The add-on scaffolds on post-start, so the restart is part of the install, not a nicety.
+        ddev restart || return 1 ;
+        # The containers are up again; the app in them may not be yet, and the platform hooks below talk to it.
+        testing_wait_for_site ;
       fi
-      rm -f "${addon_log}" ;
-      # The add-on scaffolds on post-start, so the restart is part of the install, not a nicety.
-      ddev restart || return 1 ;
-      # The containers are up again; the app in them may not be yet, and the platform hooks below talk to it.
-      testing_wait_for_site ;
       ;;
   esac
 
