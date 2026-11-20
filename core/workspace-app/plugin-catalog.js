@@ -30,6 +30,7 @@ const FAMILIES = [
     ['astro', 'Astro', 'A builder for Astro sites'],
     ['gatsby', 'Gatsby', 'A builder for Gatsby sites'],
     ['laravel', 'Laravel', 'A builder for Laravel apps from the official starter kits, and the artisan tool'],
+    ['filament', 'Filament', 'A builder for Filament admin panels on Laravel apps, new or the official demo'],
     ['symfony', 'Symfony', 'A builder for Symfony apps, and the Symfony console tool'],
     ['codeigniter', 'CodeIgniter', 'A builder for CodeIgniter apps with the official auth library, and the spark tool'],
     ['woocommerce', 'WooCommerce', 'A builder for WooCommerce shops on WordPress, with the shop\'s sample products'],

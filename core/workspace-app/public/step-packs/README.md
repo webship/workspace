@@ -4,7 +4,7 @@ The Extra steps panel (a project's Tests menu) shows them beside each `@webship-
 same files the docs cards on webship.co show. Each logo belongs to its project; `core/config/step-packs.json`
 names the file of each pack.
 
-- `astro`, `codeigniter`, `craftcms`, `discourse`, `django`, `docusaurus`, `drupal`, `gatsby`, `ghost`, `hubspot`, `jira`, `joomla`, `laravel`, `magento`, `moodle`, `nextjs` (the set's `nextdotjs`),
+- `astro`, `codeigniter`, `craftcms`, `discourse`, `django`, `docusaurus`, `drupal`, `filament`, `gatsby`, `ghost`, `hubspot`, `jira`, `joomla`, `laravel`, `magento`, `moodle`, `nextjs` (the set's `nextdotjs`),
   `odoo`, `payload` (the set's `payloadcms`), `prestashop`, `shopify`, `squarespace`, `strapi`, `symfony`, `typo3`, `webflow`, `woocommerce`, `wordpress` (`.svg`): Simple Icons
   16.37.0 (CC0-1.0), filled with the colour the set lists for the brand.
 - `bootstrap.svg`: Simple Icons 16.37.0, filled with the brand colour `#7952B3`. The set lists this icon under the MIT

@@ -62,7 +62,7 @@ test('every plugin of the catalogue has a name and a line that is not its name o
 test('the AI folders are a family of their own, the platforms on npm are listed, and the avatar is a feature', () => {
   const by = Object.fromEntries(FAMILIES.map((f) => [f.id, f.plugins.map(([n]) => n)]));
   assert.deepStrictEqual(by.ai, ['ai-agents', 'ai-skills', 'ai-commands', 'ai-prompts']);
-  for (const p of ['drupal', 'drupal-cms', 'wordpress', 'joomla', 'typo3', 'odoo', 'laravel', 'symfony', 'codeigniter', 'woocommerce', 'bootstrap', 'mediawiki', 'moodle', 'django', 'nextjs', 'strapi', 'docusaurus', 'discourse', 'payload']) assert.ok(by.platforms.includes(p), p);
+  for (const p of ['drupal', 'drupal-cms', 'wordpress', 'joomla', 'typo3', 'odoo', 'laravel', 'symfony', 'codeigniter', 'woocommerce', 'bootstrap', 'mediawiki', 'moodle', 'django', 'nextjs', 'strapi', 'docusaurus', 'discourse', 'payload', 'filament']) assert.ok(by.platforms.includes(p), p);
   assert.ok(by.features.includes('avatar') && !by.workspaces.includes('avatar'));
   assert.strictEqual(FAMILIES[0].id, 'platforms', 'platforms first, as Settings shows them');
 });
