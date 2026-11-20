@@ -141,7 +141,9 @@
     const el = pane.querySelector('.term-screen');
     const status = pane.querySelector('.term-status');
     const again = pane.querySelector('.term-reconnect');
-    const say = (text) => { if (status) status.textContent = text; };
+    // Only when the words change: the status line is a live region, and "connected" again on every byte of
+    // output would be read out again and again.
+    const say = (text) => { if (status && status.textContent !== text) status.textContent = text; };
 
     const look = lookNow();
     const term = new window.Terminal({
@@ -255,11 +257,59 @@
     let ws;
     let attachedAt = { cols: 0, rows: 0 };
 
+    /**
+     * A quiet terminal stays attached (terminal-keepalive.js on the server says why it went quiet and dropped).
+     *
+     * Every 25 seconds the window sends an empty binary frame, which no keystroke can make, and the server
+     * answers with the same: traffic for every proxy in between, and an answer that proves the socket is alive.
+     * A socket that answered before and does not answer within ten seconds is dead without knowing it (a laptop
+     * that slept, a network that changed), and is replaced. Any socket that drops while its session lives is
+     * attached again by itself, with a growing pause, and the status line says what happened.
+     */
+    const KEEPALIVE_MS = 25000;
+    const ANSWER_MS = 10000;
+    const RETRY_MS = [1000, 2000, 4000, 8000, 15000, 30000];
+    let pingTimer = null;
+    let answerTimer = null;
+    let retryTimer = null;
+    let retries = 0;
+    let reattachedAt = 0;
+    // "connected", and for a while after a drop, that it was attached again: said in the window, not only done.
+    const liveText = () => (Date.now() - reattachedAt < 15000 ? 're-attached after the connection dropped' : 'connected');
+    const stopKeepalive = () => { clearInterval(pingTimer); clearTimeout(answerTimer); };
+    const startKeepalive = (sock) => {
+      stopKeepalive();
+      let answers = 0;
+      sock.__answered = () => { answers += 1; clearTimeout(answerTimer); };
+      pingTimer = setInterval(() => {
+        if (sock !== ws || sock.readyState !== 1) return;
+        try { sock.send(new Uint8Array(0)); } catch (_) { return; }
+        clearTimeout(answerTimer);
+        // Only a socket that has answered before is judged by its silence: a dashboard too old to answer is not
+        // a dead socket.
+        if (!answers) return;
+        answerTimer = setTimeout(() => {
+          if (sock !== ws) return;
+          sock.onclose = null;
+          sock.onmessage = null;
+          try { sock.close(); } catch (_) { /* already gone */ }
+          dropped();
+        }, ANSWER_MS);
+      }, KEEPALIVE_MS);
+    };
+
     const wire = () => {
     attachedAt = { cols: term.cols, rows: term.rows };
+    clearTimeout(retryTimer);
+    retryTimer = null;
     ws = new WebSocket(`${proto}${location.host}/ws/screen/${encodeURIComponent(session)}?cols=${term.cols}&rows=${term.rows}`);
     ws.binaryType = 'arraybuffer';
     ws.onmessage = (e) => {
+      // The keepalive's answer: an empty binary frame, which no program in the session can print.
+      if (typeof e.data !== 'string' && e.data.byteLength === 0) {
+        if (e.target.__answered) e.target.__answered();
+        return;
+      }
       const data = typeof e.data === 'string' ? e.data : new Uint8Array(e.data);
       // Whether the session is in copy mode is SCREEN's answer, read from what it prints — never a
       // flag set hopefully when a key was sent. The first version set it on sending Ctrl-A Esc, which
@@ -267,21 +317,37 @@
       const text = typeof data === 'string' ? data : new TextDecoder().decode(data);
       if (/Copy mode aborted/.test(text)) {
         delete pane.dataset.copyMode;
-        say(pane.dataset.live ? 'connected' : 'detached');
+        say(pane.dataset.live ? liveText() : 'detached');
       } else if (/Copy mode/.test(text)) {
         pane.dataset.copyMode = '1';
         say('scrollback — the wheel moves, q leaves it');
       }
       if (text.length) {
         pane.dataset.painted = '1';
+        // The session painted into it: this attach works, and the next drop starts counting from the start.
+        retries = 0;
         clearTimeout(pane.__silence);
-        if (pane.dataset.live && !pane.dataset.copyMode) say('connected');
+        if (pane.dataset.live && !pane.dataset.copyMode) say(liveText());
       }
       term.write(data);
     };
     ws.onopen = () => {
-      say('connected');
+      clearTimeout(pane.__linkNews);
+      delete pane.dataset.link;
+      if (pane.dataset.dropped) {
+        reattachedAt = Date.now();
+        delete pane.dataset.dropped;
+        // News for a while: a narrow window shows its status line only while it has some (terminals.css).
+        pane.dataset.link = 'reattached';
+        pane.__linkNews = setTimeout(() => {
+          delete pane.dataset.link;
+          if (pane.dataset.live && !pane.dataset.copyMode) say('connected');
+        }, 15000);
+      }
+      say(liveText());
       pane.dataset.live = '1';
+      if (again) again.hidden = true;
+      startKeepalive(ws);
       // Connected is not the same as painted. `screen -x` attaches to a window whose program may be
       // sitting idle — an agent waiting on an answer, a shell nobody has typed in — and a window that
       // came up with nothing in it looks exactly like one that stalled. The server asks the session to
@@ -294,25 +360,74 @@
         if (again) again.hidden = false;
       }, 6000);
     };
-    ws.onclose = () => {
-      // Never write into the terminal to say so — a TUI owns every cell of its screen. And say WHICH
-      // of the two happened: a detach leaves the session running, the end of its command does not.
+    ws.onclose = dropped;
+    };
+
+    // The socket is gone. Never written into the terminal (a TUI owns every cell of its screen), and the status
+    // says WHICH of the two happened: the session ended, or only the connection did, and then the window
+    // attaches itself again while the window is open. A dashboard that does not answer either (restarting, or
+    // the network is down) is tried again the same way. A CLEAN close is the dashboard ending this attach on
+    // purpose (the session ended, or every client was detached from it with the detach verb): that is said, and
+    // not undone behind the back of whoever detached it.
+    function dropped(evt) {
+      const onPurpose = !!(evt && evt.wasClean);
+      stopKeepalive();
       delete pane.dataset.live;
       delete pane.dataset.painted;
       clearTimeout(pane.__silence);
+      if (!pane.isConnected) return;
       if (again) again.hidden = false;
+      clearTimeout(pane.__linkNews);
+      pane.dataset.link = 'dropped';
       say('disconnected — checking…');
-      fetch(`/fragments/screen-alive/${encodeURIComponent(session)}`)
-        .then((r) => r.text())
-        .then((alive) => {
-          const live = alive.trim() === '1';
-          say(live ? 'detached — the session keeps running' : 'the session ended');
-          if (!live && again) again.hidden = true;
-          if (!live) pane.dataset.ended = '1';
+      const retry = (why) => {
+        if (!pane.isConnected) return;
+        if (retries >= RETRY_MS.length) {
+          say(`detached — ${why}; ↻ attaches it again`);
+          return;
+        }
+        const wait = RETRY_MS[retries];
+        retries += 1;
+        pane.dataset.dropped = '1';
+        say(`connection dropped — re-attaching in ${Math.round(wait / 1000)} s…`);
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => {
+          retryTimer = null;
+          if (!pane.isConnected) return;
+          say('connection dropped — re-attaching…');
+          wire();
+        }, wait);
+      };
+      const ended = () => {
+        say('the session ended');
+        if (again) again.hidden = true;
+        pane.dataset.ended = '1';
+        pane.dataset.link = 'ended';
+      };
+      const isAlive = () => fetch(`/fragments/screen-alive/${encodeURIComponent(session)}`)
+        .then((r) => r.text()).then((alive) => alive.trim() === '1');
+      isAlive()
+        .then((live) => {
+          if (!live) return ended();
+          if (!onPurpose) return retry('the session keeps running, the connection keeps dropping');
+          // A session that was just killed is listed for a moment longer (the runner publishes its list every two
+          // seconds), so a deliberate close is asked about once more before it is called a detach.
+          return new Promise((r) => { setTimeout(r, 2500); }).then(isAlive)
+            .then((still) => (still ? say('detached — the session keeps running') : ended()));
         })
-        .catch(() => say('detached'));
+        .catch(() => (onPurpose ? say('detached') : retry('the dashboard does not answer')));
+    }
+    // Back online, or back to this tab: a window waiting to try again tries now.
+    const retryNow = () => {
+      if (!retryTimer || pane.dataset.live) return;
+      clearTimeout(retryTimer);
+      retryTimer = null;
+      say('connection dropped — re-attaching…');
+      wire();
     };
-    };
+    const onVisible = () => { if (document.visibilityState === 'visible') retryNow(); };
+    window.addEventListener('online', retryNow);
+    document.addEventListener('visibilitychange', onVisible);
     wire();
 
     // Re-attach at the new size once the resizing has settled.
@@ -380,6 +495,11 @@
       },
       close() {
         clearTimeout(resizeTimer);
+        clearTimeout(retryTimer);
+        clearTimeout(pane.__linkNews);
+        stopKeepalive();
+        window.removeEventListener('online', retryNow);
+        document.removeEventListener('visibilitychange', onVisible);
         try { ws.onclose = null; ws.close(); } catch (_) { /* already gone */ }
         try { term.dispose(); } catch (_) { /* already gone */ }
         window.removeEventListener('resize', refit);

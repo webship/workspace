@@ -8371,6 +8371,7 @@ const PORT = process.env.PORT || 3000;
 const { WebSocketServer } = require('ws');
 const { spawn: spawnPty } = require('child_process');
 const termWss = new WebSocketServer({ noServer: true });
+const termKeepalive = require('./terminal-keepalive');
 termWss.on('error', () => { /* a bad frame must never take the dashboard down */ });
 // Every live terminal's PTY, so a restart does not leave `screen -x` clients
 // attached to sessions nobody is watching.
@@ -8426,6 +8427,9 @@ server.on('upgrade', (req, socket, head) => {
   const cols = Math.min(500, Math.max(20, parseInt(u.searchParams.get('cols'), 10) || 120));
   const rows = Math.min(200, Math.max(5, parseInt(u.searchParams.get('rows'), 10) || 30));
   termWss.handleUpgrade(req, socket, head, async (ws) => {
+    // A quiet terminal stays attached: pinged on a beat that every proxy in between sees as traffic, and ended
+    // when its browser stopped answering (terminal-keepalive.js).
+    termKeepalive.keepAlive(ws);
     // Sessions run on the machine; their socket directory is mounted in here,
     // so screen attaches them the ordinary way — no proxy, no network.
     // The size is fixed at attach time: stty sizes the PTY script created,
@@ -8476,7 +8480,14 @@ server.on('upgrade', (req, socket, head) => {
     };
     child.on('exit', () => { stopRepaints(); termChildren.delete(child); try { ws.close(); } catch (_) { /* closed */ } });
     child.on('error', reap);
-    ws.on('message', (d) => { try { child.stdin.write(d); } catch (_) { /* gone */ } });
+    ws.on('message', (d, isBinary) => {
+      // The page's keepalive is answered, and never typed into the session.
+      if (termKeepalive.isKeepalive(d, isBinary)) {
+        try { ws.send(Buffer.alloc(0), { binary: true }); } catch (_) { /* closing */ }
+        return;
+      }
+      try { child.stdin.write(d); } catch (_) { /* gone */ }
+    });
     ws.on('close', reap);
     ws.on('error', reap);
   });

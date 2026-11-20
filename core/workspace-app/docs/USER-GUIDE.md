@@ -453,6 +453,11 @@ On a project card the screens sit beside the site's state: the screen icon, how 
 Code here…** (the same form with Claude Code already chosen). Picking **Open terminal** from the Screens
 list closes the list, so you can type into the terminal straight away.
 
+A terminal window stays attached while its session is quiet: the window pings the dashboard every 25 seconds,
+so no proxy in between closes it for being silent. If the connection drops anyway (a laptop that slept, a
+network that changed, the dashboard restarting), the window says **connection dropped — re-attaching…** and
+attaches itself again while the session runs, then says it was re-attached; **↻** does it at once.
+
 ![New screen: where it runs, and what it starts](screenshots/screens-new.png)
 
 The form asks where it runs (the workspace folder or one of its projects), what it starts (a shell,
@@ -686,6 +691,7 @@ paths, the CLIs, the Web IDE, the exposure state, and the inotify limit.
 | The Web IDE says *Unable to watch for file changes* | the kernel's inotify limit. `install.sh --check` prints the fix |
 | A command answers *was not started* | no screen session can be started: `screen` is missing where the dashboard runs. `bash core/scripts/install.sh` installs it; the notice also gives the line to run by hand |
 | A screen session looks stuck | check **Screens** — if it says `✋ waiting on a choice`, it is waiting for **you**. Open the terminal and answer it |
+| A terminal window says *detached — … ↻ attaches it again* | it tried to attach itself again six times in about a minute. The session kept running: **↻** attaches the window again |
 
 ### One thing to know before you change it
 
