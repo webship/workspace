@@ -6,7 +6,8 @@
  * session starts only when the build succeeded, and as its own interactive session: the runner keeps a
  * command that starts with `exec` interactive, which a step inside the build's own piped session could not be.
  *
- * The payload is {session, dir, owner, cmd}, written by the dashboard into .screens/prompts/.
+ * The payload is {session, dir, owner, cmd, note}, written by the dashboard into .screens/prompts/; `note` is what
+ * the session's note keeps (screen-notes.js).
  */
 const fs = require('fs');
 const http = require('http');
@@ -36,6 +37,11 @@ const req = http.request({ host: '127.0.0.1', port: PORT, path: '/start', method
   res.on('end', () => {
     if (res.statusCode === 200) {
       console.log(`Claude Code is starting in ${payload.dir} as the session ${payload.session}. Open it from Screens.`);
+      // Noted like every session the dashboard starts, so it can be read and resumed once it is gone.
+      try {
+        require(path.join(__dirname, '..', 'screen-notes')).noteStarted(path.join(ROOT, '.screens'),
+          { ...(payload.note || {}), session: payload.session, dir: payload.dir });
+      } catch (_) { /* a session with no note still runs */ }
       try { fs.unlinkSync(file); } catch (_) { /* already gone */ }
       return process.exit(0);
     }

@@ -101,7 +101,9 @@ function listSessions(cb) {
 //
 // Set here rather than in a ~/.screenrc, so a machine needs no dotfile for the
 // dashboard's terminals to be right. `screen -T` states the same TERM for the window.
-const SESSION_ENV = { ...process.env, TERM: 'xterm-256color' };
+// And without the marks of a Claude Code session that started this runner (session-env.js says why): with them, a
+// Claude Code screen took itself for that session's child and saved no transcript to read or resume later.
+const SESSION_ENV = { ...require(path.join(__dirname, '..', 'session-env')).sessionEnv(process.env), TERM: 'xterm-256color' };
 
 // The screen configuration every session started here runs under. It sits beside the dashboard rather
 // than in ~/.screenrc, because it belongs to these sessions and must not change what a person's own

@@ -45,7 +45,10 @@ test('the step writes a private prompt and payload, and the shell line holds onl
     assert.ok(r.step.startsWith(`node '${path.join(ROOT, 'core', 'workspace-app', 'scripts', 'screen-then.js')}'`));
     const payloadFile = r.step.match(/'([^']+\.start\.json)'$/)[1];
     const payload = JSON.parse(fs.readFileSync(payloadFile, 'utf8'));
-    assert.match(payload.cmd, /^exec env WEBSHIP_WORKSPACE='dev' WEBSHIP_PROJECT='v11x00b9' .* claude "\$\(cat '.*dev--v11x00b9--claude\.txt'\)"$/);
+    assert.match(payload.cmd, /^exec env WEBSHIP_WORKSPACE='dev' WEBSHIP_PROJECT='v11x00b9' .* claude --session-id [0-9a-f-]{36} "\$\(cat '.*dev--v11x00b9--claude\.txt'\)"$/);
+    // The conversation's id is chosen here, and the note the session gets when it starts carries the same one.
+    assert.equal(payload.note.claude, payload.cmd.match(/--session-id ([0-9a-f-]{36})/)[1]);
+    assert.equal(payload.note.kind, 'claude');
     assert.equal(payload.dir, path.join(ROOT, 'dev', 'v11x00b9'));
     const prompt = fs.readFileSync(payload.cmd.match(/cat '([^']+)'/)[1], 'utf8');
     assert.match(prompt, /^The project dev\/v11x00b9 was just built here with Webship 11 and installed\.\n\nRun \$\(rm -rf \/\)/);
@@ -72,7 +75,8 @@ test('the chosen Claude Code options go on the claude line after the build', () 
   const r = ai.afterBuildStep({ ws: 'dev', dir: path.join(ROOT, 'dev'), project: 'v11x00b8', flags: ['--agent', 'webship-ai-expert', '--permission-mode', 'plan'] });
   const payloadFile = r.step.match(/'([^']+\.start\.json)'$/)[1];
   const payload = JSON.parse(fs.readFileSync(payloadFile, 'utf8'));
-  assert.match(payload.cmd, / claude --agent webship-ai-expert --permission-mode plan "\$\(cat '/);
+  assert.match(payload.cmd, / claude --session-id [0-9a-f-]{36} --agent webship-ai-expert --permission-mode plan "\$\(cat '/);
+  assert.deepStrictEqual(payload.note.flags, ['--agent', 'webship-ai-expert', '--permission-mode', 'plan']);
   fs.unlinkSync(payloadFile);
   fs.unlinkSync(payload.cmd.match(/cat '([^']+)'/)[1]);
 });

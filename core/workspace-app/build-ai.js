@@ -40,9 +40,13 @@ function afterBuildStep({ ws, dir, project, label, installed, text, flags = [] }
   const vars = { WEBSHIP_WORKSPACE: ws, WEBSHIP_PROJECT: project, WEBSHIP_WORKSPACE_DIR: projectDir };
   const env = Object.entries(vars).map(([k, v]) => `${k}=${shq(v)}`).join(' ');
   const payloadFile = path.join(promptsDir, `${session}.start.json`);
+  // The conversation's id is chosen here (--session-id), and the note the session gets when it starts carries it
+  // (screen-notes.js), so a session that is gone can still be read and resumed.
+  const claudeId = require('crypto').randomUUID();
   fs.writeFileSync(payloadFile, JSON.stringify({
     session, dir: projectDir, owner: projectDir,
-    cmd: `exec env ${env} claude ${flags.length ? `${flags.join(' ')} ` : ''}"$(cat ${shq(promptFile)})"`,
+    cmd: `exec env ${env} claude --session-id ${claudeId} ${flags.length ? `${flags.join(' ')} ` : ''}"$(cat ${shq(promptFile)})"`,
+    note: { workspace: ws, project, kind: 'claude', what: `claude ${flags.join(' ')}`.trim() + ' (with an opening prompt)', claude: claudeId, flags },
   }), { mode: 0o600 });
   // From ROOT, not __dirname: the dashboard runs in its container at another path, and this line runs on the host.
   const helper = path.join(ROOT, 'core', 'workspace-app', 'scripts', 'screen-then.js');
