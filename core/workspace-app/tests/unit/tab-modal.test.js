@@ -67,3 +67,41 @@ test('the styles use tokens only', () => {
   const css = read('public', 'css', 'components', 'tab-modal.css');
   assert.doesNotMatch(css, /#[0-9a-fA-F]{3,8}\b/);
 });
+
+// The heading of a tab changes the moment it is chosen; its content comes from the server. A slow tab (a
+// plugin page that looks for a command takes two seconds) left the tab before it under the new heading
+// until its own arrived, and a request that failed left it there for good.
+test('a tab that is loading marks its pane busy and says so, and shows nothing of the tab before it', () => {
+  const html = tabModalHtml({ id: 'demo', title: 'Demo', groups });
+  assert.match(html, /id="tm-demo-pane" role="tabpanel"[^>]*aria-busy="true"/, 'the first load is busy too');
+  const ui = read('public', 'ui.js');
+  const block = ui.slice(ui.indexOf('(function tabModals()'), ui.indexOf('const openFromHash'));
+  assert.match(block, /pane\.setAttribute\('aria-busy', 'true'\)/);
+  assert.match(block, /note\.textContent = `Loading \$\{label \|\| 'this tab'\}…`/);
+  assert.match(block, /if \(tab\) \{ const tm = tab\.closest\('\.tabmodal'\); select\(tm, tab\); busy\(tm, tab\.dataset\.label\); return; \}/,
+    'choosing a tab marks its pane busy');
+  assert.match(block, /busy\(tm, tab2 \? tab2\.dataset\.label : a\.textContent\.trim\(\)\)/, 'a link inside a pane does too');
+  assert.match(block, /'htmx:after:swap'[\s\S]{0,160}removeAttribute\('aria-busy'\)/, 'the content that arrives ends it');
+});
+
+test('a tab that does not load says so in its pane; a request given up for another tab says nothing', () => {
+  const ui = read('public', 'ui.js');
+  const block = ui.slice(ui.indexOf('(function tabModals()'), ui.indexOf('const openFromHash'));
+  const onError = block.slice(block.indexOf("'htmx:error'"), block.indexOf("'htmx:finally:request'"));
+  assert.match(onError, /getAttribute\('aria-selected'\) !== 'true'\) return/, 'only the selected tab speaks');
+  assert.match(onError, /setAttribute\('role', 'alert'\)/);
+  assert.match(onError, /could not be loaded: the dashboard did not answer/);
+  assert.match(onError, /textContent = /, 'the message is text, never markup');
+  const onFinally = block.slice(block.indexOf("'htmx:finally:request'"));
+  assert.match(onFinally, /ctx\.status === 'swapped'/, 'an answer with nothing to swap in does not leave the pane busy');
+});
+
+test('the words show after a moment and the old content is hidden then, so a quick tab does not flash', () => {
+  const css = read('public', 'css', 'components', 'tab-modal.css');
+  const show = css.match(/\.tabmodal-pane\[aria-busy="true"\] > \.tabmodal-wait \{[^}]*animation:\s*tabmodal-wait-show 0s linear ([\d.]+)s both/);
+  assert.ok(show, 'the line shows after a delay');
+  assert.ok(Number(show[1]) >= 0.1 && Number(show[1]) <= 0.4, 'long enough not to flash, short enough to be seen');
+  assert.match(css, /\.tabmodal-pane\[aria-busy="true"\] > :not\(\.tabmodal-wait, \.tabmodal-loading\) \{ animation: tabmodal-wait-hide 0s linear [\d.]+s forwards; \}/);
+  assert.match(css, /@keyframes tabmodal-wait-hide \{ to \{ visibility: hidden; display: none; \} \}/);
+  assert.match(css, /\.tabmodal-wait \{ display: none; \}/, 'never shown when nothing loads');
+});
