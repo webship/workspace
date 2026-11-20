@@ -72,7 +72,8 @@ test('a name, scoped or not, is a name; a path is read as a pack, or refused wit
 
 test('a tarball: copied into tests/step-packs/, a file: dependency, the glob, and all of it taken out again', () => {
   const dir = project();
-  const local = sp.localPack(tarball(packFolder()));
+  const tgz = tarball(packFolder());
+  const local = sp.localPack(tgz);
   assert.strictEqual(local.name, '@webship-js/demo-steps');
   assert.strictEqual(local.version, '2.0.0');
   assert.match(local.readme, /demo-steps\/tests\/step-definitions/);
@@ -85,7 +86,8 @@ test('a tarball: copied into tests/step-packs/, a file: dependency, the glob, an
   assert.match(fs.readFileSync(path.join(dir, 'cucumber.js'), 'utf8'), /node_modules\/@webship-js\/demo-steps\/tests\/step-definitions/);
   assert.ok(r.changed.some((c) => c.startsWith(`${file} (copied from `)), r.changed.join('\n'));
 
-  const again = add(dir, sp.localPack(tarball(packFolder())));
+  // The same file again: tar stamps file times, so a second build of the same folder is another tarball.
+  const again = add(dir, sp.localPack(tgz));
   assert.ok(again.ok);
   assert.deepStrictEqual(again.changed, [], 'the same tarball again changes nothing');
 
