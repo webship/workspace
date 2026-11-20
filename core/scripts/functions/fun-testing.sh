@@ -489,6 +489,14 @@ function testing_run() {
   # as the environment variables the config reads (BROWSER, HEADLESS), not as flags cucumber has
   # no idea about.
   local env_prefix="PLAYWRIGHT_BROWSERS_PATH=${TESTING_BROWSERS_PATH} BROWSER=${BROWSER}";
+  # The suite's address is LAUNCH_URL in the web container, which the webship-js add-on sets from the project's
+  # primary URL. On a generic project whose router serves another service it comes out empty (#532), and the suite
+  # would fall back to localhost: the run then passes the primary URL itself.
+  if [ -z "$(ddev exec printenv LAUNCH_URL 2>/dev/null | tr -d '[:space:]')" ] ; then
+    local primary ;
+    primary="$(testing_primary_url)" ;
+    [ -n "${primary}" ] && env_prefix="${env_prefix} LAUNCH_URL=${primary}" ;
+  fi
   [ "${HEADED}" == 'yes' ] && env_prefix="${env_prefix} HEADLESS=false";
   local cucumber="node ./node_modules/@cucumber/cucumber/bin/cucumber.js --config cucumber.js";
   local filter="";
