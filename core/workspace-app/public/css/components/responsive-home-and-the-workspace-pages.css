@@ -458,14 +458,13 @@ html.dark #editor-modal .editor-card {
  * command — but quieter than a linked one, so a row of thirty unlinked projects does not read as
  * thirty cloud deployments. */
 
-/* A phone: a path or a command in the text breaks where it must. UIkit keeps inline code on one line,
-   so one long path made the whole page scroll sideways (docs, images, the AI folders, commands,
-   graphs, rag, videos, audio, designs). A block of code keeps its lines and scrolls in its own box.
-   Below 960px too (the next block): /graphs' "graphify query … --graph <path>" ran to 969px at 768
-   and to 937px at 200% zoom of a laptop. */
-@media (max-width: 59.9375em) {
-  :not(pre) > code { white-space: normal; overflow-wrap: anywhere; }
-}
+/* A path or a command in the text breaks where it must, at every width. UIkit keeps inline code on one
+   line, so one long path made the whole page scroll sideways (docs, images, the AI folders, commands,
+   graphs, rag, videos, audio, designs). It was let go below 960px first (/graphs' "graphify query …
+   --graph <path>" ran to 969px at 768), but a laptop is not safe either: a workspace kept under a long
+   path ("No docs here yet. Put them in /home/<you>/…/docs") ran /docs and the AI folders to 1584px at
+   1440. A block of code keeps its lines and scrolls in its own box. */
+:not(pre) > code { white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 39.9375em) {
   :not(pre) > code, code.fname { white-space: normal; overflow-wrap: anywhere; }
   .cmd-file { max-width: 100%; }
