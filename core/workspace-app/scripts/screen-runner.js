@@ -13,6 +13,9 @@
  *   stop    POST /stop    {session}
  *   attach  WS   /attach/<session>              -> a PTY sharing that session
  *
+ * on its port and on a unix socket in the store (.screens/runner.sock), which the dashboard's container reaches
+ * through the folder both sides share.
+ *
  * It binds to 127.0.0.1 only and requires a token that lives in the workspace
  * (which the container already mounts), so the dashboard can read it and other
  * machines cannot reach it at all.
@@ -52,6 +55,9 @@ try {
 // bridge — nothing from the network beyond. The socket has to listen past
 // loopback for the container to arrive at all, so the peer is checked here.
 const localPeer = (socket) => {
+  // The unix socket in the store (below): only this user can open it, and the dashboard's container through the
+  // folder it shares with this machine.
+  if (socket.viaStoreSocket) return true;
   const a = String(socket.remoteAddress || '').replace(/^::ffff:/, '');
   return a === '127.0.0.1' || a === '::1'
     || /^172\.(1[6-9]|2\d|3[01])\./.test(a)   // docker's default bridge ranges
@@ -229,9 +235,15 @@ if (WebSocketServer) {
   const wss = new WebSocketServer({ noServer: true });
   wss.on('error', () => { /* a bad frame must not stop the runner */ });
   const children = new Set();
+  const attached = new Set();
   for (const sig of ['exit', 'SIGTERM', 'SIGINT']) {
     process.on(sig, () => {
-      for (const c of children) { try { c.kill('SIGTERM'); } catch (_) { /* gone */ } }
+      // Going away (1001), not ending the session: the dashboard tells its windows to attach again once the
+      // runner is back, where a plain close would read as the session's attach ending on purpose.
+      for (const w of attached) { try { w.close(1001, 'the runner is stopping'); } catch (_) { /* gone */ } }
+      for (const c of children) {
+        try { process.kill(-c.pid, 'SIGTERM'); } catch (_) { try { c.kill('SIGTERM'); } catch (__) { /* gone */ } }
+      }
       if (sig !== 'exit') process.exit(0);
     });
   }
@@ -243,19 +255,33 @@ if (WebSocketServer) {
     const cols = Math.min(500, Math.max(20, parseInt(u.searchParams.get('cols'), 10) || 120));
     const rows = Math.min(200, Math.max(5, parseInt(u.searchParams.get('rows'), 10) || 30));
     wss.handleUpgrade(req, socket, head, (ws) => {
+      // The same attach as the dashboard's own (server.js): `-A` fits the session to this window, and `script` runs
+      // in a process group of its own, so closing the window ends the `screen -x` client too. Left attached, a
+      // client pins the session to its size, one more for every window ever closed.
       const child = spawn('script', ['-qfc',
-        `stty cols ${cols} rows ${rows} 2>/dev/null; exec screen -x ${session}`, '/dev/null'],
-      { cwd: process.env.HOME, env: { ...process.env, TERM: 'xterm-256color' } });
+        `stty cols ${cols} rows ${rows} 2>/dev/null; exec screen -A -x ${session}`, '/dev/null'],
+      { cwd: process.env.HOME, detached: true, env: { ...process.env, TERM: 'xterm-256color' } });
       children.add(child);
-      // SIGTERM: `script` carries on after a SIGHUP, and its `screen -x` client with it (server.js says why).
-      const reap = () => { children.delete(child); try { child.kill('SIGTERM'); } catch (_) { /* gone */ } };
-      child.stdout.on('data', (d) => { try { ws.send(d); } catch (_) { /* closing */ } });
-      child.stderr.on('data', (d) => { try { ws.send(d); } catch (_) { /* closing */ } });
-      child.on('exit', () => { children.delete(child); try { ws.close(); } catch (_) { /* closed */ } });
-      ws.on('message', (d) => { try { child.stdin.write(d); } catch (_) { /* gone */ } });
+      let painted = false;
+      const repaints = [250, 900, 2500, 5000].map((ms) => setTimeout(() => {
+        if (!painted) execFile('screen', ['-S', session, '-X', 'redisplay'], () => { /* gone */ });
+      }, ms));
+      const reap = () => {
+        repaints.forEach(clearTimeout);
+        children.delete(child);
+        try { process.kill(-child.pid, 'SIGTERM'); } catch (_) {
+          try { child.kill('SIGTERM'); } catch (__) { /* gone */ }
+        }
+      };
+      child.stdout.on('data', (d) => { painted = true; try { ws.send(d); } catch (_) { /* closing */ } });
+      child.stderr.on('data', (d) => { painted = true; try { ws.send(d); } catch (_) { /* closing */ } });
+      attached.add(ws);
+      child.on('exit', () => { repaints.forEach(clearTimeout); children.delete(child); try { ws.close(); } catch (_) { /* closed */ } });
+      ws.on('close', () => attached.delete(ws));
+      // An empty binary frame is a window's keepalive (terminal-keepalive.js): never typed into the session.
+      ws.on('message', (d, isBinary) => { if (isBinary && !d.length) return; try { child.stdin.write(d); } catch (_) { /* gone */ } });
       ws.on('close', reap);
       ws.on('error', reap);
-      setTimeout(() => { try { execFile('screen', ['-S', session, '-X', 'redisplay']); } catch (_) { /* gone */ } }, 400);
     });
   });
 }
@@ -359,6 +385,24 @@ publish();
 setInterval(publish, 2000).unref?.();
 setInterval(drainQueue, 500).unref?.();
 try { fs.watch(QUEUE, () => drainQueue()); } catch (_) { /* the poll above covers it */ }
+
+// A unix socket in the store as well, for the dashboard's container: it shares this folder with the machine, so it
+// reaches the runner with no network in between (a firewall on docker's bridge is what made the mailbox above
+// necessary) and needs no shared process namespace to attach a terminal. This user only. A path longer than a
+// unix socket may be (108 bytes, with room to spare) is left out: the port and the mailbox still serve.
+const SOCK = path.join(STORE, 'runner.sock');
+if (Buffer.byteLength(SOCK) < 100) {
+  const sockServer = http.createServer((req, res) => server.emit('request', req, res));
+  sockServer.on('connection', (socket) => { socket.viaStoreSocket = true; });
+  sockServer.on('upgrade', (req, socket, head) => server.emit('upgrade', req, socket, head));
+  sockServer.on('error', (e) => console.error(`Not listening on ${SOCK}: ${e.message}`));
+  try { fs.unlinkSync(SOCK); } catch (_) { /* none left from before */ }
+  sockServer.listen(SOCK, () => {
+    try { fs.chmodSync(SOCK, 0o600); } catch (_) { /* the store is this user's already */ }
+    console.log(`Also on ${SOCK}, for the dashboard's container.`);
+  });
+  process.on('exit', () => { try { fs.unlinkSync(SOCK); } catch (_) { /* gone */ } });
+}
 
 server.listen(PORT, process.env.SCREEN_RUNNER_BIND || '0.0.0.0', () => {
   // The port file is how the container finds it without being told.

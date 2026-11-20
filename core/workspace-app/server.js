@@ -8372,6 +8372,34 @@ const { WebSocketServer } = require('ws');
 const { spawn: spawnPty } = require('child_process');
 const termWss = new WebSocketServer({ noServer: true });
 const termKeepalive = require('./terminal-keepalive');
+// Terminals relayed to the host runner (runner-attach.js): counted with the ones attached here.
+const termRelays = new Set();
+
+/**
+ * A session the host runner started and screen here cannot see, attached through the runner instead
+ * (runner-attach.js says when that is). True when the runner took the attach; false leaves it to the attach here.
+ */
+async function attachThroughRunner(ws, session, size) {
+  const { hostRunner, hostSessionsFile } = require('./jobs');
+  const runner = hostRunner();
+  const published = hostSessionsFile();
+  if (!runner || !published) return false;
+  const own = await require('./screens').readContainerScreens();
+  const runnerAttach = require('./runner-attach');
+  if (!runnerAttach.attachesThroughRunner(session, { ownRows: own.rows, published })) return false;
+  // Its port is on this machine when the dashboard runs here, and on the machine behind the container otherwise.
+  const base = requestGuard.inContainer() ? runner.base : `http://127.0.0.1:${runner.port}`;
+  const taken = await runnerAttach.relay(ws, runnerAttach.attachUrl(path.join(ROOT, '.screens'), { ...runner, base }, session, size));
+  if (taken) {
+    termRelays.add(ws);
+    ws.on('close', () => termRelays.delete(ws));
+    return true;
+  }
+  // Only the runner can reach this session, and it did not answer (restarting, say). Attaching here would only print
+  // "There is no screen to be attached"; the window is dropped instead, and attaches itself again in a moment.
+  try { ws.terminate(); } catch (_) { /* gone */ }
+  return true;
+}
 termWss.on('error', () => { /* a bad frame must never take the dashboard down */ });
 // Every live terminal's PTY, so a restart does not leave `screen -x` clients
 // attached to sessions nobody is watching.
@@ -8419,7 +8447,7 @@ server.on('upgrade', (req, socket, head) => {
     }
   }
   const session = m[1];
-  if (termChildren.size >= MAX_TERMINALS) {
+  if (termChildren.size + termRelays.size >= MAX_TERMINALS) {
     socket.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');
     socket.destroy();
     return;
@@ -8430,6 +8458,9 @@ server.on('upgrade', (req, socket, head) => {
     // A quiet terminal stays attached: pinged on a beat that every proxy in between sees as traffic, and ended
     // when its browser stopped answering (terminal-keepalive.js).
     termKeepalive.keepAlive(ws);
+    // A session on the machine that screen here cannot reach (its own socket directory, no shared process
+    // namespace): the runner attaches it, and this relays. Everything else attaches here, below.
+    if (await attachThroughRunner(ws, session, { cols, rows })) return;
     // Sessions run on the machine; their socket directory is mounted in here,
     // so screen attaches them the ordinary way — no proxy, no network.
     // The size is fixed at attach time: stty sizes the PTY script created,
