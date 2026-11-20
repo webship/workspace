@@ -96,7 +96,7 @@ test('a pack is only ever @webship-js/<name>-steps, whatever is typed', () => {
 
 test('the shipped list: real packs, a kind each, extensions on a base it knows', () => {
   const { packs, upcoming } = sp.shippedList();
-  assert.ok(packs.length >= 30, 'the 30 packs on npm on 2026-11-20');
+  assert.ok(packs.length >= 31, 'the 31 packs on npm on 2026-11-20');
   for (const p of [...packs, ...upcoming]) {
     assert.match(p.name, sp.PACK_RE, p.name);
     assert.ok(['platform', 'extension', 'any-site'].includes(p.kind), `${p.name}: ${p.kind}`);
@@ -158,7 +158,7 @@ test('the list: npm unreachable and nothing cached gives the list shipped with t
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-steps-root-'));
   const list = await sp.listPacks({ root, fetchImpl: fakeFetch({ 'https://': new Error('offline') }) });
   assert.strictEqual(list.source, 'shipped');
-  assert.ok(list.packs.length >= 30);
+  assert.ok(list.packs.length >= 31);
   assert.ok(list.packs.every((p) => p.docs.startsWith('https://webship.co/docs/webship-js/2.0.x/')));
   assert.ok(!list.packs.some((p) => p.short === 'filament'), 'a pack that is not on npm yet is not offered');
 });

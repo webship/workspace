@@ -39,6 +39,7 @@ const FAMILIES = [
     ['django', 'Django', 'A builder for Django projects with the admin, and the manage tool'],
     ['nextjs', 'Next.js', 'A builder for Next.js apps (the Learn course or the default app), and its CLI tool'],
     ['strapi', 'Strapi', 'A builder for Strapi apps (Community Edition) on PostgreSQL, and the strapi tool'],
+    ['docusaurus', 'Docusaurus', 'A builder for Docusaurus documentation sites, served as a production build'],
   ] },
   { id: 'workspaces', label: 'Workspace folders', about: 'A folder of projects or items, with its settings file and its commands.', plugins: [
     ['dev', 'Dev', 'Development sites: the Drupal, Drupal CMS and Webship builders'],
