@@ -1,11 +1,57 @@
 #!/usr/bin/env bash
 
-# composer install, once more if it fails: the first install in a fresh project can fail on a git cache hiccup
-# ("<commit> is gone") and pass straight away on the second try. A real dependency problem fails both times.
+# What composer-patches prints when a patch does not apply or does not match its checksum (2.x apply, 2.x download,
+# 1.x apply). Composer has put the package on disk by then, unpatched, so nothing about a later install shows it.
+COMPOSER_PATCH_FAILED='No available patcher was able to apply patch|Hash mismatch for patch downloaded from|Cannot apply patch'
+
+# `ddev composer "$@"` with its output shown as usual and also kept in ${composer_log} (the last run only), so the
+# step after it can tell what failed. Returns composer's own status.
+function composer_logged() {
+  rm -f "${composer_log:-}" ;
+  composer_log="$(mktemp)" ;
+  ddev composer "$@" 2>&1 | tee "${composer_log}" ;
+  return "${PIPESTATUS[0]}" ;
+}
+
+# When the composer run whose output is in $1 failed on a patch: says so, with the lines composer printed about it,
+# and returns 0. Returns 1 when no patch failed (#540).
+function composer_patch_failed() {
+  local lines ;
+  # Colour codes out, then the failure and the few lines composer wraps it over.
+  lines="$(sed "s/$(printf '\033')\[[0-9;]*m//g" "$1" 2>/dev/null | grep -E -A 4 "${COMPOSER_PATCH_FAILED}" | head -n 10)" ;
+  [ -n "${lines}" ] || return 1 ;
+  echo "" ;
+  echo "A patch did not apply, so composer stopped with the package on disk but not patched:" ;
+  printf '%s\n' "${lines}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; /^$/d; s/^/  /' ;
+  echo "Installing again would find nothing to do and pass, so the build stops here." ;
+  echo "Drop or fix that patch (a builder can list it in site_patches_ignore), then build again." ;
+  return 0 ;
+}
+
+# One more composer install after a composer step failed, for the git cache hiccup ("<commit> is gone") that passes on
+# a second try. It counts only when it installs something: "Nothing to install" means the packages were already in
+# place, so whatever failed the first time (a patch, a script) was not run again and nothing was mended.
+function composer_install_again() {
+  echo "composer failed once, trying composer install again before giving up." ;
+  if ! composer_logged install --no-interaction ; then
+    composer_patch_failed "${composer_log}" ;
+    return 1 ;
+  fi
+  if grep -q 'Nothing to install, update or remove' "${composer_log}" ; then
+    echo "" ;
+    echo "The second composer install had nothing to install, so it did not run again what failed the first time." ;
+    echo "The build stops here rather than go on with a codebase composer did not finish: the first error is above." ;
+    return 1 ;
+  fi
+  return 0 ;
+}
+
+# composer install, once more when it fails on anything but a patch: the first install in a fresh project can fail on
+# a git cache hiccup and pass straight away on the second try. A real dependency problem fails both times.
 function composer_install_retry() {
-  ddev composer install --no-interaction && return 0 ;
-  echo "composer install failed once, trying it again before giving up." ;
-  ddev composer install --no-interaction ;
+  composer_logged install --no-interaction && return 0 ;
+  composer_patch_failed "${composer_log}" && return 1 ;
+  composer_install_again ;
 }
 
 # composer create-project in the current (empty) project folder, for every build family:
@@ -35,9 +81,10 @@ function composer_create_project() {
       echo "composer could not install ${project_template}." ;
       return 1 ;
     fi
-  elif ! ddev composer create-project ${project_template} . --no-interaction "$@" ; then
+  elif ! composer_logged create-project ${project_template} . --no-interaction "$@" ; then
+    composer_patch_failed "${composer_log}" && return 1 ;
     # When the project reached the install step, composer.json is already in place: install once more.
-    if [ -f composer.json ] && composer_install_retry && ddev composer run-script post-create-project-cmd ; then
+    if [ -f composer.json ] && composer_install_again && ddev composer run-script post-create-project-cmd ; then
       echo "composer create-project needed a second install, which worked." ;
     else
       return 1 ;
