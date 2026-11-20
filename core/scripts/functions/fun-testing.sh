@@ -122,6 +122,40 @@ function testing_stack() {
   printf 'none';
 }
 
+# The address DDEV routes to the project: its primary URL, read from `ddev describe -j`.
+function testing_primary_url() {
+  ddev describe -j 2>/dev/null | node -e '
+    let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      try { const j = JSON.parse(s); process.stdout.write(String((j.raw && j.raw.primary_url) || "")); } catch (e) { /* no answer */ }
+    });' 2>/dev/null ;
+}
+
+# After a restart the containers are up, but an app that starts on its own (a forum, a Node.js server) may not
+# answer yet, and a platform hook that writes accounts or reads the site fails against it (#533). The site is asked
+# from the web container, which reaches the project's own address through DDEV's router, until it answers, for up
+# to TESTING_SITE_WAIT seconds (300 by default); after that the setup goes on and says so.
+function testing_wait_for_site() {
+  local url limit waited=0 code ;
+  url="$(testing_primary_url)" ;
+  limit="${TESTING_SITE_WAIT:-300}" ;
+  [ -n "${url}" ] || return 0 ;
+  while : ; do
+    code="$(ddev exec curl -sk -o /dev/null -w '%{http_code}' --max-time 10 "${url}" 2>/dev/null | tr -dc '0-9')" ;
+    case "${code}" in
+      2??|3??|401|403|404)
+        [ "${waited}" -gt 0 ] && echo "The site answers (${code}) after ${waited} s." ;
+        return 0 ;;
+    esac
+    if [ "${waited}" -ge "${limit}" ] ; then
+      echo "The site at ${url} did not answer within ${limit} s (last answer: ${code:-none}); the setup goes on." ;
+      return 0 ;
+    fi
+    [ "${waited}" -eq 0 ] && echo "Waiting for ${url} to answer after the restart." ;
+    sleep 5 ;
+    waited=$(( waited + 5 )) ;
+  done
+}
+
 # The testing stack is the same for every project; what is tested is not. A plugin that knows a
 # platform (WordPress, Odoo, …) declares testing_configure_<plugin> in its functions file, and
 # testing_configure calls every one of them, in the project folder, once the stack is scaffolded:
@@ -223,6 +257,8 @@ function testing_configure() {
       rm -f "${addon_log}" ;
       # The add-on scaffolds on post-start, so the restart is part of the install, not a nicety.
       ddev restart || return 1 ;
+      # The containers are up again; the app in them may not be yet, and the platform hooks below talk to it.
+      testing_wait_for_site ;
       ;;
   esac
 
