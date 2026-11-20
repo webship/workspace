@@ -1098,14 +1098,20 @@ function detectPacks(page, packs) {
   return out;
 }
 
-/** The packs that would fit the site a project serves and that it does not have yet. Never installs. */
+/** The packs that would fit the site a project serves and that it does not have yet. Never installs.
+ *  A project that already has its platform's pack is offered no other platform pack (#526): an app built on
+ *  Next.js (a Payload app) would otherwise be offered the Next.js pack beside the one its platform plugin added.
+ *  An installed pack the list does not know (a tarball added before the pack is listed) counts as a platform
+ *  pack. Extensions of a platform (WooCommerce on WordPress) and packs for any site (Bootstrap) are still offered. */
 async function suggestFor(projectDir, { list, fetchPage = fetchSitePage } = {}) {
   const host = projectHost(projectDir);
   if (!host) return { host: '', hits: [], error: 'no DDEV project name' };
   let page;
   try { page = await fetchPage(`https://${host}/`); } catch (e) { return { host, hits: [], error: String((e && e.message) || e) }; }
   const has = projectState(projectDir).packs;
-  const hits = detectPacks(page, (list || []).filter((p) => !has[p.name]));
+  const kindOf = (name) => { const p = (list || []).find((x) => x.name === name); return p ? p.kind : 'platform'; };
+  const hasPlatform = Object.keys(has).some((name) => kindOf(name) === 'platform');
+  const hits = detectPacks(page, (list || []).filter((p) => !has[p.name] && !(hasPlatform && p.kind === 'platform')));
   return { host, hits, status: page.status };
 }
 
