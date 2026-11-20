@@ -176,7 +176,9 @@ function testing_configure() {
   echo "Setting up automated testing for ${doc_name}/${PROJECT_NAME}.";
   echo "";
 
-  ddev start -y || return 1 ;
+  # Started only when it is not running, as testing_run does: `ddev start` on a running project
+  # recreates its web container, which can race DDEV's own copy of its global commands (#511).
+  testing_ensure_running || return 1 ;
 
   case "${stack}" in
     in-project)
