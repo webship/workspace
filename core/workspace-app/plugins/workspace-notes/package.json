@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "description": "A NOTES.md in each workspace folder, opened from the folder's rail: what the folder is for, and what the next person should know.",
+  "workspacePlugin": {
+    "name": "workspace-notes",
+    "label": "Workspace notes",
+    "summary": "A NOTES.md in each workspace folder, opened from the folder's rail",
+    "family": "features"
+  }
+}

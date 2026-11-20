@@ -27,6 +27,9 @@ function postButton(verb, p, label, { primary = false, danger = false, withNeeds
       hx-target="#webship-workspace-output" hx-swap="innerHTML"${confirm ? ` hx-confirm="${esc(confirm)}"` : ''}>${esc(label)}</button>`;
 }
 
+/** A plugin that is a folder under plugins/ (no npm package behind it), such as the notes plugin the base ships. */
+const isFolder = (p) => !p.module && /^plugins\//.test(String(p.spec || ''));
+
 /**
  * The steps, each `{ id, title, status: done | now | later, applies, text, action }`. Only the step
  * that is next has an action. A step that does not apply to this plugin (nothing to place, no settings
@@ -45,7 +48,8 @@ function steps(p) {
   const needsLine = withNeeds ? ` It needs ${picks}, which ${unmet.length === 1 ? 'is' : 'are'} not here yet: one run adds ${unmet.length === 1 ? 'it' : 'them'} first (require, activate, install).` : '';
   return [
     { id: 'require', title: 'Require', word: 'required', status: 'done', applies: true,
-      text: `The package is in the dashboard: ${p.module || p.spec || p.name}${p.version ? ` ${p.version}` : ''}.` },
+      text: isFolder(p) ? `It is a folder of the dashboard: ${p.spec}.`
+        : `The package is in the dashboard: ${p.module || p.spec || p.name}${p.version ? ` ${p.version}` : ''}.` },
     { id: 'activate', title: 'Activate', word: 'activated', status: status(1), applies: true,
       text: p.step >= 1 ? 'Switched on in settings.yml.' : `Switch ${label} on in settings.yml.${needsLine}`,
       action: p.step === 0 ? { verb: 'activate', label: `Activate${withNeeds ? ` with ${picks}` : ''}`, withNeeds } : null },
@@ -228,6 +232,11 @@ function removeHtml(p) {
     // Nothing of it is in the workspace: what is left is the package and its line in settings.yml (#493).
     if ((p.neededBy || []).length) {
       return `<p class="plugin-quiet">It is not active, and nothing of it is in the workspace. ${esc(p.neededBy.join(', '))} ${p.neededBy.length === 1 ? 'needs' : 'need'} it, so it stays in the dashboard.</p>`;
+    }
+    // A folder of the dashboard (the notes plugin the base ships, or one put there by hand) is no npm
+    // package: --remove would leave the folder, and the plugin with it, so there is nothing to offer.
+    if (isFolder(p)) {
+      return `<p class="plugin-quiet">It is not active, and nothing of it is in the workspace. <code>${esc(p.spec)}</code> is a folder of the dashboard, not an npm package, so there is nothing to remove: while it is not active it does nothing.</p>`;
     }
     return `<p class="plugin-buttons"><span class="plugin-buttons-apart">${postButton('remove', p, 'Remove', { danger: true, confirm: `Remove ${label}? Its package leaves the dashboard and plugins.${p.name} leaves settings.yml. Its settings file, if it has one, stays. Require brings it back.` })}</span></p>
     <p class="plugin-quiet">It is not active, and nothing of it is in the workspace. Remove takes its package out of the dashboard (<code>npm uninstall ${esc(p.module || p.name)}</code>) and its line out of <code>settings.yml</code>.</p>`;
