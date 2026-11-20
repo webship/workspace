@@ -40,6 +40,8 @@ const FAMILIES = [
     ['nextjs', 'Next.js', 'A builder for Next.js apps (the Learn course or the default app), and its CLI tool'],
     ['strapi', 'Strapi', 'A builder for Strapi apps (Community Edition) on PostgreSQL, and the strapi tool'],
     ['docusaurus', 'Docusaurus', 'A builder for Docusaurus documentation sites, served as a production build'],
+    ['discourse', 'Discourse', 'A builder for Discourse forums, installed the official way, and the forum\'s Rails tool'],
+    ['payload', 'Payload', 'A builder for Payload apps (the website or the blank template) on PostgreSQL, and the payload tool'],
   ] },
   { id: 'workspaces', label: 'Workspace folders', about: 'A folder of projects or items, with its settings file and its commands.', plugins: [
     ['dev', 'Dev', 'Development sites: the Drupal, Drupal CMS and Webship builders'],
