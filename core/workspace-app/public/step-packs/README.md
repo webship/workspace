@@ -7,6 +7,9 @@ names the file of each pack.
 - `astro`, `codeigniter`, `craftcms`, `discourse`, `django`, `docusaurus`, `drupal`, `filament`, `gatsby`, `ghost`, `hubspot`, `jira`, `joomla`, `laravel`, `magento`, `moodle`, `nextjs` (the set's `nextdotjs`),
   `odoo`, `payload` (the set's `payloadcms`), `prestashop`, `shopify`, `squarespace`, `strapi`, `symfony`, `typo3`, `webflow`, `woocommerce`, `wordpress` (`.svg`): Simple Icons
   16.37.0 (CC0-1.0), filled with the colour the set lists for the brand.
+- `keycloak.svg`: Simple Icons 16.37.0, filled with the colour the set lists for the brand. Unlike most of the set,
+  Simple Icons marks this icon as under the Linux Foundation's trademark usage guidelines rather than CC0-1.0; it is
+  used only to name the platform the pack works with.
 - `bootstrap.svg`: Simple Icons 16.37.0, filled with the brand colour `#7952B3`. The set lists this icon under the MIT
   licence (the Bootstrap project's).
 - `mediawiki.svg`: the MediaWiki logo the 1.46.2 release ships (`resources/assets/mediawiki_compact.svg`),
