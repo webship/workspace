@@ -14,7 +14,7 @@ const { spawnSync } = require('child_process');
 const SCRIPTS = path.join(__dirname, '..', '..', '..', 'scripts');
 
 /** testing_configure on a throwaway project, with a fake ddev whose `npm install` answers `installExit`. */
-function configure(installExit) {
+function configure(installExit, { running = false } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-testing-install-'));
   fs.mkdirSync(path.join(root, 'dev', 'site'), { recursive: true });
   fs.writeFileSync(path.join(root, 'dev', 'site', 'package.json'), '{}');
@@ -28,6 +28,8 @@ testing_ensure_browser_libs() { echo "browser libraries" ; }
 testing_install_browsers() { echo "browsers" ; }
 testing_steps_suggest() { : ; }
 ddev() {
+  echo "ddev $*" >> ${root}/ddev.log
+  if [ "$1" = "describe" ]; then [ ${running ? 1 : 0} = 1 ] && echo '{"raw":{"status":"running"}}' | tr -d ' ' ; return 0 ; fi
   if [ "$1 $2" = "npm install" ]; then
     [ ${installExit} = 0 ] && return 0
     echo "npm error 404 Not Found - GET https://registry.npmjs.org/@webship-js%2fnot-yet-steps" >&2
@@ -38,6 +40,7 @@ ddev() {
 testing_configure
 echo "status $?"`;
   const r = spawnSync('bash', ['-c', script], { encoding: 'utf8' });
+  r.ddev = fs.existsSync(path.join(root, 'ddev.log')) ? fs.readFileSync(path.join(root, 'ddev.log'), 'utf8') : '';
   fs.rmSync(root, { recursive: true, force: true });
   return r;
 }
@@ -57,4 +60,13 @@ test('an install that works still sets testing up, the browser steps included', 
   assert.match(r.stdout, /Testing is set up on dev\/site \(webship-js\)/);
   assert.match(r.stdout, /^browser libraries$/m);
   assert.match(r.stdout, /^browsers$/m);
+});
+
+test('a running project is not started again; a stopped one is (#511)', () => {
+  const running = configure(0, { running: true });
+  assert.match(running.stdout, /status 0$/m, running.stdout + running.stderr);
+  assert.doesNotMatch(running.ddev, /^ddev start/m, 'no ddev start on a running project');
+  const stopped = configure(0, { running: false });
+  assert.match(stopped.stdout, /status 0$/m, stopped.stdout + stopped.stderr);
+  assert.match(stopped.ddev, /^ddev start -y$/m, 'a stopped project is started');
 });
