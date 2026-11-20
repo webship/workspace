@@ -39,11 +39,25 @@ function testingStackOf(dir, project) {
  *  the shared libraries chromium links against baked into the web image (a
  *  container without them fails every scenario at browser launch with
  *  "libnspr4.so: cannot open shared object file"). */
+/** Are chromium's shared libraries baked into the project's web image? They come from a build file in
+ *  `.ddev/web-build/`: the workspace's own `Dockerfile.playwright`, or the webship-js DDEV add-on's
+ *  `Dockerfile.webship-js` (#525). Any build file DDEV uses (`Dockerfile`, `Dockerfile.<name>`) that installs
+ *  them counts; the add-on's `disabled.Dockerfile.webship-js` does not, DDEV leaves it out. */
+function browserLibsBuilt(root) {
+  const dir = path.join(root, '.ddev', 'web-build');
+  let names = [];
+  try { names = fs.readdirSync(dir); } catch { return false; }
+  return names.some((name) => {
+    if (!/^Dockerfile(\.|$)/.test(name)) return false;
+    try { return /install-deps|libnspr4/.test(fs.readFileSync(path.join(dir, name), 'utf8')); } catch { return false; }
+  });
+}
+
 function testingReadiness(dir, project) {
   const root = path.join(dir, project);
   const stack = testingStackOf(dir, project);
   const deps = fs.existsSync(path.join(root, 'node_modules', '@cucumber', 'cucumber'));
-  const libs = fs.existsSync(path.join(root, '.ddev', 'web-build', 'Dockerfile.playwright'));
+  const libs = browserLibsBuilt(root);
   const missing = [];
   if (stack === 'none') missing.push('a testing stack');
   if (!deps) missing.push('the JS dependencies');
@@ -256,5 +270,5 @@ function testMediaHtml(key, project, kind, wantPage) {
 
 module.exports = {
   findTestReports, testReportSummary, testReportFor, invalidateTestReports, testMediaHtml,
-  reportLabel, testingStackOf, testingReadiness, REPORT_SEARCH_DIRS,
+  reportLabel, testingStackOf, testingReadiness, browserLibsBuilt, REPORT_SEARCH_DIRS,
 };
