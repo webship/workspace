@@ -168,6 +168,9 @@ Server-rendered HTML fragments, swapped by HTMX.
   Something new that starts a session calls `noteStarted` once it runs, so **Past sessions** can read it and
   resume its conversation after it is gone; a Claude Code session gets its id at the start (`--session-id`).
   `listScreens()` stamps the notes of the sessions that are gone.
+- **A terminal's websocket carries what is typed, and one thing more:** an empty binary frame is the page's
+  keepalive, sent every 25 s and answered with the same, never written into the session
+  (`terminal-keepalive.js`). The server pings each socket on the same beat and ends one that stops answering.
 - **The stylesheet is assembled** from `public/css/base.css` + `public/css/components/*.css` + a theme.
   `public/style.css` is not the source; editing it changes nothing. `cssVersion()` stamps the URL from
   the parts' mtimes, so a cached browser picks changes up.

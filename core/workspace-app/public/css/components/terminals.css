@@ -126,6 +126,9 @@
 }
 @container term (max-width: 32rem) {
   .term-window .term-status { display: none; }
+  /* Except when the connection is the news (dropped, attached again, the session ended): then the status takes
+     a line of its own under the title, so a phone says what a wide window says. */
+  .term-window[data-link] .term-status { display: block; order: 3; flex-basis: 100%; white-space: normal; }
 }
 
 /* The window's controls are not the session's: a hairline says which side of it a button is on, so

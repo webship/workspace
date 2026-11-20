@@ -1033,7 +1033,7 @@ function termPaneHtml(session) {
     <section class="term-window" data-session="${esc(session)}" role="dialog" aria-label="Terminal — ${esc(session)}">
       <header class="term-window-head">
         <span class="term-title" title="${esc(session)}"><span uk-icon="icon: laptop; ratio: .7"></span> ${esc(session)}</span>
-        <span class="term-status uk-text-meta">connecting…</span>
+        <span class="term-status uk-text-meta" role="status">connecting…</span>
         <span class="term-verbs">
           <!-- A button as well as the wheel: scrolling back is screen's copy mode, and nobody should
                have to know that, let alone the chord for it. Pressing q leaves it, which the status
