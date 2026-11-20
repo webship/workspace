@@ -163,6 +163,26 @@ function testing_require_project() {
   return 0 ;
 }
 
+# What a failed `ddev add-on get` means, read from its own output (#512): GitHub's rate limit for
+# anonymous API requests (many machines share one address, and DDEV asks GitHub for the add-on's
+# releases), the DDEV version the add-on declares, or something else, which is left as it was said.
+function testing_addon_failure_says() {
+  local log="$1" ;
+  if grep -qi 'rate limit' "${log}" ; then
+    echo "  The add-on could not be fetched: GitHub's API answered with its rate limit for anonymous requests.";
+    echo "  Give DDEV a GitHub token, then run this command again:";
+    echo "    export DDEV_GITHUB_TOKEN=\$(gh auth token)    # any GitHub token will do; it needs no scopes";
+  elif grep -qiE 'constraint|requires ddev|newer (version of )?ddev' "${log}" ; then
+    echo "  The add-on could not be installed. It requires a newer DDEV than this machine has:";
+    echo "    installed: $(ddev version 2>/dev/null | awk '$1 == "DDEV" && $2 == "version" {print $3}')";
+    echo "  Update DDEV (https://ddev.readthedocs.io/en/stable/users/install/ddev-upgrade/),";
+    echo "  then run this command again.";
+  else
+    echo "  The add-on could not be installed; DDEV's own words are above. To try it by hand:";
+    echo "    cd ${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME} && ddev add-on get webship/ddev-webship-js";
+  fi
+}
+
 # Set the testing environment up on an existing project. Idempotent: the in-project command checks
 # what is installed before it installs anything, and the webship add-on preserves every file it
 # finds, so a second run adds what a first run missed rather than resetting the suite.
@@ -189,16 +209,18 @@ function testing_configure() {
       # Also the path for `webship-js`: the add-on owns the scaffold, and re-getting it is how you
       # pick up a newer version of it.
       echo "Adding the webship-js DDEV add-on (Playwright + Cucumber-js).";
-      if ! ddev add-on get webship/ddev-webship-js ; then
-        # The add-on declares a minimum DDEV version, and the failure reads as an add-on error
-        # rather than as "your DDEV is too old", which is what it actually means.
+      # Its own words go by as they are, and are read afterwards to say what a failure means (#512).
+      local addon_log addon_status ;
+      addon_log="$(mktemp)" ;
+      ddev add-on get webship/ddev-webship-js 2>&1 | tee "${addon_log}" ;
+      addon_status=${PIPESTATUS[0]} ;
+      if [ "${addon_status}" -ne 0 ] ; then
         echo "";
-        echo "  The add-on could not be installed. It requires a newer DDEV than this machine has:";
-        echo "    installed: $(ddev version 2>/dev/null | awk '$1 == "DDEV" && $2 == "version" {print $3}')";
-        echo "  Update DDEV (https://ddev.readthedocs.io/en/stable/users/install/ddev-upgrade/),";
-        echo "  then run this command again.";
+        testing_addon_failure_says "${addon_log}" ;
+        rm -f "${addon_log}" ;
         return 1 ;
       fi
+      rm -f "${addon_log}" ;
       # The add-on scaffolds on post-start, so the restart is part of the install, not a nicety.
       ddev restart || return 1 ;
       ;;
