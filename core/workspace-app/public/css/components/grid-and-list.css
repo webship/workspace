@@ -63,6 +63,16 @@
 .page-width-pick:hover { color: var(--link); }
 .view-pick.is-current,
 .page-width-pick.is-current { background: var(--subtle-brand); color: var(--link); }
+/* Which one is on is told by more than a tint (WCAG 1.4.11): the fill was 1.19:1 against the bar in light
+   and 1.04:1 in dark, and the icon's colour change 1.43:1 and 1.06:1. A ring in the link colour reads at
+   5.9:1 and 6.6:1. An inset shadow, not an outline: the outline is the focus ring, and the one that is on
+   takes focus too. A forced-colours screen drops shadows and fills, so there it is a border. */
+.view-pick.is-current,
+.page-width-pick.is-current { box-shadow: inset 0 0 0 1px var(--link); }
+@media (forced-colors: active) {
+  .view-pick.is-current,
+  .page-width-pick.is-current { border: 1px solid CanvasText; }
+}
 /* Drawn to Tabler's rules, so they sit with the sprite icons rather than beside them: the stroke is
    stated once here, as .tabler-icon does for the 4,736 in the sprite. */
 .view-mark { display: block; width: 1.125rem; height: 1.125rem; }
