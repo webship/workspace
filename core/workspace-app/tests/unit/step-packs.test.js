@@ -385,6 +385,21 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual((await sp.suggestFor(dir, { list, fetchPage: async () => { throw new Error('ECONNREFUSED'); } })).hits, []);
 });
 
+test('a project with its platform pack is offered no other platform pack, but extensions and any-site packs still (#526)', async () => {
+  const all = [...known.values()].map((m) => sp.describePack({ name: m.name }, known));
+  const shorts = (s) => s.hits.map((h) => h.pack.short).sort();
+  const nextApp = async () => ({ status: 200, headers: {}, html: '<script src="/_next/static/chunks/main.js"></script><link href="/bootstrap.min.css" rel="stylesheet">' });
+  // A Next.js app with no pack yet: the Next.js pack and Bootstrap fit.
+  assert.deepStrictEqual(shorts(await sp.suggestFor(project(), { list: all, fetchPage: nextApp })), ['bootstrap', 'nextjs']);
+  // An app built on Next.js whose platform plugin added its own pack from a tarball, before the pack is listed.
+  const app = project({ pkg: PACKAGE.replace('"webship-js": "~2.0.0"', '"webship-js": "~2.0.0",\n    "@webship-js/payload-steps": "file:tests/step-packs/webship-js-payload-steps-2.0.0-1a2b3c.tgz"') });
+  assert.deepStrictEqual(shorts(await sp.suggestFor(app, { list: all, fetchPage: nextApp })), ['bootstrap']);
+  // A WordPress project with its pack: WooCommerce, an extension of WordPress, is still offered.
+  const wp = project(); sp.addPack(wp, pack('wordpress'));
+  const shop = async () => ({ status: 200, headers: {}, html: '<meta name="generator" content="WordPress 6.8"><body class="woocommerce-page">' });
+  assert.deepStrictEqual(shorts(await sp.suggestFor(wp, { list: all, fetchPage: shop })), ['woocommerce']);
+});
+
 test('the project state the panel and --list-steps read', () => {
   const dir = project();
   sp.addPack(dir, pack('wordpress'));
