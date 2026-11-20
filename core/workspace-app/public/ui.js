@@ -729,9 +729,59 @@ document.addEventListener('click', (e) => {
     if (h) { try { history.replaceState(null, '', `#${h}/${encodeURIComponent(tab.dataset.tab)}`); } catch (_) { /* a sandboxed frame */ } }
   };
 
+  // While a tab loads, its pane says so and shows nothing of the tab before it. The heading changes the
+  // moment a tab is chosen, and a slow tab (a plugin page that looks for a command takes two seconds) left
+  // the last tab's content under the new name until its own arrived. Busy is said at once, to a screen
+  // reader; the words show after a moment (tab-modal.css), so a tab that answers at once does not flash.
+  const busy = (tm, label) => {
+    const pane = tm && tm.querySelector('.tabmodal-pane');
+    if (!pane) return;
+    pane.setAttribute('aria-busy', 'true');
+    let note = pane.querySelector(':scope > .tabmodal-wait');
+    if (!note) {
+      note = document.createElement('p');
+      note.className = 'tabmodal-wait';
+      pane.prepend(note);
+    }
+    note.textContent = `Loading ${label || 'this tab'}…`;
+  };
+  document.body.addEventListener('htmx:after:swap', (e) => {
+    const t = swappedEl(e);
+    if (t && t.classList && t.classList.contains('tabmodal-pane')) t.removeAttribute('aria-busy');
+  });
+  // No answer at all (the dashboard is down, the connection dropped): say so in the pane, rather than
+  // leave the last tab under this one's name. A request given up because another tab was chosen is not
+  // this tab's failure, so only the selected tab's own request speaks.
+  document.addEventListener('htmx:error', (e) => {
+    const pane = swappedEl(e);
+    if (!pane || !pane.classList || !pane.classList.contains('tabmodal-pane') || pane.getAttribute('aria-busy') !== 'true') return;
+    const from = e.target && e.target.closest && e.target.closest('.tabmodal-tab');
+    if (from && from.getAttribute('aria-selected') !== 'true') return;
+    pane.removeAttribute('aria-busy');
+    const head = pane.closest('.tabmodal') && pane.closest('.tabmodal').querySelector('.tabmodal-heading');
+    const msg = document.createElement('div');
+    msg.className = 'msg error';
+    msg.setAttribute('role', 'alert');
+    msg.textContent = `${(head && head.textContent) || 'This tab'} could not be loaded: the dashboard did not answer. Choose the tab again to try once more.`;
+    pane.replaceChildren(msg);
+  });
+
+  // An answer with nothing to swap in (a 204) leaves the pane as it was: it is not left busy, and blank.
+  document.addEventListener('htmx:finally:request', (e) => {
+    const ctx = (e.detail || {}).ctx || {};
+    const pane = ctx.target;
+    if (!pane || !pane.classList || !pane.classList.contains('tabmodal-pane') || pane.getAttribute('aria-busy') !== 'true') return;
+    if (ctx.status === 'swapped' || String(ctx.status || '').startsWith('error')) return;
+    const from = e.target && e.target.closest && e.target.closest('.tabmodal-tab');
+    if (from && from.getAttribute('aria-selected') !== 'true') return;
+    pane.removeAttribute('aria-busy');
+    const note = pane.querySelector(':scope > .tabmodal-wait');
+    if (note) note.remove();
+  });
+
   document.addEventListener('click', (e) => {
     const tab = e.target.closest && e.target.closest('.tabmodal-tab');
-    if (tab) { select(tab.closest('.tabmodal'), tab); return; }
+    if (tab) { const tm = tab.closest('.tabmodal'); select(tm, tab); busy(tm, tab.dataset.label); return; }
 
     // A link in a pane that points at another page of the same section loads into the pane.
     const a = e.target.closest && e.target.closest('.tabmodal-pane a[href^="/settings"]');
@@ -746,6 +796,7 @@ document.addEventListener('click', (e) => {
       const want = seg === '' ? 'overview' : seg;
       const tab2 = [...tm.querySelectorAll('.tabmodal-tab')].find((t) => t.dataset.tab === want);
       if (tab2) select(tm, tab2);
+      busy(tm, tab2 ? tab2.dataset.label : a.textContent.trim());
       return;
     }
 

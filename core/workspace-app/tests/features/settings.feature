@@ -54,3 +54,19 @@ Feature: The settings editor
      Then the element "#settings-search-input" should be displayed
       And the element ".settings-chip[data-show='attention']" should be displayed
 
+
+  # A tab's heading changes the moment it is chosen; its content comes from the server. A slow tab (a plugin
+  # page that looks for a command takes two seconds) left the tab before it under the new heading until its
+  # own arrived. Styles is held back here, so the wait can be seen.
+  Scenario: A Settings tab that is still loading says so, and shows nothing of the tab before it
+    Given the URL "**/settings/styles*" is delayed by 3000 ms
+      And I am on "/"
+     When I click on the element "a[data-tabmodal-open='/fragments/settings/modal']"
+      And I click on the element "#editor-modal [role='tab'][data-tab='navigation']"
+     Then "#editor-modal .tabmodal-pane .nav-entry >> nth=0" should be visible
+     When I click on the element "#editor-modal [role='tab'][data-tab='styles']"
+     Then "#editor-modal .tabmodal-pane" should have attribute "aria-busy" with value "true"
+      And "#editor-modal .tabmodal-wait" should have text "Loading Styles…"
+      And "#editor-modal .tabmodal-pane .nav-entry >> nth=0" should not be visible within 2 seconds
+      And "#editor-modal .tabmodal-pane" should contain text "A style is a set of tokens" within 8 seconds
+      And "#editor-modal .tabmodal-wait" should not be attached

@@ -67,7 +67,7 @@ function tabModalHtml({ id, title, subtitle = '', back = null, filter = false, h
       <span class="tabmodal-sub uk-text-meta">${esc(current.hint || '')}</span>
     </header>
     <div class="tabmodal-pane" id="${esc(pane)}" role="tabpanel" aria-labelledby="tm-${esc(id)}-${esc(current.id)}"
-         tabindex="0">
+         tabindex="0" aria-busy="true">
       <div class="tabmodal-loading" hx-get="${esc(current.url)}" hx-trigger="load" hx-target="#${esc(pane)}" hx-swap="innerHTML">
         <span class="uk-text-meta">Loading…</span>
       </div>

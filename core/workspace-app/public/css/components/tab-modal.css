@@ -155,3 +155,21 @@
 .tabmodal-heading { font-family: var(--font-primary); font-weight: 600; letter-spacing: normal; }
 /* A long name wraps under itself rather than being cut beside its badge. */
 .tabmodal-tab .tabmodal-tab-label { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; text-align: left; }
+
+/* A tab that is loading (ui.js marks the pane busy and puts a line at its top). After a moment the line
+   shows and what the pane held before is hidden, so a slow tab never shows the last one under its name,
+   and one that answers at once does not flash. Not motion: the two switch, they do not move. */
+.tabmodal-wait { display: none; }
+.tabmodal-pane[aria-busy="true"] > .tabmodal-wait {
+  display: block;
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--text-subtle);
+  animation: tabmodal-wait-show 0s linear 0.18s both;
+}
+/* The first load of a modal has its own "Loading…" from the server, which stays. */
+.tabmodal-pane[aria-busy="true"] > :not(.tabmodal-wait, .tabmodal-loading) { animation: tabmodal-wait-hide 0s linear 0.18s forwards; }
+@keyframes tabmodal-wait-show { from { visibility: hidden; } to { visibility: visible; } }
+/* display is a discrete step in a keyframe, so the hidden part also stops holding its height (a long
+   blank pane to scroll); a browser that cannot animate display still hides it. */
+@keyframes tabmodal-wait-hide { to { visibility: hidden; display: none; } }
