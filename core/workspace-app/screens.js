@@ -12,10 +12,11 @@ const crypto = require('crypto');
 const { run } = require('./jobs');
 const { ROOT, loadWorkspaces } = require('./workspaces');
 const { esc } = require('./html');
-const { tildePath } = require('./format');
+const { tildePath, humanTime } = require('./format');
 const { waitingState } = require('./waiting');
 const claudeSessions = require('./claude-sessions');
 const claudeArgs = require('./claude-args');
+const screenNotes = require('./screen-notes');
 
 /** Live screen sessions: the host's when its runner is up, this container's
  *  otherwise. Each row says where it lives, because `screen -r` in a terminal
@@ -26,7 +27,8 @@ const claudeArgs = require('./claude-args');
  *  which still answers when that mount is missing. */
 async function listScreens() {
   const { hostSessionsFile } = require('./jobs');
-  const rows = (await listContainerScreens()).map((s) => ({ ...s, where: 'host' }));
+  const own = await readContainerScreens();
+  const rows = own.rows.map((s) => ({ ...s, where: 'host' }));
   const seen = new Set(rows.map((s) => s.session));
   const published = hostSessionsFile();
   const pubRows = published && Array.isArray(published.sessions) ? published.sessions : [];
@@ -42,19 +44,32 @@ async function listScreens() {
     if (p && p.waiting !== undefined) { r.waiting = p.waiting; r.waitingWhy = p.waitingWhy; }
   }
   const extra = pubRows.filter((s) => !seen.has(s.session)).map((s) => ({ ...s, where: 'host' }));
-  return rows.concat(extra);
+  const all = rows.concat(extra);
+  // The notes of sessions that are gone are stamped from here, the one list every view reads. Only from an
+  // answer: a `screen -ls` that timed out lists nothing, and that is not the same as nothing running.
+  if (own.sure || published) settleNotes(all);
+  return all;
 }
 
 /** The sessions inside this container. */
 async function listContainerScreens() {
-  const out = String((await run('screen', ['-ls'], process.env.HOME, { timeoutMs: 10 * 1000 })).stdout || '');
+  return (await readContainerScreens()).rows;
+}
+
+/**
+ * `screen -ls` here, and whether it answered at all. It names its socket directory in every real answer
+ * ("No Sockets found in …", "2 Sockets in …"); a timeout, or no screen installed, says neither.
+ */
+async function readContainerScreens() {
+  const out = await run('screen', ['-ls'], process.env.HOME, { timeoutMs: 10 * 1000 });
+  const text = String(out.stdout || '');
   const rows = [];
-  for (const line of out.split('\n')) {
+  for (const line of text.split('\n')) {
     // `screen -ls` prints:  \t<pid>.<name>\t(<date>)\t(<state>)
     const m = line.match(/^\s+(\d+)\.(\S+)\s+\(([^)]*)\)(?:\s+\(([^)]*)\))?/);
     if (m) rows.push({ pid: m[1], session: m[2], started: m[3], state: m[4] || '' });
   }
-  return rows;
+  return { rows, sure: /\bSockets? (?:found )?in\b/.test(`${text}${out.stderr || ''}`) };
 }
 
 // Where a session's log lives, when the dashboard knows the convention:
@@ -1099,8 +1114,218 @@ function termLayerHtml(sessions = []) {
   return `<div id="term-windows">${sessions.map(termPaneHtml).join('')}</div>`;
 }
 
+/* ------------------------------------------------------------------ *
+ * Past sessions: what ran here, kept after it is gone
+ * ------------------------------------------------------------------ */
+
+const notesStore = () => path.join(ROOT, '.screens');
+
+// When this process last saw each session running. It is what tells a session the dashboard watched end from
+// one that ended while it was down or the machine was off (screen-notes.js, settle).
+const seenRunning = new Map();
+let settledAt = 0;
+
+/** When a gone session last showed life: its log while no later run has the name, and its transcript. */
+function lastSignOf(note, newest) {
+  const mtime = (f) => { try { return f ? fs.statSync(f).mtimeMs : 0; } catch (_) { return 0; } };
+  let sign = 0;
+  if (newest) sign = Math.max(sign, mtime(path.join(notesStore(), `${note.session}.log`)));
+  if (note.claude) sign = Math.max(sign, mtime(claudeSessions.transcriptFile(note.dir, note.claude)));
+  return sign;
+}
+
+/** Stamp the notes of the sessions that are gone. Asked on every list, done at most every five seconds. */
+function settleNotes(rows) {
+  const now = Date.now();
+  const live = (rows || []).filter((s) => !/dead/i.test(s.state || '')).map((s) => s.session);
+  for (const name of live) seenRunning.set(name, now);
+  if (now - settledAt < 5000) return;
+  settledAt = now;
+  try { screenNotes.settle(notesStore(), live, { seen: seenRunning, now, lastSignOf }); } catch (_) { /* the next list tries again */ }
+}
+
+/**
+ * A transcript or a log, made safe to show. Both are untrusted text: escaped by the caller, and here the
+ * terminal's escape sequences, the control characters and the bidirectional overrides (which make text read
+ * in another order than it is) come out.
+ */
+function plainText(text) {
+  return String(text || '')
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '')
+    .replace(/\x1b[@-_]/g, '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\x00-\x08\x0b-\x1f\x7f‪-‮⁦-⁩]/g, '');
+}
+
+const KIND_LABEL = { claude: 'Claude Code', shell: 'Shell', command: 'Command' };
+
+/** How long something ran, in the largest units that say it. */
+function tookText(ms) {
+  const min = Math.round(Math.max(0, ms) / 60000);
+  if (min < 1) return 'under a minute';
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 48) return `${h} h${min % 60 ? ` ${min % 60} min` : ''}`;
+  return `${Math.round(h / 24)} days`;
+}
+
+const whenText = (ms) => (ms ? humanTime(new Date(ms)) : '');
+/** A second time on the same day as the first, as the clock alone: the line says the date once. */
+const laterText = (first, ms) => (ms && new Date(first).toDateString() === new Date(ms).toDateString()
+  ? new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(ms))
+  : whenText(ms));
+
+/** A note, with what the page says about it: where it ran, how it ended, and whether its conversation is there. */
+function describeNote(n) {
+  const where = n.project ? `${n.workspace}/${n.project}` : n.workspace ? `${n.workspace}/` : (tildePath(n.dir) || 'the workspace');
+  const transcript = n.kind === 'claude' ? claudeSessions.transcriptFile(n.dir, n.claude) : '';
+  let resumable = false;
+  let title = '';
+  if (transcript) {
+    try { resumable = fs.statSync(transcript).size > 0; } catch (_) { resumable = false; }
+    if (resumable) title = plainText(claudeSessions.titleOf(transcript));
+  }
+  const ended = n.end === 'seen' ? `ended ${laterText(n.started, n.ended)} · ran ${tookText(n.ended - n.started)}`
+    : n.end === 'gone' ? `ended while the dashboard was not looking${n.lastSign && n.lastSign > n.started ? ` · last sign of life ${laterText(n.started, n.lastSign)}` : ''}`
+      : 'not running';
+  const resumeLine = resumable ? `cd ${tildePath(n.dir)} && claude --resume ${n.claude}` : '';
+  return { ...n, where, transcript, resumable, title, ended, resumeLine, kindLabel: KIND_LABEL[n.kind] || 'Command' };
+}
+
+/** The names running now, for the notes: a dead socket is not a session running. */
+async function liveNames() {
+  return (await listScreens()).filter((s) => !/dead/i.test(s.state || '')).map((s) => s.session);
+}
+
+/**
+ * The Past sessions list: the sessions the dashboard started that are not running any more, newest first, each
+ * with Read, Resume (a Claude Code conversation with a transcript) and Forget. The same list in the Screens modal
+ * and on the Screens page; `id="screens-past"` is what its own buttons and the screens-changed event refresh.
+ */
+async function pastSessionsHtml({ limit = 30 } = {}) {
+  const live = await liveNames();
+  const all = screenNotes.pastNotes(notesStore(), live);
+  const notes = all.slice(0, limit).map(describeNote);
+  const count = all.length > notes.length ? `the newest ${notes.length} of ${all.length}` : `${all.length}`;
+  const head = `<h2 class="uk-h4 screens-past-title" id="screens-past-title" tabindex="-1">Past sessions${all.length ? ` <span class="uk-text-meta">${esc(count)}</span>` : ''}</h2>
+    <p class="uk-text-meta">What the dashboard started here and is not running any more: it finished, its window was closed, or the
+      machine restarted. A Claude Code conversation is kept on this machine, so it can be read and picked up again.</p>`;
+  if (!notes.length) return `${head}<p class="uk-text-meta screens-past-empty">None yet. A session started from here is listed once it has ended.</p>`;
+  const rows = notes.map((n) => {
+    const said = `${n.session}, started ${whenText(n.started)}`;
+    const what = n.kind === 'claude'
+      ? (n.resumable
+        ? `<span class="screens-past-said">“${esc(n.title || 'a conversation with no first message')}”</span>`
+        : '<span>No conversation was written for it, so there is nothing to read or resume.</span>')
+      : `<code>${esc(plainText(n.what || (n.kind === 'shell' ? 'bash -l' : '')).slice(0, 200))}</code>`;
+    return `<li class="screens-past-row" data-note="${esc(n.id)}">
+      <div class="screens-past-text">
+        <div><strong>${esc(n.session)}</strong>
+          <span class="uk-label">${esc(n.kindLabel)}</span>${n.end === 'gone' ? ' <span class="uk-label uk-label-warning" title="It ended while the dashboard was not looking: it was down, or the machine restarted">gone</span>' : ''}</div>
+        <div class="uk-text-meta">in ${esc(n.where)} · started ${esc(whenText(n.started))} · ${esc(n.ended)}</div>
+        <div class="uk-text-meta">${what}</div>
+      </div>
+      <div class="screens-past-verbs">
+        <button type="button" class="uk-button uk-button-default uk-button-small screens-past-read"
+          hx-get="/fragments/screen-note/${esc(n.id)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
+          aria-label="${esc(`Read ${said}`)}"><span uk-icon="icon: file-text; ratio: .8"></span> Read</button>
+        ${n.kind === 'claude' && n.resumable ? `<button type="button" class="uk-button uk-button-primary uk-button-small screens-past-resume"
+          hx-post="/actions/screen-resume" hx-vals='${esc(JSON.stringify({ note: n.id }))}'
+          hx-target="previous .screens-past-result" hx-swap="innerHTML"
+          aria-label="${esc(`Resume the conversation of ${said}, in a new screen`)}"
+          title="claude --resume ${esc(n.claude)}, in a new screen in ${esc(tildePath(n.dir))}"><span uk-icon="icon: history; ratio: .8"></span> Resume</button>` : ''}
+        <button type="button" class="uk-button uk-button-default uk-button-small screens-past-forget"
+          hx-post="/actions/screen-forget" hx-vals='${esc(JSON.stringify({ note: n.id }))}'
+          hx-target="closest .screens-past" hx-swap="innerHTML"
+          aria-label="${esc(`Forget ${said}`)}"
+          title="Take it off this list. Its conversation and its log stay on this machine."><span uk-icon="icon: close; ratio: .8"></span> Forget</button>
+      </div>
+    </li>`;
+  }).join('');
+  return `${head}<ul class="screens-past-list" aria-labelledby="screens-past-title">${rows}</ul>`;
+}
+
+/**
+ * The section the list lives in, with what refreshes it. What Resume answers lands just above it, outside it: the
+ * list refreshes itself when a session starts (screens-changed), and would take the answer away with it.
+ */
+async function pastSessionsSectionHtml() {
+  // Classes, not ids, for what the buttons aim at: the Screens modal can be open over the Screens page, which holds
+  // the same list, and an id would send the answer to the copy behind the modal.
+  return `<div class="screens-past-result" aria-live="polite"></div>
+    <section id="screens-past" class="screens-past" aria-labelledby="screens-past-title"
+      hx-get="/fragments/screens-past" hx-trigger="screens-changed from:body, every 60s" hx-swap="innerHTML">${await pastSessionsHtml()}</section>`;
+}
+
+/**
+ * One past session opened in the modal: a Claude Code session's conversation as it was typed and answered, read
+ * from its transcript, or the end of a command's log. All of it escaped and stripped: a transcript and a log are
+ * untrusted text. The way back to the list is a button, and Escape closes the modal as anywhere else.
+ */
+async function sessionNoteHtml(id) {
+  const raw = screenNotes.readNote(notesStore(), id);
+  if (!raw) return '<div class="editor-card"><div class="modal-head"><h3>No such past session</h3></div><p>It was forgotten, or it never was.</p></div>';
+  const live = await liveNames();
+  const n = describeNote(raw);
+  const newest = (screenNotes.allNotes(notesStore()).find((x) => x.session === n.session) || {}).id === n.id;
+  const running = newest && live.includes(n.session);
+  const back = `<button type="button" class="uk-button uk-button-default uk-button-small screen-note-back" data-screen-note-back="${esc(n.id)}">
+      <span uk-icon="icon: arrow-left; ratio: .8"></span> Back to the sessions</button>`;
+  const resume = n.kind === 'claude' && n.resumable && !running ? `<button type="button" class="uk-button uk-button-primary uk-button-small"
+      hx-post="/actions/screen-resume" hx-vals='${esc(JSON.stringify({ note: n.id }))}' hx-target="#screen-note-result" hx-swap="innerHTML">
+      <span uk-icon="icon: history; ratio: .8"></span> Resume in a new screen</button>` : '';
+  const head = `<div class="modal-head">
+      <h3 class="uk-margin-small-bottom" id="screen-note-title" tabindex="-1">${esc(n.session)}: ${n.kind === 'claude' ? 'the conversation' : 'its log'}</h3>
+      <p class="uk-text-meta uk-margin-small-bottom">${esc(n.kindLabel)} in <code>${esc(tildePath(n.dir) || n.where)}</code> · started ${esc(whenText(n.started))} · ${esc(running ? 'running' : n.ended)}</p>
+    </div>
+    <p class="screen-note-verbs">${back} ${resume}</p>
+    <div id="screen-note-result"></div>`;
+  let body;
+  if (n.kind === 'claude') {
+    if (!n.resumable) {
+      body = '<p>No conversation was written for this session: it ended before its first message, so there is nothing to read or resume.</p>';
+    } else {
+      const { turns, total, cut } = claudeSessions.readConversation(n.transcript, { limit: 60 });
+      const shown = turns.length < total ? `The last ${turns.length} of ${total} turns${cut ? ' at the end of a long transcript' : ''}.`
+        : `${total} turn${total === 1 ? '' : 's'}${cut ? ' at the end of a long transcript' : ''}.`;
+      const items = turns.map((t) => `<li class="screen-note-turn is-${t.who === 'you' ? 'you' : 'claude'}">
+          <div class="screen-note-who">${t.who === 'you' ? 'You' : 'Claude'}${t.at ? ` <span class="uk-text-meta">${esc(whenText(t.at))}</span>` : ''}</div>
+          ${t.text ? `<div class="screen-note-said">${esc(plainText(t.text))}</div>` : ''}
+          ${(t.tools || []).length ? `<ul class="screen-note-tools">${t.tools.map((x) => `<li>${esc(plainText(x))}</li>`).join('')}</ul>` : ''}
+        </li>`).join('');
+      body = `<p class="uk-text-meta">${esc(shown)} Read from <code>${esc(tildePath(n.transcript))}</code>. To pick it up in your own terminal:
+          <code>${esc(n.resumeLine)}</code> <button type="button" class="uk-button uk-button-link uk-button-small copy-cmd" data-copy="${esc(n.resumeLine)}">Copy</button></p>
+        ${items ? `<ol class="screen-note-turns" aria-label="The conversation">${items}</ol>` : '<p>Nothing was said in it.</p>'}`;
+    }
+  } else {
+    // The log is the session's own only while no later run took the name: screen sessions of one name share it.
+    const log = newest ? path.join(notesStore(), `${n.session}.log`) : '';
+    let tail = '';
+    if (log) {
+      try {
+        const fd = fs.openSync(log, 'r');
+        try {
+          const size = fs.fstatSync(fd).size;
+          const start = Math.max(0, size - 64 * 1024);
+          const buf = Buffer.alloc(size - start);
+          fs.readSync(fd, buf, 0, buf.length, start);
+          tail = buf.toString('utf8');
+          if (start > 0) tail = tail.slice(tail.indexOf('\n') + 1);
+        } finally { fs.closeSync(fd); }
+      } catch (_) { tail = ''; }
+    }
+    body = `<p class="uk-text-meta">It ran: <code>${esc(plainText(n.what || (n.kind === 'shell' ? 'bash -l' : '')).slice(0, 500))}</code></p>
+      ${!newest ? '<p>A later session took the same name, and its log with it.</p>'
+    : plainText(tail).trim() ? `<pre class="terminal-pre screen-note-log" tabindex="0" aria-label="The end of its log">${esc(plainText(tail).split('\n').slice(-400).join('\n'))}</pre>`
+      : `<p>${n.kind === 'shell' ? 'A shell keeps no log: what was typed in it is not written down.' : 'Its log is empty, or gone.'}</p>`}`;
+  }
+  return `<div class="editor-card screen-note" data-note="${esc(n.id)}">${head}${body}</div>`;
+}
+
 module.exports = {
   TERM_STYLES,
   termPaneHtml, termLayerHtml, termCliHintHtml,
   claudeResumeHtml,
+  pastSessionsHtml, pastSessionsSectionHtml, sessionNoteHtml, describeNote, plainText, settleNotes, liveNames, readContainerScreens,
   waitingState, sessionWaitingWhy, agentSessions, activityByDir, activityFromSessions, listScreens, listContainerScreens, listPlaywrightBrowsers, parseBrowserLine, processInContainer, sessionNeedsInput, screensForDir, screenLogFor, screensListHtml, screensGridHtml, screenTailHtml, sessionAskedHtml, sessionDone, screenTargets, screenTargetDir, newScreenFormHtml, newScreenButtonHtml, screenWhereHtml, workspaceOptionsHtml, workspaceOfTarget, targetOptionsHtml, defaultSessionName, claudeArgsHtml, promptTemplates, promptTemplateText };

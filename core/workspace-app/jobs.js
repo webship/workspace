@@ -405,6 +405,23 @@ async function startInScreen(opts) {
 }
 
 async function startInScreenOnce(opts, session) {
+  const started = await startInScreenWhere(opts, session);
+  // Noted, so the Screens page can say what ran here once it is gone (screen-notes.js). A command that ran Claude
+  // Code with an id (`--session-id`, `--resume`) is noted as the conversation it holds.
+  if (started && started.ok) {
+    const { ROOT } = require('./workspaces');
+    const notes = require('./screen-notes');
+    const line = require('./linger').withoutLinger(opts.cmdLine || '');
+    const claude = notes.claudeIdIn(line);
+    notes.noteStarted(path.join(ROOT, '.screens'), {
+      session: started.session || session, dir: opts.projectDir, workspace: opts.workspace, project: opts.project,
+      kind: claude ? 'claude' : 'command', what: line || opts.label || '', claude,
+    });
+  }
+  return started;
+}
+
+async function startInScreenWhere(opts, session) {
   const { project, projectDir, ownerDir, verb, cmdLine, label, workspace } = opts;
   const { ROOT } = require('./workspaces');
   const taken = await pluginRun({ project, projectDir, ownerDir, verb, cmdLine, label, workspace }, session);
@@ -459,7 +476,9 @@ async function startInOwnScreen({ session, projectDir, cmdLine, label, logFile }
   try { fs.writeFileSync(logFile, ''); } catch (_) { /* tee creates it */ }
   // Braces group the whole line before the pipe, so every part is logged.
   const inner = `{ ${cmdLine} ; } 2>&1 | tee -a ${JSON.stringify(logFile)}`;
-  const out = await run('screen', ['-c', SCREENRC, '-dmS', session, 'bash', '-lc', inner], projectDir, { timeoutMs: 30 * 1000 });
+  // A session of its own: not a child of a Claude Code session that started this dashboard (session-env.js).
+  const out = await run('screen', ['-c', SCREENRC, '-dmS', session, 'bash', '-lc', inner], projectDir,
+    { timeoutMs: 30 * 1000, env: require('./session-env').sessionEnv(jobEnv()) });
   if (!out.ok) return { ok: false, session, why: String(out.stderr || out.stdout).trim().slice(-200) || 'screen refused to start it', where: 'dashboard' };
   return { ok: true, session, label, where: 'dashboard' };
 }

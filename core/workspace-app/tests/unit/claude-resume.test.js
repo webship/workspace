@@ -113,7 +113,9 @@ test('only an id that is resumable IN THIS DIRECTORY reaches the command line', 
   assert.match(action, /\.some\(\(x\) => x\.id === wanted\)/, "and one this directory actually has");
   assert.match(action, /const wanted = form\.resume_on \? String\(form\.resume \|\| ''\)\.trim\(\) : '';/,
     'a select left on its default must not resume a session nobody asked to resume');
-  assert.match(action, /const resumeFlag = resumable \? `--resume \$\{resumable\}` : '';/);
+  // A new conversation gets its own id at the start (--session-id), so the session's note knows which one it is.
+  assert.match(action, /claudeId = resumable \|\| crypto\.randomUUID\(\);/);
+  assert.match(action, /const resumeFlag = resumable \? `--resume \$\{resumable\}` : `--session-id \$\{claudeId\}`;/);
 });
 
 test('the screen runs claude in the project directory, and nothing else changes', () => {

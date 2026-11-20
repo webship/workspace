@@ -1,0 +1,42 @@
+/* Past sessions (screens.js): the sessions the dashboard started that are gone, under the running ones in the
+   Screens modal and on the Screens page, and one of them read in the modal.
+
+   A row is a line of text and three verbs that wrap under it when the dialog is narrow: a session name and a
+   path are single long words, so they may break anywhere (UIkit keeps labels and inline code on one line, which
+   no overflow-wrap can break), and nothing here may make the dialog scroll sideways at 320px. */
+.screens-past { margin-top: 1.5rem; }
+.screens-past-title { margin: 0 0 .25rem; }
+.screens-past-title:focus-visible,
+.screen-note h3:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.screens-past-list { list-style: none; margin: .5rem 0 0; padding: 0; display: grid; gap: .5rem; }
+.screens-past-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem;
+  padding: .6rem .8rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-card);
+}
+.screens-past-text { flex: 1 1 22rem; min-width: 0; }
+.screens-past-verbs { display: flex; flex-wrap: wrap; gap: .35rem; }
+.screens-past-said { font-style: italic; }
+.screens-past strong,
+.screens-past code,
+.screen-note code { overflow-wrap: anywhere; }
+.screens-past .uk-label,
+.screens-past code,
+.screen-note code { white-space: normal; }
+.screens-past-result:empty { display: none; }
+
+/* One past session, read: who said what, in turns, with the tools named under the turn that used them. */
+.screen-note-verbs { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.screen-note-turns { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: .75rem; }
+.screen-note-turn {
+  min-width: 0; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-card);
+}
+.screen-note-turn.is-you { background: var(--surface-muted); border-left: 3px solid var(--brand-primary); }
+.screen-note-who { font-weight: 600; margin-bottom: .25rem; }
+.screen-note-said { white-space: pre-wrap; overflow-wrap: anywhere; }
+.screen-note-tools { margin: .35rem 0 0; padding-left: 1.1rem; font-size: .875em; color: var(--text-subtle); overflow-wrap: anywhere; }
+.screen-note-log { max-height: 60vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+@media (max-width: 39.9375em) {
+  .screens-past-row { padding: .5rem .6rem; }
+  .screens-past-verbs { width: 100%; }
+}

@@ -126,4 +126,91 @@ function hasSessions(dir) {
   }
 }
 
-module.exports = { PROJECTS, isSessionId, projectSlug, projectDirFor, sessionsFor, hasSessions, titleOf };
+/** Where the CLI keeps one conversation of a folder, or '' for an id that is not one. */
+function transcriptFile(dir, id) {
+  return isSessionId(id) && dir ? path.join(projectDirFor(dir), `${String(id).toLowerCase()}.jsonl`) : '';
+}
+
+/**
+ * The records the CLI itself wraps into a user line: reminders, a command's output, what an editor had open. They
+ * are not what anyone typed. Named one by one, because a person may type a tag of their own and that is kept.
+ */
+const CLI_WRAPPERS = ['system-reminder', 'local-command-stdout', 'local-command-stderr', 'local-command-caveat',
+  'command-message', 'bash-stdout', 'bash-stderr', 'user-prompt-submit-hook', 'ide_opened_file', 'ide_selection',
+  'ide_diagnostics', 'task-notification'];
+const WRAPPED = new RegExp(`<(${CLI_WRAPPERS.join('|')})>[\\s\\S]*?<\\/\\1>`, 'g');
+
+/** What was typed, out of a user line: a slash command as its name and arguments, a shell line as `! <line>`. */
+function typedText(text) {
+  const s = String(text || '');
+  const name = (s.match(/<command-name>([\s\S]*?)<\/command-name>/) || [])[1];
+  if (name) {
+    const args = (s.match(/<command-args>([\s\S]*?)<\/command-args>/) || [])[1] || '';
+    return `${name.trim()} ${args.trim()}`.trim();
+  }
+  const shell = (s.match(/<bash-input>([\s\S]*?)<\/bash-input>/) || [])[1];
+  if (shell) return `! ${shell.trim()}`;
+  return s.replace(WRAPPED, '').trim();
+}
+
+/** One tool call, as a line: its name, and the part of its input that says what it was for. */
+function toolLine(part) {
+  const input = (part && part.input) || {};
+  const what = ['description', 'command', 'file_path', 'path', 'pattern', 'url', 'query', 'prompt']
+    .map((k) => input[k]).find((v) => typeof v === 'string' && v.trim()) || '';
+  const name = String((part && part.name) || 'tool');
+  return what ? `${name} · ${what.replace(/\s+/g, ' ').trim().slice(0, 160)}` : name;
+}
+
+/**
+ * A conversation as a person reads it back: what was typed, what was answered, and the tools used in between.
+ *
+ * Read from the transcript the CLI keeps, which is UNTRUSTED text: anything can be in it, typed by a person, written
+ * by a model or pasted from a page. So this returns plain strings and never markup; whoever shows them escapes them.
+ * The model's thinking, tool results and the CLI's own records stay out. Read from the end and bounded, because the
+ * transcript of a long day runs to tens of megabytes and this answers one click.
+ */
+function readConversation(file, { maxBytes = 4 * 1024 * 1024, limit = 60 } = {}) {
+  let text = '';
+  let cut = false;
+  try {
+    const fd = fs.openSync(file, 'r');
+    try {
+      const size = fs.fstatSync(fd).size;
+      const start = Math.max(0, size - maxBytes);
+      const buf = Buffer.alloc(size - start);
+      fs.readSync(fd, buf, 0, buf.length, start);
+      text = buf.toString('utf8');
+      // Started in the middle of a line: that line is not a record.
+      if (start > 0) { cut = true; text = text.slice(text.indexOf('\n') + 1); }
+    } finally { fs.closeSync(fd); }
+  } catch (_) {
+    return { turns: [], total: 0, cut: false, missing: true };
+  }
+  const turns = [];
+  for (const line of text.split('\n')) {
+    if (!line.startsWith('{')) continue;
+    let d;
+    try { d = JSON.parse(line); } catch (_) { continue; }
+    if (!d || (d.type !== 'user' && d.type !== 'assistant')) continue;
+    // A subagent's own exchange, the CLI's injected context, and a compacted summary are not the conversation.
+    if (d.isSidechain || d.isMeta || d.isCompactSummary) continue;
+    const content = d.message && d.message.content;
+    const parts = typeof content === 'string' ? [{ type: 'text', text: content }] : Array.isArray(content) ? content : [];
+    const at = Date.parse(d.timestamp || '') || 0;
+    const said = parts.filter((p) => p && p.type === 'text').map((p) => String(p.text || '')).join('\n');
+    if (d.type === 'user') {
+      // The CLI handing a tool's answer back to the model is not something anyone typed.
+      if (parts.some((p) => p && p.type === 'tool_result')) continue;
+      const typed = typedText(said);
+      if (typed) turns.push({ who: 'you', text: typed, tools: [], at });
+    } else {
+      const tools = parts.filter((p) => p && p.type === 'tool_use').map(toolLine);
+      const answer = said.trim();
+      if (answer || tools.length) turns.push({ who: 'claude', text: answer, tools, at });
+    }
+  }
+  return { turns: limit ? turns.slice(-limit) : turns, total: turns.length, cut, missing: false };
+}
+
+module.exports = { PROJECTS, isSessionId, projectSlug, projectDirFor, sessionsFor, hasSessions, titleOf, transcriptFile, readConversation };

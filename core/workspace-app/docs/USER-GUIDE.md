@@ -459,6 +459,24 @@ The form asks where it runs (the workspace folder or one of its projects), what 
 Claude Code, or a command you type), and an optional session name. `screen -r <name>` in your own
 terminal attaches to the same session.
 
+### Read or resume a session that is gone
+
+Every session the dashboard starts leaves a small note in `.screens/notes/`: its name, the folder, the
+workspace and project, what ran, when it started and ended, and for Claude Code the conversation id. When a
+session is gone (it finished, its window was closed, or the machine restarted), **Past sessions** under the
+running ones, in the Screens window and on the Screens page, still lists it, newest first. One the dashboard
+did not see end is marked **gone**, with its last sign of life.
+
+- **Read** opens it in the window: a Claude Code session's conversation (what you typed, what Claude answered,
+  and the tools it used in between), read from its transcript in `~/.claude/projects`, or the end of a
+  command's log. **Back to the sessions** returns to the list; Escape closes the window.
+- **Resume** picks a Claude Code conversation up again in a new screen, in the same folder, with
+  `claude --resume <id>` and the options it was started with. It says so when the conversation is already open
+  in a running screen, and the line to copy is there for your own terminal.
+- **Forget** takes it off the list. The conversation and the log stay on your machine.
+
+The newest 200 notes are kept, readable by you only.
+
 ---
 
 ### Find an image

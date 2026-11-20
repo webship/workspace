@@ -164,6 +164,10 @@ Server-rendered HTML fragments, swapped by HTMX.
   exceed fifteen.
 - **Every action shells out to the real `cmd-*.sh`.** The button and the command line cannot drift,
   and the collision checks, refusals and guards live in one place — the script.
+- **Every screen session the dashboard starts leaves a note** (`screen-notes.js`, in `.screens/notes/`).
+  Something new that starts a session calls `noteStarted` once it runs, so **Past sessions** can read it and
+  resume its conversation after it is gone; a Claude Code session gets its id at the start (`--session-id`).
+  `listScreens()` stamps the notes of the sessions that are gone.
 - **The stylesheet is assembled** from `public/css/base.css` + `public/css/components/*.css` + a theme.
   `public/style.css` is not the source; editing it changes nothing. `cssVersion()` stamps the URL from
   the parts' mtimes, so a cached browser picks changes up.

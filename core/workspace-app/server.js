@@ -2839,7 +2839,8 @@ async function settingsPage(section, state, options = {}) {
     ${require('./plugin-loader').pluginScreensPanelsHtml()}
     <div id="webship-workspace-projects" hx-get="/fragments/screens-grid" hx-trigger="refresh-projects from:body, screens-changed from:body, every 20s">
       ${await screensGridHtml()}
-    </div>`
+    </div>
+    ${await require('./screens').pastSessionsSectionHtml()}`
     : isIndex
       ? index
       : `${options.fragment ? '' : back}${isPlugin ? options.pluginHtml : isPlugins ? require('./plugins-page').pluginsPageHtml() : isStyles ? stylesPageHtml()
@@ -7776,9 +7777,20 @@ Summarise what you changed and how to verify it`,
           <h3 class="uk-margin-small-bottom">Screen sessions</h3>
           ${askedBox}
           <p class="uk-text-meta">Detached terminals on this machine — agents at work, and anything started with cmd-tools-screen.sh. The full manager lives on <a href="/screens" data-screens-page>the Screens page</a>.</p>
-          <div id="webship-workspace-projects">${await screensGridHtml()}</div>
+          <div id="webship-workspace-projects" hx-get="/fragments/screens-grid" hx-trigger="screens-changed from:body">${await screensGridHtml()}</div>
+          ${await require('./screens').pastSessionsSectionHtml()}
         </div>`);
       }
+      // The Past sessions list, refreshed on its own (screens-changed, Forget), and one past session read in the modal.
+      if (pathname === '/fragments/screens-past') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(await require('./screens').pastSessionsHtml());
+      }
+      { const m = pathname.match(/^\/fragments\/screen-note\/([0-9]{13}-[a-z0-9][a-zA-Z0-9._-]{0,59})$/);
+        if (m) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+          return res.end(await require('./screens').sessionNoteHtml(m[1]));
+        } }
       if (pathname === '/fragments/screens-legacy') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(`

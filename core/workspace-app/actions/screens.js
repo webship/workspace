@@ -5,12 +5,14 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const { esc } = require('../html');
 const { run, startJob, stopJob, jobFragment, runningJobKey, hostRunnerUp, hostRunnerRequest } = require('../jobs');
 const { screenLogFor, screensGridHtml, screenTargetDir, defaultSessionName } = require('../screens');
 const claudeSessions = require('../claude-sessions');
 const claudeArgs = require('../claude-args');
+const screenNotes = require('../screen-notes');
 const { ROOT } = require('../workspaces');
 
 // A new session: named by the user, started detached in a directory the
@@ -54,6 +56,9 @@ async function screen_new({ form, send, res }) {
   const command = String(form.command || '').trim();
   const kind = String(form.kind || (command ? 'command' : 'shell'));
   let inner;
+  // What the session's note keeps (screen-notes.js): the conversation it holds and the options it ran with.
+  let claudeId = '';
+  let claudeFlags = [];
   if (kind === 'claude') {
     // Claude Code interactively, in the real PTY screen provides. The field is
     // the prompt it opens with; a prompt template brings its own flags along,
@@ -85,7 +90,11 @@ async function screen_new({ form, send, res }) {
     if (wanted && !resumable) {
       return send(`<div class="msg error">No Claude session <code>${esc(wanted.slice(0, 40))}</code> in <code>${esc(dir)}</code> to resume.</div>`, 400);
     }
-    const resumeFlag = resumable ? `--resume ${resumable}` : '';
+    // A new conversation gets its id HERE, with --session-id, so the note knows it from the first second: when
+    // the screen is gone, the note is what still says which conversation it held, and Resume reopens it.
+    claudeId = resumable || crypto.randomUUID();
+    claudeFlags = words;
+    const resumeFlag = resumable ? `--resume ${resumable}` : `--session-id ${claudeId}`;
     // The opening prompt is free text, so it reaches claude through a private file and `$(cat …)`, never as
     // a double-quoted word in the line: there `$(…)` and backticks in it would be RUN by the shell.
     const promptFile = command ? writePromptFile(fullSession, command) : '';
@@ -95,9 +104,10 @@ async function screen_new({ form, send, res }) {
   } else if (kind === 'shell' || !command) {
     inner = 'exec bash -l';
   } else {
-    // Braces group the WHOLE command before the pipe: without them only the
-    // last segment of `a; b` is logged.
-    inner = `{ ${command} ; } 2>&1 | tee -a ${JSON.stringify(logFile)}`;
+    // Braces keep the WHOLE command one unit, and the runner logs it: it pipes every line that does not start with
+    // `exec ` through tee into this same log. Teed here as well, every line of the log was written twice, which is
+    // how Read on a past session showed it.
+    inner = `{ ${command} ; }`;
   }
   // The session knows where it was started without being told: the workspace, the project and the folder
   // are in its environment, so a shell, a command or the agent never has to ask which workspace this is.
@@ -115,6 +125,13 @@ async function screen_new({ form, send, res }) {
   if (!answer) return send(runnerDownHtml(), 503);
   if (answer.already) return send(`<div class="msg error">A session called <strong>${esc(fullSession)}</strong> is already running.</div>`, 409);
   if (!answer.ok) return send(`<div class="msg error">Could not start it: <pre>${esc(String(answer.error || '').slice(-250))}</pre></div>`, 500);
+  const noteKind = kind === 'claude' ? 'claude' : (kind === 'shell' || !command) ? 'shell' : 'command';
+  screenNotes.noteStarted(logDir, {
+    session: fullSession, dir, workspace: known.WEBSHIP_WORKSPACE, project: known.WEBSHIP_PROJECT, kind: noteKind,
+    what: noteKind === 'claude' ? `claude ${claudeFlags.join(' ')}`.trim() + (command ? ' (with an opening prompt)' : '')
+      : noteKind === 'shell' ? 'bash -l' : command,
+    claude: claudeId, flags: claudeFlags,
+  });
 
   // Started for a work item (the form's `work_key`): the plugins note the run and say so on the item
   // if that was asked for. The dashboard itself keeps no record of what a key means.
@@ -250,6 +267,75 @@ async function screen_watch_or_stop({ form, send, pathname, res }) {
   return send(jobFragment(id).html);
 }
 
+/**
+ * A past Claude Code session, picked up again: a new screen in the folder it ran in, with
+ * `claude --resume <id>` and the options it was started with (checked against `claude --help` when it started,
+ * and against the same shape again here). Its name when that is free, else the name and a short id.
+ *
+ * Refused when the folder is gone, when the conversation has no transcript, and when the conversation is open in
+ * a running screen already: two Claude Code processes on one conversation write over each other's turns.
+ */
+async function screen_resume({ form, send, res }) {
+  const store = path.join(ROOT, '.screens');
+  const note = screenNotes.readNote(store, String(form.note || ''));
+  if (!note) return send('<div class="msg error">No such past session: it was forgotten.</div>', 404);
+  if (note.kind !== 'claude' || !claudeSessions.isSessionId(note.claude)) {
+    return send('<div class="msg error">Only a Claude Code session can be resumed: it is a conversation, and a shell or a command is not.</div>', 400);
+  }
+  const dir = String(note.dir || '');
+  if (!dir || !(dir === ROOT || dir.startsWith(ROOT + path.sep)) || !fs.existsSync(dir)) {
+    return send(`<div class="msg error">Its folder <code>${esc(dir || '?')}</code> is not in this workspace any more, so it cannot be picked up there.</div>`, 409);
+  }
+  let size = 0;
+  try { size = fs.statSync(claudeSessions.transcriptFile(dir, note.claude)).size; } catch (_) { size = 0; }
+  if (!size) return send(`<div class="msg error">That conversation has no transcript in <code>${esc(dir)}</code>, so <code>claude --resume</code> cannot open it.</div>`, 409);
+  const flags = Array.isArray(note.flags) ? note.flags.map(String) : [];
+  if (flags.some((w) => !claudeArgs.SAFE_VALUE.test(w) || /^--(resume|continue|session-id)$/.test(w))) {
+    return send('<div class="msg error">The options noted for it are not ones this dashboard writes, so it is not started with them.</div>', 400);
+  }
+  const screens = require('../screens');
+  const live = await screens.liveNames();
+  // Which conversation each running screen holds: the newest note of its name.
+  const runningNote = new Map();
+  for (const n of screenNotes.allNotes(store)) if (!runningNote.has(n.session)) runningNote.set(n.session, n);
+  const open = live.map((name) => runningNote.get(name)).find((n) => n && n.claude === note.claude);
+  if (open) {
+    return send(`<div class="msg error">That conversation is open in <strong>${esc(open.session)}</strong> already. Two Claude Code sessions on one conversation write over each other.
+      <button type="button" class="uk-button uk-button-default uk-button-small" data-open-terminal="${esc(open.session)}">Open its terminal</button></div>`, 409);
+  }
+  let session = note.session;
+  while (live.includes(session)) session = `${note.session.slice(0, 54)}-${crypto.randomUUID().slice(0, 4)}`;
+  const vars = Object.entries({ WEBSHIP_WORKSPACE: note.workspace || '', WEBSHIP_PROJECT: note.project || '', WEBSHIP_WORKSPACE_DIR: dir })
+    .map(([k, v]) => `${k}=${shq(v)}`).join(' ');
+  const inner = `exec env ${vars} claude --resume ${note.claude} ${flags.join(' ')}`.replace(/ {2,}/g, ' ').trim();
+  if (!(await hostRunnerUp())) return send(runnerDownHtml(), 503);
+  const answer = await hostRunnerRequest('start', { session, dir, owner: dir, cmd: inner });
+  if (!answer) return send(runnerDownHtml(), 503);
+  if (answer.already) return send(`<div class="msg error">A session called <strong>${esc(session)}</strong> is already running.</div>`, 409);
+  if (!answer.ok) return send(`<div class="msg error">Could not start it: <pre>${esc(String(answer.error || '').slice(-250))}</pre></div>`, 500);
+  screenNotes.noteStarted(store, {
+    session, dir, workspace: note.workspace, project: note.project, kind: 'claude',
+    what: `claude --resume ${note.claude} ${flags.join(' ')}`.trim(), claude: note.claude, flags, resumedFrom: note.id,
+  });
+  try { res.setHeader('HX-Trigger', JSON.stringify({ 'screens-changed': { session } })); } catch (_) { /* headers already sent */ }
+  const title = claudeSessions.titleOf(claudeSessions.transcriptFile(dir, note.claude));
+  const notice = `<div class="msg assistant screen-resumed">Resumed ${title ? `“${esc(screens.plainText(title))}” ` : 'the conversation '}in a new screen,
+      <strong>${esc(session)}</strong>.
+      <button type="button" class="uk-button uk-button-primary uk-button-small" data-open-terminal="${esc(session)}"
+        aria-label="${esc(`Open the terminal of ${session}`)}"><span uk-icon="icon: laptop; ratio: .8"></span> Open terminal</button></div>`;
+  // The running list picks the new screen up from screens-changed, like a session started from New screen.
+  return send(notice);
+}
+
+/**
+ * Forget a past session: its note goes, the conversation and the log stay. Answers with the list again, also for a
+ * note that is gone already: either way it is off the list, and the answer replaces the list it was pressed in.
+ */
+async function screen_forget({ form, send }) {
+  screenNotes.forgetNote(path.join(ROOT, '.screens'), String(form.note || ''));
+  return send(await require('../screens').pastSessionsHtml());
+}
+
 async function job_stop({ form, send }) {
   const id = String(form.id || '');
   if (!/^[0-9]+-[a-z0-9]+$/.test(id)) return send('<div class="msg error">Not a job id.</div>', 400);
@@ -260,6 +346,8 @@ async function job_stop({ form, send }) {
 module.exports = {
   '/actions/job-stop': job_stop,
   '/actions/screen-new': screen_new,
+  '/actions/screen-resume': screen_resume,
+  '/actions/screen-forget': screen_forget,
   '/actions/screen-detach': screen_verb,
   '/actions/screen-reset-modes': screen_verb,
   '/actions/screen-interrupt': screen_verb,

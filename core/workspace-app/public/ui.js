@@ -2510,6 +2510,72 @@ document.addEventListener('click', (e) => {
   window.htmx.ajax('GET', url, { target: '#editor-modal-body', swap: 'innerHTML' });
 });
 
+// Past sessions (screens.js): the sessions the dashboard started that are gone, each read in the modal, resumed or
+// forgotten. Focus goes where the person's next step is: to the top of a conversation when it opens, back to the
+// Read button it was opened from, to a neighbour when a row is forgotten, and to Open terminal when one resumes.
+const pastFocus = { read: null, forgetAt: -1, resumed: false };
+function focusInModalSoon(el) {
+  if (!el) return;
+  const modal = document.getElementById('editor-modal');
+  const go = () => { try { el.focus(); } catch (_) { /* gone again */ } };
+  if (!modal || modal.classList.contains('uk-open')) { setTimeout(go, 0); return; }
+  // Opening: after the modal's own handler has put focus on the dialog.
+  const once = (ev) => { if (ev.target !== modal) return; document.removeEventListener('shown', once); setTimeout(go, 0); };
+  document.addEventListener('shown', once);
+}
+document.addEventListener('click', (e) => {
+  const t = e.target.closest ? e.target : null;
+  if (!t) return;
+  const read = t.closest('.screens-past-read');
+  if (read) {
+    const row = read.closest('[data-note]');
+    pastFocus.read = { note: row ? row.dataset.note : '', inModal: !!read.closest('#editor-modal') };
+    return;
+  }
+  const forget = t.closest('.screens-past-forget');
+  if (forget) {
+    const rows = [...forget.closest('.screens-past').querySelectorAll('.screens-past-row')];
+    pastFocus.forgetAt = rows.indexOf(forget.closest('.screens-past-row'));
+    return;
+  }
+  if (t.closest('.screens-past-resume, .screen-note-verbs [hx-post="/actions/screen-resume"]')) { pastFocus.resumed = true; return; }
+  const back = t.closest('[data-screen-note-back]');
+  if (!back) return;
+  e.preventDefault();
+  const from = pastFocus.read && pastFocus.read.note === back.dataset.screenNoteBack
+    ? pastFocus.read : { note: back.dataset.screenNoteBack, inModal: true };
+  // Read from the Screens page: the list is the page behind, and closing the modal is going back (focus returns to
+  // the Read button that opened it). Read from the Screens modal: the modal shows the list again.
+  if (!from.inModal) { try { window.UIkit.modal('#editor-modal').hide(); } catch (_) { /* no modal */ } return; }
+  pastFocus.read = { ...from, back: true };
+  window.htmx.ajax('GET', '/fragments/screens', { target: '#editor-modal-body', swap: 'innerHTML' });
+});
+document.body.addEventListener('htmx:after:settle', (e) => {
+  const el = swappedEl(e);
+  if (!el) return;
+  if (el.id === 'editor-modal-body' && el.querySelector('.screen-note')) {
+    el.scrollTop = 0;          // from the top, wherever the list it was opened from had been scrolled to
+    focusInModalSoon(el.querySelector('#screen-note-title'));
+  } else if (el.id === 'editor-modal-body' && pastFocus.read && pastFocus.read.back) {
+    const { note } = pastFocus.read;
+    pastFocus.read = null;
+    const row = [...el.querySelectorAll('.screens-past-row')].find((r) => r.dataset.note === note);
+    focusInModalSoon((row && row.querySelector('.screens-past-read')) || el.querySelector('#screens-past-title'));
+  } else if (el.classList.contains('screens-past') && pastFocus.forgetAt >= 0) {
+    const rows = [...el.querySelectorAll('.screens-past-row')];
+    const row = rows[Math.min(pastFocus.forgetAt, rows.length - 1)];
+    pastFocus.forgetAt = -1;
+    const next = (row && row.querySelector('.screens-past-forget')) || el.querySelector('.screens-past-title');
+    if (next) next.focus();
+  } else if (pastFocus.resumed && (el.classList.contains('screens-past-result') || el.id === 'screen-note-result')) {
+    pastFocus.resumed = false;
+    // On the Screens page the notice has become a toast at the top by now; inside the modal it stayed here.
+    const opens = [...document.querySelectorAll('.screen-resumed [data-open-terminal]')];
+    const open = opens[opens.length - 1];
+    if (open) open.focus();
+  }
+});
+
 // Short results become a toast at the top.
 //
 // A one-line "saved" or "deleted" used to render wherever the form was, which on the settings
