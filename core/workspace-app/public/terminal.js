@@ -326,25 +326,30 @@
         pane.dataset.painted = '1';
         // The session painted into it: this attach works, and the next drop starts counting from the start.
         retries = 0;
+        if (pane.dataset.dropped) {
+          // Attached again after a drop, and only now said so: an open socket is not yet a session behind it (the
+          // dashboard may still find the host runner away, and drop it again).
+          reattachedAt = Date.now();
+          delete pane.dataset.dropped;
+          // News for a while: a narrow window shows its status line only while it has some (terminals.css).
+          pane.dataset.link = 'reattached';
+          clearTimeout(pane.__linkNews);
+          pane.__linkNews = setTimeout(() => {
+            delete pane.dataset.link;
+            if (pane.dataset.live && !pane.dataset.copyMode) say('connected');
+          }, 15000);
+        }
         clearTimeout(pane.__silence);
         if (pane.dataset.live && !pane.dataset.copyMode) say(liveText());
       }
       term.write(data);
     };
     ws.onopen = () => {
-      clearTimeout(pane.__linkNews);
-      delete pane.dataset.link;
-      if (pane.dataset.dropped) {
-        reattachedAt = Date.now();
-        delete pane.dataset.dropped;
-        // News for a while: a narrow window shows its status line only while it has some (terminals.css).
-        pane.dataset.link = 'reattached';
-        pane.__linkNews = setTimeout(() => {
-          delete pane.dataset.link;
-          if (pane.dataset.live && !pane.dataset.copyMode) say('connected');
-        }, 15000);
+      if (!pane.dataset.dropped) {
+        clearTimeout(pane.__linkNews);
+        delete pane.dataset.link;
       }
-      say(liveText());
+      say(pane.dataset.dropped ? 'connection dropped — re-attaching…' : liveText());
       pane.dataset.live = '1';
       if (again) again.hidden = true;
       startKeepalive(ws);

@@ -175,6 +175,11 @@ test('the page pings, judges a socket by its answer, and re-attaches a dropped w
   // A narrow window hides its status line, except while the connection is the news.
   assert.match(page, /pane\.dataset\.link = 'dropped';/);
   assert.match(page, /pane\.dataset\.link = 'reattached';/);
+  // Said once the session paints into the window again, not when the socket opens: an open socket may still be
+  // dropped by a dashboard that finds the host runner away.
+  const paint = page.slice(page.indexOf('if (text.length) {'), page.indexOf('term.write(data);'));
+  assert.match(paint, /if \(pane\.dataset\.dropped\) \{\n\s+\/\/[^\n]*\n\s+\/\/[^\n]*\n\s+reattachedAt = Date\.now\(\);/);
+  assert.match(page, /say\(pane\.dataset\.dropped \? 'connection dropped — re-attaching…' : liveText\(\)\);/);
   assert.match(read('public/css/components/terminals.css'),
     /@container term \(max-width: 32rem\) \{\n  \.term-window \.term-status \{ display: none; \}[\s\S]*?\.term-window\[data-link\] \.term-status \{ display: block; order: 3; flex-basis: 100%; white-space: normal; \}/);
 });

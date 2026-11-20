@@ -147,6 +147,11 @@ item-sync button use. Sessions run on your machine rather than in the dashboard'
 desktop — and a container cannot start a host process. Without the boot service, start it once with
 `bash core/workspace-app/scripts/screen-host.sh --start`.
 
+The runner attaches the dashboard's terminals to those sessions too. The dashboard's container reaches it through a
+unix socket in `.screens/` (`runner.sock`, yours only), so a terminal opens on a session on your machine even when
+the container cannot see that machine's screen sessions itself: a container that started before screen was
+installed on the machine, a runner with a socket directory of its own, or Docker Desktop.
+
 Check it any time with `bash core/scripts/autostart.sh` — it prints the service state, whether
 lingering is on, and exactly which projects will come back.
 
