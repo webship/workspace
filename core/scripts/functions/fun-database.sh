@@ -15,9 +15,16 @@
 #
 # So the volumes are removed by name as well. DDEV names them `<project>-mariadb`
 # and `ddev-<project>-snapshots`.
+#
+# The delete runs from a folder of its own, and only for a project DDEV knows (#527): DDEV 1.24.7 leaves
+# an empty .ddev/addon-metadata/ in the folder it runs from when it is asked about a name it does not
+# have, and here that folder is the sites folder.
 function drop_database() {
   echo "Removing any existing DDEV project for a clean rebuild";
-  ddev delete "${PROJECT_NAME}" -y -O 2>/dev/null || true ;
+  local scratch ;
+  scratch="$(mktemp -d)" ;
+  ( cd "${scratch}" && ddev describe "${PROJECT_NAME}" > /dev/null 2>&1 && ddev delete "${PROJECT_NAME}" -y -O 2>/dev/null ) || true ;
+  rm -rf "${scratch}" ;
 
   local volume ;
   for volume in "${PROJECT_NAME}-mariadb" "${PROJECT_NAME}-postgres" "ddev-${PROJECT_NAME}-snapshots" ; do
