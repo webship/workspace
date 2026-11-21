@@ -924,6 +924,22 @@ document.addEventListener('keydown', (e) => {
     if (next) { e.preventDefault(); next.focus(); }
   });
 
+  // In the filter box: Down goes to the first tab shown, and Escape empties the box before it closes the modal
+  // (in the capture phase, ahead of the modal's own Escape), as the other filters do.
+  document.addEventListener('keydown', (e) => {
+    const box = e.target.closest && e.target.closest('.tabmodal-filter');
+    if (!box) return;
+    if (e.key === 'ArrowDown') {
+      const first = [...box.closest('.tabmodal').querySelectorAll('.tabmodal-tab')].find((t) => !t.hidden);
+      if (first) { e.preventDefault(); first.focus(); }
+    } else if (e.key === 'Escape' && box.value) {
+      e.preventDefault();
+      e.stopPropagation();
+      box.value = '';
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }, true);
+
   document.addEventListener('input', (e) => {
     const box = e.target.closest && e.target.closest('.tabmodal-filter');
     if (!box) return;
@@ -935,6 +951,13 @@ document.addEventListener('keydown', (e) => {
     tm.querySelectorAll('.tabmodal-group').forEach((g) => {
       g.hidden = ![...g.querySelectorAll('.tabmodal-tab')].some((t) => !t.hidden);
     });
+    // The one tab in the Tab order (the list's roving tabindex) is one that is shown: the chosen tab, or the
+    // first match while the filter hides it. It was left on a hidden tab, and what matched could not be
+    // reached from the keyboard at all.
+    const tabs = [...tm.querySelectorAll('.tabmodal-tab')];
+    const chosen = tabs.find((t) => t.getAttribute('aria-selected') === 'true');
+    const stop = chosen && !chosen.hidden ? chosen : tabs.find((t) => !t.hidden);
+    tabs.forEach((t) => { t.tabIndex = t === stop ? 0 : -1; });
     // Said in words, and to a screen reader: how many are left, or that nothing matches (a blank column reads as a fault).
     const status = tm.querySelector('.tabmodal-filter-status');
     if (status) {
