@@ -93,6 +93,14 @@ html.assistant-closed .assistant-launcher {
    room — the launcher sits in the bottom-left corner. */
 .launcher-dropdown { min-width: 14rem; }
 html.assistant-closed .assistant-launcher:hover { filter: brightness(1.08); }
+/* The launcher floats over the bottom-left corner of the page. What takes focus is scrolled to above it, at
+   every width (it moves nothing on the page); and where the page is one column, the page ends clear of it.
+   Without these, Tab put focus under it: "Go to its settings" and "More" at 390, "Deactivate" at 720×450, a
+   focused "Start AI" wholly at 400% zoom (WCAG 2.4.11). 3.5rem of button, 1.375rem under it, a little air. */
+html.assistant-closed { scroll-padding-bottom: 5.5rem; }
+@media (max-width: 59.9375em) {
+  html.assistant-closed .app-content { padding-bottom: 5.5rem; }
+}
 .assistant-launcher .ai-mark { width: 1.5rem; height: 1.5rem; }
 
 /* Full page — /assistant. There is no side panel anywhere in this view; the switch in the toolbar
