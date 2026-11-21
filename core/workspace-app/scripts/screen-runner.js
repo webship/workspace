@@ -406,7 +406,15 @@ function handleRequest(file) {
   const claimed = `${file}.taken`;
   try { fs.renameSync(file, claimed); } catch (_) { return; }
   let req;
-  try { req = JSON.parse(fs.readFileSync(claimed, 'utf8')); } catch (_) { return fs.unlink(claimed, () => {}); }
+  try { req = JSON.parse(fs.readFileSync(claimed, 'utf8')); } catch (_) {
+    // Empty or half written: a writer that does not write beside and rename may still be at it, since the folder
+    // watch fires as the file is made, before anything is in it. A new one is put back for the next drain (what
+    // the writer still writes lands in the same file whatever its name); one that stays unreadable is junk (#631).
+    let young = false;
+    try { young = Date.now() - fs.statSync(claimed).mtimeMs < 2000; } catch (_) { /* gone already */ }
+    if (young) { try { fs.renameSync(claimed, file); } catch (_) { /* nothing to put back */ } return; }
+    return fs.unlink(claimed, () => {});
+  }
   fs.unlink(claimed, () => {});
   const id = String(req.id || '').replace(/[^a-zA-Z0-9._-]/g, '');
   const session = String(req.session || '');
