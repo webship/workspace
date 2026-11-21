@@ -104,9 +104,9 @@ function pluginsPageHtml() {
   <div class="settings-home plugins-add">
     <section class="settings-group plugin-require-section" aria-labelledby="plugin-require-head">
       <h2 class="settings-group-head" id="plugin-require-head">Add a plugin</h2>
-      <p class="settings-family-about">The base ships empty. A plugin is a package of its own (<code>${SCOPE}/workspace-&lt;name&gt;</code>). Adding one here is the first of four steps
+      <p class="settings-family-about">A plugin is a package of its own (<code>${SCOPE}/workspace-&lt;name&gt;</code>); only Workspace notes ships with the base. Adding one here is the first of four steps
         (require); it is then activated, installed and configured on its own page, which opens from
-        <a href="/settings">Settings</a>${list.length ? ` (${list.length} added so far)` : ''}. The same as <code>bash core/scripts/plugins.sh</code>.</p>
+        <a href="/settings">Settings</a>${here ? ` (${here} added from this catalogue so far)` : ''}. The same as <code>bash core/scripts/plugins.sh</code>.</p>
       <form class="plugin-require" hx-post="/actions/plugins" hx-target="#webship-workspace-output" hx-swap="innerHTML">
         <input type="hidden" name="verb" value="require">
         <label class="settings-search-label" for="plugin-require-spec">Add a package by name</label>
