@@ -3143,7 +3143,7 @@ function emptyWorkspaceHtml() {
       <h2 class="uk-h4">Empty, on purpose</h2>
       <p>This workspace has no folders and no plugins yet. Everything is an npm package <code>@webship.co/workspace-&lt;name&gt;</code>,
         added one at a time when you ask for it — from <a href="/settings/plugins">Settings → Plugins</a>, or:</p>
-      <pre class="uk-background-muted uk-padding-small">webship-workspace plugin require dev
+      <pre class="uk-padding-small">webship-workspace plugin require dev
 webship-workspace plugin activate dev
 webship-workspace plugin install dev</pre>
       <p class="uk-text-meta">A plugin that needs another one says so when you require it (a builder needs a sites folder, its agents the AI Agents folder):
