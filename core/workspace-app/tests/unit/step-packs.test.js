@@ -96,7 +96,7 @@ test('a pack is only ever @webship-js/<name>-steps, whatever is typed', () => {
 
 test('the shipped list: real packs, a kind each, extensions on a base it knows', () => {
   const { packs, upcoming } = sp.shippedList();
-  assert.ok(packs.length >= 37, 'the 37 packs on npm on 2026-11-21');
+  assert.ok(packs.length >= 38, 'the 38 packs on npm on 2026-11-21');
   for (const p of [...packs, ...upcoming]) {
     assert.match(p.name, sp.PACK_RE, p.name);
     assert.ok(['platform', 'extension', 'any-site'].includes(p.kind), `${p.name}: ${p.kind}`);
@@ -158,13 +158,14 @@ test('the list: npm unreachable and nothing cached gives the list shipped with t
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-steps-root-'));
   const list = await sp.listPacks({ root, fetchImpl: fakeFetch({ 'https://': new Error('offline') }) });
   assert.strictEqual(list.source, 'shipped');
-  assert.ok(list.packs.length >= 37);
+  assert.ok(list.packs.length >= 38);
   assert.ok(list.packs.every((p) => p.docs.startsWith('https://webship.co/docs/webship-js/2.0.x/')));
   const upcoming = sp.shippedList().upcoming.map((p) => p.name);
   assert.ok(!list.packs.some((p) => upcoming.includes(p.name)), 'a pack that is not on npm yet is not offered');
   assert.ok(list.packs.some((p) => p.short === 'filament'), 'Filament is offered since its release on 2026-11-21');
   assert.ok(list.packs.some((p) => p.short === 'nextcloud'), 'Nextcloud is offered since its release on 2026-11-21');
   assert.ok(list.packs.some((p) => p.short === 'spring-boot'), 'Spring Boot is offered since its release on 2026-11-21');
+  assert.ok(list.packs.some((p) => p.short === 'aspnet-core'), 'ASP.NET Core is offered since its release on 2026-11-21');
 });
 
 test('add: the dev dependency at its release line, the glob after webship-js\'s own, written down for remove', () => {
@@ -369,6 +370,9 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   const hits = (html, headers = {}) => sp.detectPacks({ html, headers }, all).map((h) => h.pack.short);
   assert.deepStrictEqual(hits('<meta name="generator" content="WordPress 6.8.3" />'), ['wordpress']);
   assert.deepStrictEqual(hits('<meta content="Drupal 11 (https://www.drupal.org)" name="Generator">'), ['drupal-core']);
+  // ASP.NET Core: the account pages of Razor Pages, or the script of a Blazor Web App (2026-11-21).
+  assert.deepStrictEqual(hits('<a class="nav-link text-dark" href="/Identity/Account/Login">Login</a>'), ['aspnet-core']);
+  assert.deepStrictEqual(hits('<script src="_framework/blazor.web.4x7a2m.js"></script>'), ['aspnet-core']);
   assert.deepStrictEqual(hits('<link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">'), ['bootstrap']);
   assert.deepStrictEqual(hits('<script src="/js/bootstrap.bundle.min.js?v=5"></script>'), ['bootstrap']);
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
