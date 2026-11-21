@@ -2247,7 +2247,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
     const ids = [explained(r) ? `${id}-hint` : '', isTodo(r) ? `${id}-todo` : ''].filter(Boolean);
     return ids.length ? ` aria-describedby="${ids.join(' ')}"` : '';
   };
-  const keyHtml = (r, id, name, secret = false) => `<div class="settings-key"><label for="${id}">${esc(name)}</label>${secret ? ' <span class="uk-label">secret</span>' : ''}${
+  const keyHtml = (r, id, name, secret = false) => `<div class="settings-key"><label for="${id}" id="${id}-name">${esc(name)}</label>${secret ? ' <span class="uk-label">secret</span>' : ''}${
     explained(r) ? `<span class="settings-explain" id="${id}-hint">${explained(r)}</span>` : ''}${
     isTodo(r) ? `<span class="settings-todo" id="${id}-todo">${iconHtml('tabler:alert-triangle', 0.7)} Still the placeholder: replace it</span>` : ''}</div>`;
   const todoCount = rows.filter(isTodo).length;
@@ -2346,11 +2346,14 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
       return `
       <div class="settings-row${isTodo(r) ? ' is-todo' : ''}">
         ${keyHtml(r, id, meta.label(r.dotted) || r.leaf || r.dotted)}
-        <label class="settings-toggle">
+        <!-- One name: the setting's (aria-labelledby). The On/Off word is a label too, so a click on it still
+             turns the switch, but hidden from a screen reader, which hears the state from the switch itself. A
+             label wrapping the switch was a second name, and axe asked for a review on every switch. -->
+        <span class="settings-toggle">
           <input type="hidden" name="v_${r.line}" value="false">
-          <input class="settings-switch" type="checkbox" role="switch" id="${id}"${describedBy(r, id)} name="v_${r.line}" value="true" ${on ? 'checked' : ''}>
-          <span class="uk-text-meta settings-switch-state" aria-hidden="true">${on ? 'On' : 'Off'}</span>
-        </label>
+          <input class="settings-switch" type="checkbox" role="switch" id="${id}" aria-labelledby="${id}-name"${describedBy(r, id)} name="v_${r.line}" value="true" ${on ? 'checked' : ''}>
+          <label class="uk-text-meta settings-switch-state" for="${id}" aria-hidden="true">${on ? 'On' : 'Off'}</label>
+        </span>
         <input type="hidden" name="k_${r.line}" value="${esc(r.key)}">
       </div>`;
     }

@@ -45,6 +45,10 @@ ai_providers.gemini.api_key:
 ai_providers.openai.api_key:
   label: OpenAI key
   info: Only needed if a site you build uses OpenAI. The dashboard assistant does not.
+ai_providers.stability.api_key:
+  label: Stability AI key
+ai_providers.xai.api_key:
+  label: xAI key
 assistant.name:
   label: What the assistant is called
   info: >-
@@ -160,6 +164,24 @@ assistant.voice_output:
     Whether the browser reads a short spoken summary of each answer until someone switches it off
     (the Voice summary checkbox in the assistant's options menu, kept per browser). Browser
     synthesis, so no key either. Useful when you started a build and are looking somewhere else.
+assistant.agent:
+  label: The Claude Code agent it runs as
+assistant.avatar:
+  label: The avatar it shows first
+assistant.avatars_discover:
+  label: Also offer the avatars in the avatars workspace
+assistant.memory:
+  label: Where it keeps what it is taught
+auth.google.allowed_domains:
+  label: Who may sign in with Google, by email domain
+auth.google.enabled:
+  label: Sign in with Google
+auth.google.session_hours:
+  label: How long a sign-in lasts, in hours
+  number:
+    min: 1
+    max: 720
+    step: 1
 contributor.email:
   label: Your email
   info: The address those contributions are authored as, unless a forge block below overrides it.
@@ -227,6 +249,8 @@ git.github.username:
 hub_domain:
   label: Base domain
   info: Base domain for the dashboard and every project URL derived from it.
+language:
+  label: Default language
 milvus.attu_version:
   label: Attu version
   info: Image tag for Attu, the Milvus web UI.
