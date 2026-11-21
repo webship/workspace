@@ -186,12 +186,38 @@ test('the runner wipes, refuses a bad name or too much text, and a wrong token',
 test('the mailbox takes the same verbs, for a dashboard that cannot reach the socket', async () => {
   const before = calls(machineLog).length;
   const id = `t${Date.now()}`;
-  fs.writeFileSync(path.join(store, 'queue', `${id}.json`), JSON.stringify({ id, action: 'detach', session: 'dev--x--claude' }));
+  // Written beside and renamed in, as the dashboard writes it (jobs.js): written in place, the folder watch can
+  // fire before the content is there (#631).
+  const tmp = path.join(store, 'queue', `.${id}.tmp`);
+  fs.writeFileSync(tmp, JSON.stringify({ id, action: 'detach', session: 'dev--x--claude' }));
+  fs.renameSync(tmp, path.join(store, 'queue', `${id}.json`));
   const result = path.join(store, 'results', `${id}.json`);
   assert.ok(await until(() => fs.existsSync(result)), 'answered');
   assert.deepStrictEqual(JSON.parse(fs.readFileSync(result, 'utf8')), { ok: true });
   fs.unlinkSync(result);
   assert.deepStrictEqual(calls(machineLog).slice(before), [['-S', '5153.dev--x--claude', '-X', 'detach']]);
+});
+
+test('a request the runner finds still empty is put back and answered once it is written, not dropped (#631)', async () => {
+  const before = calls(machineLog).length;
+  const id = `t${Date.now()}e`;
+  // A writer that writes in place: the file is there, empty, for longer than a drain takes to find it.
+  const fd = fs.openSync(path.join(store, 'queue', `${id}.json`), 'w');
+  await wait(1200);
+  fs.writeSync(fd, JSON.stringify({ id, action: 'detach', session: 'dev--x--claude' }));
+  fs.closeSync(fd);
+  const result = path.join(store, 'results', `${id}.json`);
+  assert.ok(await until(() => fs.existsSync(result)), 'answered');
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(result, 'utf8')), { ok: true });
+  fs.unlinkSync(result);
+  assert.deepStrictEqual(calls(machineLog).slice(before), [['-S', '5153.dev--x--claude', '-X', 'detach']]);
+  // One that stays unreadable is not kept for ever: made old beside the queue, then renamed in.
+  const junk = path.join(store, 'queue', `${id}j.json`);
+  const old = path.join(store, 'queue', `.${id}j.tmp`);
+  fs.writeFileSync(old, '{ not json');
+  fs.utimesSync(old, new Date(Date.now() - 10000), new Date(Date.now() - 10000));
+  fs.renameSync(old, junk);
+  assert.ok(await until(() => !fs.existsSync(junk) && !fs.existsSync(`${junk}.taken`)), 'an old unreadable request is taken away');
 });
 
 /* ------------------------------------------------------------------ the dashboard's routing */
