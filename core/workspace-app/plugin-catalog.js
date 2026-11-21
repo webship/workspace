@@ -38,6 +38,7 @@ const FAMILIES = [
     ['bootstrap', 'Bootstrap', 'A demo site of every Bootstrap component, on 5.3 or 4.6'],
     ['mediawiki', 'MediaWiki', 'A builder for MediaWiki wikis, and its maintenance tool'],
     ['moodle', 'Moodle', 'A builder for Moodle learning sites with a test course, and its CLI tool'],
+    ['nextcloud', 'Nextcloud', 'A builder for Nextcloud Server sites from the official release, and the occ tool'],
     ['django', 'Django', 'A builder for Django projects with the admin, and the manage tool'],
     ['nextjs', 'Next.js', 'A builder for Next.js apps (the Learn course or the default app), and its CLI tool'],
     ['strapi', 'Strapi', 'A builder for Strapi apps (Community Edition) on PostgreSQL, and the strapi tool'],
