@@ -203,7 +203,11 @@ Four things that have taken the app down or hidden a feature:
 bash core/scripts/tests/cmd-smoke-test.sh    # every cmd-*.sh: syntax, bootstrap chain, header
 cd core/workspace-app && npm run test:unit   # node --test
 cd core/workspace-app && npm test            # unit + the cucumber browser suite
+cd core/workspace-app && FEATURES=tests/features/settings.feature npm run test:browser   # one feature (or a glob)
 ```
+
+Name the feature in `FEATURES`, not on the command line: cucumber-js adds a path given there to the configured ones,
+so `npm run test:browser -- tests/features/x.feature` runs every feature.
 
 The smoke test's exit code is the number of failures, and it needs no environment setup.
 
