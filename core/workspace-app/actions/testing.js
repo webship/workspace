@@ -107,9 +107,12 @@ async function testing_configure({ form, res, send, workspace, pathname }) {
     if (runningJobKey(jobKey)) {
       return send('<div class="msg error">A testing job is already running for this project.</div>', 409);
     }
-    const args = isRun ? [script, projectName, '--run'] : [script, projectName];
+    // A run can record its scenarios (#681): on, on-failure or off, which the command passes to webship-js as
+    // WEBSHIP_VIDEO. Anything else is not asked for, and the suite's own config decides.
+    const video = isRun && ['on', 'on-failure', 'off'].includes(String(form.video || '')) ? String(form.video) : '';
+    const args = isRun ? [script, projectName, '--run', ...(video ? ['--video', video] : [])] : [script, projectName];
     const started = await startInScreen({ workspace, project: projectName, projectDir: dir, ownerDir: path.join(dir, projectName),
-      verb: isRun ? 'tests' : 'tests-setup', cmdLine: `bash ${shWords([script, projectName])}${isRun ? ' --run' : ''}`,
+      verb: isRun ? 'tests' : 'tests-setup', cmdLine: `bash ${shWords([script, projectName])}${isRun ? ' --run' : ''}${video ? ` --video ${video}` : ''}`,
       label: isRun ? 'run the tests' : 'set up testing' });
     return send(screenStartedHtml(started, isRun ? 'run the tests' : 'set up testing', projectName), started.ok ? 200 : (started.already ? 409 : 500));
 }
