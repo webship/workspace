@@ -2410,7 +2410,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
       <${heading} class="${heading === 'h2' ? 'uk-h3 ' : ''}uk-margin-small-bottom settings-card-file">${fname(file)}</${heading}>
       <p class="uk-text-meta">${ws
         ? `Settings for the <strong>${esc(ws)}</strong> workspace.`
-        : file === 'settings.yml' ? 'Hub settings: paths, the account used by installs, contributor identity and API keys.'
+        : file === 'settings.yml' ? 'The workspace name, the account installs use, who contributions are credited to, git forges and AI keys.'
           : `${esc(require('./settings-model').fileHint(file, { pluginLabel: ownerLabel }))}.`}
         Secrets are never sent to this page — a blank secret field keeps the value already on disk.
         Comments and formatting in the file are preserved; only the lines you change are rewritten.</p>
@@ -2835,6 +2835,8 @@ async function settingsPage(section, state, options = {}) {
     : isNavigation ? 'Navigation'
     : isBuildOrder ? 'Command order'
       : isButtons ? 'Buttons'
+      // settings.yml is "General" everywhere else (its tile, its tab), so on its own page too.
+      : current === 'settings.yml' ? 'General'
       : current ? (meta[workspaceKey(current)] || {}).label || current : '';
   // A settings file that is a plugin's own says so, and leads to the page that has the rest of it.
   const owner = current ? require('./settings-model').sortFiles([current], require('./plugin-manifest').installedPlugins()).owned.get(current) : null;
