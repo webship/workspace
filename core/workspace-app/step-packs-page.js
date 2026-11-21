@@ -84,22 +84,22 @@ async function stepPacksPanelHtml({ workspace, project, projectDir, busy = false
     }
     const buttons = [];
     if (!has) {
-      buttons.push(`<button class="uk-button uk-button-primary uk-button-small" hx-post="/actions/steps-add" hx-vals='${vals({ pack: p.name })}' ${out}
+      buttons.push(`<button data-refocus-item="add" class="uk-button uk-button-primary uk-button-small" hx-post="/actions/steps-add" hx-vals='${vals({ pack: p.name })}' ${out}
         ${off ? `disabled title="${esc(offWhy)}"` : `title="${esc(`Add ${p.name} to ${project}: package.json, cucumber.js, then npm install in the container`)}"`}>Add</button>`);
     } else {
       if (!has.installed && has.range) {
-        buttons.push(`<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/steps-add" hx-vals='${vals({ pack: p.name })}' ${out}
+        buttons.push(`<button data-refocus-item="install" class="uk-button uk-button-default uk-button-small" hx-post="/actions/steps-add" hx-vals='${vals({ pack: p.name })}' ${out}
           ${off ? `disabled title="${esc(offWhy)}"` : 'title="Install what package.json lists"'}>Install</button>`);
       }
-      buttons.push(`<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/steps-examples" hx-vals='${vals({ pack: p.name })}' ${out}
+      buttons.push(`<button data-refocus-item="examples" class="uk-button uk-button-default uk-button-small" hx-post="/actions/steps-examples" hx-vals='${vals({ pack: p.name })}' ${out}
         ${busy ? `disabled title="${esc(offWhy)}"` : `title="${esc(`Copy the features ${p.name} ships into tests/features/${p.dir}/, and the files they use, never over a file`)}"`}>Copy examples</button>`);
       buttons.push(has.ours
-        ? `<button class="uk-button uk-button-default uk-button-small arm-step" hx-post="/actions/steps-remove" hx-vals='${vals({ pack: p.name, confirm: 'yes' })}' ${out}
+        ? `<button data-refocus-item="remove" class="uk-button uk-button-default uk-button-small arm-step" hx-post="/actions/steps-remove" hx-vals='${vals({ pack: p.name, confirm: 'yes' })}' ${out}
             hx-trigger="confirmed-remove" ${busy ? `disabled title="${esc(offWhy)}"` : `title="${esc(`Remove ${p.name}: what Add put in package.json and cucumber.js`)}"`}>Remove</button>`
         : `<button class="uk-button uk-button-default uk-button-small" disabled title="${esc('A platform plugin or a person added it: Remove only takes out what Add put in')}">Remove</button>`);
     }
     return `
-    <li class="step-pack${has ? ' is-in' : ''}" data-pack="${esc(p.name)}">
+    <li class="step-pack${has ? ' is-in' : ''}" data-pack="${esc(p.name)}" data-refocus="${esc(`step-pack:${p.name}`)}">
       <div class="step-pack-line">
         <span class="step-pack-logo" aria-hidden="true">${logo ? `<img src="${esc(logo)}" alt="" width="32" height="32" loading="lazy">` : iconHtml('tabler:puzzle', 1.2)}</span>
         <span class="step-pack-main">
@@ -121,8 +121,11 @@ async function stepPacksPanelHtml({ workspace, project, projectDir, busy = false
     .map((h) => stepPacks.describePack({ name: h.name }));
   const picker = `/fragments/projects/features/${encodeURIComponent(workspace)}/${encodeURIComponent(project)}`;
 
+  // Drawn again when the page is told its lists changed: a step this panel started tells it when its screen is
+  // done (#488), so a pack just added reads as in the project, and the buttons a running step turned off come back.
+  const self = `/fragments/projects/steps/${encodeURIComponent(workspace)}/${encodeURIComponent(project)}`;
   return `
-    <div class="editor-card step-packs">
+    <div class="editor-card step-packs" hx-get="${esc(self)}" hx-trigger="refresh-projects from:body" hx-swap="outerHTML">
       <h3 class="uk-margin-small-bottom">Extra steps for ${esc(project)}</h3>
       <p class="uk-text-meta step-packs-help">A step pack adds the steps of one platform, or of a service any site can use, to this
         project's webship-js suite. <strong>Add</strong> puts it in <code>package.json</code> and <code>cucumber.js</code> and installs it in the

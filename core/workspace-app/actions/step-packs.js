@@ -63,7 +63,10 @@ async function steps_verb({ form, send, workspace, pathname }) {
     cmdLine: `bash ${shWords([SCRIPT, p.projectName, verb.flag, name])}`,
     label,
   });
-  return send(screenStartedHtml(started, verb.label(name), p.projectName), started.ok ? 200 : (started.already ? 409 : 500));
+  // The panel shows what the project has, and the step changes it: the page is told when the session is done
+  // (refresh-projects, which the panel listens for), as a plugin's step tells its page (#488).
+  const answer = started.ok ? { ...started, watch: true } : started;
+  return send(screenStartedHtml(answer, verb.label(name), p.projectName), started.ok ? 200 : (started.already ? 409 : 500));
 }
 
 /** Run one feature: the run picker's Run. The same session as the Tests menu's run, so the two never overlap. */
