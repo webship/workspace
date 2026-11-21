@@ -46,3 +46,14 @@ test('there, the toggle opens it without remembering it, and a click outside or 
   assert.match(close, /if \(document\.querySelector\('\.uk-modal\.uk-open, \.uk-dropdown\.uk-open'\)\) return;/, 'Escape first closes what is open on top');
   assert.match(close, /toggle\.focus\(\)/, 'focus goes back to the toggle');
 });
+
+// From the accessibility test of this round (WCAG 2.4.11): Tab past the open rail's last tile went into the page
+// under it, and Dev's Build at 1024 took focus 100% hidden.
+test('there, the open rail also closes when keyboard focus moves out of it', () => {
+  const ui = read('public', 'ui.js');
+  const at = ui.indexOf("document.addEventListener('focusin', (e) => {\n  if (!railTight()");
+  assert.ok(at > 0, 'no focusin handler for the rail');
+  const body = ui.slice(at, ui.indexOf('});', at));
+  assert.match(body, /e\.target\.closest\('\.actions-side, \.uk-dropdown, \.uk-modal, #rail-tip'\)\) return;/);
+  assert.match(body, /applyActionsCollapsed\(true\);/);
+});
