@@ -29,7 +29,7 @@ npx -y @webship.co/workspace@latest update ~/workspace
 
 `update` refreshes the core (`core/scripts`, `core/config`, the dashboard, `commands/`) and keeps every settings file, the plugins you required in `core/workspace-app/package.json`, and this machine's own values in the dashboard's `.ddev/` (its project name, its docker GID). It repairs what an earlier release left broken in `settings.yml`, removes the files a release stopped shipping while they are as shipped, notes how the installed plugins shipped their files, and restarts the dashboard when it serves this workspace.
 
-Then each plugin, which places the files of its new version: Settings → Plugins → the plugin → **Update to <version>**, then **Reinstall**; or from a terminal
+Then each plugin, which places the files of its new version: its tab in Settings → **Update to <version>**, then **Reinstall**; or from a terminal
 
 ```bash
 webship-workspace plugin require <name>

@@ -1,5 +1,5 @@
 /**
- * Settings → Plugins: where a plugin is added, and what every Settings page knows of the plugins.
+ * Settings → Add a plugin: where a plugin is added, and what every Settings page knows of the plugins.
  *
  * `rows()` is every plugin package the dashboard can see with the step it is at, what it needs and
  * who needs it; the Settings home and a plugin's own page draw from it (settings-home.js,
@@ -88,7 +88,7 @@ function rows() {
 }
 
 /**
- * Settings → Plugins: where a plugin is added. The plugins that are already here live on the Settings
+ * Settings → Add a plugin: where a plugin is added. The plugins that are already here live on the Settings
  * home (one row each, by family) and on their own pages; this page is the box that adds any package,
  * the catalogue by family under the same filter, and (closed, at the end) the commands the base uses.
  */

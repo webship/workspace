@@ -88,7 +88,7 @@ ai_providers:
     api_key: sk-change-this
 workspaces: []
 # Workspace folders are plugins (dev, test, drupal-modules, …): `webship-workspace plugin require <name>`
-# puts one on this list when you activate it. See Settings → Plugins, or `webship-workspace catalog`.
+# puts one on this list when you activate it. See Settings → Add a plugin, or `webship-workspace catalog`.
 
 # The base domain every dashboard URL is built from, and what DDEV routes.
 #

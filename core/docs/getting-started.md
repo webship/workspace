@@ -43,7 +43,7 @@ When no session can be started the command is not run: the answer says what is m
 
 ## Then
 
-- **Settings → Plugins** shows the catalogue. Add the GIT menu (`git`), the Web IDE (`ide`), a hosting provider (`upsun`, `acquia`, …), a git forge (`github`, `gitlab`, `bitbucket`), or more workspace folders (`test`, `drupal-modules`, `docs`, `ai-agents`, …).
+- **Settings → Add a plugin** shows the catalogue. Add the GIT menu (`git`), the Web IDE (`ide`), a hosting provider (`upsun`, `acquia`, …), a git forge (`github`, `gitlab`, `bitbucket`), or more workspace folders (`test`, `drupal-modules`, `docs`, `ai-agents`, …).
 - A plugin can need another one: a platform plugin (`wordpress`, `drupal`, …) needs a sites folder for its builder and the AI Agents folder for its agents. `webship-workspace plugin activate wordpress --with-needs` adds what is missing first, and the Activate button asks; see [Plugins](plugins.md).
 - `webship-workspace doctor` lists the commands the core and your plugins call on this machine (git, node, docker, ddev, python, a provider's CLI, …): found, with the version, or missing, with how to install it. It installs nothing; `init` says what is missing before it starts.
 - Each plugin with settings gets its own file, `core/config/plugin.<name>.settings.yml`, edited from Settings. Secrets live there, never in `settings.yml`.

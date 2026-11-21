@@ -2215,7 +2215,7 @@ function settingsModesHtml(file, raw) {
 
 /**
  * The plugins of settings.yml, as General shows them: one line each, with the plugin's name as its manifest labels it,
- * whether it is on, its package and a link to its page in Settings → Plugins, where Activate, Deactivate and the
+ * whether it is on, its package and a link to its tab in Settings, where Activate, Deactivate and the
  * rest run with the steps that go with them (#661). Nothing here is a form field.
  */
 function settingsPluginsBlockHtml(pluginRows) {
@@ -2243,7 +2243,7 @@ function settingsPluginsBlockHtml(pluginRows) {
   }).join('');
   return `<fieldset class="settings-group settings-plugins">
       <legend class="settings-group-name">plugins</legend>
-      <p class="uk-text-meta">The plugins this workspace has added. Each one is turned on or off, updated and taken out on its own page in Settings → Plugins, where the steps that go with it run too.</p>
+      <p class="uk-text-meta">The plugins this workspace has added. Each one is turned on or off, updated and taken out on its own tab in Settings, where the steps that go with it run too.</p>
       <ul class="uk-list settings-plugins-list">${lines}</ul>
     </fieldset>`;
 }
@@ -3142,7 +3142,7 @@ function emptyWorkspaceHtml() {
   return `<div class="uk-card uk-card-default uk-card-body uk-margin-small-top empty-workspace">
       <h2 class="uk-h4">Empty, on purpose</h2>
       <p>This workspace has no folders and no plugins yet. Everything is an npm package <code>@webship.co/workspace-&lt;name&gt;</code>,
-        added one at a time when you ask for it — from <a href="/settings/plugins">Settings → Plugins</a>, or:</p>
+        added one at a time when you ask for it — from <a href="/settings/plugins">Settings → Add a plugin</a>, or:</p>
       <pre class="uk-padding-small">webship-workspace plugin require dev
 webship-workspace plugin activate dev
 webship-workspace plugin install dev</pre>
@@ -8518,7 +8518,7 @@ server.listen(PORT, LISTEN_HOST, () => {
       const check = require('./command-check');
       check.setLocalOnly(true);
       const text = check.missingText([check.checkCore(), ...check.checkPlugins()]);
-      if (text) console.warn(`Commands this machine does not have (Settings → Plugins lists them; nothing is installed for you):\n${text}`);
+      if (text) console.warn(`Commands this machine does not have (each plugin's tab in Settings lists them; nothing is installed for you):\n${text}`);
     } catch (err) { console.warn('command check skipped:', err.message); }
   });
   console.log(`workspace-dashboard (node:http + HTMX) listening on ${LISTEN_HOST || '*'}:${PORT}`);
