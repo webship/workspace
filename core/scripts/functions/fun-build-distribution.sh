@@ -150,10 +150,14 @@ function build_distribution() {
     ${php_version:+--php-version=${php_version}} --nodejs-version=$(ddev_nodejs_version) --auto ;
   ddev_telemetry_off ;
   ddev_up start ;
+  # The site's address comes from its runtime: https://<name>.ddev.site on DDEV, a local port on Docker (#694).
+  base_url="$(rt_url)" ;
 
   # Capture the db type actually running before composer create-project can change it,
   # so the re-align below restores it instead of a stale hardcoded version.
-  provisioned_db_type=$(grep -A2 '^database:' .ddev/config.yaml | grep 'version:' | awk '{print $2}' | tr -d '"') ;
+  # The database version the runtime provisioned: DDEV's config, or the compose file's x-webship block (#694).
+  if [ -f .ddev/config.yaml ] ; then provisioned_db_type=$(grep -A2 '^database:' .ddev/config.yaml | grep 'version:' | awk '{print $2}' | tr -d '"') ;
+  else provisioned_db_type="$(rt_meta database "$PWD")" ; fi
 
   # --dev builds the development branch instead of the pinned release. Each
   # builder that supports it declares site_version_dev next to site_version;
@@ -200,7 +204,7 @@ function build_distribution() {
 
   # The template may define a different webroot than the distribution config
   # assumed — trust the project's own .ddev config from here on.
-  actual_docroot=$(grep '^docroot:' .ddev/config.yaml | awk '{print $2}') ;
+  if [ -f .ddev/config.yaml ] ; then actual_docroot=$(grep '^docroot:' .ddev/config.yaml | awk '{print $2}') ; else actual_docroot="$(rt_meta docroot "$PWD")" ; fi
   if [ -n "${actual_docroot}" ] && [ "${actual_docroot}" != "${distribution_webroot}" ]; then
     echo "Template webroot is '${actual_docroot}' (distribution config said '${distribution_webroot}') — using the template's." ;
     distribution_webroot=${actual_docroot} ;

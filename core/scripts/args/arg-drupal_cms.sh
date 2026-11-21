@@ -3,6 +3,11 @@
 argparse "$@" <<EOF || exit 1
 parser.add_argument('PROJECT_NAME',
                     help='The name of the project.')
+parser.add_argument('--runtime',
+                    dest='RUNTIME',
+                    default="_none_",
+                    choices=['ddev', 'docker', 'podman', 'kubernetes'],
+                    help='The container runtime to build on: ddev (the default, or container.runtime of settings.yml), docker (Docker Compose), podman or kubernetes.')
 parser.add_argument('-i', '--install',
                     action='store_true',
                     default=False,
