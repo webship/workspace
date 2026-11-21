@@ -76,7 +76,9 @@ test('the width control is on every page, exactly once', () => {
   // It used to be a row in the rail, which every page has. Moved beside the grid control, it has to
   // reach the pages that have no grid control — and must not appear twice on the ones that do.
   assert.match(server, /function widthSwitcherHtml\(\)/);
-  const heads = (server.match(/page-heading">\$\{widthSwitcherHtml\(\)\}/g) || []).length;
+  // Last in each heading, after its title, where it is drawn (2026-11-21: first in the markup, it was reached
+  // before the heading's "?" that is drawn before it).
+  const heads = (server.match(/\n {4}<\/div>\n {4}\$\{widthSwitcherHtml\(\)\}\n {2}<\/div>/g) || []).length;
   assert.ok(heads >= 4, `only ${heads} page headings carry it`);
   // A workspace of projects carries it beside its rows, so its heading must not repeat it — and a
   // workspace of FILES has no such row, so there the heading is where it goes.

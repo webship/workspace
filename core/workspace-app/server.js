@@ -2893,12 +2893,13 @@ async function settingsPage(section, state, options = {}) {
       : !isScreens && !isIndex && chosenName ? `${chosenName} · Settings` : pageName;
   return pageShell(`${titled} · Webship Workspace`, `
 <main class="uk-container uk-container-small page-body webship-workspace-page">
-  <div class="uk-flex uk-flex-middle page-heading">${widthSwitcherHtml()}
+  <div class="uk-flex uk-flex-middle page-heading">
     <span class="page-heading-icon">${iconHtml(isScreens ? 'tabler:device-tv' : 'tabler:settings', 1.1)}</span>
     <div>
       <h1 class="uk-margin-remove">${pageName}</h1>
       <span class="uk-text-meta">${subtitle}</span>
     </div>
+    ${widthSwitcherHtml()}
   </div>
   <div class="uk-card uk-card-default uk-card-body">
     ${body}
@@ -2992,7 +2993,7 @@ function viewSwitcherHtml(kind) {
 
   return `<div class="layout-controls">
     <div class="view-switcher" role="group" aria-label="How to lay these out">${picks}</div>
-    ${widthSwitcherHtml()}
+    ${files ? '' : widthSwitcherHtml()}
     ${!files && !home ? densitySwitcherHtml() : ''}
     ${!files && !home ? toolLabelsSwitcherHtml() : ''}
   </div>`;
@@ -4652,12 +4653,13 @@ function backupsPage(key, state) {
 
   return pageShell(`${meta.label} Backups · Webship Workspace`, `
 <main class="uk-container uk-container-small page-body webship-workspace-page">
-  <div class="uk-flex uk-flex-middle page-heading">${widthSwitcherHtml()}
+  <div class="uk-flex uk-flex-middle page-heading">
     <span class="page-heading-icon"><span uk-icon="icon: album; ratio: 1.1"></span></span>
     <div>
       <h1 class="uk-margin-remove">${esc(meta.label)} Backups</h1>
       <span class="uk-text-meta">Restore or delete archived projects from this workspace</span>
     </div>
+    ${widthSwitcherHtml()}
   </div>
   <div class="uk-card uk-card-default uk-card-body">
     <div id="webship-workspace-backups" hx-get="/fragments/${esc(key)}/backups" hx-trigger="refresh-projects from:body">
@@ -4720,12 +4722,13 @@ function commandsState(req) {
 function commandsShell(title, subtitle, active, body, context = 'commands') {
   return pageShell(`${title} · Webship Workspace`, `
 <main class="uk-container uk-container-small page-body webship-workspace-page">
-  <div class="uk-flex uk-flex-middle page-heading">${widthSwitcherHtml()}
+  <div class="uk-flex uk-flex-middle page-heading">
     <span class="page-heading-icon">${iconHtml('tabler:terminal-2', 1.1)}</span>
     <div>
       <h1 class="uk-margin-remove">${esc(title)}</h1>
       <span class="uk-text-meta">${subtitle}</span>
     </div>
+    ${widthSwitcherHtml()}
   </div>
   <div class="uk-card uk-card-default uk-card-body">
     ${commandsPage.tabsHtml(active)}
@@ -4768,14 +4771,16 @@ async function workspacePage(key, state) {
   return pageShell(`${meta.label} · Webship Workspace`, `
 <main class="uk-container uk-container-small page-body webship-workspace-page">
   <!-- A workspace of projects carries the width control beside its rows, with the grid choice it
-       belongs to. A workspace of FILES has no such row of controls, so it takes it here instead —
-       every page has a width, whether or not it has a list to lay out. -->
-  <div class="uk-flex uk-flex-middle page-heading">${meta.kind === 'files' ? widthSwitcherHtml() : ''}
+       belongs to. A workspace of FILES takes it here, and its list's controls keep only the grid
+       choice: /docs had it twice. Every page has a width, whether or not it has a list to lay out.
+       Last in the heading, where it is drawn, so focus meets it after the heading's "?" too. -->
+  <div class="uk-flex uk-flex-middle page-heading">
     <span class="page-heading-icon">${iconHtml(meta.icon, 1.1)}</span>
     <div>
       <h1 class="uk-margin-remove uk-text-capitalize">${esc(meta.label)}</h1>
       <span class="uk-text-meta">${esc(meta.subtitle)}</span>
     </div>
+    ${meta.kind === 'files' ? widthSwitcherHtml() : ''}
   </div>
   <div class="uk-card uk-card-default uk-card-body">
     ${(() => {
@@ -6204,12 +6209,13 @@ async function onRequest(req, res) {
         const identity = assistantIdentityFor('assistant');
         return res.end(pageShell(`${identity.name} · Webship Workspace`, `
 <main class="uk-container page-body webship-workspace-page assistant-page" id="main-content">
-  <div class="uk-flex uk-flex-middle page-heading">${widthSwitcherHtml()}
+  <div class="uk-flex uk-flex-middle page-heading">
     <span class="page-heading-icon">${iconHtml('tabler:sparkles', 1.1)}</span>
     <div>
       <h1 class="uk-margin-remove">${esc(identity.name)}</h1>
       <span class="uk-text-meta">Ask about the workspace, and have it done — the same conversation as the panel</span>
     </div>
+    ${widthSwitcherHtml()}
   </div>
   ${assistantHtml({ context: 'assistant' })}
 </main>`, 'assistant'));
@@ -6398,12 +6404,13 @@ async function onRequest(req, res) {
         res.writeHead(one || !ws ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(pageShell(`${one ? `${one.label} · ` : ''}Changelog · Webship Workspace`, `
 <main class="uk-container page-body webship-workspace-page" id="main-content">
-  <div class="uk-flex uk-flex-middle page-heading">${widthSwitcherHtml()}
+  <div class="uk-flex uk-flex-middle page-heading">
     <span class="page-heading-icon">${iconHtml('tabler:history', 1.1)}</span>
     <div>
       <h1 class="uk-margin-remove">Changelog</h1>
       <span class="uk-text-meta">What shipped, read from the file each one already keeps</span>
     </div>
+    ${widthSwitcherHtml()}
   </div>
   <div class="uk-card uk-card-default uk-card-body">${back}${body}</div>
 </main>`, 'changelog'));
