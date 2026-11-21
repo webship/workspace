@@ -1,5 +1,6 @@
 /**
- * Reflow (round 7): no page scrolls sideways at 320px because of the find row, and inline code wraps below 960px.
+ * Reflow (round 7): no page scrolls sideways at 320px because of the find row, and inline code wraps below 960px
+ * (at every width since #561).
  *
  * At 320px every list page scrolled 12px sideways: the find row's phone rule (.lc-find wraps) lost to
  * `.lc-group { flex-wrap: nowrap }`, assembled later with the same specificity. /graphs scrolled at 768px and at
@@ -26,8 +27,9 @@ test('on a phone the find row wraps, and its rule outranks the bar\'s nowrap', (
   assert.ok(spec(m[1]) > spec(nowrap[1]), `${m[1].trim()} outranks ${nowrap[1]} (the bar's file is assembled later)`);
 });
 
-test('inline code wraps below 960px, a block of code is left alone', () => {
-  const tablet = responsive.slice(responsive.indexOf('@media (max-width: 59.9375em) {\n  :not(pre) > code'));
-  assert.match(tablet, /^@media \(max-width: 59\.9375em\) \{\n  :not\(pre\) > code \{ white-space: normal; overflow-wrap: anywhere; \}\n\}/);
-  assert.ok(!/(^|[\s,])pre code/.test(tablet.slice(0, tablet.indexOf('}\n}') + 3)), 'no rule here touches code inside pre');
+// Below 960px first; since #561 at every width: a long path in running text ran /docs to 1584px at 1440.
+test('inline code wraps at every width (below 960px since round 7), a block of code is left alone', () => {
+  assert.match(responsive, /^:not\(pre\) > code \{ white-space: normal; overflow-wrap: anywhere; \}$/m);
+  const line = responsive.match(/^:not\(pre\) > code \{[^}]*\}$/m)[0];
+  assert.ok(!/(^|[\s,])pre code/.test(line), 'the rule does not touch code inside pre');
 });
