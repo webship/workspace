@@ -101,3 +101,14 @@ test('the Start AI prompt is an Ace editor, loaded only when Start AI is ticked,
   assert.match(ui, /matches\('input\[name="ai_after"\]'\)/);
   assert.match(ui, /ta\.dataset\.ace = ta\.dataset\.aceOnDemand;\n  attachAce\(form\);/);
 });
+
+// The create box drew the other ways to make something as outline buttons, but the rail built them filled
+// (uk-button-secondary), so on /docs at 390 "Generate site doc" was filled in the rail and outlined in the
+// box on the same first screen. They are built outline where they are made.
+test('every create action but the primary one is built outline, so the rail and the create box agree', () => {
+  const images = fs.readFileSync(path.join(root, 'images-page.js'), 'utf8');
+  for (const label of ['Generate with AI', 'Generate site doc', 'Screenshot a site', 'Generate script with AI']) {
+    assert.match(server + images, new RegExp(`btn\\('default', '[^']+', '${label}'`), `${label} is outline where it is made`);
+    assert.doesNotMatch(server + images, new RegExp(`btn\\('secondary', '[^']+', '${label}'`), `${label} is still filled`);
+  }
+});

@@ -409,7 +409,7 @@ function createButtons(btn, modal) {
   return [
     btn('primary', 'upload', 'Upload images', `hx-get="/fragments/images/upload" ${modal}`, 'Drop or choose images to add to this workspace'),
     btn('default', 'tabler:camera', 'Screenshot a page', `hx-get="/fragments/images/screenshot-form" ${modal}`, 'A picture of any web page, at a chosen width'),
-    btn('secondary', 'bolt', 'Generate with AI', `hx-get="/fragments/images/generate-form" ${modal}`, 'Describe a picture and an AI provider draws it; you see the plan and the cost first'),
+    btn('default', 'bolt', 'Generate with AI', `hx-get="/fragments/images/generate-form" ${modal}`, 'Describe a picture and an AI provider draws it; you see the plan and the cost first'),
     btn('default', 'tabler:vector-bezier', 'Generate SVG', `hx-get="/fragments/images/svg-form" ${modal}`, 'A drawing as SVG code, still or animated, on brand; you see the plan and the cost first'),
   ];
 }
