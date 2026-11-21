@@ -110,10 +110,18 @@ function sizeVideoPlayers(scope) {
 // (detail.ctx.target); detail.target is not set. Read from detail.target alone this answered the
 // button that asked — so a modal opened by a row's Clone or Configure DDEV button (hx-target
 // #editor-modal-body) never learned who opened it, and closing it gave focus back to nothing.
+//
+// In an outerHTML swap htmx 4 names the FIRST node it put in, and when the answer starts with a line break
+// (a job's view, which polls and replaces itself every second) that is a text node, with no id and no
+// classList. The element is then the first one among what was put in (detail.newContent), else the
+// node's parent (#634).
 function swappedEl(e) {
   const d = e.detail || {};
   const t = d.target || (d.ctx && d.ctx.target);
-  return t && t.nodeType === 1 ? t : e.target;
+  const el = t && t.nodeType === 1 ? t : e.target;
+  if (!el || el.nodeType === 1) return el;
+  const added = Array.isArray(d.newContent) ? d.newContent.find((n) => n && n.nodeType === 1) : null;
+  return added || el.parentElement || el;
 }
 
 // Open the editor modal whenever something is swapped into it, and put the list back

@@ -37,6 +37,13 @@ test('swappedEl answers the element that was swapped, from the request context h
   assert.equal(swappedEl({ target: button }), button);
   // A target that is not an element (a selector string) falls back to the event's target.
   assert.equal(swappedEl({ detail: { ctx: { target: '#x' } }, target: button }), button);
+  // An outerHTML swap whose answer starts with a line break: htmx 4 fires on that text node, and the
+  // element is the first one put in (a followed log's view replacing itself every second, #634).
+  const text = { nodeType: 3, parentElement: body };
+  const job = { nodeType: 1, id: 'job-1' };
+  assert.equal(swappedEl({ detail: { task: { target: text }, newContent: [text, job, { nodeType: 3 }] }, target: text }), job);
+  // With nothing else to go by, the element it went into; never a node without an id or a classList.
+  assert.equal(swappedEl({ detail: {}, target: text }), body);
 });
 
 test('the editor modal remembers who opened it as it starts to open, whichever way it was opened', () => {
