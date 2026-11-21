@@ -6337,7 +6337,8 @@ async function onRequest(req, res) {
         const want = new URL(req.url, 'http://localhost').searchParams.get('scope') || 'global';
         const scope = want === 'global' || isValidWorkspace(want) ? want : 'global';
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(await settingsPage('build-order', readPageState(req), { scope, fragment: isFragment(req) }));
+        // 'command-order' is the section settingsPage knows; the old name fell through to the Settings home.
+        return res.end(await settingsPage('command-order', readPageState(req), { scope, fragment: isFragment(req) }));
       }
       if (pathname === '/settings/styles') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
