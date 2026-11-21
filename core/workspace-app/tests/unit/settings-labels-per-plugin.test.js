@@ -91,7 +91,7 @@ const labelOf = (html, key) => {
   const rows = html.split('<div class="settings-row').slice(1);
   const row = rows.find((r) => r.includes(`value="${key}"`));
   assert.ok(row, `a row for ${key}`);
-  return (row.match(/<label for="[^"]+">([^<]*)<\/label>/) || [])[1];
+  return (row.match(/<label for="[^"]+"(?: id="[^"]+")?>([^<]*)<\/label>/) || [])[1];
 };
 
 test("a plugin's own labels name its own fields, from its labels file or from register(api)", async () => {

@@ -202,7 +202,8 @@ test('in a pane of the settings modal the plugin name is the pane heading, not s
 
 test('a settings field: the label is its name only, hints are tied with aria-describedby, a placeholder value is marked', () => {
   const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
-  assert.match(server, /const keyHtml = \(r, id, name, secret = false\) => `<div class="settings-key"><label for="\$\{id\}">\$\{esc\(name\)\}<\/label>/);
+  // The label has an id since a switch is named by it alone (aria-labelledby, 2026-11-21).
+  assert.match(server, /const keyHtml = \(r, id, name, secret = false\) => `<div class="settings-key"><label for="\$\{id\}" id="\$\{id\}-name">\$\{esc\(name\)\}<\/label>/);
   assert.ok(!/<label class="settings-key" for="\$\{id\}">[^\n]*fieldHint/.test(server), 'no hint inside a label');
   assert.match(server, /const isTodo = \(r\) => !r\.list && \/CHANGE_ME\/\.test\(String\(r\.value \|\| ''\)\);/);
   assert.match(server, /Still the placeholder: replace it/);

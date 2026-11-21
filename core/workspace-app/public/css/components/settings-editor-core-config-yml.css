@@ -811,16 +811,22 @@ html.dark .row-item { background: transparent; }
 .settings-find.uk-input { max-width: 26rem; margin: 0.25rem 0 1rem; border-radius: 0.5rem; }
 .settings-row[hidden], .settings-group[hidden] { display: none; }
 /* On or off is a switch, and it says which. */
+/* Off, an outlined track with a grey knob; on, a filled track with a white one. The edge and the knob are a
+   field's edge colour (base.css), 3:1 against the card in every style: the off track was --line-strong,
+   1.76:1 on the light card and 1.85:1 on the dark one (WCAG 1.4.11). A border, not a shadow, so it stays in
+   forced colours. */
 .settings-switch {
-  appearance: none; flex: none; position: relative; width: 2.25rem; height: 1.25rem; margin: 0; cursor: pointer;
-  border-radius: 999px; background: var(--line-strong); transition: background-color 0.15s ease;
+  appearance: none; flex: none; position: relative; box-sizing: border-box; width: 2.25rem; height: 1.25rem; margin: 0; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--text-subtle) 70%, var(--surface-card)); border-radius: 999px;
+  background: var(--surface-card); transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 .settings-switch::after {
-  content: ""; position: absolute; top: 0.125rem; left: 0.125rem; width: 1rem; height: 1rem; border-radius: 50%;
-  background: var(--surface-card); box-shadow: 0 1px 2px rgb(0 0 0 / 20%); transition: transform 0.15s ease;
+  content: ""; position: absolute; top: 0.0625rem; left: 0.0625rem; width: 1rem; height: 1rem; border-radius: 50%;
+  background: color-mix(in srgb, var(--text-subtle) 70%, var(--surface-card)); transition: transform 0.15s ease;
 }
-.settings-switch:checked { background: var(--brand-primary); }
-.settings-switch:checked::after { transform: translateX(1rem); }
+.settings-switch:checked { border-color: var(--brand-primary); background: var(--brand-primary); }
+.settings-switch:checked::after { background: var(--surface-card); box-shadow: 0 1px 2px rgb(0 0 0 / 20%); transform: translateX(1rem); }
+.settings-switch-state { cursor: pointer; }
 .settings-switch:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
 .settings-toggle { display: inline-flex; align-items: center; gap: 0.5rem; }
 @media (prefers-reduced-motion: reduce) { .settings-switch, .settings-switch::after { transition: none; } }
