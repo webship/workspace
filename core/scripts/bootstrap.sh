@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# A cmd-*.sh reads nothing from its stdin, and ddev's `docker exec -i` waits for ever on a stdin pipe that stays
+# open: run from a shell whose stdin is one (a CI step, an AI agent's background shell), a build hung with no
+# output at its first `ddev composer create-project` (#489). The dashboard closes stdin for every command it
+# starts; a run from anywhere else gets the same here. A terminal is left as it is, and WORKSPACE_KEEP_STDIN=1
+# keeps a pipe for a script that does read one.
+if [ ! -t 0 ] && [ -z "${WORKSPACE_KEEP_STDIN:-}" ] ; then exec < /dev/null ; fi
+
 current_path=$(pwd);
 user_name="$USER";
 
