@@ -3734,11 +3734,14 @@ async function projectRowsHtml(key, dir, state) {
   const gates = rowGates(dir, meta);
   const { allowed, canBackup, canClone, canRemove, canRagify, canTest, canChecks, canUsers, canDdev } = gates;
   const statuses = await ddevStatusMap();
+  // The RAG slot is a plugin's once one registered it (@webship.co/workspace-rag): the row draws that
+  // plugin's menu, and the core neither draws its own below nor asks the Milvus servers for this page.
+  const ragByPlugin = pluginRowMenuSlot('rag');
   // One question per SERVER for the whole table, not one per row — a workspace can mix projects
   // bound to different servers, and a stopped one answers `up: false` rather than making every row
   // wait for its own refused connection.
   const ragByInstance = new Map();
-  if (canRagify) {
+  if (canRagify && !ragByPlugin) {
     const needed = new Set(listProjects(dir).map((p) => ragInstanceFor(key, p)));
     await Promise.all([...needed].map(async (i) => ragByInstance.set(i, await ragCollections(i))));
   }
@@ -3886,7 +3889,7 @@ async function projectRowsHtml(key, dir, state) {
             hx-get="/fragments/projects/clone-form/${encodeURIComponent(key)}/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
             hx-on::after:request="UIkit.modal('#editor-modal').show()"
             title="Clone this ${esc(meta.noun)} — a copy, or a git worktree sharing its history"><span uk-icon="icon: copy; ratio: .7"></span> Clone</button>` : '';
-    const ragMenu = canRagify ? (() => {
+    const ragMenu = canRagify && !ragByPlugin ? (() => {
             // The RAG index: the same shape as the Graph menu next to it, because it answers the
             // half of the tree the graph does not — prose, templates and configuration.
             const instance = ragInstanceFor(key, p);
@@ -3932,12 +3935,14 @@ async function projectRowsHtml(key, dir, state) {
           })();
     // SCREENS is drawn beside the running state in the card's head, so the tool strip leaves it out.
     const screensOnTools = '';
+    // The menus activated plugins bring, in the slots they registered (UPSUN, …).
+    const pluginMenus = pluginRowMenus({ key, project: p, dir, meta, allowed, vals });
     const rowLines = rowLayout.rowLinesHtml({
       ddev: ddevButton, tests: testsMenu,
-      // The menus activated plugins bring, in the slots they registered (UPSUN, …).
-      ...pluginRowMenus({ key, project: p, dir, meta, allowed, vals }),
+      ...pluginMenus,
       screens: screensOnTools, composer: composerMenu, node: nodeMenu, backup: backupButton, clone: cloneButton,
-      rag: ragMenu, more: moreMenu,
+      // A plugin's RAG menu keeps its slot: the core's own is drawn only where no plugin registered one.
+      rag: ragByPlugin ? pluginMenus.rag : ragMenu, more: moreMenu,
     }, rowCtx, { preArranged: new Set(['ddev', 'more']) });
     // What is written down about this folder, read once: the name it is called by is the heading, the
     // paragraph is the row's tooltip, and the pen that edits both sits in the card's own corner.

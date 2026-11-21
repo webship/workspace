@@ -58,8 +58,10 @@ const BUILTIN_BUTTONS = [
   // Single buttons, with no menu inside to arrange or to add actions to.
   { id: 'backup', label: 'Backup', row: 1, menu: false },
   { id: 'clone', label: 'Clone', row: 1, menu: false },
-  { id: 'rag', label: 'RAG', row: 1 },
   { id: 'more', label: 'More', row: 1 },
+  // RAG answers about a project's text and the Graph menu a plugin adds about its code: by default RAG
+  // comes after it, last in its row, whichever plugin buttons register there (registerButton).
+  { id: 'rag', label: 'RAG', row: 1, last: true },
 ];
 const BUILTIN_IDS = new Set(BUILTIN_BUTTONS.map((b) => b.id));
 const DEFAULT_ROWS = [0, 1].map((row) => BUILTIN_BUTTONS.filter((b) => b.row === row).map((b) => b.id));
@@ -71,9 +73,15 @@ function registerButton(spec) {
   const entry = { id: spec.id, label: spec.label || spec.id, row };
   if (spec.columns === false) entry.columns = false;
   if (spec.menu === false) entry.menu = false;
-  BUILTIN_BUTTONS.push(entry);
+  // Before a button that stays last in its row (RAG), else at the end: in the buttons as in the default
+  // row, since a layout places the buttons it does not mention in the order of the buttons.
+  const lastAt = BUILTIN_BUTTONS.findIndex((b) => b.row === row && b.last);
+  const before = lastAt === -1 ? -1 : DEFAULT_ROWS[row].indexOf(BUILTIN_BUTTONS[lastAt].id);
+  if (lastAt === -1) BUILTIN_BUTTONS.push(entry);
+  else BUILTIN_BUTTONS.splice(lastAt, 0, entry);
   BUILTIN_IDS.add(spec.id);
-  DEFAULT_ROWS[row].push(spec.id);
+  if (before === -1) DEFAULT_ROWS[row].push(spec.id);
+  else DEFAULT_ROWS[row].splice(before, 0, spec.id);
 }
 const MAX_ROWS = 6;
 const MAX_COLUMNS = 4;

@@ -54,10 +54,27 @@ test('with no file there are two rows, and they are the row as it was', () => {
   const layout = rl.loadRowLayoutFresh();
   assert.deepStrictEqual(rl.DEFAULT_ROWS, [
     ['ddev', 'tests', 'ide', 'git'],
-    ['screens', 'composer', 'node', 'backup', 'clone', 'rag', 'more', 'graph'],
+    ['screens', 'composer', 'node', 'backup', 'clone', 'more', 'graph', 'rag'],
   ]);
   assert.deepStrictEqual(layout.rows, rl.DEFAULT_ROWS);
   assert.deepStrictEqual([layout.hidden, layout.custom, layout.menus], [[], [], {}]);
+});
+
+test('a button a plugin adds goes before RAG, which stays last in its row; a saved order is kept', () => {
+  // In a process of its own: registering buttons changes the module's defaults for every check after it.
+  const r = require('child_process').spawnSync(process.execPath, ['-e', `
+    const rl = require('./row-layout');
+    rl.registerButton({ id: 'graph', label: 'Graph', row: 1 });
+    rl.registerButton({ id: 'x-late', label: 'X LATE', row: 1 });
+    rl.registerButton({ id: 'x-top', label: 'X TOP', row: 0 });
+    console.log(JSON.stringify({ rows: rl.DEFAULT_ROWS, none: rl.normalizeLayout({}).rows, saved: rl.normalizeLayout({ rows: [[], ['rag', 'graph']] }).rows }));
+  `], { cwd: path.join(__dirname, '..', '..'), encoding: 'utf8', env: { ...process.env } });
+  assert.strictEqual(r.status, 0, r.stderr);
+  const { rows, none, saved } = JSON.parse(r.stdout);
+  assert.deepStrictEqual(rows[1].slice(-4), ['more', 'graph', 'x-late', 'rag'], 'in the order they registered, then RAG');
+  assert.deepStrictEqual(none, rows, 'a layout that names none of them places them the same way');
+  assert.deepStrictEqual(saved[1].slice(0, 2), ['rag', 'graph'], 'a saved order wins');
+  assert.strictEqual(rows[0][rows[0].length - 1], 'x-top', 'a row with no button kept last takes a new one at its end');
 });
 
 test('rows: every button placed exactly once, extra rows kept, a new button in its default row', () => {

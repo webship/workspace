@@ -377,7 +377,8 @@ kept in `core/config/commands.yml`, and every `cmd-*.sh` in the tree is listed a
 
 **Action buttons** in the rail, on any page — or **Commands → Buttons** — is rows management for every project
 row. With
-nothing changed, the row is exactly as it has always been.
+nothing changed, the row is exactly as it has always been. A button a plugin adds takes its place at the end
+of the row it asks for, except that RAG stays last in its row: Graph, then RAG.
 
 **Rows** — the rows of buttons, top to bottom:
 
