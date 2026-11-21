@@ -60,9 +60,10 @@ test('it opens on Ctrl or Cmd + K and "/", the sheet on "?", and chords on "g" t
 
 test('it never fires while somebody is typing, or while a modal is open', () => {
   const js = read('public/palette.js');
-  assert.match(js, /n === 'input' \|\| n === 'textarea' \|\| n === 'select' \|\| t\.isContentEditable/);
+  // (The element the key went to, a field inside a web component included: palette-keys-in-a-component-field.test.js, #671.)
+  assert.match(js, /n === 'input' \|\| n === 'textarea' \|\| n === 'select' \|\| n === 'deep-chat' \|\| t\.isContentEditable/);
   assert.match(js, /\.ace_editor, \.xterm/, 'an editor and a terminal are somewhere to type');
-  assert.match(js, /if \(typing\(e\.target\) \|\| modalOpen\(\)\) return;/);
+  assert.match(js, /if \(typing\(e\) \|\| modalOpen\(\)\) return;/);
 });
 
 test('it is a dialog with a combobox and a listbox, announces its results, and holds the page behind it inert', () => {
