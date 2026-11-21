@@ -53,6 +53,10 @@ readonly TESTING_BROWSERS_PATH='/mnt/ddev-global-cache/ms-playwright';
 # A build file in .ddev/web-build/ is rebuilt into the image on every start, so
 # the libraries survive restarts, rebuilds and a `ddev delete` + rebuild.
 readonly TESTING_BROWSER_LIBS_BUILD='.ddev/web-build/Dockerfile.playwright';
+# Written when the web container was asked and had chromium's libraries, read by the dashboard's Tests menu: an
+# image that has them without this build file (a platform's own image) is ready too (#487). Under node_modules,
+# which a project never commits.
+readonly TESTING_BROWSER_LIBS_SEEN='node_modules/.cache/webship-workspace/browser-libs';
 
 # The webship-js extra-steps packs (@webship-js/*-steps): listing, adding, removing and copying the
 # examples of one. The dashboard's Extra steps panel requires the same file, so the two never disagree.
@@ -84,20 +88,35 @@ function testing_browser_libs_ok() {
   ddev exec 'ldconfig -p | grep -q libnspr4' > /dev/null 2>&1 ;
 }
 
+# What the container said, for the dashboard: yes leaves the mark, anything else takes it away.
+function testing_browser_libs_seen() {
+  local project_path="$1" seen="$2";
+  local mark="${project_path}/${TESTING_BROWSER_LIBS_SEEN}";
+  if [ "${seen}" == 'yes' ] ; then
+    mkdir -p "$(dirname "${mark}")" 2> /dev/null && date -u +%Y-%m-%dT%H:%M:%SZ > "${mark}" 2> /dev/null ;
+  else
+    rm -f "${mark}" 2> /dev/null ;
+  fi
+  return 0 ;
+}
+
 # Make sure it is, rebuilding the image once if it is not. Called before every
 # run, so a project that predates this — or one whose image was rebuilt from an
 # older config — heals itself instead of failing the whole suite at step one.
 function testing_ensure_browser_libs() {
   local project_path="$1";
   if testing_browser_libs_ok ; then
+    testing_browser_libs_seen "${project_path}" yes ;
     return 0 ;
   fi
   echo "";
   echo "The chromium libraries are missing from this project's web container — adding them to the image.";
+  testing_browser_libs_seen "${project_path}" no ;
   testing_write_browser_libs_build "${project_path}" || return 1 ;
   ddev restart || return 1 ;
   if testing_browser_libs_ok ; then
     echo "The browser libraries are in place.";
+    testing_browser_libs_seen "${project_path}" yes ;
     return 0 ;
   fi
   echo "The browser libraries are still missing after the rebuild — check ${TESTING_BROWSER_LIBS_BUILD}.";
