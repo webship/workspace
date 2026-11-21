@@ -669,7 +669,7 @@ async function newScreenFormHtml(pre) {
             <input class="uk-input uk-form-small" name="session" id="screen-session"
                    value="${esc(p.session || prefilled)}"
                    data-derived="${esc(prefilled)}" data-tail="${esc(prefilled.slice(-4))}"
-                   pattern="[a-z0-9][a-zA-Z0-9_.\-]*" title="lowercase start; letters, digits, - _ . after">
+                   pattern="[a-z0-9][a-zA-Z0-9_.\\-]*" title="lowercase start; letters, digits, - _ . after">
             <span class="uk-text-meta">Where it runs, and a short id so a second session here is not the
               same name. <code>screen -r</code> takes it; leave it empty and it is filled in for you.</span>
           </div>
