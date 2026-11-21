@@ -78,6 +78,11 @@
 .tabmodal-tab:hover { background: color-mix(in srgb, var(--text-subtle) 12%, transparent); }
 .tabmodal-tab.is-selected { background: var(--subtle-brand); color: var(--link); font-weight: 600; }
 .tabmodal-tab.is-selected .tabler-icon { color: var(--link); }
+/* In forced colours the tint goes and only the weight was left to tell the chosen tab: it gets a bar in the
+   system's highlight colour, as the switchers' current choice keeps a border there. */
+@media (forced-colors: active) {
+  .tabmodal-tab.is-selected { box-shadow: none; border-inline-start: 0.25rem solid Highlight; }
+}
 .tabmodal-tab:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: -2px; }
 .tabmodal-badge {
   flex: none;

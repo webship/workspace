@@ -262,9 +262,13 @@ function listControlsHtml(url, target, state, noun, extra, hidden, opts) {
 function listPagerHtml(url, target, p, state, noun) {
   if (!p.total) return '';
   const per = state ? state.per : 'all';
+  // A step is named by what it does ("Previous page"), not by its glyph ("‹"). One that cannot act is a disabled
+  // button: no tab stop, said as unavailable ("First page, dimmed") so a screen reader knows this is the first
+  // page, and, being inactive, exempt from the 3:1 its faded glyph is not. It was a <span> hidden from screen
+  // readers, with a `disabled` a span does not have.
   const step = (n, glyph, disabled, title) => disabled
-    ? `<span class="uk-button uk-button-default uk-button-small" aria-hidden="true" disabled>${glyph}</span>`
-    : `<button class="uk-button uk-button-default uk-button-small" title="${esc(title)}"
+    ? `<button type="button" class="uk-button uk-button-default uk-button-small" title="${esc(title)}" aria-label="${esc(title)}" disabled>${glyph}</button>`
+    : `<button class="uk-button uk-button-default uk-button-small" title="${esc(title)}" aria-label="${esc(title)}"
         hx-get="${esc(url)}${url.includes('?') ? '&' : '?'}page=${n}&per=${per}"
         hx-target="${esc(target)}" hx-swap="innerHTML">${glyph}</button>`;
   // The select carries name="per", so HTMX sends its value; hx-vals adds page=1 —
