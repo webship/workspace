@@ -382,7 +382,10 @@ fs.mkdirSync(QUEUE, { recursive: true });
 fs.mkdirSync(RESULTS, { recursive: true });
 
 function answer(id, body) {
-  try { fs.writeFileSync(path.join(RESULTS, `${id}.json`), JSON.stringify(body)); } catch (_) { /* the caller times out */ }
+  // Written beside and renamed in, as the dashboard writes its requests: a reader never finds half an answer (#657).
+  const file = path.join(RESULTS, `${id}.json`);
+  const tmp = path.join(RESULTS, `.${id}.${process.pid}.tmp`);
+  try { fs.writeFileSync(tmp, JSON.stringify(body)); fs.renameSync(tmp, file); } catch (_) { try { fs.unlinkSync(tmp); } catch (__) { /* nothing written */ } }
 }
 
 // Sessions this runner is starting right now: a second request for the same name, arriving before the first
