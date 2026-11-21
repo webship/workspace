@@ -539,6 +539,9 @@ function testing_run() {
     [ -n "${primary}" ] && env_prefix="${env_prefix} LAUNCH_URL=${primary}" ;
   fi
   [ "${HEADED}" == 'yes' ] && env_prefix="${env_prefix} HEADLESS=false";
+  # The report's name: webship-js takes it from WEBSHIP_REPORT_NAME, else from package.json, whose name is
+  # "project-name" wherever init-webship-js wrote the file (a WordPress site, most platforms) (#679).
+  env_prefix="${env_prefix} WEBSHIP_REPORT_NAME=$(printf '%q' "${PROJECT_NAME}")";
   local cucumber="node ./node_modules/@cucumber/cucumber/bin/cucumber.js --config cucumber.js";
   local filter="";
   local run_log; run_log=$(mktemp);
@@ -607,7 +610,7 @@ function testing_run() {
     if grep -q '"generate-reports"' package.json 2>/dev/null ; then
       echo "";
       echo "Generating the HTML report.";
-      ddev ${runner} run generate-reports || true ;
+      ddev exec "WEBSHIP_REPORT_NAME=$(printf '%q' "${PROJECT_NAME}") ${runner} run generate-reports" || true ;
     fi
   fi
 
