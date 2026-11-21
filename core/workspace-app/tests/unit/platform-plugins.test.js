@@ -189,7 +189,45 @@ test('a Drupal project with no distribution profile gets the list of Drupal core
   for (const name of ['drupal', 'drupal_cms']) {
     assert.match(fs.readFileSync(path.join(SCRIPTS, 'functions', `fun-distribution-${name}.sh`), 'utf8'), new RegExp(`^function set_${name}_users\\(\\)`, 'm'));
   }
-  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8'), /distribution = drupalBaseOfProject\(path\.join\(dir, projectName\)\);\n\s+if \(!distribution\) distribution = 'webship';/);
+  // The Users verbs take the list from userListOfProject, which ends with these two, and never fall back to another one (#490).
+  const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
+  assert.match(server, /const distribution = userListOfProject\(projectDir, \{ root: ROOT, profile: profileOfProject\(projectDir\) \}\);\n\s+if \(!distribution\) \{/);
+  assert.doesNotMatch(server, /distribution = 'webship'/);
+});
+
+test('a project\'s user list: its profile, the plugin that claims it, its DDEV type, Drupal core or CMS, else none (#490)', () => {
+  const { userListNames, claimOfProject, userListOfProject } = require('../../project-platform');
+  // A workspace whose core carries two lists and whose plugins carry three; one plugin has none.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-lists-'));
+  const put = (rel, text) => { fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.writeFileSync(path.join(root, rel), text); };
+  put('core/scripts/functions/fun-distribution-drupal.sh', 'function set_drupal_users() {\n  users=(a)\n}\n');
+  put('core/scripts/functions/fun-distribution-drupal_cms.sh', 'set_drupal_cms_users () {\n  users=(a)\n}\n');
+  put('core/scripts/plugins/strapi/functions/fun-strapi.sh', 'function set_strapi_users() { users=(a) ; }\n');
+  put('core/scripts/plugins/woocommerce/functions/fun-woocommerce.sh', 'function set_woocommerce_users {\n  users=(a)\n}\n');
+  put('core/scripts/plugins/wordpress/functions/fun-wordpress.sh', 'function set_wordpress_users() {\n  users=(a)\n}\n# set_nothing_users is only named here\n');
+  put('core/scripts/plugins/nextjs/functions/fun-nextjs.sh', 'function build_nextjs() { : ; }\n');
+  const names = userListNames(root);
+  assert.deepStrictEqual([...names].sort(), ['drupal', 'drupal_cms', 'strapi', 'woocommerce', 'wordpress']);
+
+  const project = (type, files = {}) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-proj-'));
+    fs.mkdirSync(path.join(dir, '.ddev'));
+    fs.writeFileSync(path.join(dir, '.ddev', 'config.yaml'), `name: p\n${type}\ndocroot: web\n`);
+    for (const [rel, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, rel), text);
+    return dir;
+  };
+  // A plugin's own file in .ddev claims the project when that plugin carries a list.
+  assert.strictEqual(claimOfProject(project('type: generic', { '.ddev/config.strapi.yaml': 'web_extra_daemons: []\n' }), names), 'strapi');
+  assert.strictEqual(claimOfProject(project('type: generic', { '.ddev/config.nextjs.yaml': '{}\n' }), names), '', 'a plugin with no list claims nothing');
+  assert.strictEqual(claimOfProject(project('type: php', { '.ddev/config.local.yaml': '{}\n' }), names), '', 'DDEV\'s own files are no claim');
+  assert.strictEqual(userListOfProject(project('type: generic', { '.ddev/config.strapi.yaml': '{}\n' }), { root }), 'strapi');
+  // The claim comes before the DDEV type: a shop built on WordPress takes the shop's list.
+  assert.strictEqual(userListOfProject(project('type: wordpress', { '.ddev/config.woocommerce.yaml': '{}\n' }), { root }), 'woocommerce');
+  assert.strictEqual(userListOfProject(project('type: wordpress'), { root }), 'wordpress');
+  assert.strictEqual(userListOfProject(project('type: drupal11'), { root }), 'drupal');
+  assert.strictEqual(userListOfProject(project('type: drupal11'), { root, profile: 'webship' }), 'webship', 'the installed profile first');
+  // Not Drupal and claimed by nothing: no list, never the Webship distribution's.
+  for (const t of ['type: php', 'type: generic', '']) assert.strictEqual(userListOfProject(project(t), { root }), '', t);
 });
 
 test('the Build form reads a plugin builder\'s arguments from the args file the installer placed', () => {
