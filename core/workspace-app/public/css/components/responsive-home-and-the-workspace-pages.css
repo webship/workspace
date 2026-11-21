@@ -465,6 +465,9 @@ html.dark #editor-modal .editor-card {
    path ("No docs here yet. Put them in /home/<you>/…/docs") ran /docs and the AI folders to 1584px at
    1440. A block of code keeps its lines and scrolls in its own box. */
 :not(pre) > code { white-space: normal; overflow-wrap: anywhere; }
+/* Except on a button: a file name in "Save settings.yml" broke the button into a three-line pill on a phone
+   ("…setti / ngs.yml"). A button's words stay on one line, above the phone rule for code.fname below. */
+.uk-button :is(code, code.fname) { white-space: nowrap; overflow-wrap: normal; }
 @media (max-width: 39.9375em) {
   :not(pre) > code, code.fname { white-space: normal; overflow-wrap: anywhere; }
   .cmd-file { max-width: 100%; }

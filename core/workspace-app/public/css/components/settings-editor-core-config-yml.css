@@ -825,5 +825,24 @@ html.dark .row-item { background: transparent; }
 .settings-toggle { display: inline-flex; align-items: center; gap: 0.5rem; }
 @media (prefers-reduced-motion: reduce) { .settings-switch, .settings-switch::after { transition: none; } }
 /* Saving is still one button; it says when there is something to save. */
-.settings-save { display: flex; align-items: center; gap: 0.75rem; }
+/* The save bar stays in view while a form is edited: General is 122 fields, about 13,000px, and its one Save
+   and "Unsaved changes" sat at the very bottom (the modal pins it already, see modal-fit.css; a page did
+   not). It wraps, so the placeholder count goes under the button on a phone instead of squeezing it. */
+.settings-save {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding: 0.75rem 0;
+  background: var(--surface-card);
+  border-top: 1px solid var(--line);
+}
+/* Below 960px the assistant's round button floats at the bottom left, over where Save began: the bar's
+   contents go to the right end there, clear of it. */
+@media (max-width: 59.9375em) {
+  .settings-save { justify-content: flex-end; }
+}
 .settings-dirty { color: var(--warning-ink); font-weight: 600; }
