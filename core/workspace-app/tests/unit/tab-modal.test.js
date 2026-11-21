@@ -162,3 +162,15 @@ test('the answer of a tab no longer chosen never lands under the chosen one, and
   assert.match(body, /e\.preventDefault\(\);/);
   assert.match(ui, /tm\._statusTimer = setTimeout\(\(\) => \{ if \(pane\.getAttribute\('aria-busy'\) === 'true'\) status\.textContent = note\.textContent; \}, 180\);/);
 });
+
+// From the accessibility test of this round (WCAG 2.1.1): typing "jira" in the modal's filter left the one
+// tab in the Tab order (the chosen Overview) hidden, so the match could only be reached with a mouse; and
+// Escape in the box closed the whole modal, where the other filters empty their box first.
+test('the filter keeps the Tab stop on a tab that is shown; Down reaches the first match; Escape empties the box first', () => {
+  const ui = read('public', 'ui.js');
+  assert.match(ui, /const stop = chosen && !chosen\.hidden \? chosen : tabs\.find\(\(t\) => !t\.hidden\);\n\s+tabs\.forEach\(\(t\) => \{ t\.tabIndex = t === stop \? 0 : -1; \}\);/);
+  const keys = ui.slice(ui.indexOf('// In the filter box: Down goes to the first tab shown'));
+  assert.match(keys, /e\.key === 'ArrowDown'[\s\S]{0,200}first\.focus\(\)/);
+  assert.match(keys, /e\.key === 'Escape' && box\.value\)[\s\S]{0,120}e\.stopPropagation\(\);/);
+  assert.match(keys.slice(0, keys.indexOf('}, true);') + 9), /\}, true\);$/, 'in the capture phase, ahead of the modal');
+});
