@@ -168,6 +168,12 @@ html[data-rows-view="grid-1"] #webship-workspace-projects .project-row { max-wid
 .pcard-count[data-clash]::after { content: ""; width: 0.5rem; height: 0.5rem; margin-inline-start: 0.25rem; border-radius: 50%; background: var(--warning); }
 .pcard-domains { min-width: 16rem; max-width: min(24rem, 92vw); padding: 0.25rem; }
 .pcard-domains ul { max-height: 15rem; overflow: auto; margin: 0; padding: 0; list-style: none; }
+/* Nine addresses or more: a filter above the list (ui.js narrows it), and what is filtered out is gone. */
+.pcard-domains-find { padding: 0.25rem 0.25rem 0.375rem; }
+.pcard-domains-filter.uk-input { height: 2rem; padding: 0 0.625rem; font-size: 0.8125rem; }
+.pcard-domains-status { margin: 0.25rem 0.125rem 0; font-family: var(--font-primary); font-size: 0.75rem; color: var(--text-subtle); }
+.pcard-domains-status:empty { display: none; }
+.pcard-domains li[hidden] { display: none; }
 .pcard-domain {
   display: flex;
   align-items: center;

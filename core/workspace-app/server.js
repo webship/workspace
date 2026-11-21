@@ -2715,6 +2715,9 @@ function cardTitleHtml(text) {
   const m = BUILD_CODE_RE.exec(text);
   return m ? `<span class="pcard-code">${breakable(m[1])}</span>${breakable(text.slice(m[1].length))}` : breakable(text);
 }
+// A project's list of addresses gets a filter at its top from this many on: nine host names already take
+// scrolling to find one in a 15rem list (ui.js narrows it as you type).
+const ADDRESS_FILTER_AT = 9;
 // "name.ddev.site": the name part may be shortened with an ellipsis, the suffix never is.
 function cardHostHtml(host) {
   const i = host.indexOf('.ddev.site');
@@ -3999,7 +4002,12 @@ async function projectRowsHtml(key, dir, state) {
           ${extraAddresses.length ? `<div class="uk-inline">
             <button class="pcard-count" type="button" aria-haspopup="true"
                     aria-label="${extraAddresses.length} more address${extraAddresses.length === 1 ? '' : 'es'}"${extraAddresses.some((a) => a.clash) ? ' data-clash' : ''}>+${extraAddresses.length}</button>
-            <div class="pcard-domains" uk-dropdown="mode: click; pos: bottom-right"><ul>
+            <div class="pcard-domains" uk-dropdown="mode: click; pos: bottom-right">${extraAddresses.length >= ADDRESS_FILTER_AT ? `
+              <div class="pcard-domains-find">
+                <input type="search" class="uk-input uk-form-small pcard-domains-filter" placeholder="Filter ${extraAddresses.length} addresses"
+                       aria-label="Filter the ${extraAddresses.length} addresses of ${esc(ddevName)}" autocomplete="off" spellcheck="false">
+                <p class="pcard-domains-status" role="status"></p>
+              </div>` : ''}<ul>
               ${running ? '' : '<li class="uk-nav-header">Stopped: these addresses are not answering</li>'}
               ${extraAddresses.map((a) => {
     const icon = a.storybook ? iconHtml('tabler:book', 0.7) : '';
