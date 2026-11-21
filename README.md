@@ -24,6 +24,23 @@ webship-workspace catalog                # everything you can add
 
 Nothing is added to `package.json` until you ask for it. The skeleton and the management stay in the core.
 
+## Runtimes
+
+A site runs on a container runtime. DDEV is the default, and a builder can also build on Docker Compose, Podman or a Kubernetes cluster:
+
+```bash
+bash dev/cmd-drupal11-recommended-project.sh mysite --install --runtime docker      # or kubernetes, podman
+```
+
+| | DDEV | Docker Compose | Kubernetes | Podman |
+|---|---|---|---|---|
+| Build and install a Drupal site | Yes | Yes | Yes | Yes, not yet run on a real Podman |
+| The dashboard's row, the Tests menu, backups | Yes | On the way | On the way | On the way |
+| The platform plugins' builders | Yes | On the way | On the way | On the way |
+| The dashboard itself | Yes | On the way | On the way | On the way |
+
+[Runtimes](core/docs/runtimes.md) has the whole table, what a project carries on each runtime, and how to choose a cluster. Lando and Docksal are planned next.
+
 ## What a plugin is
 
 An npm package `@webship.co/workspace-<name>` (repository `github.com/webship/workspace-<name>`, branch `1.0.x`), written in TypeScript against `@webship.co/workspace-plugin-api`. Families share a base: hosting providers (`upsun`, `acquia`, `digitalocean`, `cpanel`, `aws`, `azure`, `godaddy`), git forges (`github`, `gitlab`, `bitbucket`), container runtimes (`docker`, `lando`, `docksal`, `podman`, `kubernetes`), and every workspace folder (`dev`, `test`, `drupal-modules`, `drupal-themes`, `docs`, `images`, `ai-agents`, …) is a plugin too.
@@ -36,6 +53,7 @@ An npm package `@webship.co/workspace-<name>` (repository `github.com/webship/wo
 - [Using plugins: a help guide](core/docs/plugins-guide.md) — find a plugin, add it, set it up, use it, keep it up to date, take it out.
 - [Plugins](core/docs/plugins.md) — the four steps, the families, writing one.
 - [Workspaces](core/docs/workspaces.md) — folders, types, builders and the `cmd-*.sh` commands.
+- [Runtimes](core/docs/runtimes.md) — DDEV, Docker Compose, Podman and Kubernetes: what works on each today, and how to build on one.
 - [Testing](core/docs/testing.md) — unit tests, the webship-js browser suite, and the webship-js step packs a project can add (`cmd-tools-testing.sh <project> --list-steps`).
 - [Releases](core/docs/releases.md) — versions, npm, and how changes land (issues and pull requests).
 - [The plugin contract](core/workspace-app/PLUGINS.md) — the manifest and the api, for plugin authors.
