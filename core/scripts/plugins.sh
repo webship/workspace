@@ -43,7 +43,14 @@ restart_app() {
   # A test drives these verbs against a temporary tree; it must never restart the dashboard that serves.
   [ -n "${WORKSPACE_PLUGINS_NO_RESTART:-}" ] && return 0 ;
   if command -v supervisorctl > /dev/null 2>&1 && supervisorctl status webextradaemons:workspace-app > /dev/null 2>&1 ; then
-    supervisorctl restart webextradaemons:workspace-app ;
+    # Inside a dashboard's container. It mounts the whole workspace tree, so a step can be run here for
+    # another tree under it (a throwaway one in test/ or sandboxes/): restart only when this workspace's
+    # dashboard folder is the one the container runs from, as the host side checks the mounts (#629).
+    if [ "${WORKSPACE_ROOT}/core/workspace-app" -ef "${DDEV_APPROOT:-/var/www/html}" ] ; then
+      supervisorctl restart webextradaemons:workspace-app ;
+    else
+      echo "The dashboard that is running serves another workspace, so it was not restarted; this one loads the change when its own dashboard starts." ;
+    fi
   elif command -v docker > /dev/null 2>&1 ; then
     # The container is named after the DDEV project, not after the workspace: on a machine with two
     # workspaces the one that is up may be serving the other tree. It is restarted only when it has

@@ -566,6 +566,28 @@ esac
   assert.strictEqual(execs(), 1, 'its own dashboard is restarted');
 });
 
+test('inside a dashboard\'s container, a step restarts it only when it runs this workspace\'s dashboard (#629)', () => {
+  const t = tree();
+  folder(t.plugins, 'dev');
+  ok(sh(t, '--activate', 'dev'));
+  // A stand-in for the container's supervisor: it knows the dashboard and writes down a restart.
+  const log = path.join(t.root, 'supervisor.log');
+  fs.writeFileSync(path.join(t.bin, 'supervisorctl'), `#!/usr/bin/env bash\necho "$*" >> "${log}"\nexit 0\n`, { mode: 0o755 });
+  const restart = (approot) => spawnSync('bash', [path.join(SCRIPTS, 'plugins.sh'), '--deactivate', 'dev'], { cwd: t.root,
+    env: { ...env(t), WORKSPACE_PLUGINS_NO_RESTART: '', DDEV_APPROOT: approot }, encoding: 'utf8', timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'] });
+  const restarts = () => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '').split('\n').filter((l) => l.startsWith('restart ')).length;
+
+  // The container runs the dashboard of another tree: the workspace this throwaway one sits in.
+  let r = ok(restart(APP));
+  assert.match(r.stdout, /serves another workspace, so it was not restarted/);
+  assert.strictEqual(restarts(), 0, 'the other tree\'s dashboard is left alone');
+
+  // The container runs this tree's dashboard.
+  r = ok(restart(path.join(t.root, 'core', 'workspace-app')));
+  assert.doesNotMatch(r.stdout, /serves another workspace/);
+  assert.strictEqual(restarts(), 1, 'its own dashboard is restarted');
+});
+
 test('requiring a name that is not published says so once, and changes nothing', () => {
   const t = tree();
   const before = snapshot(t);
