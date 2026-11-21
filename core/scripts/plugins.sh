@@ -85,6 +85,15 @@ set_plugin_setting() {
 
 plugin_module() { ( cd "${APP}" && node plugin-manifest.js --json "$1" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s||"null");process.stdout.write(p&&p.module?p.module:"")})' ) ; }
 plugin_known()  { ( cd "${APP}" && node plugin-manifest.js "$1" > /dev/null 2>&1 ) ; }
+# Is the plugin turned on here: plugins.<name>.enabled is true in settings.yml?
+plugin_active() {
+  ( cd "${APP}" && node -e '
+    const name = process.argv[1];
+    const { readSettingsRows } = require("./settings-file");
+    const row = (readSettingsRows("settings.yml") || []).find((r) => r.dotted === `plugins.${name}.enabled`);
+    process.exit(row && /^true$/i.test(String(row.display).trim()) ? 0 : 1);
+  ' "$1" 2> /dev/null ) ;
+}
 # A name this workspace has something of: a plugin the dashboard can see, or one whose package is gone
 # while settings.yml or the install record still name it (that one can still be turned off and taken out).
 plugin_here() {
@@ -383,8 +392,11 @@ case "${verb}" in
     else
       restart_app ;
     fi
-    # The next step only when there is one: a plugin with no settings is ready as it is.
-    if [ -n "$(settings_files_of "${name}")" ] ; then
+    # The next step only when there is one: a plugin with no settings is ready as it is. One that is not active
+    # (an --uninstall deactivates) is not ready, whatever it has to configure (#665).
+    if ! plugin_active "${name}" ; then
+      echo "Installed, but ${name} is not active: --activate ${name} turns it on." ;
+    elif [ -n "$(settings_files_of "${name}")" ] ; then
       echo "Installed. Next: --configure ${name}." ;
     else
       echo "Installed. ${name} has nothing to configure: it is ready." ;
