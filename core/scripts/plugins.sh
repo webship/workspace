@@ -35,6 +35,9 @@ WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(cd "${WORKSPACE_SCRIPTS}/../.." && pwd)}";
 APP="$(cd "${WORKSPACE_SCRIPTS}/../workspace-app" && pwd)";
 SETTINGS="${WORKSPACE_ROOT}/core/config/settings.yml";
 
+# A path as the dashboard shows it, ~/workspace/... and not /home/<user>/workspace/...: the home part differs
+# between machines and holds the user's name (#673).
+tilde() { case "$1" in "${HOME:-/nonexistent}") printf '~' ;; "${HOME:-/nonexistent}"/*) printf '~%s' "${1#"${HOME}"}" ;; *) printf '%s' "$1" ;; esac ; }
 usage() { awk 'NR > 1 && !/^##/ { exit } NR > 1 { sub(/^## ?/, ""); print }' "${BASH_SOURCE[0]}"; }
 
 # Inside the dashboard container the app runs supervised; on the host there is nothing to restart but
@@ -388,7 +391,7 @@ case "${verb}" in
     if echo "${out}" | grep -q '^RESTART_NEEDED' ; then
       echo "" ;
       echo "The dashboard container needs a restart for the compose file or host mount this plugin brought:" ;
-      echo "  cd ${APP} && ddev restart" ;
+      echo "  cd $(tilde "${APP}") && ddev restart" ;
     else
       restart_app ;
     fi
@@ -467,8 +470,8 @@ case "${verb}" in
     for file in ${files} ; do
       [ -f "${WORKSPACE_ROOT}/core/config/${file}" ] || { echo "${file} is not there yet: --install ${name} writes it." ; continue ; } ;
       case "${file}" in
-        workspace.*) echo "The settings of its folder: ${WORKSPACE_ROOT}/core/config/${file}" ;;
-        *) echo "Its settings: ${WORKSPACE_ROOT}/core/config/${file}" ;;
+        workspace.*) echo "The settings of its folder: $(tilde "${WORKSPACE_ROOT}/core/config/${file}")" ;;
+        *) echo "Its settings: $(tilde "${WORKSPACE_ROOT}/core/config/${file}")" ;;
       esac
       echo "Edit it there, or on the dashboard: https://workspace.ddev.site/settings/${file}" ;
       # Shown as the dashboard shows it: a secret that is set reads <hidden> (a token, a key, a password,

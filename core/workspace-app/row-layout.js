@@ -47,6 +47,7 @@ const yaml = require('js-yaml');
 
 const { esc } = require('./html');
 const { CONFIG_DIR, ROOT } = require('./workspaces');
+const { tildePath } = require('./format');
 
 const BUILTIN_BUTTONS = [
   { id: 'ddev', label: 'DDEV', row: 0 },
@@ -1273,7 +1274,7 @@ function rowActionsEditorHtml(message = '', pane = 0, { openButton = '' } = {}) 
         which failed; without it the first failure stops the rest. <code>on_error</code> runs when its step fails, and its result becomes the step's.</p>
     </details>
     <h4>Start again</h4>
-    <p class="uk-text-meta">Deletes <code>${esc(layoutFile())}</code>: every button goes back to its default row, every group and command
+    <p class="uk-text-meta">Deletes <code>${esc(tildePath(layoutFile()))}</code>: every button goes back to its default row, every group and command
       shows, and your own actions are removed.</p>
     <button type="button" class="uk-button uk-button-danger uk-button-small arm-step"
       hx-post="/actions/row-layout-reset" hx-vals='{"mtime":"${mtime}","pane":"2"}' ${target} hx-trigger="confirmed-remove">Reset to the defaults</button>

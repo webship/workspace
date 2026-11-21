@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const { execFile } = require('child_process');
 
 const { esc } = require('./html');
-const { humanSize, humanTime } = require('./format');
+const { humanSize, humanTime, tildePath } = require('./format');
 const { iconHtml } = require('./icons');
 const { ROOT, hubDomain, workspaceDir } = require('./workspaces');
 const lists = require('./lists');
@@ -161,7 +161,7 @@ function galleryHtml(st, sub, { folderDocs = '', openWith = '', viewSwitcher = '
     ${st.q ? `<p class="uk-text-meta">${p.total} of ${list.length} ${esc(noun)} match “${esc(st.q)}”.</p>` : ''}
     ${pager}
     ${rows.length ? `<div class="file-list img-list">${rows.join('')}</div>`
-      : `<p class="uk-text-meta">${st.q || images.TYPES.includes(st.kind) ? `No ${esc(noun)} match.` : `No images here yet. Put them in <code>${esc(path.join(workspaceDir('images'), rel).replace(process.env.HOME || '', '~'))}</code> and they appear here.`}</p>`}
+      : `<p class="uk-text-meta">${st.q || images.TYPES.includes(st.kind) ? `No ${esc(noun)} match.` : `No images here yet. Put them in <code>${esc(tildePath(path.join(workspaceDir('images'), rel)))}</code> and they appear here.`}</p>`}
     ${pager}
     ${all ? '' : folderDocs}`;
 }

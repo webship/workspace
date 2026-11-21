@@ -816,7 +816,7 @@ async function itemRowsHtml(key, state, sub) {
   if (meta.alsoFiles && !items.length) {
     return `
     <h3 class="uk-margin-small-bottom uk-margin-top">${esc(heading)} <span class="uk-badge">0</span></h3>
-    <p class="uk-text-meta">No ${esc(nounPlural)} yet — put them in <code>${esc(meta.dir)}</code> and they appear here.</p>
+    <p class="uk-text-meta">No ${esc(nounPlural)} yet — put them in <code>${esc(tildePath(meta.dir))}</code> and they appear here.</p>
     ${folderDocsHtml(key)}`;
   }
   return `
@@ -841,7 +841,7 @@ async function itemRowsHtml(key, state, sub) {
       ? `<p class="uk-text-meta">No ${esc(meta.nounPlural)} match “${esc(st.q)}”.</p>`
       : `<p class="uk-text-meta">No ${esc(meta.nounPlural)} here yet${installable
           ? ' — create one below, or fetch a shared one.'
-          : `. Put them in <code>${esc(meta.dir.replace(process.env.HOME || '', '~'))}</code> and they appear here.`}</p>`)}
+          : `. Put them in <code>${esc(tildePath(meta.dir))}</code> and they appear here.`}</p>`)}
     ${pager}
     ${repoRows ? `<h4 class="uk-margin-small-top">In ${esc(AI_ITEMS_REPO())} <span class="uk-badge">${repoOnly.length}</span></h4>${repoRows}` : ''}
     ${folderDocsHtml(key)}`;
@@ -878,7 +878,7 @@ function folderDocsHtml(key) {
     <div class="uk-card uk-card-default uk-card-small uk-card-body uk-margin-small folder-docs">
       <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
         <span class="uk-text-bold"><span uk-icon="icon: info; ratio: .8"></span> Folder docs
-          <span class="uk-text-meta">· what a session started in <code>${esc(workspaceDir(key))}</code> reads</span></span>
+          <span class="uk-text-meta">· what a session started in <code>${esc(tildePath(workspaceDir(key)))}</code> reads</span></span>
         <div class="project-actions">${rows}</div>
       </div>
     </div>`;
