@@ -2,10 +2,11 @@
  * A terminal on a session the host runner started, attached through the runner.
  *
  * The dashboard attaches a terminal with `screen -A -x` where it runs. In its container that reaches a session on
- * the machine only when both share screen's socket directory and the machine's process namespace, and often they do
- * not: the container moved its sockets to a directory of its own because /run/screen was not usable when it started
- * (screen-dir.js), the runner uses another directory, or the container cannot share the machine's processes
- * (Docker Desktop). The window then said "There is no screen to be attached matching <session>" twice and closed.
+ * the machine only when both share screen's socket directory and the machine's process namespace, and since #564 they
+ * share neither: the container has a process space and a socket directory of its own. (Before, they often did not
+ * either: the container moved its sockets to a directory of its own because /run/screen was not usable when it
+ * started (screen-dir.js), the runner used another directory, or the container could not share the machine's
+ * processes (Docker Desktop).) The window said "There is no screen to be attached matching <session>" twice and closed.
  *
  * The runner attaches on the machine instead (`/attach/<session>`, scripts/screen-runner.js), and this relays the
  * frames both ways: over the runner's unix socket in .screens/ (the folder both sides share, no network in between),

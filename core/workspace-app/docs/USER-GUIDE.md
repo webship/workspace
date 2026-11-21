@@ -665,11 +665,13 @@ Some releases ship changes to the container image — the release notes say so, 
 
 **Restarting the dashboard's own project from a release before 1.0.26:** do it with
 `docker kill ddev-workspace-web` and then `cd ~/workspace/core/workspace-app && ddev start`, not with `ddev restart` or
-`ddev stop`. The dashboard's web container shares the machine's process space so screen in it can reach the sessions on
-the machine, and DDEV ends a web container with `kill -- -1`, which from there reaches processes in the other containers
-too (other projects' web containers stop with it). From 1.0.26 every bash in that container refuses that kill, so
-`ddev restart` is safe again once the container has been made new from 1.0.26's config: the `docker kill` way is
-needed for that one restart (webship/workspace#564).
+`ddev stop`. Before 1.0.26 the dashboard's web container shares the machine's process space so screen in it can reach
+the sessions on the machine, and DDEV ends a web container with `kill -- -1`, which from there reaches processes in the
+other containers too (other projects' web containers stop with it). From 1.0.26 the container has a process space of
+its own: the screen runner on your machine does every verb on a session (interrupt, detach, `/exit`, kill), and every
+bash in the container refuses that kill as well. So `ddev restart` is safe again once the container has been made new
+from 1.0.26's config: the `docker kill` way is needed for that one restart (webship/workspace#564). Both updaters say so
+when a release changes `.ddev/`.
 
 **If you are on 1.0.9 exactly**, run `bash ~/workspace/core/scripts/docker-gid.sh` once. That
 release's updater did not put this machine's docker GID back, and the symptom is delayed: nothing is

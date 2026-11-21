@@ -148,9 +148,8 @@ desktop — and a container cannot start a host process. Without the boot servic
 `bash core/workspace-app/scripts/screen-host.sh --start`.
 
 The runner attaches the dashboard's terminals to those sessions too. The dashboard's container reaches it through a
-unix socket in `.screens/` (`runner.sock`, yours only), so a terminal opens on a session on your machine even when
-the container cannot see that machine's screen sessions itself: a container that started before screen was
-installed on the machine, a runner with a socket directory of its own, or Docker Desktop.
+unix socket in `.screens/` (`runner.sock`, yours only), so a terminal opens on a session on your machine, which the
+container cannot see itself: it has a process space and a screen socket directory of its own (webship/workspace#564).
 
 Every other verb on a session on your machine goes the same way: Interrupt (Ctrl-C), Detach, **/exit**, the mode
 reset, Kill and **Remove ended sessions** are done by the runner, over that socket, else through the mailbox in the
