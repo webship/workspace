@@ -78,7 +78,8 @@ test('a tab that is loading marks its pane busy and says so, and shows nothing o
   const block = ui.slice(ui.indexOf('(function tabModals()'), ui.indexOf('const openFromHash'));
   assert.match(block, /pane\.setAttribute\('aria-busy', 'true'\)/);
   assert.match(block, /note\.textContent = `Loading \$\{label \|\| 'this tab'\}…`/);
-  assert.match(block, /if \(tab\) \{ const tm = tab\.closest\('\.tabmodal'\); select\(tm, tab\); busy\(tm, tab\.dataset\.label\); return; \}/,
+  // (Choosing one also folds the list on a phone, #669: the select and the busy mark stay what they were.)
+  assert.match(block, /if \(tab\) \{\s*const tm = tab\.closest\('\.tabmodal'\);\s*select\(tm, tab\);\s*busy\(tm, tab\.dataset\.label\);/,
     'choosing a tab marks its pane busy');
   assert.match(block, /busy\(tm, tab2 \? tab2\.dataset\.label : a\.textContent\.trim\(\)\)/, 'a link inside a pane does too');
   assert.match(block, /'htmx:after:swap'[\s\S]{0,160}removeAttribute\('aria-busy'\)/, 'the content that arrives ends it');
