@@ -147,6 +147,10 @@ function ragify_query_project() {
 
   eval $(parse_yaml "${WORKSPACE_CONFIG}/workspace.rag.settings.yml" "rag_ws_");
   rag_collection_prefix="${rag_ws_rag_collection_prefix}";
+  # The default server is the rag folder's, read the way ragify_project reads it. rag_resolve_instance
+  # falls back to milvus_resolve_project, which reads milvus_project: the local above, empty until here,
+  # so the query looked for a server called "milvus" whatever the settings named.
+  milvus_project="$(milvus_setting "${rag_ws_milvus_project}")"; milvus_project="${milvus_project:-milvus}";
   milvus_project="$(rag_resolve_instance "${doc_name}" "${PROJECT_NAME}" '_settings_')";
 
   doc_name_saved="${doc_name}";
