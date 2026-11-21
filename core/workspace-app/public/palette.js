@@ -24,10 +24,17 @@
     m: ['modules', 'Modules'], w: ['worklogs', 'Worklogs'], s: ['/screens', 'Screens'], c: ['/commands', 'Commands'],
     ',': ['/settings', 'Settings'], '?': ['/help', 'Help'] };
 
-  function typing(t) {
+  // Is the key going into a field? The element it went to is the first node of the event's path: a key typed
+  // in a web component's own field (the assistant's message box, inside deep-chat's shadow root) reaches the
+  // page with the component as its target, which is no field, so `/` opened the palette and `?` the
+  // shortcuts, and the rest of the message was typed there (#671). deep-chat itself counts as a field too,
+  // for a path that stops at its host.
+  function typing(e) {
+    var t = (e.composedPath && e.composedPath()[0]) || e.target;
     if (!t || !t.tagName) return false;
     var n = t.tagName.toLowerCase();
-    return n === 'input' || n === 'textarea' || n === 'select' || t.isContentEditable || !!(t.closest && t.closest('.ace_editor, .xterm'));
+    return n === 'input' || n === 'textarea' || n === 'select' || n === 'deep-chat' || t.isContentEditable
+      || !!(t.closest && t.closest('.ace_editor, .xterm'));
   }
   function modalOpen() { return !!document.querySelector('#editor-modal.uk-open, #confirm-modal.uk-open'); }
 
@@ -257,7 +264,7 @@
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (overlay && !overlay.hidden) return;
-    if (typing(e.target) || modalOpen()) return;
+    if (typing(e) || modalOpen()) return;
     if (chord && Date.now() - chord < 1200) {
       chord = 0;
       var c = CHORDS[k.toLowerCase()];
