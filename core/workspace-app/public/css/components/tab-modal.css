@@ -107,11 +107,13 @@
 .tabmodal-pane .modal-head { position: static; margin: 0 0 1rem; padding: 0 0 0.75rem; border-bottom: 0; }
 .tabmodal-pane .modal-head > h3:first-child { display: none; }
 
-/* A page that was written to fill a page does not need its own frame inside a pane. */
+/* A page that was written to fill a page does not need its own frame inside a pane. A style's card is
+   not such a frame: it is the style itself, painted in its own colours, so it keeps its padding and its
+   edge (without them, in dark, each card was a white box with its words against its edges). */
 .tabmodal-pane .settings-back { display: none; }
 .tabmodal-pane .editor-card,
-.tabmodal-pane .uk-card-default { box-shadow: none; border: 0; padding: 0; background: transparent; }
-.tabmodal-pane .uk-card-body { padding: 0; }
+.tabmodal-pane .uk-card-default:not(.style-card) { box-shadow: none; border: 0; padding: 0; background: transparent; }
+.tabmodal-pane .uk-card-body:not(.style-card) { padding: 0; }
 /* The pinned save bar was written for the modal body's padding; the pane's is a little smaller. */
 .tabmodal-pane form > :last-child:has(button[type="submit"]),
 .tabmodal-pane .nav-save,

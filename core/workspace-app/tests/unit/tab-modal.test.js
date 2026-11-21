@@ -105,3 +105,13 @@ test('the words show after a moment and the old content is hidden then, so a qui
   assert.match(css, /@keyframes tabmodal-wait-hide \{ to \{ visibility: hidden; display: none; \} \}/);
   assert.match(css, /\.tabmodal-wait \{ display: none; \}/, 'never shown when nothing loads');
 });
+
+// A pane strips the frame of a page's own card (it sits in the modal's frame already). A style's card is
+// not such a frame: it is the style, painted in its own colours, and stripped of its padding and edge it
+// was, in dark, a white box with its words against its edges.
+test('inside a pane a page card loses its frame, but a style card keeps its padding and its edge', () => {
+  const css = read('public', 'css', 'components', 'tab-modal.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(css, /\.tabmodal-pane \.uk-card-default:not\(\.style-card\) \{ box-shadow: none; border: 0; padding: 0; background: transparent; \}/);
+  assert.match(css, /\.tabmodal-pane \.uk-card-body:not\(\.style-card\) \{ padding: 0; \}/);
+  assert.doesNotMatch(css, /\.tabmodal-pane \.uk-card-default \{/, 'no rule left that strips every card');
+});
