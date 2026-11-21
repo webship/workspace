@@ -5,7 +5,7 @@ same files the docs cards on webship.co show. Each logo belongs to its project; 
 names the file of each pack.
 
 - `aspnet-core` (the set's `dotnet`), `astro`, `codeigniter`, `craftcms`, `discourse`, `django`, `docusaurus`, `drupal`, `filament`, `gatsby`, `ghost`, `hubspot`, `jira`, `joomla`, `laravel`, `magento`, `moodle`, `nextcloud`, `nextjs` (the set's `nextdotjs`), `spring-boot` (the set's `springboot`),
-  `odoo`, `payload` (the set's `payloadcms`), `prestashop`, `shopify`, `squarespace`, `strapi`, `symfony`, `typo3`, `webflow`, `woocommerce`, `wordpress` (`.svg`): Simple Icons
+  `odoo`, `payload` (the set's `payloadcms`), `prestashop`, `shopify`, `squarespace`, `strapi`, `symfony`, `typo3`, `wagtail`, `webflow`, `woocommerce`, `wordpress` (`.svg`): Simple Icons
   16.37.0 (CC0-1.0), filled with the colour the set lists for the brand.
 - `keycloak.svg`: Simple Icons 16.37.0, filled with the colour the set lists for the brand. Unlike most of the set,
   Simple Icons marks this icon as under the Linux Foundation's trademark usage guidelines rather than CC0-1.0; it is

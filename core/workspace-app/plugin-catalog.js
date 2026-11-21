@@ -41,6 +41,7 @@ const FAMILIES = [
     ['nextcloud', 'Nextcloud', 'A builder for Nextcloud Server sites from the official release, and the occ tool'],
     ['spring-boot', 'Spring Boot', 'A builder for Spring Boot apps with Spring Security, new or the PetClinic sample, and its wrapper tool'],
     ['aspnet-core', 'ASP.NET Core', 'A builder for ASP.NET Core apps with individual accounts, Razor Pages or a Blazor Web App, and its .NET tool'],
+    ['wagtail', 'Wagtail', 'A builder for Wagtail sites, new or the Bakery demo, and the manage.py tool'],
     ['django', 'Django', 'A builder for Django projects with the admin, and the manage tool'],
     ['nextjs', 'Next.js', 'A builder for Next.js apps (the Learn course or the default app), and its CLI tool'],
     ['strapi', 'Strapi', 'A builder for Strapi apps (Community Edition) on PostgreSQL, and the strapi tool'],

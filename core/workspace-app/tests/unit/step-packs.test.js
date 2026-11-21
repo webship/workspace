@@ -96,7 +96,7 @@ test('a pack is only ever @webship-js/<name>-steps, whatever is typed', () => {
 
 test('the shipped list: real packs, a kind each, extensions on a base it knows', () => {
   const { packs, upcoming } = sp.shippedList();
-  assert.ok(packs.length >= 38, 'the 38 packs on npm on 2026-11-21');
+  assert.ok(packs.length >= 39, 'the 39 packs on npm on 2026-11-21');
   for (const p of [...packs, ...upcoming]) {
     assert.match(p.name, sp.PACK_RE, p.name);
     assert.ok(['platform', 'extension', 'any-site'].includes(p.kind), `${p.name}: ${p.kind}`);
@@ -158,7 +158,7 @@ test('the list: npm unreachable and nothing cached gives the list shipped with t
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-steps-root-'));
   const list = await sp.listPacks({ root, fetchImpl: fakeFetch({ 'https://': new Error('offline') }) });
   assert.strictEqual(list.source, 'shipped');
-  assert.ok(list.packs.length >= 38);
+  assert.ok(list.packs.length >= 39);
   assert.ok(list.packs.every((p) => p.docs.startsWith('https://webship.co/docs/webship-js/2.0.x/')));
   const upcoming = sp.shippedList().upcoming.map((p) => p.name);
   assert.ok(!list.packs.some((p) => upcoming.includes(p.name)), 'a pack that is not on npm yet is not offered');
@@ -373,6 +373,9 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   // ASP.NET Core: the account pages of Razor Pages, or the script of a Blazor Web App (2026-11-21).
   assert.deepStrictEqual(hits('<a class="nav-link text-dark" href="/Identity/Account/Login">Login</a>'), ['aspnet-core']);
   assert.deepStrictEqual(hits('<script src="_framework/blazor.web.4x7a2m.js"></script>'), ['aspnet-core']);
+  // Wagtail: an image rendition's address, or a new project's welcome page (2026-11-21).
+  assert.deepStrictEqual(hits('<img src="/media/images/bread.2e16d0ba.fill-1920x600.jpg" alt="">'), ['wagtail']);
+  assert.deepStrictEqual(hits('<link rel="stylesheet" href="/static/css/welcome_page.css">'), ['wagtail']);
   assert.deepStrictEqual(hits('<link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">'), ['bootstrap']);
   assert.deepStrictEqual(hits('<script src="/js/bootstrap.bundle.min.js?v=5"></script>'), ['bootstrap']);
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
