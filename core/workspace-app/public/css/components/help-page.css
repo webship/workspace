@@ -35,3 +35,6 @@ mark.help-hit { background: var(--subtle-brand); color: inherit; border-radius: 
   border-radius: 0.375rem; background: var(--surface-card); color: var(--text-default); font: inherit; font-size: 0.75rem; cursor: pointer;
 }
 .help-copy:hover { border-color: var(--brand-primary); color: var(--link); }
+
+/* The guide without pandoc (issue 572): plain text in sections, wrapped so it reads at any width. */
+.help-body pre.help-plain { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .9rem; }

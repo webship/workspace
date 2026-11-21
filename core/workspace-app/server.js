@@ -7666,7 +7666,12 @@ Summarise what you changed and how to verify it`,
     // focusable content — axe's scrollable-region-focusable, and a real dead end on the page whose code
     // blocks are the part people came to copy. pandoc writes this markup, so the tabindex is added to
     // what it produced rather than asked of a converter that does not emit it.
-    const withImages = (html || `<pre>${esc(md)}</pre>`)
+    // Without pandoc the guide is still cut into its sections, so the contents and the search work, and the page says
+    // why it is plain (#572).
+    const noPandoc = () => `<div class="msg error help-no-pandoc" role="status">pandoc is not installed where the dashboard runs, so
+      the guide below is plain text, cut into its sections. Install pandoc there, or run the dashboard in its DDEV container,
+      which has it, for the guide with its pictures.</div>\n${require('./markdown').plainGuideHtml(md)}`;
+    const withImages = (html || noPandoc())
       .replace(/src="screenshots\//g, 'src="/help/screenshots/')
       .replace(/<pre(?![^>]*tabindex)/g, '<pre tabindex="0"');
     // Each h2 is a section: listed in the contents on the left, and the unit the search keeps or hides.
