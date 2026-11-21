@@ -88,15 +88,6 @@ set_plugin_setting() {
 
 plugin_module() { ( cd "${APP}" && node plugin-manifest.js --json "$1" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s||"null");process.stdout.write(p&&p.module?p.module:"")})' ) ; }
 plugin_known()  { ( cd "${APP}" && node plugin-manifest.js "$1" > /dev/null 2>&1 ) ; }
-# Is the plugin turned on here: plugins.<name>.enabled is true in settings.yml?
-plugin_active() {
-  ( cd "${APP}" && node -e '
-    const name = process.argv[1];
-    const { readSettingsRows } = require("./settings-file");
-    const row = (readSettingsRows("settings.yml") || []).find((r) => r.dotted === `plugins.${name}.enabled`);
-    process.exit(row && /^true$/i.test(String(row.display).trim()) ? 0 : 1);
-  ' "$1" 2> /dev/null ) ;
-}
 # A name this workspace has something of: a plugin the dashboard can see, or one whose package is gone
 # while settings.yml or the install record still name it (that one can still be turned off and taken out).
 plugin_here() {
@@ -147,6 +138,7 @@ needs_lines()   { ( cd "${APP}" && node plugin-needs.js lines "$1" 2>/dev/null )
 needs_say()     { ( cd "${APP}" && node plugin-needs.js say "$1" 2>/dev/null ) ; }
 needed_by()     { ( cd "${APP}" && node plugin-needs.js dependents "$1" 2>/dev/null ) ; }
 plugin_names()  { ( cd "${APP}" && node plugin-manifest.js 2>/dev/null | cut -f1 | sort ) ; }
+# Is the plugin turned on here: plugins.<name>.enabled is true in settings.yml (plugin-needs.js state().active)?
 plugin_active() { ( cd "${APP}" && node -e 'process.exit(require("./plugin-needs").state().active.has(process.argv[1]) ? 0 : 1)' "$1" 2>/dev/null ) ; }
 
 # The same script for a plugin this one needs: never a restart of its own (the outer run does one), and
