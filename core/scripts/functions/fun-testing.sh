@@ -561,6 +561,17 @@ function testing_run() {
       echo "  No scenario ran: check the --path or --tags you gave." ;
       status=3 ;
     fi
+    # cucumber-js never fails a dry run: it exits 0 with undefined or ambiguous steps, which are what a dry
+    # run is there to find. Its summary line says how many, and they fail the run here (#486).
+    if [ "${DRY_RUN}" == 'yes' ] ; then
+      local unresolved ;
+      unresolved="$(sed "s/$(printf '\033')\[[0-9;]*m//g" "${run_log}" | grep -E '^[0-9]+ steps? \(' | tail -1 \
+        | grep -oE '[0-9]+ (undefined|ambiguous)' | tr '\n' ',' | sed 's/,$//; s/,/, /g')" ;
+      if [ -n "${unresolved}" ] ; then
+        echo "  Steps that do not resolve: ${unresolved}. A real run fails on them." ;
+        [ "${status}" -eq 0 ] && status=1 ;
+      fi
+    fi
     rm -f "${run_log}" ;
   else
     script="test:${BROWSER}";
@@ -583,7 +594,11 @@ function testing_run() {
 
   echo "";
   echo "*---------------------------------------------------------------------*";
-  if [ "${status}" -eq 0 ] ; then
+  if [ "${status}" -eq 0 ] && [ "${DRY_RUN}" == 'yes' ] ; then
+    echo "  Every step resolves (a dry run, no browser) in $(( $(date +%s) - started ))s.";
+  elif [ "${DRY_RUN}" == 'yes' ] ; then
+    echo "  The dry run FAILED (exit ${status}) after $(( $(date +%s) - started ))s: the lines above say why.";
+  elif [ "${status}" -eq 0 ] ; then
     echo "  The suite passed in $(( $(date +%s) - started ))s.";
   else
     # A failing suite is a result, not a tooling error — say so plainly and point at the evidence
