@@ -3526,7 +3526,10 @@ function testsMenuState({ key, dir, p, gates }) {
  * workspace offers none of its verbs.
  */
 function testsMenuBody({ key, dir, p, gates }) {
-  const { canTest, canChecks, canUsers } = gates;
+  const { canTest, canChecks } = gates;
+  // Test users only for a project that has a list of them: one that is not Drupal and that no plugin claims has
+  // none, and must not be handed the Webship distribution's, which runs drush (#490).
+  const canUsers = gates.canUsers && !!userListOfProject(path.join(dir, p), { root: ROOT, profile: profileOfProject(path.join(dir, p)) });
   if (!(canTest || canChecks || canUsers)) return '';
   const vals = (extra = '') => `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
   const { testsSession, busy, stack, busyChecks, declared, ready } = testsMenuState({ key, dir, p, gates });
@@ -4118,7 +4121,7 @@ async function projectRowsHtml(key, dir, state) {
 const builderArgs = require('./builder-args');
 // The name the Build form proposes for a new project — see project-name.js
 const { suggestProjectName } = require('./project-name');
-const { platformOfProject, drupalBaseOfProject } = require('./project-platform');
+const { userListOfProject, profileOfProject } = require('./project-platform');
 const parseBuilderArgs = (dir, script) => builderArgs.parseBuilderArgs(dir, script, ROOT);
 
 // The collapsed Arguments group for one builder script.
@@ -5853,23 +5856,15 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
     if (!NAME_RE.test(projectName) || !listProjects(dir).includes(projectName)) {
       return send('<div class="msg error">Unknown project.</div>', 400);
     }
-    // The script needs the distribution whose user list to use. It is declared in the
-    // project's own .ddev config only as a docroot, so read it from the builder that made it
-    // — the profile Drupal actually installed.
-    let distribution = '';
-    try {
-      const settings = fs.readFileSync(path.join(dir, projectName, '.ddev', 'config.yaml'), 'utf8');
-      const doc = (settings.match(/^docroot:\s*"?([^"\n]*)"?/m) || [])[1] || 'web';
-      const info = fs.readdirSync(path.join(dir, projectName, doc, 'profiles', 'contrib'));
-      distribution = info.find((n) => n === 'webship') || info[0] || '';
-    } catch (_) { /* fall through to the guess below */ }
-    // A project of another platform (WordPress, TYPO3, …) says so in its DDEV project type, and the
-    // plugin of that platform carries its user list under that name.
-    if (!distribution) distribution = platformOfProject(path.join(dir, projectName));
-    // A Drupal project with no distribution profile is a Drupal core site or a Drupal CMS site:
-    // each has its own list, which is not the Webship distribution's.
-    if (!distribution) distribution = drupalBaseOfProject(path.join(dir, projectName));
-    if (!distribution) distribution = 'webship';
+    // The script needs the user list to use: the distribution of the profile Drupal installed, the list of the
+    // plugin that claims the project, the platform its DDEV project type names, or Drupal core's or Drupal CMS's
+    // (project-platform.js). A project with none of them has no test users here, and nothing is started: it used
+    // to be handed the Webship distribution's list, which runs drush on an app that is not Drupal (#490).
+    const projectDir = path.join(dir, projectName);
+    const distribution = userListOfProject(projectDir, { root: ROOT, profile: profileOfProject(projectDir) });
+    if (!distribution) {
+      return send(`<div class="msg error">${esc(projectName)} has no list of test users: it is not a Drupal project, and no installed plugin claims it with a list of its own. Nothing was started.</div>`, 409);
+    }
     // Read from the project's own folders, so it is checked like a name and quoted like any value: a folder
     // called `x$(…)` under profiles/contrib reached this line bare, and the shell ran it.
     if (!/^[a-z0-9][a-z0-9_-]*$/.test(distribution)) {
