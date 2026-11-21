@@ -4762,17 +4762,22 @@ async function workspacePage(key, state) {
   </div>
   <div class="uk-card uk-card-default uk-card-body">
     ${(() => {
-      // A files workspace asks the same question as dev: its create actions in the card, New folder on the right.
+      // A files workspace asks the same question as dev, and answers it the same way: New folder on the
+      // right of the heading, then one box whose primary action sits at its right end, where Build sits on a
+      // sites workspace. The other ways to make something come before it as outline buttons: filled, they
+      // were as loud as the primary one, and "New doc" was at the left where "Build" is at the right.
       if (!isFiles) return '';
       const create = (pageActionGroups(`workspace:${key}`).find((g) => g.id === 'create') || {}).items || [];
       if (!create.length) return '';
       const folder = create.find((it) => it.id === 'new-folder');
       const rest = create.filter((it) => it !== folder);
+      const primary = rest.filter((it) => /\buk-button-primary\b/.test(it.html));
+      const others = rest.filter((it) => !primary.includes(it)).map((it) => it.html.replace(/\buk-button-secondary\b/, 'uk-button-default'));
       return `
       <div class="create-head uk-flex uk-flex-middle uk-flex-between uk-margin-small-bottom">
         <h2 class="uk-h3 uk-margin-remove">What would you like to create?</h2>${folder ? folder.html : ''}
       </div>
-      ${rest.length ? `<div class="create-actions">${rest.map((it) => it.html).join('')}</div>` : ''}`;
+      ${rest.length ? `<div class="create-actions">${others.join('')}${primary.map((it) => it.html).join('')}</div>` : ''}`;
     })()}
     ${(() => {
       const canFolder = !isFiles && require('./actions/folders').canMakeFolder(key);

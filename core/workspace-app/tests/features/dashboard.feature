@@ -56,3 +56,11 @@ Feature: The workspace dashboard
     Given I am on "/"
      Then "#ws-deep-chat" should be attached
       And "deep-chat" should be attached
+
+  # A files workspace asks "What would you like to create?" as a sites workspace does, and answers the same
+  # way: one box, its primary action at the right end (where Build is), the other ways before it, outlined.
+  Scenario: A files workspace places its primary action where a sites workspace places Build
+    Given I am on "/docs"
+     Then ".create-actions > .uk-button-primary:last-child" should be visible
+      And ".create-actions .uk-button-secondary" should have a count of 0
+      And ".create-actions .uk-button-default" should be visible
