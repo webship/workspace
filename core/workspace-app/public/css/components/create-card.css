@@ -23,3 +23,7 @@
 @media (max-width: 39.9375em) {
   .create-actions > .uk-button { flex: 1 1 100%; justify-content: center; }
 }
+
+/* The field labels of the build form and the site documentation form: small, above their field, in the meta
+   colour (8.45:1 on the light card, 6.17:1 on the dark one). */
+.build-label { display: block; margin: 0 0 0.25rem; font-size: 0.8125rem; font-weight: 600; color: var(--text-subtle); }
