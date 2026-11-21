@@ -179,3 +179,8 @@
 /* display is a discrete step in a keyframe, so the hidden part also stops holding its height (a long
    blank pane to scroll); a browser that cannot animate display still hides it. */
 @keyframes tabmodal-wait-hide { to { visibility: hidden; display: none; } }
+
+/* A tab whose content is on its way is not faded: everything that makes a request is drawn at 60% while it
+   does (.htmx-request), which put the chosen tab's name at 2.5:1, and took clicks from it. The pane says
+   "Loading …" (above), and another tab can be chosen meanwhile. */
+.tabmodal-tab.htmx-request { opacity: 1; pointer-events: auto; }

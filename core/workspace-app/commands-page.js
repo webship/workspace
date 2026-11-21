@@ -115,7 +115,7 @@ function catalogListHtml(state = {}, { scripts = [], badge = null } = {}) {
     shown[shown.length - 1].items.push(e);
   }
   const body = shown.map(({ group, items }) => `
-    <h4 class="uk-margin-small-top">${esc(group)} <span class="uk-badge">${items.length === inGroup[group] ? items.length : `${items.length} of ${inGroup[group]}`}</span></h4>
+    <h3 class="uk-h4 uk-margin-small-top">${esc(group)} <span class="uk-badge">${items.length === inGroup[group] ? items.length : `${items.length} of ${inGroup[group]}`}</span></h3>
     ${items.map((e) => commandRowHtml(e, cat.mtime, badge)).join('')}`).join('');
 
   const bare = '/fragments/cc/list';
@@ -143,7 +143,7 @@ function catalogListHtml(state = {}, { scripts = [], badge = null } = {}) {
     ...cat.problems.map((p) => `Skipped ${p}.`),
   ];
   const narrowed = state.q || source !== 'all' || on !== 'all';
-  return `<h3 class="uk-margin-small-bottom">Commands <span class="uk-badge">${all.length}</span></h3>
+  return `<h2 class="uk-h3 uk-margin-small-bottom">Commands <span class="uk-badge">${all.length}</span></h2>
     <p class="uk-text-meta uk-margin-small-bottom">Every command the dashboard can run, and what each runs on: a workspace folder, a project,
       a folder or a file. The built-in ones ship with the dashboard, yours are kept in <code>${esc(tildePath(cc.userFile()))}</code>, and every
       <code>cmd-*.sh</code> in the tree is listed as a script.</p>

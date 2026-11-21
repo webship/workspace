@@ -36,5 +36,6 @@ test('the Help page uses it when pandoc is missing, and says why', () => {
   const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
   assert.match(server, /const withImages = \(html \|\| noPandoc\(\)\)/);
   assert.match(server, /pandoc is not installed where the dashboard runs, so\s+the guide below is plain text, cut into its sections\./);
-  assert.match(server, /require\('\.\/markdown'\)\.plainGuideHtml\(md\)/);
+  // The guide without its first line: its title is the page's h1 (#575).
+  assert.match(server, /require\('\.\/markdown'\)\.plainGuideHtml\(guideBody\)/);
 });

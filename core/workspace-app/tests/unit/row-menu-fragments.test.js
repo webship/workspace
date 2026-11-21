@@ -209,7 +209,7 @@ test('the NODE body for a site is the header, the yarn and npm tabs and the scri
   assert.match(html, /Node · site-one/);
   assert.match(html, /Runs as ddev npm \/ ddev yarn in this project\./);
   assert.match(html, /<ul class="uk-tab node-tabs" data-keep-open uk-tab="active: \d+">/, 'the tabs keep the menu open');
-  assert.match(html, /<ul class="uk-switcher">/);
+  assert.match(html, /<div class="uk-switcher">/, 'its panes are divs: UIkit gives each role="tabpanel", which a list item may not carry');
   assert.match(html, /yarn\.lock is not here/);
   assert.match(html, /package-lock\.json is not here/);
   assert.match(html, /hx-include="closest \.node-package"/);
