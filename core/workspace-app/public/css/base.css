@@ -282,3 +282,9 @@ li a:not(.uk-button):not(.uk-link-reset),
    and indistinguishable from the words around it. The link token is the readable one; the extra
    :not() is what outranks UIKit's own two-class rule without touching the vendored file. */
 .uk-text-meta a:not(.uk-button):not(.uk-link-reset) { color: var(--link); }
+
+/* A checkbox or a radio has the edge a field has, everywhere: UIkit's pale grey is 1.6:1 on white (WCAG 1.4.11),
+   and it was raised only inside the editor modal (modal-fit.css), so the row-button choices of Settings ->
+   Buttons and Dev's "Start AI" kept it. A checked one keeps UIkit's filled look. */
+.uk-checkbox,
+.uk-radio { border-color: color-mix(in srgb, var(--text-subtle) 70%, var(--surface-card)); }

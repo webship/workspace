@@ -90,7 +90,10 @@
 }
 .build-form .uk-select,
 .build-form .uk-input {
-  border: 1px solid var(--line);
+  /* Width and style only: the colour is base.css's field edge (3:1 in every style). With --line here the
+     Project name field was 1.35:1 in light and 1.29:1 in dark. */
+  border-width: 1px;
+  border-style: solid;
   border-radius:0.625rem;
   background-color: var(--surface-input);
   height:2.625rem;
