@@ -234,6 +234,26 @@ test('Add, Remove and Copy examples each start cmd-tools-testing.sh in a screen,
   assert.match(started(), /'cmd-tools-testing\.sh' 'site1' '--remove-steps' '@webship-js\/diffy-steps'/);
 });
 
+test('the panel is drawn again when a step it started is done, and focus goes back to the same pack (#488)', async () => {
+  // The panel listens for the page's "lists changed", which the step's watcher sends when its screen is done.
+  const r = await fetch(`${base}/fragments/projects/steps/dev/site1`);
+  const html = await r.text();
+  assert.match(html, /<div class="editor-card step-packs" hx-get="\/fragments\/projects\/steps\/dev\/site1" hx-trigger="refresh-projects from:body" hx-swap="outerHTML">/);
+  // Each pack's row is where focus goes back to after the redraw, to the same button when it is still there.
+  const row = html.slice(html.indexOf('data-pack="@webship-js/diffy-steps"')).split('</li>')[0];
+  assert.match(row, /data-refocus="step-pack:@webship-js\/diffy-steps"/);
+  assert.match(row, /<button data-refocus-item="add" class="uk-button uk-button-primary uk-button-small" hx-post="\/actions\/steps-add"/);
+  // Add, Remove and Copy examples leave the watcher that tells the page when the session is done.
+  for (const [p, form] of [['/actions/steps-add', { pack: 'diffy' }], ['/actions/steps-examples', { pack: 'wordpress' }], ['/actions/steps-remove', { pack: 'diffy', confirm: 'yes' }]]) {
+    const a = await post(p, { workspace: 'dev', projectName: 'site1', ...form });
+    assert.strictEqual(a.status, 200, a.text);
+    assert.match(a.text, /<span hidden class="session-watch" hx-get="\/fragments\/session-done\/dev--site1--steps" hx-trigger="every 2s"/, `${p}: ${a.text}`);
+  }
+  // Once the session is gone the watcher's answer tells the page: refresh-projects.
+  const done = await fetch(`${base}/fragments/session-done/dev--site1--steps`);
+  assert.strictEqual(done.headers.get('hx-trigger'), 'refresh-projects');
+});
+
 test('a pack, a project or a feature from the browser is checked before anything starts', async () => {
   const before = started();
   for (const pack of ['../../etc/passwd', 'https://example.com/x.tgz', '--registry=http://x', '@other/x-steps', 'a;b']) {
