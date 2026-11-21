@@ -28,6 +28,8 @@ const APP = path.join(__dirname, '../..');
 const REPO = path.join(APP, '../..');
 const wait = (ms) => new Promise((r) => { setTimeout(r, ms); });
 const until = async (fn, ms = 8000) => { for (let t = 0; t < ms && !(await fn()); t += 100) await wait(100); return fn(); };
+/** The runner's answer to a mailbox request, once it is there whole (as the dashboard reads it, jobs.js), or null. */
+const answerOf = (file) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return null; } };
 const free = () => new Promise((resolve) => {
   const s = net.createServer();
   s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); });
@@ -192,8 +194,8 @@ test('the mailbox takes the same verbs, for a dashboard that cannot reach the so
   fs.writeFileSync(tmp, JSON.stringify({ id, action: 'detach', session: 'dev--x--claude' }));
   fs.renameSync(tmp, path.join(store, 'queue', `${id}.json`));
   const result = path.join(store, 'results', `${id}.json`);
-  assert.ok(await until(() => fs.existsSync(result)), 'answered');
-  assert.deepStrictEqual(JSON.parse(fs.readFileSync(result, 'utf8')), { ok: true });
+  assert.ok(await until(() => answerOf(result)), 'answered');
+  assert.deepStrictEqual(answerOf(result), { ok: true });
   fs.unlinkSync(result);
   assert.deepStrictEqual(calls(machineLog).slice(before), [['-S', '5153.dev--x--claude', '-X', 'detach']]);
 });
@@ -207,8 +209,8 @@ test('a request the runner finds still empty is put back and answered once it is
   fs.writeSync(fd, JSON.stringify({ id, action: 'detach', session: 'dev--x--claude' }));
   fs.closeSync(fd);
   const result = path.join(store, 'results', `${id}.json`);
-  assert.ok(await until(() => fs.existsSync(result)), 'answered');
-  assert.deepStrictEqual(JSON.parse(fs.readFileSync(result, 'utf8')), { ok: true });
+  assert.ok(await until(() => answerOf(result)), 'answered');
+  assert.deepStrictEqual(answerOf(result), { ok: true });
   fs.unlinkSync(result);
   assert.deepStrictEqual(calls(machineLog).slice(before), [['-S', '5153.dev--x--claude', '-X', 'detach']]);
   // One that stays unreadable is not kept for ever: made old beside the queue, then renamed in.
@@ -348,4 +350,11 @@ test('the Screens page\'s verbs on a session on the machine go to the runner, an
     dash.kill('SIGTERM');
     await until(() => dash.exitCode !== null || dash.signalCode !== null, 5000);
   }
+});
+
+test('the runner writes an answer beside the results and renames it in, so a reader never finds half of one (#657)', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'scripts', 'screen-runner.js'), 'utf8');
+  const fn = src.slice(src.indexOf('function answer(id, body) {'), src.indexOf('\n}\n', src.indexOf('function answer(id, body) {')) + 2);
+  assert.match(fn, /fs\.writeFileSync\(tmp, JSON\.stringify\(body\)\); fs\.renameSync\(tmp, file\);/);
+  assert.doesNotMatch(fn, /writeFileSync\(path\.join\(RESULTS/, 'never written in place');
 });
