@@ -2242,7 +2242,11 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
   // beside it and are tied to the control with aria-describedby: a screen reader used to read a
   // 190-character paragraph as the name of a field, every time focus landed on it.
   const isTodo = (r) => !r.list && /CHANGE_ME/.test(String(r.value || ''));
-  const explained = (r) => `${fieldHint(r.dotted, meta)}${described(r)}`;
+  // A key the plugin's installed version no longer has: it does nothing now, whatever its old comment says (#424).
+  const dropped = ownerPlugin ? require('./plugin-settings-dropped').droppedSettingsOf(ownerPlugin, rows) : new Set();
+  const droppedNote = (r) => (dropped.has(r.dotted)
+    ? `<span class="settings-dropped">${iconHtml('tabler:info-circle', 0.7)} This plugin no longer has this setting: it does nothing now. Delete the line in the Raw YAML tab to tidy the file.</span>` : '');
+  const explained = (r) => `${droppedNote(r)}${fieldHint(r.dotted, meta)}${described(r)}`;
   const describedBy = (r, id) => {
     const ids = [explained(r) ? `${id}-hint` : '', isTodo(r) ? `${id}-todo` : ''].filter(Boolean);
     return ids.length ? ` aria-describedby="${ids.join(' ')}"` : '';
