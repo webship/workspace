@@ -190,7 +190,7 @@ function homeHtml({ files = [], plugins = [], groups = [], folders = {}, styles 
     <div class="settings-search" hidden>
       <label class="settings-search-label" for="settings-search-input">Find a setting or a plugin</label>
       <div class="settings-search-row">
-        <input type="search" class="uk-input" id="settings-search-input" placeholder="jira, hosting, navigation, not installed" autocomplete="off" aria-describedby="settings-search-status">
+        <input type="search" class="uk-input" id="settings-search-input" placeholder="e.g. jira, hosting, not installed" autocomplete="off" aria-describedby="settings-search-status">
         <div class="settings-chips" role="group" aria-label="Which plugins to show">
           ${chip('all', 'All', n.all, { pressed: true })}${chip('attention', 'Needs attention', n.attention)}${chip('updates', 'Updates', n.updates, { hidden: !n.updates })}${chip('active', 'Active', n.active)}${chip('inactive', 'Not active', n.inactive)}
         </div>

@@ -39,7 +39,8 @@
   font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums;
   padding: 0 0.45rem; border-radius: 999px; background: var(--surface-muted); color: var(--text-subtle);
 }
-.settings-family-about { margin: 0.1rem 0 0.5rem; font-size: 0.8125rem; color: var(--text-subtle); }
+.settings-family-about { margin: 0.1rem 0 0.5rem; font-size: 0.8125rem; color: var(--text-subtle); max-width: 28rem; }
+.settings-card > p.uk-text-meta { max-width: 30rem; }
 
 .plugin-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-card); }
 .plugin-row {
@@ -97,7 +98,9 @@
 .plugin-head-name { margin: 0; font-size: 1.5rem; font-weight: 600; }
 .plugin-head-state { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; }
 .plugin-head-meta { margin: 0.25rem 0 0; font-size: 0.8125rem; color: var(--text-subtle); }
-.plugin-head-about { margin: 0.5rem 0 0; max-width: 72ch; }
+/* About 75 characters a line. 72ch was 720px in this face (its "0" is wide), which held about 105: a rem
+   measure follows the reading size instead (15px here; 13px and 14px below). */
+.plugin-head-about { margin: 0.5rem 0 0; max-width: 32rem; }
 .plugin-section { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line); scroll-margin-top: 5rem; }
 .plugin-section-head { margin: 0 0 0.75rem; font-size: 1.0625rem; font-weight: 600; }
 .plugin-sub { display: flex; align-items: center; gap: 0.4rem; margin: 1rem 0 0.35rem; font-size: 0.875rem; font-weight: 600; }

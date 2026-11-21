@@ -111,7 +111,7 @@ function pluginsPageHtml() {
         <input type="hidden" name="verb" value="require">
         <label class="settings-search-label" for="plugin-require-spec">Add a package by name</label>
         <div class="settings-search-row">
-          <input class="uk-input" id="plugin-require-spec" name="spec" placeholder="${SCOPE}/workspace-jira" required pattern="[A-Za-z0-9@:\\/._#+~\\-]+" aria-describedby="plugin-require-help">
+          <input class="uk-input" id="plugin-require-spec" name="spec" placeholder="e.g. ${SCOPE}/workspace-jira" required pattern="[A-Za-z0-9@:\\/._#+~\\-]+" aria-describedby="plugin-require-help">
           <button class="uk-button uk-button-default" type="submit">Add</button>
         </div>
         <p class="settings-search-status" id="plugin-require-help">An npm name, <code>github:owner/repo</code>, a git URL, a tarball or a path. Nothing else is installed with it.</p>
@@ -120,7 +120,7 @@ function pluginsPageHtml() {
     <div class="settings-search" hidden>
       <label class="settings-search-label" for="settings-search-input">Find a plugin in the catalogue</label>
       <div class="settings-search-row">
-        <input type="search" class="uk-input" id="settings-search-input" placeholder="hosting, wordpress, jira" autocomplete="off" aria-describedby="settings-search-status">
+        <input type="search" class="uk-input" id="settings-search-input" placeholder="e.g. hosting, wordpress, jira" autocomplete="off" aria-describedby="settings-search-status">
         <div class="settings-chips" role="group" aria-label="Which plugins to show">
           ${chip('all', 'All', all, true)}${chip('inactive', 'Not added', all - here)}${chip('active', 'Added', here)}
         </div>
