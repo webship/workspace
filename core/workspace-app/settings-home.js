@@ -47,13 +47,16 @@ const SHORT = { activate: 'Activate', install: 'Install' };
  * the whole row is already the link to the plugin's page, and a second link to the same place on 18
  * rows was 18 extra stops for a keyboard.
  */
-function rowActionHtml(p) {
+function rowActionHtml(p, { quiet = false } = {}) {
   const a = p.state.action;
   const label = nameOf(p);
+  // Prominent where it tells this row from the ready ones around it; in a list where every row waits on
+  // something (the settings modal's overview), seven filled buttons say nothing more than the pills do.
+  const tone = p.state.attention && !quiet ? 'primary' : 'default';
   if (a.kind === 'link' && p.state.id === 'ready') return `<span class="plugin-row-chevron" aria-hidden="true">${iconHtml('tabler:chevron-right', 0.9)}</span>`;
-  if (a.kind === 'link') return `<a class="uk-button uk-button-${p.state.attention ? 'primary' : 'default'} uk-button-small plugin-action" href="${esc(a.href)}" aria-label="${esc(`${a.label} ${label}`)}">${esc(a.label)}</a>`;
+  if (a.kind === 'link') return `<a class="uk-button uk-button-${tone} uk-button-small plugin-action" href="${esc(a.href)}" aria-label="${esc(`${a.label} ${label}`)}">${esc(a.label)}</a>`;
   const short = a.label.startsWith('Add ') || a.label === 'Reinstall' ? a.label : (SHORT[a.verb] || a.label);
-  return `<button type="button" class="uk-button uk-button-${p.state.attention ? 'primary' : 'default'} uk-button-small plugin-action" data-refocus-item="action" hx-post="/actions/plugins"
+  return `<button type="button" class="uk-button uk-button-${tone} uk-button-small plugin-action" data-refocus-item="action" hx-post="/actions/plugins"
       hx-vals='${esc(JSON.stringify({ verb: a.verb, name: p.name, ...(a.withNeeds ? { withNeeds: '1' } : {}) }))}'
       hx-target="#webship-workspace-output" hx-swap="innerHTML" title="${esc(commandOf(p, a))}" aria-label="${esc(`${a.label}: ${label}`)}">${esc(short)}</button>`;
 }
@@ -64,7 +67,7 @@ function rowActionHtml(p) {
  * always what the plugin is, so it can be read down the list; why it is in its state is on the pill's
  * title and on its page.
  */
-function pluginRowHtml(p) {
+function pluginRowHtml(p, { quiet = false } = {}) {
   const label = nameOf(p);
   const find = [label, p.name, p.module, p.summary, p.state.label, p.state.update ? 'update' : '', model.familyById(p.family).label].join(' ').toLowerCase();
   const withNeeds = p.state.action.kind === 'post' && p.state.action.withNeeds;
@@ -79,17 +82,17 @@ function pluginRowHtml(p) {
           <span class="plugin-row-summary">${esc(p.summary || 'No description')}</span>
         </a>
         <span class="plugin-row-state">${stateHtml(p.state, { withUpdate: false })}</span>
-        <span class="plugin-row-action">${rowActionHtml(p)}</span>
+        <span class="plugin-row-action">${rowActionHtml(p, { quiet })}</span>
       </li>`;
 }
 
-function familyHtml(f) {
+function familyHtml(f, { quiet = false } = {}) {
   return `
     <section class="settings-family" data-family="${esc(f.id)}">
       <h3 class="settings-family-head" id="settings-family-${esc(f.id)}">${iconHtml(f.icon, 0.9)}<span>${esc(f.label)}</span>
         <span class="settings-family-count">${f.plugins.length}</span></h3>
       <p class="settings-family-about">${esc(f.about)}</p>
-      <ul class="plugin-rows">${f.plugins.map(pluginRowHtml).join('')}</ul>
+      <ul class="plugin-rows">${f.plugins.map((p) => pluginRowHtml(p, { quiet })).join('')}</ul>
     </section>`;
 }
 
@@ -105,8 +108,11 @@ function updatesLineHtml(outdated = [], error = '') {
 function pluginsSectionHtml(groups, { only = '' } = {}) {
   const n = model.counts(groups);
   // The one number that says whether anything is waiting is a way to those plugins, not a grey sentence.
+  // In the settings modal's overview the plugins that wait are all there is under it, and there is no chip
+  // to press: a button there did nothing, so it is the number in words.
+  const waiting = `${n.attention} need${n.attention === 1 ? 's' : ''} attention`;
   const summary = n.all
-    ? `<span>${n.all} added</span> · <span>${n.ready} ready</span>${n.attention ? ` · <button type="button" class="settings-summary-link" data-press-chip="attention">${n.attention} need${n.attention === 1 ? 's' : ''} attention</button>` : ''}${n.inactive ? ` · <span>${n.inactive} not active</span>` : ''}`
+    ? `<span>${n.all} added</span> · <span>${n.ready} ready</span>${n.attention ? ` · ${only ? `<span>${waiting}</span>` : `<button type="button" class="settings-summary-link" data-press-chip="attention">${waiting}</button>`}` : ''}${n.inactive ? ` · <span>${n.inactive} not active</span>` : ''}`
     : '';
   const empty = `
       <div class="settings-empty">
@@ -120,7 +126,7 @@ function pluginsSectionHtml(groups, { only = '' } = {}) {
     ? groups.map((g) => ({ ...g, plugins: g.plugins.filter((p) => p.state.attention) })).filter((g) => g.plugins.length)
     : groups;
   const body = !n.all ? empty
-    : shown.length ? shown.map(familyHtml).join('')
+    : shown.length ? shown.map((f) => familyHtml(f, { quiet: only === 'attention' })).join('')
       : '<p class="settings-quiet">Nothing needs attention: every plugin that is active is ready.</p>';
   return `
     <section class="settings-group settings-plugins" id="settings-plugins" aria-labelledby="settings-plugins-head"
@@ -159,7 +165,7 @@ function homeHtml({ files = [], plugins = [], groups = [], folders = {}, styles 
   <div class="settings-home is-compact">
     <div class="settings-updates" hx-get="/fragments/settings/updates" hx-trigger="load" hx-swap="innerHTML" role="status"></div>
     ${pluginsSectionHtml(groups, { only: 'attention' })}
-    <p class="settings-quiet">Every setting and every plugin is in the list beside this; the filter above it narrows the list.</p>
+    <p class="settings-quiet">Every setting and every plugin is in this modal's list of tabs, and its filter narrows the list.</p>
   </div>`;
   }
   const base = [
