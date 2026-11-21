@@ -57,9 +57,11 @@ from Debian trixie). Domains: `<workspace>.workspace.ddev.site` and
 
 - Spawned commands MUST close stdin (`stdio: ['ignore','pipe','pipe']`).
 - Don't restart the app while jobs run (in-memory registry). App-only restart:
-  `docker exec ddev-workspace-web supervisorctl restart webextradaemons:workspace-app`; `ddev
-  restart` only when `.ddev/` or the Dockerfile changed. **Never `pkill` inside the web container** —
-  it shares the machine's pid namespace (screens), so a pattern match reaches host processes.
+  `docker exec ddev-workspace-web supervisorctl restart webextradaemons:workspace-app`; a full restart
+  only when `.ddev/` or the Dockerfile changed. The web container has its own process space since 1.0.26
+  (screen commands go through the host runner); a workspace made new from an older release is restarted
+  once with `docker kill ddev-workspace-web` and then `ddev start`, never `ddev restart`, because the
+  older container shared the machine's process space and DDEV's `kill -- -1` reached other containers.
 
 ## Per-project tools (in the workspace folders)
 
