@@ -50,16 +50,17 @@ test('an attached window that never paints says so', () => {
   assert.match(terminal, /clearTimeout\(pane\.__silence\);/);
 });
 
-test('the window verbs actually run, here, instead of printing a command to type', () => {
-  const fn = actions.slice(actions.indexOf('async function onHostScreen'), actions.indexOf('function runnerDownHtml'));
-  // Stopping still goes through the runner that owns the process group.
-  assert.match(fn, /row\.where === 'host' && args\.includes\('quit'\)/);
-  // Everything else is tried locally: /run/screen is shared with this container, which is the same
-  // reason `screen -x` attaches at all.
-  assert.match(fn, /const out = await run\('screen', args, process\.env\.HOME/);
-  assert.match(fn, /if \(out\.ok\) return out;/);
-  // And the fallback message is only for a real failure, with the command that was actually attempted.
-  assert.match(fn, /If this keeps failing, run it in your terminal: screen -S \$\{session\} -X \$\{verb\}/);
+test('the window verbs actually run, instead of printing a command to type', () => {
+  // Every verb goes through screen-verbs.js: screen here for a session it lists, the host runner for a session on the
+  // machine, which screen in the dashboard's container cannot reach since it has a process space of its own (#564).
+  assert.doesNotMatch(actions, /run\('screen'/, 'no screen verb is run in here directly any more');
+  for (const call of ["screenVerb(session, 'stop')", "screenVerb(session, 'detach')", "screenVerb(session, 'stuff', { text: '\\x03' })"]) {
+    assert.ok(actions.includes(call), `${call} is how the page does it`);
+  }
+  // The fallback message is only for a real failure, with the command that was actually attempted, and a runner that
+  // is not up is said in the same words as a start that needs it.
+  assert.match(actions, /If this keeps failing, run it in your terminal: screen -S \$\{session\} -X \$\{verbLine\}/);
+  assert.match(actions, /if \(out\.runnerDown\) return runnerDownHtml\(\);/);
 });
 
 test('the mouse modes can be cleared, and it says what it does first', () => {

@@ -10,9 +10,13 @@ test('exit types /exit and then Enter, only into a live Claude Code session, and
   const src = read('actions', 'claude-session.js');
   assert.match(src, /if \(form\.confirm !== 'yes'\)/);
   assert.match(src, /if \(!\(await isClaudeSession\(session\)\)\)/);
-  assert.match(src, /\['-S', session, '-X', 'stuff', '\\x1b'\]/);
-  assert.match(src, /\['-S', session, '-X', 'stuff', '\/exit'\]/);
-  assert.match(src, /\['-S', session, '-X', 'stuff', '\\r'\]/);
+  // Typed into the session wherever it runs: screen here, or the host runner for a session on the machine (#564).
+  assert.match(src, /screenVerb\(session, 'stuff', \{ text: '\\x1b' \}\)/);
+  assert.match(src, /screenVerb\(session, 'stuff', \{ text: '\/exit' \}\)/);
+  assert.match(src, /screenVerb\(session, 'stuff', \{ text: '\\r' \}\)/);
+  assert.doesNotMatch(src, /run\('screen'/, 'never screen in the dashboard\'s container on a session it may not reach');
+  // A runner that is away or too old is said, before anything is typed.
+  assert.match(src, /if \(escaped\.runnerDown \|\| escaped\.runnerOld\) return send\(verbFailedHtml\(/);
 });
 
 test('resume starts claude --resume with the newest conversation in that folder, never an id from the request', () => {
@@ -37,5 +41,5 @@ test('the Screens page, the card menu and the actions are wired in', () => {
   assert.match(read('server.js'), /\.\.\.require\('\.\/actions\/claude-session'\)/);
   assert.match(read('server.js'), /require\('\.\/actions\/claude-session'\)\.menuItems\(/);
   assert.match(read('screens.js'), /claudeHere\.has\(s\.session\) && !dead \?/);
-  assert.match(read('actions', 'screens.js'), /\n  onHostScreen,\n/);
+  assert.match(read('actions', 'screens.js'), /\n  verbFailedHtml, verbFailedStatus, runnerDownHtml,\n/);
 });

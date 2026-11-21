@@ -152,6 +152,14 @@ unix socket in `.screens/` (`runner.sock`, yours only), so a terminal opens on a
 the container cannot see that machine's screen sessions itself: a container that started before screen was
 installed on the machine, a runner with a socket directory of its own, or Docker Desktop.
 
+Every other verb on a session on your machine goes the same way: Interrupt (Ctrl-C), Detach, **/exit**, the mode
+reset, Kill and **Remove ended sessions** are done by the runner, over that socket, else through the mailbox in the
+same folder (`.screens/queue/`). So is what only the machine's process table can tell: which sessions run Claude Code,
+and which automation browsers are open, which the runner publishes with its list (`.screens/host-sessions.json`). A
+session is addressed by its whole name (`<pid>.<name>`), never by a name that merely starts alike. The runner keeps
+the code it was started with: after an update, `screen-host.sh --restart` (the updaters do it for a running runner when
+a release changes it). The sessions keep running across a restart.
+
 Check it any time with `bash core/scripts/autostart.sh` — it prints the service state, whether
 lingering is on, and exactly which projects will come back.
 

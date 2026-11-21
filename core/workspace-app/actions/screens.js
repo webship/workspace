@@ -8,8 +8,9 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { esc } = require('../html');
-const { run, startJob, stopJob, jobFragment, runningJobKey, hostRunnerUp, hostRunnerRequest } = require('../jobs');
+const { startJob, stopJob, jobFragment, runningJobKey, hostRunnerUp, hostRunnerRequest } = require('../jobs');
 const { screenLogFor, screensGridHtml, screenTargetDir, defaultSessionName } = require('../screens');
+const { screenVerb, wipeEverywhere } = require('../screen-verbs');
 const claudeSessions = require('../claude-sessions');
 const claudeArgs = require('../claude-args');
 const screenNotes = require('../screen-notes');
@@ -149,38 +150,34 @@ async function screen_new({ form, send, res }) {
   return send(posted + await screensGridHtml());
 }
 
-// The rest of the screen(1) verbs the page offers, each one command:
-//   detach    screen -S <s> -X detach     — drop every other client
-//   interrupt screen -S <s> -X stuff ^C   — interrupt what runs inside
-//   wipe      screen -wipe                — forget dead sessions
-// The dashboard's container has no screen sessions of its own any more, so a
-// screen(1) verb is asked of the machine — falling back to the container only
-// for the sessions started before the move.
-async function onHostScreen(session, args) {
-  const live = await require('../screens').listScreens();
-  const row = live.find((s) => s.session === session);
-  // Stopping goes through the host runner when the runner owns the session: it started the process
-  // group and is the one that can take the whole thing down.
-  if (row && row.where === 'host' && args.includes('quit')) {
-    const answer = await hostRunnerRequest('stop', { session });
-    if (answer && answer.ok) return { ok: true, stdout: '', stderr: '' };
-  }
-  // Everything else is screen's own, and screen IN HERE can reach it: `/run/screen` is shared with
-  // this container, which is the same reason `screen -x` attaches at all.
-  //
-  // This used to refuse every verb but quit for any session marked `host` — which is every session,
-  // since that is what listScreens labels them — and answer with "run it in your terminal" instead. So
-  // the terminal window's Ctrl-C and Detach buttons did nothing but print a command to go and type,
-  // for a session this process could drive all along. Verified from the container: `screen -S <s> -X
-  // stuff` is accepted.
-  const out = await run('screen', args, process.env.HOME, { timeoutMs: 10 * 1000 });
-  if (out.ok) return out;
-  // Only when it really fails is there something for a person to do, and then the command is the one
-  // that was actually attempted rather than a reconstruction of it.
-  const verb = args.slice(3).join(' ');
-  return { ok: false,
-    stdout: out.stdout,
-    stderr: `${String(out.stderr || out.stdout || '').trim()}\nIf this keeps failing, run it in your terminal: screen -S ${session} -X ${verb}` };
+// The rest of the screen(1) verbs the page offers, each one command on the session:
+//   detach    screen -X detach     — drop every other client
+//   interrupt screen -X stuff ^C   — interrupt what runs inside
+//   reset     screen -X stuff …    — type a printf of the mode resets at its prompt
+//   stop      screen -X quit       — end it and whatever runs inside
+//   wipe      screen -wipe         — forget dead sessions
+// Screen here does them for the sessions it lists; the host runner does them for the sessions on the machine, which
+// screen in the dashboard's container cannot reach since its container has a process space of its own (#564).
+// screen-verbs.js decides which, and says why when neither can.
+
+/**
+ * What a page says when a verb was not done: the runner is not up (the same words as a start that needs it), the
+ * runner is too old for it, or what screen said, with the command to type on the machine when it keeps failing.
+ */
+function verbFailedHtml(session, out, verbLine) {
+  if (out.runnerDown) return runnerDownHtml();
+  if (out.runnerOld) return runnerOldHtml();
+  const said = String(out.stderr || out.stdout || '').trim();
+  const hint = out.gone ? '' : `\nIf this keeps failing, run it in your terminal: screen -S ${session} -X ${verbLine}`;
+  return `<div class="msg error">Could not reach ${esc(session)}: ${esc(`${said}${hint}`.slice(-300))}</div>`;
+}
+
+/** The status of an answer that was not done: 503 when the runner is what is missing, else 500. */
+const verbFailedStatus = (out) => (out.runnerDown || out.runnerOld ? 503 : 500);
+
+function runnerOldHtml() {
+  return '<div class="msg error">The screen runner on your machine is from an older release and cannot do this yet. '
+    + 'Restart it once, and the sessions keep running: <code>bash ~/workspace/core/workspace-app/scripts/screen-host.sh --restart</code></div>';
 }
 
 function runnerDownHtml() {
@@ -207,28 +204,26 @@ const MODE_RESETS = ['?1000l', '?1001l', '?1002l', '?1003l', '?1005l', '?1006l',
 async function screen_verb({ form, send, pathname }) {
   const session = String(form.session || '');
   if (pathname === '/actions/screen-wipe') {
-    await run('screen', ['-wipe'], process.env.HOME, { timeoutMs: 10 * 1000 });
+    await wipeEverywhere();
     return send(await screensGridHtml());
   }
   if (!/^[a-z0-9][a-zA-Z0-9_.-]*$/.test(session)) return send('<div class="msg error">Not a screen session name.</div>', 400);
   if (pathname === '/actions/screen-reset-modes') {
     if (form.confirm !== 'yes') return send('<div class="msg error">Resetting types a command into the session, so it asks first.</div>', 400);
-    const out = await onHostScreen(session, ['-S', session, '-X', 'stuff', `printf "${MODE_RESETS}"\n`]);
+    const out = await screenVerb(session, 'stuff', { text: `printf "${MODE_RESETS}"\n` });
     return send(out.ok
       ? `<div class="msg assistant">Cleared the mouse and paste modes on <strong>${esc(session)}</strong>.
          Every terminal attached to it, here and in a real terminal, scrolls normally again.
          <p class="uk-text-meta">It typed <code>printf</code> at the session's prompt — if a full-screen program was running
          rather than a shell, that line went to the program instead and nothing was reset.</p></div>`
-      : `<div class="msg error">Could not reach ${esc(session)}: ${esc(String(out.stderr || out.stdout).slice(-200))}</div>`, out.ok ? 200 : 500);
+      : verbFailedHtml(session, out, 'stuff'), out.ok ? 200 : verbFailedStatus(out));
   }
-  const args = pathname === '/actions/screen-detach'
-    ? ['-S', session, '-X', 'detach']
-    : ['-S', session, '-X', 'stuff', '\x03'];
-  const out = await onHostScreen(session, args);
-  const what = pathname === '/actions/screen-detach' ? 'Detached every other client from' : 'Sent Ctrl-C to';
+  const detach = pathname === '/actions/screen-detach';
+  const out = detach ? await screenVerb(session, 'detach') : await screenVerb(session, 'stuff', { text: '\x03' });
+  const what = detach ? 'Detached every other client from' : 'Sent Ctrl-C to';
   return send(out.ok
     ? `<div class="msg assistant">${what} <strong>${esc(session)}</strong>.</div>`
-    : `<div class="msg error">Could not reach ${esc(session)}: ${esc(String(out.stderr || out.stdout).slice(-200))}</div>`, out.ok ? 200 : 500);
+    : verbFailedHtml(session, out, detach ? 'detach' : 'stuff ^C'), out.ok ? 200 : verbFailedStatus(out));
 }
 
 async function screen_watch_or_stop({ form, send, pathname, res }) {
@@ -236,10 +231,12 @@ async function screen_watch_or_stop({ form, send, pathname, res }) {
   if (!/^[a-z0-9][a-zA-Z0-9_.-]*$/.test(session)) return send('<div class="msg error">Not a screen session name.</div>', 400);
   if (pathname === '/actions/screen-stop') {
     if (form.confirm !== 'yes') return send('<div class="msg error">Stopping requires confirmation.</div>', 400);
-    const out = await onHostScreen(session, ['-S', session, '-X', 'quit']);
+    const out = await screenVerb(session, 'stop');
+    // A session on the machine while its runner is away: nothing here can reach it, and saying it stopped would be false.
+    if (out.runnerDown) return send(runnerDownHtml(), 503);
     if (!out.ok) {
-      // A dead socket has no process to quit — `screen -wipe` is what clears it.
-      await run('screen', ['-wipe'], process.env.HOME, { timeoutMs: 10 * 1000 });
+      // A dead socket has no process to quit — `screen -wipe` is what clears it, here and on the machine.
+      await wipeEverywhere();
       const still = (await require('../screens').listScreens()).some((s) => s.session === session);
       if (still) return send(`<div class="msg error">Could not stop ${esc(session)}: ${esc(String(out.stderr || out.stdout).slice(-200))}</div>`, 500);
     }
@@ -251,9 +248,13 @@ async function screen_watch_or_stop({ form, send, pathname, res }) {
   }
   const log = screenLogFor(session);
   if (!log) return send('<div class="msg error">No known log for this session — reattach in a terminal instead.</div>', 404);
+  // Followed while the session is there: screen here lists it, or the host runner does (scripts/session-alive.js). It was
+  // `screen -ls | grep` here, which lists only the container's own sessions since #564, so the log of a session on the
+  // machine stopped after a second.
+  const alive = `${JSON.stringify(process.execPath)} ${JSON.stringify(path.join(__dirname, '..', 'scripts', 'session-alive.js'))} ${session} ${JSON.stringify(ROOT)}`;
   const shellLine = [
     `tail -n +1 -F ${JSON.stringify(log)} 2>/dev/null & TP=$!`,
-    `while screen -ls 2>/dev/null | grep -q "[.]${session}[[:space:]]"; do sleep 3; done`,
+    `while ${alive}; do sleep 3; done`,
     `sleep 1; kill $TP 2>/dev/null`,
     `echo; echo "--- the session ended; full log: ${path.basename(log)} ---"`,
   ].join('; ');
@@ -354,5 +355,5 @@ module.exports = {
   '/actions/screen-wipe': screen_verb,
   '/actions/screen-watch': screen_watch_or_stop,
   '/actions/screen-stop': screen_watch_or_stop,
-  onHostScreen,
+  verbFailedHtml, verbFailedStatus, runnerDownHtml,
 };

@@ -701,6 +701,8 @@ paths, the CLIs, the Web IDE, the exposure state, and the inotify limit.
 | A command answers *was not started* | no screen session can be started: `screen` is missing where the dashboard runs. `bash core/scripts/install.sh` installs it; the notice also gives the line to run by hand |
 | A screen session looks stuck | check **Screens** — if it says `✋ waiting on a choice`, it is waiting for **you**. Open the terminal and answer it |
 | A terminal window says *detached — … ↻ attaches it again* | it tried to attach itself again six times in about a minute. The session kept running: **↻** attaches the window again |
+| Interrupt, Detach, **/exit** or Kill answers *its runner is not up* | the session runs on your machine, and only the screen runner there reaches it. `bash ~/workspace/core/workspace-app/scripts/screen-host.sh --start` |
+| They answer *the screen runner on your machine is from an older release* | the runner keeps the code it was started with. `bash ~/workspace/core/workspace-app/scripts/screen-host.sh --restart`: the sessions keep running. The updaters restart a running runner when a release changes it |
 
 ### One thing to know before you change it
 

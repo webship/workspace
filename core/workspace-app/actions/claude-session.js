@@ -44,14 +44,18 @@ async function claude_exit({ form, send, res }) {
   if (!(await isClaudeSession(session))) return send(`<div class="msg error">Claude Code is not running in <strong>${esc(session)}</strong>.</div>`, 409);
   // Typed the way a person types it. Escape first closes a question or menu that is open (the trust prompt of a new
   // folder, a permission ask), then the command, then Enter on its own, so the prompt does not take it as a paste.
-  const { onHostScreen } = require('./screens');
+  // Typed into the session wherever it runs: screen here, or the host runner for a session on the machine
+  // (screen-verbs.js), which the dashboard's container cannot reach itself (#564).
+  const { verbFailedHtml, verbFailedStatus } = require('./screens');
+  const { screenVerb } = require('../screen-verbs');
   const pause = (ms) => new Promise((r) => setTimeout(r, ms));
-  await onHostScreen(session, ['-S', session, '-X', 'stuff', '\x1b']);
+  const escaped = await screenVerb(session, 'stuff', { text: '\x1b' });
+  if (escaped.runnerDown || escaped.runnerOld) return send(verbFailedHtml(session, escaped, 'stuff'), verbFailedStatus(escaped));
   await pause(500);
-  const typed = await onHostScreen(session, ['-S', session, '-X', 'stuff', '/exit']);
+  const typed = await screenVerb(session, 'stuff', { text: '/exit' });
   if (typed.ok) await pause(300);
-  const entered = typed.ok ? await onHostScreen(session, ['-S', session, '-X', 'stuff', '\r']) : typed;
-  if (!entered.ok) return send(`<div class="msg error">Could not reach ${esc(session)}: ${esc(String(entered.stderr || entered.stdout).slice(-200))}</div>`, 500);
+  const entered = typed.ok ? await screenVerb(session, 'stuff', { text: '\r' }) : typed;
+  if (!entered.ok) return send(verbFailedHtml(session, entered, 'stuff /exit'), verbFailedStatus(entered));
   try { res.setHeader('HX-Trigger', JSON.stringify({ 'screens-changed': { session } })); } catch (_) { /* headers already sent */ }
   return send(`<div class="msg assistant"><p>Sent <code>/exit</code> to Claude Code in <strong>${esc(session)}</strong>. The conversation is kept.</p>
     <p>${resumeButton({ session })}</p></div>`);

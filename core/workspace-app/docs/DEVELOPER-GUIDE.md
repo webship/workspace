@@ -174,6 +174,14 @@ Server-rendered HTML fragments, swapped by HTMX.
 - **A terminal on a session only the host runner lists is the runner's attach, relayed** (`runner-attach.js`):
   over `.screens/runner.sock` when the runner left one, else its port. A session `screen -ls` here lists is
   attached here, as before.
+- **Every other verb on a session goes through `screen-verbs.js`** (`screenVerb(session, 'stop' | 'stuff' |
+  'detach')`, `wipeEverywhere()`), never `run('screen', …)` in an action: screen here for a session it lists, the
+  runner for one only the runner lists (`jobs.hostRunnerAsk`: its socket, else the mailbox), and `runnerDown` /
+  `runnerOld` / `gone` when neither can, which `verbFailedHtml` in `actions/screens.js` says. The dashboard's container
+  has a process space of its own, so screen in it reaches only its own sessions (#564). What only the machine's process
+  table tells comes from the runner's published list: `agent` on each session and `browsers` (`host-processes.js`, which
+  the runner and `screens.js` share); a pid the runner published is never walked here. Sessions are addressed as
+  `<pid>.<name>`: screen's `-S <name>` takes any session whose name starts with it.
 - **The stylesheet is assembled** from `public/css/base.css` + `public/css/components/*.css` + a theme.
   `public/style.css` is not the source; editing it changes nothing. `cssVersion()` stamps the URL from
   the parts' mtimes, so a cached browser picks changes up.

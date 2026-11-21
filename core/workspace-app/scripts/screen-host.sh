@@ -5,6 +5,7 @@
 #   bash core/workspace-app/scripts/screen-host.sh --start    start it in the background
 #   bash core/workspace-app/scripts/screen-host.sh --status   is it up, and what is running here
 #   bash core/workspace-app/scripts/screen-host.sh --stop      stop it (sessions keep running)
+#   bash core/workspace-app/scripts/screen-host.sh --restart   stop it and start it again, on this release's code
 #   bash core/workspace-app/scripts/screen-host.sh --run       run in the foreground
 #
 # Screen sessions belong on this machine, not inside the dashboard's container:
@@ -33,8 +34,9 @@ while [ $# -gt 0 ]; do
     -r|--run)    ACTION=run; shift ;;
     -t|--status) ACTION=status; shift ;;
     -x|--stop)   ACTION=stop; shift ;;
+    --restart)   ACTION=restart; shift ;;
     -p|--port)   PORT="${2:-7681}"; shift 2 ;;
-    -h|--help)   sed -n '3,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)   sed -n '3,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $1 (see --help)"; exit 1 ;;
   esac
 done
@@ -56,6 +58,16 @@ case "${ACTION}" in
       echo "The runner is not running."
     fi
     exit 0 ;;
+  restart)
+    # A runner keeps the code it was started with: after an update it is restarted so it does what the dashboard asks
+    # of this release (a verb an older runner does not know is refused with this command). The sessions keep running,
+    # and a terminal open on one attaches itself again once the runner is back.
+    if p="$(runner_pid)"; then
+      kill "${p}" && rm -f "${PIDFILE}"
+      for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "${p}" 2>/dev/null || break; sleep 0.3; done
+      echo "Stopped the runner (pid ${p}). The sessions it started keep running."
+    fi
+    ACTION=start ;;
   status)
     if p="$(runner_pid)"; then
       echo "Running — pid ${p}, port $(cat "${STORE}/.runner-port" 2>/dev/null || echo '?')"
@@ -110,5 +122,5 @@ if [ "${ACTION}" = "start" ]; then
   exit 0
 fi
 
-echo "Nothing to do: give --start, --run, --status or --stop."
+echo "Nothing to do: give --start, --run, --status, --stop or --restart."
 exit 1

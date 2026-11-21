@@ -10,11 +10,19 @@
  *
  *   start   POST /start   {session, dir, cmd}   -> screen -dmS on this machine
  *   list    GET  /list                          -> what `screen -ls` says here
- *   stop    POST /stop    {session}
+ *   stop    POST /stop    {session}             -> screen -X quit
+ *   stuff   POST /stuff   {session, text}       -> screen -X stuff: Ctrl-C, /exit, a line typed into the session
+ *   detach  POST /detach  {session}             -> screen -X detach: every other client lets go
+ *   wipe    POST /wipe                          -> screen -wipe: the sockets of sessions that are gone
  *   attach  WS   /attach/<session>              -> a PTY sharing that session
  *
  * on its port and on a unix socket in the store (.screens/runner.sock), which the dashboard's container reaches
- * through the folder both sides share.
+ * through the folder both sides share. Every verb but attach is also taken from the mailbox (below).
+ *
+ * The dashboard's container has a process space of its own (webship/workspace#564): screen in there cannot reach a
+ * session on this machine, and `ps` in there cannot see its processes. So every verb on a session goes through here,
+ * and what only the process table tells (which sessions run Claude Code, which automation browsers are open) is
+ * published from here with the list.
  *
  * It binds to 127.0.0.1 only and requires a token that lives in the workspace
  * (which the container already mounts), so the dashboard can read it and other
@@ -30,6 +38,8 @@ const { spawn, execFile } = require('child_process');
 const crypto = require('crypto');
 // One copy of the working-vs-waiting rules, shared with the dashboard. No dependencies.
 const { waitingState } = require(path.join(__dirname, '..', 'waiting'));
+// And of what the process table says about a session or a browser. No dependencies either.
+const { PS_ARGS, parseProcessTable, agentUnder, browsersIn } = require(path.join(__dirname, '..', 'host-processes'));
 
 // The workspace is two levels up from this script: core/workspace-app/scripts.
 const ROOT = process.env.WORKSPACE_ROOT || path.resolve(__dirname, '..', '..', '..');
@@ -90,6 +100,68 @@ function listSessions(cb) {
   });
 }
 
+// A session, addressed by its whole name: `<pid>.<name>`, which is one session, never another. screen's own `-S <name>`
+// takes any session whose name STARTS with it, so stopping `dev--site--composer-update` after it had ended quit
+// `dev--site--composer-update--dry-run` instead. Null when no session has that name.
+function exactSession(session, cb) {
+  listSessions((rows) => {
+    const row = rows.find((r) => r.session === session);
+    cb(row ? `${row.pid}.${row.session}` : null);
+  });
+}
+
+// The machine's process table, read at most every five seconds: the published list is rewritten every two, and what
+// it carries from here (which sessions run Claude Code, which automation browsers are open) keeps for five.
+const PS_TTL = 5000;
+let _table = { at: 0, table: null };
+
+function processTable(cb) {
+  if (_table.table && Date.now() - _table.at < PS_TTL) return cb(_table.table);
+  return execFile('ps', PS_ARGS, { timeout: 5000, maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
+    _table = { at: Date.now(), table: parseProcessTable(err ? '' : stdout) };
+    cb(_table.table);
+  });
+}
+
+// The verbs this runner does, published, so the dashboard asks only for what this one can do: a runner started from
+// an older release keeps its old code until it is restarted, and does not know stuff, detach or wipe.
+const VERBS = ['start', 'stop', 'stuff', 'detach', 'wipe'];
+
+// What may be typed into a session at once: the dashboard types a key, a command or a line, never a file.
+const MAX_STUFF = 4096;
+
+/**
+ * A verb on a session, for both ways in (the sockets and the mailbox): `done` gets the answer to send back.
+ *
+ *   stop    screen -X quit     the session and whatever runs inside it end
+ *   stuff   screen -X stuff    `text` is typed into the session, as a person would type it
+ *   detach  screen -X detach   every client attached to it lets go; the session runs on
+ *   wipe    screen -wipe       the sockets of sessions that are gone
+ */
+function doVerb(action, payload, done) {
+  const run = (args) => execFile('screen', args, { timeout: 10000 }, (err, _o, stderr) => done(err
+    ? { ok: false, error: String(stderr || err.message).trim().slice(-200) }
+    : { ok: true }));
+  if (action === 'wipe') {
+    // `screen -wipe` exits 1 when there is nothing to wipe: only a screen that is not there is a failure.
+    return execFile('screen', ['-wipe'], { timeout: 10000 }, (err) => done(err && err.code === 'ENOENT'
+      ? { ok: false, error: 'screen is not installed on this machine' } : { ok: true }));
+  }
+  if (!['stop', 'stuff', 'detach'].includes(action)) return done({ ok: false, error: 'unknown action' });
+  const session = String((payload && payload.session) || '');
+  if (!NAME_RE.test(session)) return done({ ok: false, error: 'bad session name', bad: true });
+  const text = action === 'stuff' ? (payload && typeof payload.text === 'string' ? payload.text : '') : '';
+  if (action === 'stuff' && (!text || Buffer.byteLength(text) > MAX_STUFF)) {
+    return done({ ok: false, error: `nothing to type, or more than ${MAX_STUFF} bytes`, bad: true });
+  }
+  return exactSession(session, (target) => {
+    if (!target) return done({ ok: false, gone: true, error: `no session called ${session} is running` });
+    if (action === 'stop') return run(['-S', target, '-X', 'quit']);
+    if (action === 'detach') return run(['-S', target, '-X', 'detach']);
+    return run(['-S', target, '-X', 'stuff', text]);
+  });
+}
+
 // The environment every screen session is created with.
 //
 // A full-screen TUI in a screen window needs TWO things fixed, and either one alone
@@ -130,11 +202,11 @@ delete SESSION_ENV.COLORTERM;
 const WAIT_TTL = 6000;
 const _waitCache = new Map();
 
-function waitingFor(session, cb) {
+function waitingFor(session, cb, target = session) {
   const hit = _waitCache.get(session);
   if (hit && Date.now() - hit.at < WAIT_TTL) return cb(hit.state);
   const out = path.join(STORE, `.peek-${session}`);
-  execFile('screen', ['-S', session, '-X', 'hardcopy', out], { timeout: 8000 }, () => {
+  execFile('screen', ['-S', target, '-X', 'hardcopy', out], { timeout: 8000 }, () => {
     let text = '';
     try { text = fs.readFileSync(out, 'utf8'); } catch (_) { text = ''; }
     try { fs.unlinkSync(out); } catch (_) { /* best effort */ }
@@ -145,17 +217,19 @@ function waitingFor(session, cb) {
   });
 }
 
-/** listSessions, plus the waiting flag for each row. */
+/** listSessions, plus the waiting flag and the agent flag for each row, and the process table it read them from. */
 function listSessionsWithState(cb) {
-  listSessions((rows) => {
-    if (!rows.length) return cb(rows);
+  listSessions((rows) => processTable((table) => {
+    // Whether Claude Code runs in the session: only a process on this machine can tell, by its process table.
+    for (const r of rows) r.agent = agentUnder(r.pid, table);
+    if (!rows.length) return cb(rows, table);
     let left = rows.length;
-    rows.forEach((r) => waitingFor(r.session, (st) => {
+    return rows.forEach((r) => waitingFor(r.session, (st) => {
       r.waiting = !!st.waiting;
       r.waitingWhy = st.why || '';
-      if (--left === 0) cb(rows);
-    }));
-  });
+      if (--left === 0) cb(rows, table);
+    }, `${r.pid}.${r.session}`));
+  }));
 }
 
 const server = http.createServer((req, res) => {
@@ -177,32 +251,33 @@ const server = http.createServer((req, res) => {
     const session = String(url.searchParams.get('session') || '');
     if (!NAME_RE.test(session)) return json(res, 400, { error: 'bad session name' });
     const out = path.join(STORE, `.peek-${session}`);
-    return execFile('screen', ['-S', session, '-X', 'hardcopy', out], { timeout: 10000 }, () => {
-      let text = '';
-      try { text = fs.readFileSync(out, 'utf8'); } catch (_) { text = ''; }
-      try { fs.unlinkSync(out); } catch (_) { /* best effort */ }
-      // Only the tail is of interest: a question is at the bottom of a screen, never
-      // at the top, and the whole window is 50+ lines of scrollback nobody needs here.
-      const lines = text.split('\n').filter((l) => l.trim());
-      return json(res, 200, { session, tail: lines.slice(-14).join('\n') });
+    return exactSession(session, (target) => {
+      if (!target) return json(res, 200, { session, tail: '', gone: true });
+      return execFile('screen', ['-S', target, '-X', 'hardcopy', out], { timeout: 10000 }, () => {
+        let text = '';
+        try { text = fs.readFileSync(out, 'utf8'); } catch (_) { text = ''; }
+        try { fs.unlinkSync(out); } catch (_) { /* best effort */ }
+        // Only the tail is of interest: a question is at the bottom of a screen, never
+        // at the top, and the whole window is 50+ lines of scrollback nobody needs here.
+        const lines = text.split('\n').filter((l) => l.trim());
+        return json(res, 200, { session, tail: lines.slice(-14).join('\n') });
+      });
     });
   }
   if (req.method === 'GET' && url.pathname === '/health') {
     return json(res, 200, { ok: true, host: require('os').hostname(), screen: !!process.env.PATH });
   }
-  if (req.method === 'POST' && (url.pathname === '/start' || url.pathname === '/stop')) {
+  if (req.method === 'POST' && VERBS.includes(url.pathname.slice(1))) {
     let body = '';
     req.on('data', (d) => { body += d; if (body.length > 1e6) req.destroy(); });
     req.on('end', () => {
       let payload = {};
       try { payload = JSON.parse(body || '{}'); } catch (_) { return json(res, 400, { error: 'bad json' }); }
+      if (url.pathname !== '/start') {
+        return doVerb(url.pathname.slice(1), payload, (answerBody) => json(res, answerBody.bad ? 400 : 200, answerBody));
+      }
       const session = String(payload.session || '');
       if (!NAME_RE.test(session)) return json(res, 400, { error: 'bad session name' });
-
-      if (url.pathname === '/stop') {
-        return execFile('screen', ['-S', session, '-X', 'quit'], { timeout: 10000 },
-          (err) => json(res, 200, { ok: !err }));
-      }
       // start: the directory must be inside the workspace, and the command runs
       // through a login shell so the user's PATH, ~/.claude and agents apply.
       const dir = path.resolve(String(payload.dir || ROOT));
@@ -254,17 +329,23 @@ if (WebSocketServer) {
     const session = m[1];
     const cols = Math.min(500, Math.max(20, parseInt(u.searchParams.get('cols'), 10) || 120));
     const rows = Math.min(200, Math.max(5, parseInt(u.searchParams.get('rows'), 10) || 30));
-    wss.handleUpgrade(req, socket, head, (ws) => {
+    // The session by its whole name: `screen -x <name>` attaches any session whose name starts with it, so a window
+    // opened on a session that had just ended would have shown another one.
+    exactSession(session, (target) => wss.handleUpgrade(req, socket, head, (ws) => {
+      if (!target) {
+        try { ws.send(`There is no screen to be attached matching ${session}.\r\n`); ws.close(1000); } catch (_) { /* gone */ }
+        return;
+      }
       // The same attach as the dashboard's own (server.js): `-A` fits the session to this window, and `script` runs
       // in a process group of its own, so closing the window ends the `screen -x` client too. Left attached, a
       // client pins the session to its size, one more for every window ever closed.
       const child = spawn('script', ['-qfc',
-        `stty cols ${cols} rows ${rows} 2>/dev/null; exec screen -A -x ${session}`, '/dev/null'],
+        `stty cols ${cols} rows ${rows} 2>/dev/null; exec screen -A -x ${target}`, '/dev/null'],
       { cwd: process.env.HOME, detached: true, env: { ...process.env, TERM: 'xterm-256color' } });
       children.add(child);
       let painted = false;
       const repaints = [250, 900, 2500, 5000].map((ms) => setTimeout(() => {
-        if (!painted) execFile('screen', ['-S', session, '-X', 'redisplay'], () => { /* gone */ });
+        if (!painted) execFile('screen', ['-S', target, '-X', 'redisplay'], () => { /* gone */ });
       }, ms));
       const reap = () => {
         repaints.forEach(clearTimeout);
@@ -282,7 +363,7 @@ if (WebSocketServer) {
       ws.on('message', (d, isBinary) => { if (isBinary && !d.length) return; try { child.stdin.write(d); } catch (_) { /* gone */ } });
       ws.on('close', reap);
       ws.on('error', reap);
-    });
+    }));
   });
 }
 
@@ -330,12 +411,10 @@ function handleRequest(file) {
   const id = String(req.id || '').replace(/[^a-zA-Z0-9._-]/g, '');
   const session = String(req.session || '');
   if (!id) return;
+  // Every verb but start, the same as over the sockets: stop, stuff, detach, wipe.
+  if (req.action !== 'start') return doVerb(req.action, req, (body) => answer(id, body));
   if (!NAME_RE.test(session)) return answer(id, { ok: false, error: 'bad session name' });
 
-  if (req.action === 'stop') {
-    return execFile('screen', ['-S', session, '-X', 'quit'], { timeout: 10000 },
-      (err) => answer(id, { ok: !err }));
-  }
   if (req.action === 'start') {
     const dir = path.resolve(String(req.dir || ROOT));
     if (!dir.startsWith(ROOT)) return answer(id, { ok: false, error: 'directory outside the workspace' });
@@ -369,13 +448,16 @@ function drainQueue() {
 function publish() {
   // With the waiting flag, so the dashboard's list shows it without asking anything:
   // the file the page already reads is the one that carries it.
-  listSessionsWithState((rows) => {
+  listSessionsWithState((rows, table) => {
     // Written beside and renamed over: written in place, a read at that moment (it is rewritten every two
     // seconds) found an empty or half file, took the runner for down and ran the command in the container.
     try {
       const file = path.join(STORE, 'host-sessions.json');
       const tmp = `${file}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({ at: Date.now(), host: require('os').hostname(), sessions: rows }));
+      // With the automation browsers open on this machine (the Screens page lists them) and the verbs this runner
+      // does: the dashboard's container sees neither the machine's processes nor which release this runner is.
+      fs.writeFileSync(tmp, JSON.stringify({ at: Date.now(), host: require('os').hostname(), sessions: rows,
+        browsers: browsersIn(table), verbs: VERBS }));
       fs.renameSync(tmp, file);
     } catch (_) { /* the dashboard will see a stale file and say so */ }
   });

@@ -369,6 +369,20 @@ function init(dirArg, { update = false } = {}) {
     const r = spawnSync('bash', [path.join(dest, 'core', 'scripts', 'plugins.sh'), '--restart'], { cwd: dest, encoding: 'utf8', env: { ...process.env, WORKSPACE_ROOT: dest } });
     restart = String(r.stdout || '').trim();
   }
+  // The host screen runner keeps the code it was started with: one this release changed is restarted when it runs
+  // (the sessions keep running), so it does what this dashboard asks of it. An older runner refuses what it does not know.
+  if (update) {
+    const runnerFiles = ['scripts/screen-runner.js', 'host-processes.js', 'waiting.js', 'session-env.js'].map((f) => `core/workspace-app/${f}`);
+    const host = path.join(app, 'scripts', 'screen-host.sh');
+    if (fs.existsSync(host) && (!shippedBefore || runnerFiles.some((f) => shippedBefore[f] !== shipped.get(f)))) {
+      const status = spawnSync('bash', [host, '--status'], { encoding: 'utf8' });
+      if (/^Running/m.test(String(status.stdout || ''))) {
+        const r = spawnSync('bash', [host, '--restart'], { encoding: 'utf8' });
+        say(r.status === 0 ? '  restarted the screen runner, which this release changed (the sessions keep running)'
+          : `  the screen runner did not restart:  bash ${host} --restart`);
+      }
+    }
+  }
   say('');
   const start = `cd ${app} && ddev start`;
   if (update) {
