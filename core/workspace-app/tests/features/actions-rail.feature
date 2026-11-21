@@ -42,3 +42,23 @@ Feature: The actions rail
     Given I am on "/settings"
      Then the element "#actions-rail" should be displayed
       And the element ".actions-toggle" should be displayed
+
+  # On a laptop with the assistant open beside the page there is no room for the rail's labels as well: at
+  # 1024 the Dev page's build form was cut to a 281px card. There the rail starts collapsed, opens over the
+  # content when asked, and closes on Escape or on a click outside it; opening it there is not remembered.
+  Scenario: With the assistant beside the page on a laptop, the rail opens over the content and closes on Escape
+    Given I am on "/dev"
+      And the local storage "ws-assistant-open" is set to "1"
+      And the local storage "ws-assistant-view" is set to "sidebar"
+      And the local storage "actions-collapsed" is set to "0"
+     When I set the viewport to 1280 by 800
+      And I reload the page
+     Then the element "html" with the attribute "class" and the value containing "actions-collapsed" should exist
+     When I click on the element ".actions-toggle"
+     Then the element ".actions-toggle" with the attribute "aria-expanded" and the value "true" should exist
+     When I press the key "Escape"
+     Then the element ".actions-toggle" with the attribute "aria-expanded" and the value "false" should exist
+      And ".actions-toggle" should be focused
+     When I click on the element ".actions-toggle"
+      And I click on the element "main h1"
+     Then the element ".actions-toggle" with the attribute "aria-expanded" and the value "false" should exist
