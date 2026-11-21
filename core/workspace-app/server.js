@@ -4805,12 +4805,15 @@ async function workspacePage(key, state) {
       ${builders.length ? `
       <form class="build-form" hx-post="/actions/build" hx-target="#webship-workspace-output" hx-swap="innerHTML">
         <input type="hidden" name="workspace" value="${esc(key)}">
-        <div class="uk-grid uk-grid-small" uk-grid>
-          <div class="uk-width-2-5@s"><select class="uk-select" aria-label="What to build" name="script"
+        <!-- Visible labels: the name field comes filled in, so its placeholder never shows and an aria-label
+             was all that said what it is. Bottom-aligned, so Build stays on the fields' line. -->
+        <div class="uk-grid uk-grid-small uk-flex-bottom" uk-grid>
+          <div class="uk-width-2-5@s"><label class="build-label" for="build-script-${esc(key)}">What to build</label><select class="uk-select" id="build-script-${esc(key)}" name="script"
             hx-get="/fragments/${esc(key)}/builder-args" hx-trigger="change, load" hx-target="#builder-args" hx-swap="innerHTML" hx-include="this">${builderOptions}</select></div>
-          <div class="uk-width-2-5@s"><input class="uk-input" aria-label="Project name" name="projectName" data-suggest-name
-            placeholder="new-project-name" required pattern="[a-zA-Z0-9_\\-]+"
-            title="Named after what it builds, numbered past what is already here. Type over it freely."></div>
+          <div class="uk-width-2-5@s"><label class="build-label" for="build-name-${esc(key)}">Project name</label><input class="uk-input" id="build-name-${esc(key)}" name="projectName" data-suggest-name
+            placeholder="new-project-name" required pattern="[a-zA-Z0-9_\\-]+" aria-describedby="build-name-hint-${esc(key)}"
+            title="Named after what it builds, numbered past what is already here. Type over it freely.">
+            <span class="uk-hidden-visually" id="build-name-hint-${esc(key)}">Named after what it builds, numbered past what is already here. Type over it freely.</span></div>
           <div class="uk-width-1-5@s"><button type="submit" class="uk-button uk-button-primary uk-width-1-1">Build</button></div>
         </div>
         <div id="builder-args"></div>
@@ -8135,11 +8138,11 @@ Summarise what you changed and how to verify it`,
         return res.end(`
           <div class="uk-card uk-card-default uk-card-body uk-margin-top editor-card">
             <h3 class="uk-margin-small-bottom">Generate site documentation (AI → Markdown + PDF)</h3>
-            <form class="uk-grid uk-grid-small" uk-grid hx-post="/actions/generate-doc" hx-target="#webship-workspace-output" hx-swap="innerHTML">
+            <form class="uk-grid uk-grid-small uk-flex-bottom" uk-grid hx-post="/actions/generate-doc" hx-target="#webship-workspace-output" hx-swap="innerHTML">
               <input type="hidden" name="workspace" value="docs">
-              <div class="uk-width-1-4@s"><select class="uk-select" name="sourceWorkspace">${wsOptions}</select></div>
-              <div class="uk-width-1-4@s"><input class="uk-input" aria-label="Project name" name="projectName" placeholder="site/project name" required pattern="[a-zA-Z0-9_\\-]+"></div>
-              <div class="uk-width-1-4@s"><input class="uk-input" name="docName" placeholder="doc-name" required pattern="[a-zA-Z0-9_\\-]+"></div>
+              <div class="uk-width-1-4@s"><label class="build-label" for="site-doc-from">From workspace</label><select class="uk-select" id="site-doc-from" name="sourceWorkspace">${wsOptions}</select></div>
+              <div class="uk-width-1-4@s"><label class="build-label" for="site-doc-project">Project name</label><input class="uk-input" id="site-doc-project" name="projectName" placeholder="site/project name" required pattern="[a-zA-Z0-9_\\-]+"></div>
+              <div class="uk-width-1-4@s"><label class="build-label" for="site-doc-name">Document name</label><input class="uk-input" id="site-doc-name" name="docName" placeholder="doc-name" required pattern="[a-zA-Z0-9_\\-]+"></div>
               <div class="uk-width-1-4@s"><button type="submit" class="uk-button uk-button-primary uk-width-1-1">Generate</button></div>
             </form>
           </div>`);

@@ -26,8 +26,20 @@ test('a skip link is the first focusable thing, and points at the content', () =
 test('the build form controls have accessible names', () => {
   // A screen reader announced "edit text" and "combo box" with no indication of what either
   // was for; they are the two controls the primary task runs through.
-  assert.match(src, /aria-label="Project name"/, 'the project name input has no accessible name');
-  assert.match(src, /aria-label="What to build"/, 'the builder select has no accessible name');
+  // Since the accessibility test of 2026-11-21 (WCAG 3.3.2) they are visible labels, not aria-labels: the name
+  // field comes filled in, so its placeholder never showed.
+  assert.match(src, /<label class="build-label" for="build-name-\$\{esc\(key\)\}">Project name<\/label><input class="uk-input" id="build-name-\$\{esc\(key\)\}"/, 'the project name input has no visible label');
+  assert.match(src, /<label class="build-label" for="build-script-\$\{esc\(key\)\}">What to build<\/label><select class="uk-select" id="build-script-\$\{esc\(key\)\}"/, 'the builder select has no visible label');
+  assert.match(src, /aria-describedby="build-name-hint-\$\{esc\(key\)\}"/, 'the hint that was only a title');
+  assert.match(src, /<div class="uk-grid uk-grid-small uk-flex-bottom" uk-grid>\n\s+<div class="uk-width-2-5@s"><label class="build-label"/, 'Build leaves the fields\' line');
+});
+
+test('the site documentation form labels its three fields', () => {
+  // "doc-name" had only its placeholder, the workspace select had no name at all.
+  for (const [id, label] of [['site-doc-from', 'From workspace'], ['site-doc-project', 'Project name'], ['site-doc-name', 'Document name']]) {
+    assert.ok(src.includes(`<label class="build-label" for="${id}">${label}</label>`), `${label} has no visible label`);
+    assert.match(src, new RegExp(`<(select|input) class="uk-(select|input)" id="${id}"`), `${id} is not the labelled field`);
+  }
 });
 
 test('the page heading level does not skip', () => {
