@@ -224,5 +224,8 @@
 .settings-explain { display: block; }
 .settings-todo { display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.25rem; padding: 0.05rem 0.5rem 0.05rem 0.35rem; border-radius: 999px; background: var(--warning-soft); color: var(--warning-ink); font-family: var(--font-primary); font-size: 0.75rem; font-weight: 600; word-break: normal; }
 .settings-todo .tabler-icon { flex: none; }
+/* A key the plugin's installed version no longer has (issue 424): said before its old description, in the muted ink. */
+.settings-dropped { display: flex; align-items: flex-start; gap: 0.3rem; margin: 0.15rem 0; color: var(--text-subtle); font-family: var(--font-primary); font-size: 0.8rem; word-break: normal; overflow-wrap: break-word; }
+.settings-dropped .tabler-icon { flex: none; margin-top: 0.15rem; }
 .settings-row.is-todo > .uk-input, .settings-row.is-todo > .uk-select { border-color: var(--warning-ink); }
 .settings-todo-count { margin: 0 0 0 0.75rem; }
