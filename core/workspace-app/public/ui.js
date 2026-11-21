@@ -804,7 +804,9 @@ document.addEventListener('keydown', (e) => {
     if (!note) {
       note = document.createElement('p');
       note.className = 'tabmodal-wait';
-      pane.prepend(note);
+      // Last, though it is drawn at the top (tab-modal.css): first, it made the old first child a second one,
+      // and UIkit's "* + …" margins moved the old content 20px down before it hid.
+      pane.append(note);
     }
     note.textContent = `Loading ${label || 'this tab'}…`;
   };
@@ -825,8 +827,18 @@ document.addEventListener('keydown', (e) => {
     const msg = document.createElement('div');
     msg.className = 'msg error';
     msg.setAttribute('role', 'alert');
-    msg.textContent = `${(head && head.textContent) || 'This tab'} could not be loaded: the dashboard did not answer. Choose the tab again to try once more.`;
+    const words = document.createElement('p');
+    words.textContent = `${(head && head.textContent) || 'This tab'} could not be loaded: the dashboard did not answer.`;
+    // A way out on the spot: the same tab, asked again.
+    const again = document.createElement('button');
+    again.type = 'button';
+    again.className = 'uk-button uk-button-default uk-button-small tabmodal-retry';
+    again.textContent = 'Try again';
+    const asked = from || (pane.closest('.tabmodal') && pane.closest('.tabmodal').querySelector('.tabmodal-tab.is-selected'));
+    again.addEventListener('click', () => { if (asked) asked.click(); });
+    msg.append(words, again);
     pane.replaceChildren(msg);
+    again.focus();
   });
 
   // An answer with nothing to swap in (a 204) leaves the pane as it was: it is not left busy, and blank.

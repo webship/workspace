@@ -166,9 +166,14 @@
    shows and what the pane held before is hidden, so a slow tab never shows the last one under its name,
    and one that answers at once does not flash. Not motion: the two switch, they do not move. */
 .tabmodal-wait { display: none; }
+/* Laid over the top of the pane, not in its flow: in the flow the line pushed what the pane held 43px down
+   for the moment before it hid. */
+.tabmodal-pane { position: relative; }
 .tabmodal-pane[aria-busy="true"] > .tabmodal-wait {
   display: block;
-  margin: 0 0 1rem;
+  position: absolute;
+  inset: 1.25rem 1.5rem auto;
+  margin: 0;
   font-size: 0.875rem;
   color: var(--text-subtle);
   animation: tabmodal-wait-show 0s linear 0.18s both;
@@ -184,3 +189,15 @@
    does (.htmx-request), which put the chosen tab's name at 2.5:1, and took clicks from it. The pane says
    "Loading …" (above), and another tab can be chosen meanwhile. */
 .tabmodal-tab.htmx-request { opacity: 1; pointer-events: auto; }
+
+/* A message from the server, or "could not be loaded", in a pane: drawn as the message it is, like one in
+   the output area (it was plain body text there), with its "Try again" under the words. */
+.tabmodal-pane .msg.error {
+  background: var(--danger-soft);
+  border: 1px solid var(--danger);
+  color: var(--danger-ink);
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+}
+.tabmodal-pane .msg.error > p { margin: 0 0 0.5rem; }
+.tabmodal-pane .msg.error > p:last-child { margin-bottom: 0; }
