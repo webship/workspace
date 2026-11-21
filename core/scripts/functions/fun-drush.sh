@@ -10,7 +10,7 @@ function add_drush() {
     # requires guzzle 8, every tagged Drush (through 13) requires guzzle ^7, and the
     # resolver refuses the pair — which surfaces LATER as "drush is not available" at
     # site:install, three steps from the line that caused it.
-    ddev composer require "drush/drush:${site_drush_version:-~11 || ~13}";
+    ddev composer require $(composer_security_option) "drush/drush:${site_drush_version:-~11 || ~13}";
   fi
 
   # DDEV rewrites its shared command directory whenever ANY project on this machine starts, and `ddev drush`

@@ -89,7 +89,7 @@ function website_add_pending_fixes() {
   done
 
   if [ ${#pins[@]} -gt 0 ] ; then
-    ddev composer require --no-update "${pins[@]}" ;
+    ddev composer require $(composer_security_option) --no-update "${pins[@]}" ;
   fi
 }
 # -----------------------------------------------------------------------------
@@ -122,6 +122,7 @@ function website_after_install() {
 
 # drupal/website installed by the Webship installer with --template.
 function build_website_project() {
+  composer_security_warning ;
   local template="${TEMPLATE:-website_starter}" ;
 
   website_create_project "${distribution_project_template}:${site_version}" || return 1 ;
@@ -147,10 +148,10 @@ function build_website_project() {
   # Stage everything, then one full update, so no pin is held back by the lock file.
   local composer_ok=1 ;
   if [ ${#missing[@]} -gt 0 ] ; then
-    ddev composer require --no-update --no-interaction "${missing[@]}" || composer_ok=0 ;
+    ddev composer require $(composer_security_option) --no-update --no-interaction "${missing[@]}" || composer_ok=0 ;
   fi
   if [ ${composer_ok} -eq 1 ] && { [ ${#missing[@]} -gt 0 ] || [ "${WITH_PENDING_FIXES}" == 'yes' ] ; } ; then
-    ddev composer update -W --no-interaction || composer_ok=0 ;
+    ddev composer update $(composer_security_option) -W --no-interaction || composer_ok=0 ;
   fi
   if [ ${composer_ok} -eq 0 ] ; then
     echo "composer failed — aborting before the install." ;
@@ -177,6 +178,7 @@ function build_website_project() {
 
 # One site-template recipe on a plain Drupal 11.4.x recommended project.
 function build_website_site_template() {
+  composer_security_warning ;
   website_create_project "drupal/recommended-project:${website_core_version}" || return 1 ;
 
   website_add_pending_fixes $(website_pending_fixes_for ${site_template_name}) ;
@@ -188,7 +190,7 @@ function build_website_site_template() {
   # duplicates and a lock file that `composer validate --check-lock` calls out of date.
   ddev composer config --json --merge extra.drupal-recipe-unpack.ignore '["drupal/website_starter", "drupal/webship_starter", "drupal/webship_portal"]' ;
 
-  if ! ddev composer require -W --no-interaction "drush/drush:^13" "${site_template_package}:${site_version}" ; then
+  if ! ddev composer require $(composer_security_option) -W --no-interaction "drush/drush:^13" "${site_template_package}:${site_version}" ; then
     echo "composer require ${site_template_package}:${site_version} failed — aborting before the install." ;
     cd ${WORKSPACE_ROOT}/${doc_name};
     return 1 ;

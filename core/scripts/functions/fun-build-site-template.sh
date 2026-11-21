@@ -17,6 +17,7 @@
 # The calling cmd-*.sh sets: site_template_name, site_template_package and,
 # optionally, site_template_title and installer_profile.
 function build_site_template() {
+  composer_security_warning ;
 
   # Which install profile asks the site-template question.
   installer_profile="${installer_profile:-drupal_cms_installer}";
@@ -47,7 +48,7 @@ function build_site_template() {
   # bring its own .ddev config in and change it.
   provisioned_db_type=$(grep -A2 '^database:' .ddev/config.yaml | grep 'version:' | awk '{print $2}' | tr -d '"') ;
 
-  if ! ddev composer create-project ${distribution_project_template} . --no-interaction ; then
+  if ! ddev composer create-project $(composer_security_option) ${distribution_project_template} . --no-interaction ; then
     echo "composer create-project failed for ${distribution_project_template} — aborting, nothing was installed." ;
     cd ${WORKSPACE_ROOT}/${doc_name};
     return 1 ;
@@ -60,9 +61,9 @@ function build_site_template() {
 
   # Add the site template itself.
   if [ -n "${SITE_TEMPLATE_VERSION}" ]; then
-    ddev composer require "${site_template_package}:${SITE_TEMPLATE_VERSION}" --no-interaction;
+    ddev composer require $(composer_security_option) "${site_template_package}:${SITE_TEMPLATE_VERSION}" --no-interaction;
   else
-    ddev composer require "${site_template_package}" --no-interaction;
+    ddev composer require $(composer_security_option) "${site_template_package}" --no-interaction;
   fi
 
   echo "Install ${distribution_title:-Drupal CMS} with the ${site_template_title:-${site_template_name}} site template.";

@@ -36,4 +36,8 @@ parser.add_argument('--php-version',
                     default="",
                     choices=['8.5', '8.4', '8.3', '8.2', '8.1', '8.0', '7.4'],
                     help='PHP version for the project container. The seven most recent PHP releases DDEV supports; empty means the builder default, and DDEV\'s own default under that. Example: --php-version 8.3')
+parser.add_argument('--allow-insecure',
+                    action='store_true',
+                    default=False,
+                    help='Let composer (2.9 and later) install packages that have a published security advisory. For a throwaway test build of an older release line only; never for a site anyone uses.')
 EOF

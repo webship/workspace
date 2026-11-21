@@ -41,7 +41,7 @@ function webships_create_project() {
   ddev config --project-type=drupal --docroot=${distribution_webroot} --php-version=${PHP_VERSION:-${webships_php_version}} --nodejs-version=$(ddev_nodejs_version) --project-name=${PROJECT_NAME} --auto ;
   ddev start -y ;
 
-  if ! ddev composer create-project "$1" . --no-interaction ; then
+  if ! ddev composer create-project $(composer_security_option) "$1" . --no-interaction ; then
     echo "composer create-project failed for $1 — aborting, nothing was installed." ;
     cd ${WORKSPACE_ROOT}/${doc_name};
     return 1 ;
@@ -92,6 +92,7 @@ function webships_report_api_state() {
 
 # drupal/webships_project installed by the Webships installer with --template.
 function build_webships_project() {
+  composer_security_warning ;
   local template="${TEMPLATE:-webships_starter}" ;
 
   webships_create_project "${distribution_project_template}:${site_version}" || return 1 ;
@@ -109,9 +110,9 @@ function build_webships_project() {
 
   local composer_ok=1 ;
   if [ ${#missing[@]} -gt 0 ] ; then
-    ddev composer require --no-update --no-interaction "${missing[@]}" || composer_ok=0 ;
+    ddev composer require $(composer_security_option) --no-update --no-interaction "${missing[@]}" || composer_ok=0 ;
     if [ ${composer_ok} -eq 1 ] ; then
-      ddev composer update -W --no-interaction || composer_ok=0 ;
+      ddev composer update $(composer_security_option) -W --no-interaction || composer_ok=0 ;
     fi
   fi
   if [ ${composer_ok} -eq 0 ] ; then
@@ -140,9 +141,10 @@ function build_webships_project() {
 
 # One API site-template recipe on a plain Drupal 11.4.x recommended project.
 function build_webships_site_template() {
+  composer_security_warning ;
   webships_create_project "drupal/recommended-project:${webships_core_version}" || return 1 ;
 
-  if ! ddev composer require -W --no-interaction "drush/drush:^13" "${site_template_package}:${site_version}" ; then
+  if ! ddev composer require $(composer_security_option) -W --no-interaction "drush/drush:^13" "${site_template_package}:${site_version}" ; then
     echo "composer require ${site_template_package}:${site_version} failed — aborting before the install." ;
     cd ${WORKSPACE_ROOT}/${doc_name};
     return 1 ;
