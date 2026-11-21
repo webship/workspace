@@ -1195,6 +1195,12 @@ var o=wsPref('ws-assistant-open',null);
 // the launcher in the corner opens it. On a wider screen the setting is the default, as before.
 if(o===null)o=('${style.assistantOpen}'==='no'||(window.matchMedia&&matchMedia('(max-width: 59.99em)').matches))?'0':'1';
 if(o!=='1')d.classList.add('assistant-closed');}catch(e){d.dataset.assistantView='sidebar';}
+// Where the assistant beside the page leaves the content no room for the expanded rail too (a laptop),
+// the rail opens over the content and only when asked (ui.js), so it starts collapsed there whatever was
+// remembered: the remembered choice is for a window with room. The widths are the rail CSS's.
+try{if(!d.classList.contains('assistant-closed')&&window.matchMedia){var rv=d.dataset.assistantView;
+var rq=rv==='sidebar'?'(min-width: 60em) and (max-width: 84.4375em)':rv==='wide'?'(min-width: 60em) and (max-width: 104.4375em)':'';
+if(rq&&matchMedia(rq).matches)d.classList.add('actions-collapsed');}}catch(e){}
 ${avatarOn ? `// The assistant's avatar, shown or not, before first paint: it takes the top of the panel.
 try{if(wsPref('ws-assistant-avatar','0')==='1')d.classList.add('assistant-avatar-on');}catch(e){}` : ''}
 // How the workspace cards and the project rows are laid out. Before first paint, like everything else

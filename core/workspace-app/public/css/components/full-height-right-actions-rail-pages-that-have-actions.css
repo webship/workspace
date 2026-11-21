@@ -68,6 +68,19 @@
   font-size: .82rem;
 }
 
+/* No room beside the content for the rail's labels as well as the assistant (a laptop): the content keeps
+   the collapsed rail's width, and the rail opens over it, with a shadow, when asked (ui.js closes it on a
+   click outside or Escape). 25rem of assistant + 15.5rem of rail + 44rem of content = 84.5rem; with the
+   wide view's 45rem, 104.5rem. Below 60em the rail is a row above the content, so nothing changes there. */
+@media (min-width: 60em) and (max-width: 84.4375em) {
+  html[data-assistant-view="sidebar"]:not(.assistant-closed) .app-content.has-actions { margin-right: 3.5rem; }
+  html[data-assistant-view="sidebar"]:not(.assistant-closed):not(.actions-collapsed) .actions-side { box-shadow: var(--shadow-float); }
+}
+@media (min-width: 60em) and (max-width: 104.4375em) {
+  html[data-assistant-view="wide"]:not(.assistant-closed) .app-content.has-actions { margin-right: 3.5rem; }
+  html[data-assistant-view="wide"]:not(.assistant-closed):not(.actions-collapsed) .actions-side { box-shadow: var(--shadow-float); }
+}
+
 /* Collapsed: icons only, centred, labels hidden but still announced by title. */
 html.actions-collapsed .actions-side { width:3.5rem; padding:0 0.5rem 1rem; }
 html.actions-collapsed .app-content.has-actions { margin-right:3.5rem; }

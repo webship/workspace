@@ -624,18 +624,49 @@ function applyActionsCollapsed(collapsed) {
   }
 }
 
+// Where the assistant beside the page leaves the content no room for the expanded rail too (a laptop), the
+// rail opens OVER the content instead of squeezing it: at 1024 with the assistant open, the Dev page's
+// build form was cut to a 281px card. The rail CSS keeps the content at the collapsed rail's width there,
+// the head script starts the rail collapsed there, and here it opens only when asked and closes on a click
+// outside it or on Escape. Opening it there is not remembered: the remembered choice is for a window with
+// room. The widths are the rail CSS's (the assistant's 25rem, or the wide view's 45rem, beside 15.5rem of
+// rail and 44rem of content).
+function railTight() {
+  const d = document.documentElement;
+  if (d.classList.contains('assistant-closed') || !window.matchMedia) return false;
+  const v = d.dataset.assistantView;
+  const q = v === 'sidebar' ? '(min-width: 60em) and (max-width: 84.4375em)'
+    : v === 'wide' ? '(min-width: 60em) and (max-width: 104.4375em)' : '';
+  return !!q && window.matchMedia(q).matches;
+}
+
 // Collapsed is the default: the rail is on every page now, and the content — a
 // project table, a diff, a job's output — wants the width more than the labels do.
-// Only an explicit '0' (the user expanded it) keeps it open.
+// Only an explicit '0' (the user expanded it) keeps it open, where there is room for it.
 try {
-  applyActionsCollapsed(wsPref('actions-collapsed', '1') !== '0');
+  applyActionsCollapsed(wsPref('actions-collapsed', '1') !== '0' || railTight());
 } catch (_) { applyActionsCollapsed(true); }
 
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.actions-toggle')) return;
   const collapsed = !document.documentElement.classList.contains('actions-collapsed');
   applyActionsCollapsed(collapsed);
-  wsPrefSet('actions-collapsed', collapsed ? '1' : '0');
+  if (!railTight()) wsPrefSet('actions-collapsed', collapsed ? '1' : '0');
+});
+// Open over the content, the rail closes on a click outside it (a menu or a modal it opened is not
+// outside), and on Escape, with focus back on its toggle when it was in the rail.
+document.addEventListener('click', (e) => {
+  if (!railTight() || document.documentElement.classList.contains('actions-collapsed')) return;
+  if (e.target.closest && e.target.closest('.actions-side, .uk-dropdown, .uk-modal, #rail-tip')) return;
+  applyActionsCollapsed(true);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || !railTight() || document.documentElement.classList.contains('actions-collapsed')) return;
+  if (document.querySelector('.uk-modal.uk-open, .uk-dropdown.uk-open')) return;
+  const inRail = document.activeElement && document.activeElement.closest && document.activeElement.closest('.actions-side');
+  applyActionsCollapsed(true);
+  const toggle = inRail && document.querySelector('.actions-toggle');
+  if (toggle) toggle.focus();
 });
 
 // The rail's names and its tooltip. Collapsed, a tile is a glyph: its name has to be there for a screen
