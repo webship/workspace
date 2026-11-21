@@ -1,4 +1,4 @@
-Feature: Settings → Plugins
+Feature: Settings → Add a plugin
   Optional features are packages, turned on in four steps. Settings shows the ones that are here by
   family, each on a page of its own; the Plugins page is where one is added.
 

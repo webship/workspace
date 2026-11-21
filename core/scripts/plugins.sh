@@ -294,7 +294,7 @@ case "${verb}" in
     if ! ( cd "${APP}" && npm install --no-audit --no-fund "${name}" 2> "${npm_err}" ) ; then
       if grep -qE 'E404|404 Not Found|npm error 404' "${npm_err}" ; then
         echo "Not added: there is no package ${name} to fetch (npm answered 404: not published, or the name is not a plugin's)." ;
-        echo "Nothing was changed. The plugins that can be added: webship-workspace catalog  (or Settings → Plugins)." ;
+        echo "Nothing was changed. The plugins that can be added: webship-workspace catalog  (or Settings → Add a plugin)." ;
       else
         cat "${npm_err}" >&2 ;
         echo "Not added: npm could not install ${name}. Nothing was activated or placed." ;

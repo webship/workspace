@@ -1,4 +1,4 @@
-/* Settings → Plugins: the box that adds a package, then the catalogue as rows (settings-home.css). */
+/* Settings → Add a plugin: the box that adds a package, then the catalogue as rows (settings-home.css). */
 .plugin-require { max-width: 44rem; }
 .plugin-require .settings-search-row .uk-input { max-width: none; }
 .plugin-require .settings-search-row > :first-child { flex: 1 1 16rem; }

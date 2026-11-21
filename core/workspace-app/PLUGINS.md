@@ -13,7 +13,8 @@ bash core/scripts/plugins.sh --configure upsun                           # 4. co
 bash core/scripts/plugins.sh --list                                      # where each plugin is
 ```
 
-The same four steps are buttons on **Settings → Plugins**. `--install` is idempotent, records what
+The same four steps are buttons in **Settings**: a plugin not added yet is required from **Settings → Add a plugin**, and the other
+steps are on the plugin's own tab. `--install` is idempotent, records what
 it placed in `core/config/plugins.installed.yml`, keeps a managed block in `.gitignore` so a dev
 clone never commits what an install placed, and says when the dashboard container needs
 `ddev restart` (a compose file or host mount the plugin brought). `--uninstall` removes exactly
@@ -121,7 +122,7 @@ list of alternatives the order matters only when none is here: the first is the 
   (activated or installed) needs this one and no alternative is here. There is no force: take the
   plugin that needs it off first.
 - **`suggests`** is only said: it never stops a step and never adds anything.
-- **`--list`**, the cards of Settings → Plugins and the catalogue rows of the packages that are
+- **`--list`**, a plugin's tab in Settings and the catalogue rows of the packages that are
   required show `needs: …` with `met by <name>` or `not here`, and `needed by: …`. On the page, Activate
   and Install ask first when a need is not met ("add them too?") and run the script with
   `--with-needs`; Cancel changes nothing.
@@ -157,8 +158,8 @@ bash core/scripts/plugins.sh --check upsun     # one plugin; exit 1 when a neede
 
 The check reports and nothing more: it never installs, never uses sudo. `init` says what the core is
 missing before it starts, `--require` and `--install` say what the plugin is missing before they go
-on, the dashboard says it in its log when it starts, and Settings → Plugins shows a plugin's commands
-on its card and the core's in "Commands on this machine". A missing command never stops a step — it
+on, the dashboard says it in its log when it starts, and Settings shows a plugin's commands on its tab
+and the core's on Add a plugin, each under "Commands on this machine". A missing command never stops a step — it
 is installed outside the workspace, and the plugin's settings file is often where its CLI is
 configured — it is said, each time, until it is there. From the host the dashboard's container is
 asked through `docker exec`; from inside the container the host cannot be looked at, and the row says

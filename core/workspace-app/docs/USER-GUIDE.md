@@ -641,7 +641,7 @@ works by it.
 npx -y @webship.co/workspace@latest update ~/workspace          # the core, the dashboard, commands/
 ```
 
-Then each plugin: Settings → Plugins → the plugin → **Update to <version>**, then **Reinstall** (or
+Then each plugin: its tab in Settings → **Update to <version>**, then **Reinstall** (or
 `webship-workspace plugin require <name>` and `webship-workspace plugin install <name>`). A file you
 changed in what a plugin placed is kept beside the new one as `<file>.yours`.
 

@@ -13,7 +13,7 @@ npm install -g @webship.co/workspace
 webship-workspace init ~/workspace       # the core, an empty settings file, the dashboard started
 ```
 
-Open https://workspace.ddev.site. It is empty: no workspace folders, no plugins. Add what you need, one package at a time, from **Settings → Plugins** (the catalogue) or the command line:
+Open https://workspace.ddev.site. It is empty: no workspace folders, no plugins. Add what you need, one package at a time, from **Settings → Add a plugin** (the catalogue) or the command line:
 
 ```bash
 webship-workspace plugin require dev     # npm install @webship.co/workspace-dev into the dashboard

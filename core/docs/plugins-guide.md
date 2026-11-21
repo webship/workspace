@@ -4,14 +4,14 @@ The base ships empty. Every folder, platform, hosting provider and feature you s
 
 ## Find a plugin
 
-- **In the dashboard:** Settings → Plugins. The catalogue is grouped by family (Platforms, Workspace folders, Hosting providers, Git forges, Container runtimes, Features) and has a filter. Each card says what the plugin does and has an **Add** button. A plugin that is already here shows its step, and **Update to** a newer version when there is one.
+- **In the dashboard:** Settings → Add a plugin. The catalogue is grouped by family (Platforms, Workspace folders, Hosting providers, Git forges, Container runtimes, Features) and has a filter. Each card says what the plugin does and has an **Add** button. A plugin that is already here shows its step, and **Update to** a newer version when there is one.
 - **In a terminal:** `webship-workspace catalog` lists the same plugins with their families.
 
 ## Add one
 
 **From the dashboard:**
 
-1. Settings → Plugins → **Add** on its card. npm installs the package into the dashboard (the *require* step), and the plugin's page opens.
+1. Settings → Add a plugin → **Add** beside it. npm installs the package into the dashboard (the *require* step), and the plugin's tab opens.
 2. **Activate** turns it on. A workspace folder joins the home page and the left navigation.
 3. **Install** places what it brings: its commands, menus, compose files and AI items. The record it keeps is what lets **Uninstall** take them out again later.
 4. **Configure** opens its settings file, when it has one. A plugin with nothing to configure says it is ready.
@@ -55,7 +55,7 @@ Settings → **Buttons** sets which buttons a project row shows, and in what ord
 
 ## Keep plugins up to date
 
-- **In the dashboard:** Settings → Plugins shows **Update to** with the new version on a plugin that has one. When the plugin placed files, press **Reinstall** after the update.
+- **In the dashboard:** Settings → Overview lists the plugins that have a newer version, and the plugin's tab shows **Update to** with it. When the plugin placed files, press **Reinstall** after the update.
 - **In a terminal:** `webship-workspace plugin require <name>@latest`, then `webship-workspace plugin install <name>` again when it placed files.
 - **The whole workspace:** `webship-workspace update` brings the base to the new release and keeps every plugin you required. The packages the plugins share (a family's base, such as the hosting base under the hosting providers) come to their newest version too.
 
@@ -69,7 +69,7 @@ A plugin that another one needs cannot be deactivated or uninstalled until that 
 
 ## When something does not work
 
-- The plugin's page in Settings → Plugins says the step it is at and what is missing.
+- The plugin's tab in Settings says the step it is at and what is missing.
 - `webship-workspace doctor` and `webship-workspace plugin check <name>` say which commands are missing, and how to install them.
 - `bash core/scripts/plugins.sh --list` shows every plugin's step, what it needs and what needs it.
 - The plugin's README has what is particular to it. On webship.co, each plugin's page is that README with a walkthrough in pictures.
