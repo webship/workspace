@@ -613,6 +613,38 @@ document.addEventListener('click', (e) => {
   }, 50);
 });
 
+// A project's list of addresses, from nine on, has a filter at its top (server.js): the host names narrow
+// as you type, the line under the box says what is left, Escape empties the box before it closes the list,
+// and the box takes focus when the list opens, so a keyboard goes straight to it.
+document.addEventListener('input', (e) => {
+  const box = e.target.closest && e.target.closest('.pcard-domains-filter');
+  if (!box) return;
+  const list = box.closest('.pcard-domains');
+  const q = box.value.trim().toLowerCase();
+  const items = [...list.querySelectorAll('li')].filter((li) => li.querySelector('.host'));
+  let shown = 0;
+  items.forEach((li) => {
+    const hit = !q || li.querySelector('.host').textContent.toLowerCase().includes(q);
+    li.hidden = !hit;
+    if (hit) shown += 1;
+  });
+  const status = list.querySelector('.pcard-domains-status');
+  if (status) status.textContent = !q ? '' : shown ? `${shown} of ${items.length} shown.` : 'Nothing matches.';
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const box = e.target.closest && e.target.closest('.pcard-domains-filter');
+  if (!box || !box.value) return;
+  e.preventDefault();
+  e.stopPropagation();
+  box.value = '';
+  box.dispatchEvent(new Event('input', { bubbles: true }));
+}, true);
+document.addEventListener('shown', (e) => {
+  const box = e.target && e.target.classList && e.target.classList.contains('pcard-domains') && e.target.querySelector('.pcard-domains-filter');
+  if (box) box.focus();
+});
+
 // The actions rail. Collapsed state is remembered, like the theme, because it is
 // a layout preference and having it reset on every navigation would be noise.
 function applyActionsCollapsed(collapsed) {
