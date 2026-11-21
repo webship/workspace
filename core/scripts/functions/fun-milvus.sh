@@ -152,6 +152,26 @@ function milvus_wait_healthy() {
   return 0 ;
 }
 
+# The object store an instance runs. MinIO's own repository left Docker Hub (`pull access denied for
+# minio/minio`), and Milvus publishes the same MinIO release under its own name, which is what its own
+# standalone compose uses: the image has to be one a machine without it cached can still pull.
+MILVUS_MINIO_IMAGE="milvusdb/minio:RELEASE.2024-12-18T13-15-44Z";
+
+# An instance built before that change names minio/minio in its compose file, and cannot start again once
+# the image is gone from the machine. Moved to the image above in place: the volumes, and with them every
+# collection, are not touched. A compose file naming another MinIO release is left alone, and said.
+function milvus_compose_minio_image() {
+  local compose="$1/.ddev/docker-compose.milvus.yaml";
+  [ -f "${compose}" ] || return 0 ;
+  grep -q 'image: "minio/minio:' "${compose}" || return 0 ;
+  if grep -q 'image: "minio/minio:RELEASE.2024-12-18T13-15-44Z"' "${compose}" ; then
+    sed -i "s|image: \"minio/minio:RELEASE.2024-12-18T13-15-44Z\"|image: \"${MILVUS_MINIO_IMAGE}\"|" "${compose}" ;
+    echo "Moved its object store to ${MILVUS_MINIO_IMAGE}: minio/minio is no longer on Docker Hub. Its data is untouched.";
+  else
+    echo "Its compose file names a minio/minio image, which is no longer on Docker Hub: change it to ${MILVUS_MINIO_IMAGE} in ${compose}.";
+  fi
+}
+
 # Write .ddev/docker-compose.milvus.yaml for one instance.
 #
 # $1 the project directory, $2 the Milvus image tag, $3 the Attu tag, $4 the published gRPC port,
@@ -197,7 +217,7 @@ services:
 
   milvus-minio:
     container_name: ddev-\${DDEV_SITENAME}-milvus-minio
-    image: "minio/minio:RELEASE.2024-12-18T13-15-44Z"
+    image: "${MILVUS_MINIO_IMAGE}"
     restart: "no"
     labels:
       com.ddev.site-name: \${DDEV_SITENAME}
@@ -403,6 +423,7 @@ function build_milvus() {
   if [ -d "${PROJECT_NAME}" ] ; then
     if [ "${FORCE}" != 'yes' ] ; then
       echo "";
+      milvus_compose_minio_image "${project_dir}" ;
       echo "${PROJECT_NAME} already exists in ${WORKSPACE_ROOT}/${doc_name}.";
       echo "  Start it with:   cd ${project_dir} && ddev start";
       echo "  Rebuild it with: bash cmd-milvus-project.sh ${PROJECT_NAME} --force";
@@ -427,9 +448,20 @@ function build_milvus() {
 
   echo "";
   echo "Starting Milvus ${MILVUS_VERSION} — the first run pulls ~2 GB of images, which takes a few minutes.";
-  ddev start -y ;
+  # Neither a failed start nor a database that never answers is an instance that is ready: say which, and
+  # stop with a failure, so a run from the dashboard reads as what it was.
+  if ! ddev start -y ; then
+    echo "";
+    echo "Milvus ${PROJECT_NAME} did not start: ddev start failed (above).";
+    echo "  Try again:  cd ${project_dir} && ddev start";
+    echo "  Look at it: cd ${project_dir} && ddev logs -s milvus-standalone";
+    return 1 ;
+  fi
 
-  milvus_wait_healthy "${PROJECT_NAME}" || true ;
+  if ! milvus_wait_healthy "${PROJECT_NAME}" ; then
+    echo "  It may still come up: cd ${project_dir} && ddev describe";
+    return 1 ;
+  fi
 
   echo "";
   echo "*---------------------------------------------------------------------*";
