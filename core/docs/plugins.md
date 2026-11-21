@@ -2,6 +2,8 @@
 
 Everything optional is a plugin: an npm package `@webship.co/workspace-<name>`, from the repository `github.com/webship/workspace-<name>` on branch `1.0.x`. The core requires none of them. A plugin requires nothing from the dashboard's files; it is handed an `api` and works through it, so it can be installed from npm and removed without a trace.
 
+New to plugins? [Using plugins: a help guide](plugins-guide.md) walks through finding one, adding it, setting it up, using it and taking it out. This page is the reference.
+
 ## The four steps
 
 | Step | Command | What happens |
