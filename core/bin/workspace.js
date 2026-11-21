@@ -336,6 +336,16 @@ function init(dirArg, { update = false } = {}) {
   if (!process.env.WEBSHIP_WORKSPACE_SKIP_NPM) {
     say('  installing the dashboard (npm install in core/workspace-app)…');
     if (!run('npm', ['install', '--no-audit', '--no-fund'], app)) fail('npm install failed in core/workspace-app.');
+    // The packages the plugins share (a family's base): npm install keeps the copy the lock file holds while it still
+    // fits, so an update brings them to the newest version that fits (#650).
+    if (update) {
+      let shared = [];
+      try { shared = require(path.join(app, 'shared-packages.js')).sharedPackages(app); } catch (_) { shared = []; }
+      if (shared.length) {
+        say(`  updating what the plugins share: ${shared.join(' ')}`);
+        if (!run('npm', ['update', '--no-audit', '--no-fund', ...shared], app)) say('  npm could not update them; the plugins keep the versions they have.');
+      }
+    }
   }
   // Damage an earlier release did to settings.yml is repaired here, and said (settings-repair.js): the file
   // itself is never replaced, and what was repaired is kept as it was.
