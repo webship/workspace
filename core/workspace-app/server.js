@@ -4252,13 +4252,14 @@ function pageActionGroups(context) {
     if (key === 'videos') create.push(btn('default', 'tabler:cut', 'Edit a video', `hx-get="/fragments/videos/edit?mode=voice" ${modal}`, 'Make a new version of a video: voice, Webship logo and music, speed and length, sections'));
     if (INSTALL_TARGETS[key]) {
       // In the modal, not at the bottom of the page: a create form the eye is already on.
-      create.push(btn('secondary', 'bolt', 'Generate with AI',
+      // Outline, like every create action but the primary one: the rail and the create box show the same weights.
+      create.push(btn('default', 'bolt', 'Generate with AI',
                       `hx-get="/fragments/${esc(key)}/ai-form" hx-target="#editor-modal-body" hx-swap="innerHTML"`,
                       `Describe it and Claude Code writes the ${meta.noun}`));
     }
     if (key === 'docs') {
-      create.push(btn('secondary', 'bolt', 'Generate site doc', `hx-get="/fragments/docs/site-doc-form" ${out}`));
-      create.push(btn('secondary', 'image', 'Screenshot a site', `hx-get="/fragments/docs/screenshot-form" ${out}`));
+      create.push(btn('default', 'bolt', 'Generate site doc', `hx-get="/fragments/docs/site-doc-form" ${out}`));
+      create.push(btn('default', 'image', 'Screenshot a site', `hx-get="/fragments/docs/screenshot-form" ${out}`));
     }
     if (require('./actions/folders').canMakeFolder(key)) {
       create.push(btn('default', 'tabler:folder-plus', 'New folder', `hx-get="/fragments/${esc(key)}/folder-new" ${modal}`,
@@ -4426,7 +4427,7 @@ function pageActionGroups(context) {
            'A command line or a script call, run on a workspace folder, a project, a folder or a file'),
       btn('default', 'tabler:file-plus', 'New script', `hx-get="/fragments/commands/new" ${modal}`,
           'Scaffold a cmd-*.sh with the bootstrap chain already correct'),
-      btn('secondary', 'bolt', 'Generate script with AI', `hx-get="/fragments/commands/new?ai=1" ${modal}`,
+      btn('default', 'bolt', 'Generate script with AI', `hx-get="/fragments/commands/new?ai=1" ${modal}`,
           'Describe what the script should do; the AI writes it the way this workspace writes its commands'),
     ] });
     groups.push({ id: 'manage', label: 'Manage', items: [
@@ -4780,6 +4781,7 @@ async function workspacePage(key, state) {
       const folder = create.find((it) => it.id === 'new-folder');
       const rest = create.filter((it) => it !== folder);
       const primary = rest.filter((it) => /\buk-button-primary\b/.test(it.html));
+      // Built outline at the source (pageActionGroups), so the rail says the same; a plugin's filled one is quieted here.
       const others = rest.filter((it) => !primary.includes(it)).map((it) => it.html.replace(/\buk-button-secondary\b/, 'uk-button-default'));
       return `
       <div class="create-head uk-flex uk-flex-middle uk-flex-between uk-margin-small-bottom">

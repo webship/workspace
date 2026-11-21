@@ -72,7 +72,7 @@ test('the key never reaches the page, a URL or a log line', () => {
   assert.doesNotMatch(src, /console\.(log|error)/);
   assert.match(read('images-providers/http.js'), /replace\(\/sk-\[A-Za-z0-9_-\]\+\/g, 'sk-…'\)/);
   assert.doesNotMatch(ai.formHtml(), /sk-[A-Za-z0-9]{8}/);
-  assert.match(read('images-page.js'), /btn\('secondary', 'bolt', 'Generate with AI'/);
+  assert.match(read('images-page.js'), /btn\('default', 'bolt', 'Generate with AI'/);
   assert.match(read('actions/images.js'), /if \(form\.confirm !== 'yes'\) \{\n\s+const p = ai\.plan\(form\);/);
 });
 
