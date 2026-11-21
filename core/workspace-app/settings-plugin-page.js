@@ -27,6 +27,13 @@ function postButton(verb, p, label, { primary = false, danger = false, withNeeds
       hx-target="#webship-workspace-output" hx-swap="innerHTML"${confirm ? ` hx-confirm="${esc(confirm)}"` : ''}>${esc(label)}</button>`;
 }
 
+// What a section says when it has nothing to say. A plugin page does not draw such a section under its own
+// heading (four headings and rules that each said "nothing" ended the notes plugin's page): it says them
+// together in one line under the steps (nothingHtml). Each comes from the manifest, so a step never fills one.
+const NO_SETTINGS = '<p class="plugin-quiet">This plugin has no settings.</p>';
+const NO_NEEDS = '<p class="plugin-quiet">Needs nothing from another plugin, and no command on this machine.</p>';
+const NO_SHIPS = '<p class="plugin-quiet">It ships no files for the workspace: its code runs inside the dashboard.</p>';
+
 /** A plugin that is a folder under plugins/ (no npm package behind it), such as the notes plugin the base ships. */
 const isFolder = (p) => !p.module && /^plugins\//.test(String(p.spec || ''));
 
@@ -150,7 +157,7 @@ function needsHtml(p, known = new Set()) {
   if (w.needs.length) parts.push(`<h4 class="plugin-sub">Other plugins it cannot work without</h4><ul class="plugin-need-list">${w.needs.map(need).join('')}</ul>`);
   if (w.suggests.length) parts.push(`<h4 class="plugin-sub">Goes well with</h4><ul class="plugin-need-list">${w.suggests.map(suggest).join('')}</ul>`);
   if ((p.commands || []).length) parts.push(`<h4 class="plugin-sub">Commands on this machine</h4><ul class="plugin-need-list">${p.commands.map(cmd).join('')}</ul>`);
-  if (!parts.length) parts.push('<p class="plugin-quiet">Needs nothing from another plugin, and no command on this machine.</p>');
+  if (!parts.length) parts.push(NO_NEEDS);
   if ((p.neededBy || []).length) parts.push(`<h4 class="plugin-sub">Needed by</h4><p class="plugin-quiet">${p.neededBy.map(link).join(', ')}.</p>`);
   return parts.join('');
 }
@@ -174,7 +181,7 @@ function updateHtml(p) {
 function settingsHtml(p, { files = [], chosen = null, formHtml = '' } = {}) {
   const here = files.filter((f) => f.exists);
   const names = { plugin: 'Plugin settings', folder: 'Folder settings' };
-  if (!files.length) return '<p class="plugin-quiet">This plugin has no settings.</p>';
+  if (!files.length) return NO_SETTINGS;
   if (!here.length) {
     return `<p class="plugin-quiet">${files.map((f) => `<code>core/config/${esc(f.file)}</code>`).join(' and ')} ${files.length === 1 ? 'is' : 'are'} written by Install${p.step < 2 ? ', the step above' : '. Reinstall puts a missing file back'}.</p>`;
   }
@@ -222,7 +229,7 @@ function shipsHtml(p, { record = null, workspaces = new Set() } = {}) {
     parts.push(`<details class="plugin-placed"><summary>${plural(placed.length, 'file')} placed${record.installed ? ` on ${esc(String(record.installed).slice(0, 10))}` : ''}</summary>
       <ul class="plugin-placed-list">${placed.map((x) => `<li><code>${esc(x)}</code></li>`).join('')}</ul></details>`);
   }
-  if (!parts.length) parts.push('<p class="plugin-quiet">It ships no files for the workspace: its code runs inside the dashboard.</p>');
+  if (!parts.length) parts.push(NO_SHIPS);
   return parts.join('');
 }
 
@@ -255,8 +262,10 @@ function removeHtml(p) {
   // The one that removes files is drawn as what it is, last and apart from the two that do not.
   const remove = p.placed && p.placed.installed
     ? postButton('uninstall', p, 'Uninstall', { danger: true, confirm: `Uninstall ${label}? What Install placed is removed (a file edited here is kept) and the plugin is deactivated.` }) : '';
+  // Said for the buttons that are there: a plugin that places nothing has no Reinstall to explain.
+  const reinstalls = p.step >= 1 && needsInstall(p.manifest);
   return `<p class="plugin-buttons">${keep}${remove ? `<span class="plugin-buttons-apart">${remove}</span>` : ''}</p>
-    <p class="plugin-quiet">Reinstall places its files again and is safe to repeat. Deactivate keeps files and settings.${remove ? ' Uninstall removes what Install placed.' : ''}</p>`;
+    <p class="plugin-quiet">${reinstalls ? 'Reinstall places its files again and is safe to repeat. ' : ''}Deactivate keeps ${reinstalls ? 'files and settings' : 'its settings'}.${remove ? ' Uninstall removes what Install placed.' : ''}</p>`;
 }
 
 /**
@@ -294,6 +303,7 @@ const fragmentUrl = (p, part) => `/fragments/settings/plugin/${encodeURIComponen
  */
 function settingsSectionHtml(p, ctx = {}) {
   const hasForm = !!ctx.formHtml;
+  if (settingsHtml(p, ctx) === NO_SETTINGS) return '';
   return `
     <section class="plugin-section" id="settings" aria-labelledby="plugin-settings-head"${hasForm ? '' : `
              hx-get="${esc(fragmentUrl(p, 'settings'))}" hx-trigger="refresh-projects from:body" hx-swap="outerHTML"`}>
@@ -304,21 +314,36 @@ function settingsSectionHtml(p, ctx = {}) {
 
 /** What it needs, what it ships and how to remove it: all three change with a step, so they are drawn again after one. */
 function afterHtml(p, ctx = {}) {
+  const needs = needsHtml(p, ctx.known);
+  const ships = shipsHtml(p, ctx);
   return `
-    <div class="plugin-after" id="plugin-after" hx-get="${esc(fragmentUrl(p, 'after'))}" hx-trigger="refresh-projects from:body" hx-swap="outerHTML">
+    <div class="plugin-after" id="plugin-after" hx-get="${esc(fragmentUrl(p, 'after'))}" hx-trigger="refresh-projects from:body" hx-swap="outerHTML">${needs === NO_NEEDS ? '' : `
     <section class="plugin-section" id="needs" aria-labelledby="plugin-needs-head">
       <h3 class="plugin-section-head" id="plugin-needs-head">What it needs</h3>
-      ${needsHtml(p, ctx.known)}
-    </section>
+      ${needs}
+    </section>`}${ships === NO_SHIPS ? '' : `
     <section class="plugin-section" id="ships" aria-labelledby="plugin-ships-head">
       <h3 class="plugin-section-head" id="plugin-ships-head">What it ships</h3>
-      ${shipsHtml(p, ctx)}
-    </section>
+      ${ships}
+    </section>`}
     <section class="plugin-section" id="remove" aria-labelledby="plugin-remove-head" data-refocus="remove-${esc(p.name)}">
       <h3 class="plugin-section-head" id="plugin-remove-head">Reinstall or remove</h3>
       ${removeHtml(p)}
     </section>
     </div>`;
+}
+
+/** The sections that have nothing to say, said together in one quiet line; '' when every one has something. */
+function nothingHtml(p, ctx = {}) {
+  const ships = shipsHtml(p, ctx) === NO_SHIPS;
+  const none = [
+    settingsHtml(p, ctx) === NO_SETTINGS ? 'has no settings' : '',
+    needsHtml(p, ctx.known) === NO_NEEDS ? 'needs no other plugin and no command' : '',
+    ships ? 'places no files in the workspace' : '',
+  ].filter(Boolean);
+  if (!none.length) return '';
+  const said = none.length === 1 ? none[0] : none.length === 2 ? `${none[0]}, and ${none[1]}` : `${none[0]}, ${none[1]}, and ${none[2]}`;
+  return `<p class="plugin-quiet plugin-nothing">It ${said}${ships ? ': its code runs inside the dashboard' : ''}.</p>`;
 }
 
 /** The whole page body. `ctx`: `{ known, files, chosen, formHtml, record, workspaces }`. */
@@ -327,6 +352,7 @@ function pluginPageHtml(p, ctx = {}) {
   <article class="plugin-page" data-plugin="${esc(p.name)}">
     <div hx-get="/fragments/settings/updates?plugin=${esc(encodeURIComponent(p.name))}" hx-trigger="load" hx-swap="none" hidden></div>
     ${statusHtml(p, ctx)}
+    ${nothingHtml(p, ctx)}
     ${settingsSectionHtml(p, ctx)}
     ${afterHtml(p, ctx)}
   </article>`;
@@ -341,4 +367,4 @@ function missingHtml(name) {
     </div>`;
 }
 
-module.exports = { pluginPageHtml, statusHtml, settingsSectionHtml, afterHtml, updateHtml, steps, stepsLeft, stepsHtml, linked, needsHtml, settingsHtml, shipsHtml, removeHtml, missingHtml };
+module.exports = { pluginPageHtml, nothingHtml, statusHtml, settingsSectionHtml, afterHtml, updateHtml, steps, stepsLeft, stepsHtml, linked, needsHtml, settingsHtml, shipsHtml, removeHtml, missingHtml };
