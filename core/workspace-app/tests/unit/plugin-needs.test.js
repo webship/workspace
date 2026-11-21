@@ -588,6 +588,22 @@ test('inside a dashboard\'s container, a step restarts it only when it runs this
   assert.strictEqual(restarts(), 1, 'its own dashboard is restarted');
 });
 
+test('an install of a plugin that is not active says so, as after an --uninstall, and never that it is ready (#665)', () => {
+  const t = tree();
+  folder(t.plugins, 'dev');
+  ok(sh(t, '--activate', 'dev'));
+  let r = ok(sh(t, '--install', 'dev'));
+  assert.doesNotMatch(r.stdout, /is not active/);
+  assert.match(r.stdout, /Installed\. (Next: --configure dev\.|dev has nothing to configure: it is ready\.)/);
+  // --uninstall deactivates; an --install that follows leaves it off, and says so.
+  ok(sh(t, '--uninstall', 'dev'));
+  assert.strictEqual(enabled(t, 'dev'), false);
+  r = ok(sh(t, '--install', 'dev'));
+  assert.match(r.stdout, /Installed, but dev is not active: --activate dev turns it on\./);
+  assert.doesNotMatch(r.stdout, /it is ready|Next: --configure/);
+  assert.strictEqual(enabled(t, 'dev'), false, 'the install does not turn it on by itself');
+});
+
 test('requiring a name that is not published says so once, and changes nothing', () => {
   const t = tree();
   const before = snapshot(t);
