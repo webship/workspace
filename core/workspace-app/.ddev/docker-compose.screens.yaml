@@ -1,20 +1,23 @@
 # Screen sessions live on the machine, not in here — so `screen -r` in a real
 # terminal reaches them and a browser an agent opens is a window on the desktop.
-# The dashboard still has to list and attach them, and the host is unreachable
-# over the network (ufw drops the docker bridges), so it goes through the
-# sockets screen itself uses. Same screen version, same user, same default
-# socket directory, so `screen -ls` and `screen -x` work straight across.
+#
+# The host screen runner (scripts/screen-runner.js) starts them, lists them, attaches a terminal to one and does every
+# verb on it (interrupt, detach, typing a line, /exit, kill, wipe), and the dashboard asks it through .screens/ in the
+# workspace, which both sides share: its unix socket there, else its mailbox. What only the machine's process table
+# tells (which sessions run Claude Code, which automation browsers are open) comes with the list the runner publishes.
+#
+# So this container has a process space of its own and screen's socket directory of its own (webship/workspace#564).
+# It used to share both (`pid: "host"`, /run/screen) so that screen in here could reach the machine's sessions, and DDEV
+# ends a web container with `kill -- -1` (its start script's trap, a failed start), which from the machine's process
+# space reached the processes of the other containers. screen in here runs only the dashboard's own sessions, the
+# ones it starts when no runner is up.
 services:
   web:
-    # screen's attach hands a pty over the socket and then signals the session
-    # process — so the client has to be able to name that process. Sharing the
-    # machine's pid namespace is what makes `screen -x` work from in here; the
-    # app runs as the same user, so it can reach nothing that user could not.
-    pid: "host"
-    # With the machine's process space, DDEV's own `kill -- -1` (the start script's trap, a failed start) would reach
-    # processes outside this container. Every bash in here loads a guard that refuses -1 as a target (#564).
+    # The guard against that `kill -- -1` stays (#564): every bash in here loads it, and it refuses -1 as a target. It
+    # loads DDEV's own BASH_ENV first, which this setting takes the place of. In a process space of its own the guard
+    # changes nothing that matters (a `ddev stop` takes as long with it as without), and it is what protects a container
+    # whose compose file still shares the machine's process space.
     environment:
       - BASH_ENV=/etc/workspace-kill-guard.sh
     volumes:
-      - "/run/screen:/run/screen"
       - "${DDEV_APPROOT}/.ddev/workspace-kill-guard.sh:/etc/workspace-kill-guard.sh:ro"

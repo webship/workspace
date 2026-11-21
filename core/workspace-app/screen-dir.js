@@ -1,11 +1,13 @@
 /*
  * Where screen keeps its sockets, when the default place cannot be used.
  *
- * The dashboard's container shares /run/screen with the machine, so that `screen -r` in a real
- * terminal reaches the dashboard's sessions. On a machine that has no screen of its own that
- * directory does not exist; the mount creates it owned by root, mode 755, and screen then refuses
- * every call with "Directory '/run/screen' must have mode 777". Since commands run in screen
- * sessions only, that would leave the dashboard unable to run anything.
+ * screen's own directory (/run/screen) is not always usable where the dashboard runs. The dashboard's
+ * container used to mount the machine's (webship/workspace#564), and on a machine that has no screen of
+ * its own that directory does not exist: the mount creates it owned by root, mode 755, and screen then
+ * refuses every call with "Directory '/run/screen' must have mode 777". A container made from an older
+ * compose file still does, and a machine whose screen package did not make it usable is the same case
+ * when the dashboard runs there. Since commands run in screen sessions only, that would leave the
+ * dashboard unable to run anything. (The container has a directory of its own now: its image's.)
  *
  * So the dashboard asks once, when it starts: if screen cannot use its directory, the sessions of
  * this dashboard live in a directory of its own, and every command it starts inherits that choice

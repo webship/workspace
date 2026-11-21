@@ -383,6 +383,15 @@ function init(dirArg, { update = false } = {}) {
       }
     }
   }
+  // A changed .ddev/ takes effect when the dashboard's container is made new, which `ddev start` does not do to a running
+  // one. And not with `ddev restart`: a container made from an older release's config shares the machine's process
+  // space, and DDEV ends it with `kill -- -1`, which from there reaches the other containers' processes (#564).
+  let ddevNote = '';
+  if (update && (!shippedBefore || [...shipped.keys()].some((p) => p.startsWith('core/workspace-app/.ddev/') && shippedBefore[p] !== shipped.get(p)))) {
+    let name = 'workspace';
+    try { name = (fs.readFileSync(path.join(app, '.ddev', 'config.yaml'), 'utf8').match(/^name:\s*(\S+)/m) || [])[1] || name; } catch (_) { /* the default */ }
+    ddevNote = `.ddev/ changed in this release. If the dashboard was running, restart it this way to take it (not ddev restart):  docker kill ddev-${name}-web && cd ${app} && ddev start`;
+  }
   say('');
   const start = `cd ${app} && ddev start`;
   if (update) {
@@ -392,6 +401,7 @@ function init(dirArg, { update = false } = {}) {
     else if (process.env.WORKSPACE_PLUGINS_NO_RESTART) say(`The dashboard was not restarted (WORKSPACE_PLUGINS_NO_RESTART is set). It runs ${version} once it is restarted:  cd ${app} && ddev restart`);
     else if (/\bstarted\b/.test(restart) && !/not running|another workspace/.test(restart)) say(`The dashboard was restarted: it runs ${version} now.`);
     else if (restart) say(restart);
+    if (ddevNote) say(ddevNote);
   } else if (dashboard === 'started') say(`Done. The dashboard: https://workspace.ddev.site   (the tooling: ${dest}/core/scripts)`);
   else if (dashboard === 'failed') say(`The workspace is at ${dest}, but the dashboard did not start: read what ddev said above, then:  ${start}`);
   else if (dashboard === 'no-ddev') say(`The workspace is at ${dest}. The dashboard is not started: DDEV is missing. Once it is installed:  ${start}   (then https://workspace.ddev.site)`);
