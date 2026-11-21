@@ -144,3 +144,21 @@ test('on a phone a modal with tabs takes the whole screen, and its tabs at most 
   for (const d of ['width: 100%', 'height: 100dvh', 'max-height: 100dvh', 'margin: 0', 'border-radius: 0']) assert.ok(phone.includes(d), `the dialog: ${d}`);
   assert.match(phone, /\.tabmodal \{ height: 100dvh; grid-template-rows: fit-content\(40%\) minmax\(0, 1fr\); \}/);
 });
+
+// From the accessibility test of this round: with a plugin page's command check cold (three seconds) and the
+// next tab answering in a fraction of one, the slow answer landed after, under the next tab's name: Jira's
+// form under "Screens and terminals". And "Loading …" was never said: aria-busy alone announces nothing.
+test('the answer of a tab no longer chosen never lands under the chosen one, and the wait is said', () => {
+  const html = tabModalHtml({ id: 'demo', title: 'Demo', groups });
+  assert.match(html, /hx-swap="innerHTML" hx-sync="closest \[role=tablist\]:replace">/, 'the tabs share one queue: a new choice replaces the request in flight');
+  assert.match(html, /<p class="tabmodal-status uk-hidden-visually" role="status"><\/p>/);
+  const ui = read('public', 'ui.js');
+  const guard = ui.slice(ui.indexOf("document.addEventListener('htmx:before:swap', (e) => {\n    const ctx"));
+  assert.ok(guard.length > 0 && guard.length < ui.length, 'no guard on document');
+  const body = guard.slice(0, guard.indexOf('});') + 3);
+  assert.match(body, /const src = ctx\.sourceElement \|\| e\.target;/, 'the asker, also once it has left the page');
+  assert.match(body, /tab\.getAttribute\('aria-selected'\) !== 'true'/);
+  assert.match(body, /first && tm && tm\.dataset\.chosen === '1'/, 'the first load gives way to a tab chosen before it answered');
+  assert.match(body, /e\.preventDefault\(\);/);
+  assert.match(ui, /tm\._statusTimer = setTimeout\(\(\) => \{ if \(pane\.getAttribute\('aria-busy'\) === 'true'\) status\.textContent = note\.textContent; \}, 180\);/);
+});

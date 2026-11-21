@@ -70,3 +70,16 @@ Feature: The settings editor
       And "#editor-modal .tabmodal-pane .nav-entry >> nth=0" should not be visible within 2 seconds
       And "#editor-modal .tabmodal-pane" should contain text "A style is a set of tokens" within 8 seconds
       And "#editor-modal .tabmodal-wait" should not be attached
+
+  # A tab chosen while another is still loading is the one shown: the slow answer of the first never lands
+  # under the second's name (with a command check cold, a plugin page takes about three seconds).
+  Scenario: A Settings tab chosen while another is loading is the one that stays
+    Given the URL "**/settings/styles*" is delayed by 3000 ms
+      And I am on "/"
+     When I click on the element "a[data-tabmodal-open='/fragments/settings/modal']"
+      And I click on the element "#editor-modal [role='tab'][data-tab='styles']"
+      And I click on the element "#editor-modal [role='tab'][data-tab='navigation']"
+      And I wait 4 seconds
+     Then "#editor-modal .tabmodal-pane .nav-entry >> nth=0" should be visible
+      And "#editor-modal .tabmodal-heading" should have text "Navigation"
+      And I should not see "A style is a set of tokens"
