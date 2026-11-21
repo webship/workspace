@@ -9,6 +9,10 @@
  *
  * Tabs are real buttons in a tablist. Selection, the arrow keys, the filter and the address live in
  * public/ui.js; this renders the markup and nothing else.
+ *
+ * On a phone the filter and the list fold behind a button that says the tab you are on (#669): the list
+ * took the top of the screen and the tab's content what was left. The button is drawn always and shown
+ * only below 640px (tab-modal.css), so wider screens are as they were.
  */
 
 const { esc } = require('./html');
@@ -51,6 +55,10 @@ function tabModalHtml({ id, title, subtitle = '', back = null, filter = false, h
       <h2>${esc(title)}</h2>
       ${subtitle ? `<span class="uk-text-meta">${esc(subtitle)}</span>` : ''}
     </div>
+    <button type="button" class="tabmodal-toggle" aria-expanded="false" aria-controls="tm-${esc(id)}-list">
+      ${iconHtml(current.icon || 'tabler:point', 0.9)}<span class="tabmodal-toggle-label">${esc(current.label)}</span><span class="uk-hidden-visually">: choose another tab</span>${iconHtml('tabler:chevron-down', 0.8)}
+    </button>
+    <div class="tabmodal-list" id="tm-${esc(id)}-list">
     ${filter ? `<input type="search" class="tabmodal-filter uk-input uk-form-small" placeholder="Filter" aria-label="Filter ${esc(title)}" aria-describedby="tm-${esc(id)}-filter-status" autocomplete="off">
     <p class="tabmodal-filter-status" id="tm-${esc(id)}-filter-status" role="status" data-total="${all.length}"></p>` : ''}
     <div class="tabmodal-tabs" role="tablist" aria-orientation="vertical" aria-label="${esc(title)}">
@@ -59,6 +67,7 @@ function tabModalHtml({ id, title, subtitle = '', back = null, filter = false, h
         ${g.label ? `<p class="tabmodal-group-label" aria-hidden="true">${esc(g.label)}</p>` : ''}
         ${g.tabs.map((t) => tab(t, g.label)).join('')}
       </div>`).join('')}
+    </div>
     </div>
   </nav>
   <section class="tabmodal-main">

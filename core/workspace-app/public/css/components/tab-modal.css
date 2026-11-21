@@ -29,6 +29,8 @@
 .tabmodal-title h2 { margin: 0; font-size: 1.0625rem; line-height: 1.3; }
 .tabmodal-filter.uk-input { flex: none; height: 2.25rem; margin: 0 0 0.5rem; padding: 0 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; }
 .tabmodal-tabs { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; padding-bottom: 0.5rem; }
+/* The filter and the list together (what folds on a phone, issue 669): the nav's column carries on through it. */
+.tabmodal-list { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 .tabmodal-group + .tabmodal-group { margin-top: 0.875rem; }
 .tabmodal-group[hidden] { display: none; }
 .tabmodal-group-label {
@@ -148,6 +150,12 @@
     border-radius: 0;
   }
   .tabmodal { height: 100dvh; grid-template-rows: fit-content(40%) minmax(0, 1fr); }
+  /* The list folds behind a button that says the tab you are on (issue 669): the tab's content gets the screen,
+     and the list (with its filter) takes up to 60% of it only while it is open. */
+  .tabmodal:not(.is-open) { grid-template-rows: auto minmax(0, 1fr); }
+  .tabmodal.is-open { grid-template-rows: fit-content(60%) minmax(0, 1fr); }
+  .tabmodal-nav .tabmodal-toggle { display: flex; }
+  .tabmodal:not(.is-open) .tabmodal-list { display: none; }
 }
 
 /* ---------- The editor modal's own frame, for every modal ---------- */
@@ -224,3 +232,10 @@
 }
 .tabmodal-pane .msg.error > p { margin: 0 0 0.5rem; }
 .tabmodal-pane .msg.error > p:last-child { margin-bottom: 0; }
+
+/* The phone's fold button (issue 669): hidden on wider screens, where the list is always there. */
+.tabmodal-toggle { display: none; width: 100%; align-items: center; gap: 0.5rem; margin: 0.25rem 0 0.5rem; padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line); border-radius: 0.5rem; background: var(--surface-card); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.tabmodal-toggle-label { flex: 1 1 auto; font-weight: 600; }
+.tabmodal-toggle[aria-expanded="true"] svg:last-child { transform: rotate(180deg); }
+.tabmodal-toggle:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }

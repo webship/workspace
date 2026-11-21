@@ -821,6 +821,15 @@ document.addEventListener('keydown', (e) => {
     const sub = tm.querySelector('.tabmodal-sub');
     if (head) head.textContent = tab.dataset.label || '';
     if (sub) sub.textContent = tab.dataset.hint || '';
+    // The phone's fold button says the tab you are on, with its icon (#669).
+    const toggle = tm.querySelector('.tabmodal-toggle');
+    if (toggle) {
+      const label = toggle.querySelector('.tabmodal-toggle-label');
+      if (label) label.textContent = tab.dataset.label || '';
+      const icon = tab.querySelector('svg, .tabler-icon');
+      const was = toggle.firstElementChild;
+      if (icon && was && was !== label) was.replaceWith(icon.cloneNode(true));
+    }
     const pane = tm.querySelector('.tabmodal-pane');
     if (pane) pane.setAttribute('aria-labelledby', tab.id);
     const h = hashOf(tm);
@@ -920,9 +929,34 @@ document.addEventListener('keydown', (e) => {
     if (note) note.remove();
   });
 
+  // On a phone the list folds behind a button that says the tab you are on (#669). It is shown only below
+  // 640px; where it is hidden, the list is always there and none of this does anything.
+  const folds = (tm) => { const t = tm && tm.querySelector('.tabmodal-toggle'); return t && t.offsetParent ? t : null; };
+  const fold = (tm, open, focus) => {
+    const t = tm.querySelector('.tabmodal-toggle');
+    tm.classList.toggle('is-open', open);
+    if (t) t.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (focus) focus.focus();
+  };
+
   document.addEventListener('click', (e) => {
+    const toggle = e.target.closest && e.target.closest('.tabmodal-toggle');
+    if (toggle) {
+      const tm = toggle.closest('.tabmodal');
+      const open = !tm.classList.contains('is-open');
+      fold(tm, open, open ? (tm.querySelector('.tabmodal-tab[aria-selected="true"]') || tm.querySelector('.tabmodal-filter')) : null);
+      return;
+    }
     const tab = e.target.closest && e.target.closest('.tabmodal-tab');
-    if (tab) { const tm = tab.closest('.tabmodal'); select(tm, tab); busy(tm, tab.dataset.label); return; }
+    if (tab) {
+      const tm = tab.closest('.tabmodal');
+      select(tm, tab);
+      busy(tm, tab.dataset.label);
+      // Chosen on a phone: the list folds again and focus goes back to the button, which now says the tab.
+      const t = folds(tm);
+      if (t) fold(tm, false, t);
+      return;
+    }
 
     // A link in a pane that points at another page of the same section loads into the pane.
     const a = e.target.closest && e.target.closest('.tabmodal-pane a[href^="/settings"]');
@@ -958,6 +992,20 @@ document.addEventListener('keydown', (e) => {
       : tabs[Math.min(tabs.length - 1, Math.max(0, i + (e.key === 'ArrowDown' ? 1 : -1)))];
     if (next) { e.preventDefault(); next.focus(); }
   });
+
+  // Escape in the open fold, on a phone, folds the list and goes back to its button before it would close the
+  // modal (the capture phase, ahead of the modal's own Escape). A filter with text in it is emptied first (below).
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const tm = e.target.closest && e.target.closest('.tabmodal.is-open');
+    const t = tm && folds(tm);
+    if (!t || !e.target.closest('.tabmodal-list')) return;
+    const box = e.target.closest('.tabmodal-filter');
+    if (box && box.value) return;
+    e.preventDefault();
+    e.stopPropagation();
+    fold(tm, false, t);
+  }, true);
 
   // In the filter box: Down goes to the first tab shown, and Escape empties the box before it closes the modal
   // (in the capture phase, ahead of the modal's own Escape), as the other filters do.
