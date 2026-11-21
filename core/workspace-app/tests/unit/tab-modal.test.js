@@ -132,3 +132,15 @@ test('a tab that does not load offers Try again, drawn as a message; the loading
   assert.match(ui, /note\.className = 'tabmodal-wait';[\s\S]{0,260}pane\.append\(note\);/, 'after the content, so no "* + …" margin moves it');
   assert.doesNotMatch(ui, /pane\.prepend\(note\)/);
 });
+
+// On a phone the settings modal was a 702px dialog on an 844px screen, its two scrolling halves sharing it:
+// 223px of tabs above 293px for the tab's content.
+test('on a phone a modal with tabs takes the whole screen, and its tabs at most 40% of it', () => {
+  const css = read('public', 'css', 'components', 'tab-modal.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const at = css.indexOf('@media (max-width: 39.9375em)');
+  assert.ok(at > 0, 'no phone rule');
+  const phone = css.slice(at, css.indexOf('\n}\n', at) + 3);
+  assert.match(phone, /#editor-modal:has\(\.tabmodal\) \{ padding: 0; \}/);
+  for (const d of ['width: 100%', 'height: 100dvh', 'max-height: 100dvh', 'margin: 0', 'border-radius: 0']) assert.ok(phone.includes(d), `the dialog: ${d}`);
+  assert.match(phone, /\.tabmodal \{ height: 100dvh; grid-template-rows: fit-content\(40%\) minmax\(0, 1fr\); \}/);
+});
