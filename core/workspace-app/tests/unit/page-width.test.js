@@ -57,3 +57,18 @@ test('the cap is beaten on specificity, never with !important', () => {
   const declarations = css.replace(/\/\*[\s\S]*?\*\//g, '');
   assert.ok(!/!important/.test(declarations), 'never !important, and never a fork of the vendored CSS');
 });
+
+// From the accessibility test of 2026-11-21: in a page's heading the width switcher was first in the markup and
+// drawn last (order: 9), so focus met it before the heading's "?" that is drawn before it (WCAG 2.4.3, on six
+// pages); and /docs and /images had two, the heading's and the file list's.
+test('in a heading the switcher is last in the markup, the "?" goes before it, and a page has one', () => {
+  assert.doesNotMatch(server, /page-heading">\$\{(widthSwitcherHtml\(\)|meta\.kind === 'files')/, 'first in a heading again');
+  const lasts = server.match(/\n {4}<\/div>\n {4}\$\{(widthSwitcherHtml\(\)|meta\.kind === 'files' \? widthSwitcherHtml\(\) : '')\}\n {2}<\/div>/g) || [];
+  assert.strictEqual(lasts.length, 6, 'the six headings with a switcher');
+  assert.match(ui, /head\.insertBefore\(a, head\.querySelector\(':scope > \.width-switcher'\)\);/);
+  const grid = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'css', 'components', 'grid-and-list.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(grid, /\.page-heading \.width-switcher \{ margin-left: auto; \}/);
+  assert.doesNotMatch(grid, /\.page-heading \.width-switcher \{[^}]*order:/);
+  const fn = server.slice(server.indexOf('function viewSwitcherHtml'), server.indexOf('function densitySwitcherHtml'));
+  assert.match(fn, /\$\{files \? '' : widthSwitcherHtml\(\)\}/, 'a list of files keeps only the grid choice: its page heading has the width');
+});

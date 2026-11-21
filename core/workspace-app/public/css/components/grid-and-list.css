@@ -158,7 +158,8 @@ html[data-rows-view^="grid"] #webship-workspace-projects > :is(h3, p, .list-cont
 
 /* On a page with no list, the width control sits at the end of the heading row rather than in the
    middle of it — the heading is what names the page, and this is a preference beside it. */
-.page-heading .width-switcher { order: 9; margin-left: auto; }
+/* Last in the heading's markup as well as on screen, so focus order and reading order agree. */
+.page-heading .width-switcher { margin-left: auto; }
 
 /* The help page is a document, so its control goes at the top right on its own rather than beside a
    heading it does not have. */

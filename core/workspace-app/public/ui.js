@@ -1403,7 +1403,9 @@ window.addEventListener('beforeunload', (e) => {
   a.title = 'How this page works, in the guide';
   a.setAttribute('aria-label', 'Help for this page');
   a.textContent = '?';
-  head.appendChild(a);
+  // Before the width switcher, which is last in the heading and drawn last: appended after it, the "?" was
+  // drawn before it and reached after it (WCAG 2.4.3).
+  head.insertBefore(a, head.querySelector(':scope > .width-switcher'));
 })();
 
 // The guide's code blocks are what people come to copy, so each one has a Copy button.
