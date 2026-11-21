@@ -652,6 +652,18 @@ document.addEventListener('shown', (e) => {
   const box = e.target && e.target.classList && e.target.classList.contains('pcard-domains') && e.target.querySelector('.pcard-domains-filter');
   if (box) box.focus();
 });
+// UIkit marks every dropdown's toggle aria-haspopup="true", which is a menu button. The "+N" of a project's
+// addresses opens a filter and a list of links, not a menu: it is a disclosure, aria-expanded (UIkit keeps
+// it) and aria-controls (server.js). UIkit sets the attribute when it connects the dropdown, before or after
+// this runs, on load and after every swap, so it is taken off whenever it is set.
+(function addressListIsADisclosure() {
+  const strip = (el) => {
+    if (el.matches && el.matches('.pcard-count[aria-controls]') && el.hasAttribute('aria-haspopup')) el.removeAttribute('aria-haspopup');
+  };
+  document.querySelectorAll('.pcard-count[aria-controls]').forEach(strip);
+  new MutationObserver((records) => records.forEach((r) => strip(r.target)))
+    .observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['aria-haspopup'] });
+})();
 
 // The actions rail. Collapsed state is remembered, like the theme, because it is
 // a layout preference and having it reset on every navigation would be noise.

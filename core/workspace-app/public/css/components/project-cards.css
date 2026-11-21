@@ -172,7 +172,9 @@ html[data-rows-view="grid-1"] #webship-workspace-projects .project-row { max-wid
 .pcard-domains-find { padding: 0.25rem 0.25rem 0.375rem; }
 .pcard-domains-filter.uk-input { height: 2rem; padding: 0 0.625rem; font-size: 0.8125rem; }
 .pcard-domains-status { margin: 0.25rem 0.125rem 0; font-family: var(--font-primary); font-size: 0.75rem; color: var(--text-subtle); }
-.pcard-domains-status:empty { display: none; }
+/* Empty, it takes no room but stays in the accessibility tree: a live region that is display:none until its
+   first words may not have them spoken. */
+.pcard-domains-status:empty { margin: 0; }
 .pcard-domains li[hidden] { display: none; }
 .pcard-domain {
   display: flex;
