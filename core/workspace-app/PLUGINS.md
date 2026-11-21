@@ -323,6 +323,11 @@ it alike), so a lazy menu behaves like an inline one once open. A string return 
 menu, inline. A plugin that must also run on a dashboard older than this form checks
 `api.capabilities && api.capabilities.has('row-menu-body')` and falls back to the string.
 
+`rag` is a slot the core can draw itself, for a folder with a `cmd-tools-ragify.sh`. Once a plugin
+registers it (the RAG plugin, `@webship.co/workspace-rag`), the row draws that plugin's menu there and
+the core draws none of its own, nor asks the Milvus servers for the page. In the default order RAG
+stays last in its row, after the buttons plugins add there (Graph).
+
 The core's own menus take the same road: DDEV, COMPOSER, Tests, SCREENS, NODE and More are drawn as this shell and
 answer at `/fragments/row-menu/<slot>/<ws>/<project>` with no `body` parameter, their items computed for
 that one project when the menu opens (a page of fifty rows is a third of what it was). A plugin's
