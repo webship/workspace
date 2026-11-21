@@ -11,5 +11,10 @@ services:
     # machine's pid namespace is what makes `screen -x` work from in here; the
     # app runs as the same user, so it can reach nothing that user could not.
     pid: "host"
+    # With the machine's process space, DDEV's own `kill -- -1` (the start script's trap, a failed start) would reach
+    # processes outside this container. Every bash in here loads a guard that refuses -1 as a target (#564).
+    environment:
+      - BASH_ENV=/etc/workspace-kill-guard.sh
     volumes:
       - "/run/screen:/run/screen"
+      - "${DDEV_APPROOT}/.ddev/workspace-kill-guard.sh:/etc/workspace-kill-guard.sh:ro"

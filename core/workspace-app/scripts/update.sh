@@ -350,9 +350,13 @@ if [ "${deps_changed}" = "yes" ]; then
     || echo "npm install failed — run it in ${APP_DIR} yourself."
 fi
 if [ "${ddev_changed}" = "yes" ]; then
+  # The dashboard's web container shares the machine's process space. One made before the kill guard (#564) ends with
+  # DDEV's `kill -- -1`, which from there reaches processes in the other containers: so it is stopped with docker kill,
+  # which ends it without that, and `ddev start` makes it new from this release's config.
+  project_name=$(grep -m1 '^name:' "${APP_DIR}/.ddev/config.yaml" 2>/dev/null | sed 's/^name: *//')
   echo ""
-  echo "⚠️  .ddev/ changed in this release — a full restart is needed:"
-  echo "    cd ${APP_DIR} && ddev restart"
+  echo "⚠️  .ddev/ changed in this release — a full restart is needed, done this way (not ddev restart):"
+  echo "    docker kill ddev-${project_name:-workspace}-web && cd ${APP_DIR} && ddev start"
 else
   echo "Restarting the app…"
   (cd "${APP_DIR}" && ddev exec supervisorctl restart webextradaemons:workspace-app) > /dev/null 2>&1 || true
