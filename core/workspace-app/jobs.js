@@ -282,18 +282,56 @@ async function hostRunnerCall(pathname, { method = 'GET', body = null } = {}) {
  *  rewritten every two seconds, so anything older than fifteen means nobody is
  *  home. This is a file read, not a socket — the container cannot always reach
  *  the host over the network, but it always shares this folder. */
-function hostSessionsFile() {
+function hostSessionsFile({ anyAge = false } = {}) {
   const { ROOT } = require('./workspaces');
   try {
     const raw = fs.readFileSync(path.join(ROOT, '.screens', 'host-sessions.json'), 'utf8');
     const data = JSON.parse(raw);
     if (!data || typeof data.at !== 'number') return null;
-    return (Date.now() - data.at) < 15000 ? data : null;
+    // anyAge: what the runner last said, also once it stopped saying it. A session it listed then is a session on the
+    // machine, which the dashboard cannot reach while the runner is away (screen-verbs.js).
+    return anyAge || (Date.now() - data.at) < 15000 ? data : null;
   } catch (_) { return null; }
 }
 
 async function hostRunnerUp() {
   return !!hostSessionsFile();
+}
+
+/**
+ * Ask the runner for a verb on a session (stop, stuff, detach, wipe): over its unix socket in the store, the way a
+ * terminal attaches through it (#558), else through the mailbox in the same folder. Both are the folder the dashboard's
+ * container shares with the machine, so neither needs the network nor the machine's process space. The runner's answer
+ * ({ ok, error, gone, … }, with `status` when it came over the socket), or null when neither reached it.
+ */
+async function hostRunnerAsk(action, payload = {}, { timeoutMs = 15000 } = {}) {
+  const { ROOT } = require('./workspaces');
+  const store = path.join(ROOT, '.screens');
+  const sock = path.join(store, 'runner.sock');
+  let token = '';
+  let isSock = false;
+  try { token = fs.readFileSync(path.join(store, '.runner-token'), 'utf8').trim(); } catch (_) { token = ''; }
+  try { isSock = fs.statSync(sock).isSocket(); } catch (_) { isSock = false; }
+  if (token && isSock) {
+    const answer = await new Promise((resolve) => {
+      const body = JSON.stringify(payload || {});
+      const req = require('http').request({ socketPath: sock, path: `/${action}`, method: 'POST', timeout: timeoutMs,
+        headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body), 'x-runner-token': token } }, (res) => {
+        let out = '';
+        res.on('data', (d) => { out += d; });
+        res.on('end', () => {
+          let json = null;
+          try { json = JSON.parse(out); } catch (_) { json = null; }
+          resolve(json && typeof json === 'object' ? { status: res.statusCode, ...json } : null);
+        });
+      });
+      req.on('timeout', () => req.destroy());
+      req.on('error', () => resolve(null));
+      req.end(body);
+    });
+    if (answer) return answer;
+  }
+  return hostRunnerRequest(action, payload, { timeoutMs });
 }
 
 /** Ask the runner to do something, through the folder both sides can see. */
@@ -560,7 +598,7 @@ module.exports = {
   screenWrap,
   run, jobs, runningJobKey, startJob, stopJob, jobFragment,
   startInScreen, startInOwnScreen, stopOwnScreen, ownScreenUp, screenStartedHtml, screensLink, sessionWatchHtml, screenSessionName, screenAction, addRunner,
-  hostRunner, hostRunnerCall, hostRunnerUp, hostRunnerRequest, hostSessionsFile,
+  hostRunner, hostRunnerCall, hostRunnerUp, hostRunnerRequest, hostRunnerAsk, hostSessionsFile,
   // Not job machinery, but they travelled inside the same span of server.js and every
   // caller of them also calls the runner. They move properly in the next split.
   ddevProjectName, listProjects, listProjectsDetailed,

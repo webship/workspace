@@ -17,18 +17,20 @@ const { waitingState } = require('./waiting');
 const claudeSessions = require('./claude-sessions');
 const claudeArgs = require('./claude-args');
 const screenNotes = require('./screen-notes');
+const hostProcesses = require('./host-processes');
 
-/** Live screen sessions: the host's when its runner is up, this container's
- *  otherwise. Each row says where it lives, because `screen -r` in a terminal
- *  only reaches the host ones. */
-/** Every session runs on the machine. Two ways to see them, and both are used:
- *  screen(1) itself, through the socket directory mounted in here — which is
- *  also how the browser terminal attaches — and the runner's published list,
- *  which still answers when that mount is missing. */
+/**
+ * The live screen sessions, from two places: screen where the dashboard runs, and the host runner's published list.
+ *
+ * Each row says how it is reached (`via`): 'here' when screen here lists it, 'runner' when only the runner does. The
+ * dashboard's container has a process space of its own (webship/workspace#564), so screen in it lists only the
+ * container's own sessions, and a session on the machine is the runner's to reach: its verbs (screen-verbs.js) and its
+ * terminal (runner-attach.js) go through the runner. When the dashboard runs on the machine, screen here lists them all.
+ */
 async function listScreens() {
   const { hostSessionsFile } = require('./jobs');
   const own = await readContainerScreens();
-  const rows = own.rows.map((s) => ({ ...s, where: 'host' }));
+  const rows = own.rows.map((s) => ({ ...s, where: 'host', via: 'here' }));
   const seen = new Set(rows.map((s) => s.session));
   const published = hostSessionsFile();
   const pubRows = published && Array.isArray(published.sessions) ? published.sessions : [];
@@ -37,13 +39,15 @@ async function listScreens() {
   // rows this side already knows about rather than used only for the ones it does not:
   // `screen -ls` here lists the same sessions, those rows won, and the flag was dropped
   // every time — the badge could not appear for any session that was already listed,
-  // which is all of them.
+  // which is all of them. The agent flag, which the runner reads from the machine's
+  // process table, is merged the same way.
   const pubBy = new Map(pubRows.map((s) => [s.session, s]));
   for (const r of rows) {
     const p = pubBy.get(r.session);
     if (p && p.waiting !== undefined) { r.waiting = p.waiting; r.waitingWhy = p.waitingWhy; }
+    if (p && typeof p.agent === 'boolean') r.agent = p.agent;
   }
-  const extra = pubRows.filter((s) => !seen.has(s.session)).map((s) => ({ ...s, where: 'host' }));
+  const extra = pubRows.filter((s) => !seen.has(s.session)).map((s) => ({ ...s, where: 'host', via: 'runner' }));
   const all = rows.concat(extra);
   // The notes of sessions that are gone are stamped from here, the one list every view reads. Only from an
   // answer: a `screen -ls` that timed out lists nothing, and that is not the same as nothing running.
@@ -141,12 +145,18 @@ function sessionNeedsInput(session) {
  * and only the first of those could ever have left a marker behind. What is actually running inside it
  * is the same question however it was started.
  *
+ * Whose process table: the machine's for a session on the machine, which only the host runner can read (the
+ * dashboard's container has a process space of its own, #564), so it publishes the answer with its list (`agent`);
+ * this one's for the sessions screen here started. A pid the runner published names some other process here, or
+ * none, so a session only the runner lists is never walked here.
+ *
  * One `ps` for the whole page — a workspace page renders twenty rows and each asks — memoised for a
  * few seconds, which is far shorter than the fifteen the rows poll on. The SNAPSHOT is what is kept,
  * never the answer: see processTable.
  *
  * It walks DOWN from each session's own screen process: `screen` forks the command, and a Claude Code
- * session is `exec claude …`, so the agent is a descendant rather than the screen process itself.
+ * session is `exec claude …`, so the agent is a descendant rather than the screen process itself
+ * (host-processes.js).
  */
 let psMemo = { at: 0, kids: new Map(), args: new Map() };
 
@@ -161,46 +171,26 @@ let psMemo = { at: 0, kids: new Map(), args: new Map() };
 function processTable() {
   const now = Date.now();
   if (now - psMemo.at < 5000) return psMemo;
-  const kids = new Map();
-  const args = new Map();
+  let text = '';
   try {
-    const out = require('child_process').execFileSync('ps', ['-eo', 'pid=,ppid=,args='],
+    text = require('child_process').execFileSync('ps', hostProcesses.PS_ARGS,
       { encoding: 'utf8', timeout: 5000, maxBuffer: 8 * 1024 * 1024 });
-    for (const line of out.split('\n')) {
-      const m = line.match(/^\s*(\d+)\s+(\d+)\s+(.*)$/);
-      if (!m) continue;
-      const [, pid, ppid, cmd] = m;
-      if (!kids.has(ppid)) kids.set(ppid, []);
-      kids.get(ppid).push(pid);
-      args.set(pid, cmd);
-    }
   } catch (_) { /* no ps, no claim */ }
+  const { kids, args } = hostProcesses.parseProcessTable(text);
   psMemo = { at: now, kids, args };
   return psMemo;
 }
 
-// `claude` the CLI, never a path that merely mentions it: a shell sitting in a folder called
-// claude-something is not an agent, and neither is `tail -F .../claude.log`.
-const isClaudeCmd = (cmd) => /(^|\/)claude(\s|$)/.test(String(cmd || '').trim());
-
 function agentSessions(sessions) {
-  const { kids, args } = processTable();
+  const table = processTable();
   const found = new Set();
   for (const s of sessions || []) {
-    const seen = new Set();
-    // Never walk from 0: every top-level process has ppid 0, so a row with no pid — a session the
-    // runner published that `screen -ls` has not listed yet — would walk the whole machine and claim
-    // every agent on it as its own.
-    const root = String(s.pid || '');
-    if (!root || root === '0') continue;
-    const stack = [root];
-    while (stack.length) {
-      const pid = stack.pop();
-      if (!pid || seen.has(pid)) continue;
-      seen.add(pid);
-      if (isClaudeCmd(args.get(pid))) { found.add(s.session); break; }
-      (kids.get(pid) || []).forEach((k) => stack.push(k));
-    }
+    if (s.agent === true) { found.add(s.session); continue; }
+    // A session on the machine: the runner read the machine's process table for it, and this one cannot.
+    if (s.via === 'runner') continue;
+    // Never walk from 0 (agentUnder refuses it): every top-level process has ppid 0, so a row with no pid
+    // would walk the whole table and claim every agent on it as its own.
+    if (hostProcesses.agentUnder(s.pid, table)) found.add(s.session);
   }
   return found;
 }
@@ -753,73 +743,24 @@ const TERM_STYLES = [
   ['dashboard', 'Dashboard style'],
 ];
 
-/** What one `ps` line says about an automation browser. Split out from the
- *  listing so it can be tested against real command lines rather than only
- *  against whatever happens to be running. */
-function parseBrowserLine(line) {
-  const m = line.trim().match(/^(\d+)\s+(\S+)\s+(.*)$/);
-  if (!m) return null;
-  const args = m[3];
-  // The program itself has to BE a browser. Matching the arguments alone listed
-  // `ddev exec … BROWSER=chromium`, its docker-compose and the bash that runs
-  // the suite as three separate "browsers".
-  const prog = args.split(/\s+/)[0] || '';
-  const exe = prog.split('/').filter(Boolean).pop() || '';
-  // A browser in ANOTHER container is listed with its path only: this process
-  // cannot read that one's cmdline, and `ps` then prints the executable, often
-  // cut at a directory (…/chromium_headless_shell). So the whole path counts as
-  // evidence, not just the last segment.
-  const isBrowser = /^(google-)?chrome(-headless-shell)?$|^chromium(-browser)?$|^headless_shell$|^firefox$|^msedge$|webkit/i.test(exe)
-    || /ms-playwright|headless[-_]shell/i.test(prog);
-  if (!isBrowser) return null;
-  if (/ --type=/.test(args)) return null;                       // a renderer, not the browser
-  if (!/remote-debugging-(port|pipe)|ms-playwright|mcp-chrome|playwright/i.test(args)) return null;
-  const dir = (args.match(/--user-data-dir=(\S+)/) || [])[1] || '';
-  return {
-    pid: m[1],
-    uptime: m[2],
-    profile: (dir.split('/').filter(Boolean).pop() || (/headless[-_]shell/i.test(prog) ? 'test browser' : 'playwright')).slice(0, 40),
-    // A headless shell has no window whatever its flags say, so the binary
-    // counts as much as --headless does.
-    headless: /--headless/.test(args) || /headless[-_]shell/i.test(prog),
-    port: (args.match(/--remote-debugging-port=(\d+)/) || [])[1] || '',
-    pipe: /--remote-debugging-pipe/.test(args),
-  };
-}
+// What one `ps` line says about an automation browser, and whether a process is in a container: host-processes.js,
+// shared with the host runner, which reads the machine's browsers for the dashboard (its container cannot, #564).
+const { parseBrowserLine, processInContainer } = hostProcesses;
 
-/** Is this process inside a container? The dashboard shares the machine's pid
- *  namespace, so a suite's browser in a project's web container shows up in
- *  `ps` here exactly like one on the desktop — and it is not on the desktop. */
-function processInContainer(pid) {
-  try {
-    const cgroup = fs.readFileSync(`/proc/${pid}/cgroup`, 'utf8');
-    return /docker|containerd|kubepods|libpod/.test(cgroup);
-  } catch (_) { return false; }
-}
-
-/** The Playwright MCP browsers running on this machine, as tiles of their own. */
+/**
+ * The automation browsers on the machine, as tiles of their own: what the host runner published, read from the
+ * machine's process table. Without a runner, the ones this process can see itself: the machine's when the dashboard
+ * runs there, the container's own when it runs in one.
+ */
 async function listPlaywrightBrowsers() {
-  // An automation browser, not any browser: one driven over a debugging pipe or
-  // port, or running from a playwright/mcp profile. The docs tooling's
-  // screenshot chromium is short-lived and matches none of those.
-  const out = await run('bash', ['-c',
-    "ps -eo pid,etime,args | grep -iE 'chrome|chromium|firefox|webkit' | grep -v grep | grep -v ' --type=' "
-    + "| grep -E 'remote-debugging-(port|pipe)|ms-playwright|mcp-chrome|playwright' | head -10"],
-  process.env.HOME, { timeoutMs: 10 * 1000 });
-  const rows = String(out.stdout || '').split('\n').map(parseBrowserLine).filter(Boolean)
-    .map((b) => ({ ...b, inContainer: processInContainer(b.pid) }));
-  // One browser is several processes, and the helpers of a browser in another
-  // container cannot be told apart from it (their arguments are unreadable, so
-  // the usual `--type=` filter never sees them). Group them into the one thing
-  // they are, oldest first — that is the browser itself.
-  const groups = new Map();
-  for (const b of rows) {
-    const key = `${b.profile}|${b.headless}|${b.inContainer}`;
-    const seen = groups.get(key);
-    if (!seen) groups.set(key, { ...b, count: 1 });
-    else { seen.count += 1; if (b.uptime > seen.uptime) Object.assign(seen, b, { count: seen.count }); }
-  }
-  return [...groups.values()];
+  const published = require('./jobs').hostSessionsFile();
+  if (published && Array.isArray(published.browsers)) return published.browsers;
+  let text = '';
+  try {
+    text = require('child_process').execFileSync('ps', hostProcesses.PS_ARGS,
+      { encoding: 'utf8', timeout: 10 * 1000, maxBuffer: 8 * 1024 * 1024 });
+  } catch (_) { text = ''; }
+  return hostProcesses.browsersIn(hostProcesses.parseProcessTable(text));
 }
 
 async function screensGridHtml() {
@@ -1067,11 +1008,11 @@ function termPaneHtml(session) {
           </span>
           ${verb('term-reconnect', 'refresh', 'Reconnect this terminal',
     `hidden hx-get="/fragments/screen-term/${encodeURIComponent(session)}" hx-target="closest .term-window" hx-swap="outerHTML"`)}
-          <!-- Ctrl-C goes down THIS window's own socket, not to /actions/screen-interrupt.
-               onHostScreen says it plainly — "detach and Ctrl-C are screen's own; the runner does not
-               proxy them yet" — so that endpoint answers 500 for a session on the host, which is every
-               session here. A window is already attached to the session, and sending the byte is
-               exactly what typing it would do. terminal.js does it, after the same confirm. -->
+          <!-- Ctrl-C goes down THIS window's own socket, not to /actions/screen-interrupt. The window is
+               attached to the session already, and sending the byte is exactly what typing it would do:
+               no second way to the session is needed, and none is asked of the runner. The endpoint is
+               for the session row, which has no terminal open (screen-verbs.js takes it to the runner).
+               terminal.js does it, after the same confirm. -->
           ${verb('term-interrupt arm-step', 'bolt', `Interrupt what runs in ${session} (Ctrl-C)`)}
           <!-- The wheel writing mouse coordinates into the shell instead of scrolling is a mode a
                program turned on and did not turn off: screen replays the window's state to every

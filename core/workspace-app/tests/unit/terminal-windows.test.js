@@ -66,10 +66,10 @@ test('every verb that ends something goes through the one confirm dialog', () =>
   assert.match(html.slice(html.indexOf('term-detach')), /hx-trigger="confirmed-remove"/);
 });
 
-test('Ctrl-C goes down the window\'s own socket, not to an endpoint that cannot reach the host', () => {
-  // onHostScreen says it itself: "the runner does not proxy them yet" — so /actions/screen-interrupt
-  // answers 500 for a session on the host, which is every session. The window is already attached.
-  assert.match(screensJs, /the runner does not\s+proxy them yet/,
+test('Ctrl-C goes down the window\'s own socket: it is attached already, so nothing else is asked', () => {
+  // The endpoint reaches a session on the machine through the runner now (#564), but the window needs no second
+  // way to its session: sending the byte down its own socket is exactly what typing it does.
+  assert.match(screensJs, /The window is\s+attached to the session already, and sending the byte is exactly what typing it would do/,
     'the reason is written down where the button is made');
   const button = html.slice(html.indexOf('term-interrupt'), html.indexOf('</button>', html.indexOf('term-interrupt')));
   assert.doesNotMatch(button, /hx-post/, 'it does not post anywhere');

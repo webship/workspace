@@ -160,6 +160,12 @@ diff -rq "${extracted}/core/workspace-app/.ddev" "${APP_DIR}/.ddev" > /dev/null 
 
 updater_changed="no"
 cmp -s "${extracted}/core/workspace-app/scripts/update.sh" "${BASH_SOURCE[0]}" || updater_changed="yes"
+# The host screen runner and what it loads: a runner keeps the code it was started with, so a changed one is restarted
+# below (the sessions keep running). An older runner refuses the verbs it does not know yet.
+runner_changed="no"
+for f in scripts/screen-runner.js host-processes.js waiting.js session-env.js; do
+  cmp -s "${extracted}/core/workspace-app/${f}" "${APP_DIR}/${f}" || runner_changed="yes"
+done
 
 rsync_flags="-a --itemize-changes"
 [ "${DRY_RUN}" = "yes" ] && rsync_flags="${rsync_flags} --dry-run"
@@ -344,6 +350,11 @@ if [ "${PROMPTS_ONLY}" = "yes" ]; then
   exit 0
 fi
 
+if [ "${runner_changed}" = "yes" ] && bash "${APP_DIR}/scripts/screen-host.sh" --status 2>/dev/null | grep -q '^Running'; then
+  echo "The screen runner changed in this release — restarting it (the sessions keep running)…"
+  bash "${APP_DIR}/scripts/screen-host.sh" --restart > /dev/null 2>&1 \
+    || echo "The runner did not restart: bash ${APP_DIR}/scripts/screen-host.sh --restart"
+fi
 if [ "${deps_changed}" = "yes" ]; then
   echo "package.json changed — installing dependencies…"
   (cd "${APP_DIR}" && ddev exec npm install --no-audit --no-fund) \
