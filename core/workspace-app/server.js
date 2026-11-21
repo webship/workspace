@@ -1945,7 +1945,7 @@ function listEditorHtml(file, key, message, deleting) {
         <div class="ws-add">
           <input class="uk-input" id="${newId}" name="newEntry" aria-label="Add to ${esc(listLabel)}"
                  placeholder="${esc(lm.placeholder || `new ${key.split('.').pop().replace(/s$/, '').replace(/_/g, ' ')}`)}"
-                 pattern="${esc(lm.pattern || '[a-zA-Z0-9_.\-]+')}" autocomplete="off">
+                 pattern="${esc(lm.pattern || '[a-zA-Z0-9_.\\-]+')}" autocomplete="off">
           <button type="button" form="list-editor-form" class="uk-button uk-button-primary uk-button-small"
                   hx-post="/actions/list-add" hx-include="#${newId}"
                   hx-vals='{"file":"${esc(file)}","key":"${esc(key)}"}'
@@ -5258,7 +5258,7 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
     // its settings file, its folder and a hostname before its card works.
     if (!(file === 'settings.yml' && key === 'workspaces')) {
       const lm = LIST_META[key] || {};
-      const allowed = new RegExp(`^(?:${lm.pattern || '[a-zA-Z0-9_.\-]+'})$`);
+      const allowed = new RegExp(`^(?:${lm.pattern || '[a-zA-Z0-9_.\\-]+'})$`);
       if (!allowed.test(name)) {
         return send(listEditorHtml(file, key,
           `<div class="msg error">Not a valid ${esc(lm.noun || 'entry')} name`
@@ -7121,7 +7121,7 @@ async function onRequest(req, res) {
       <form hx-post="/actions/command-clone" hx-target="#webship-workspace-output" hx-swap="innerHTML">
         <input type="hidden" name="file" value="${esc(file)}">
         <input class="uk-input uk-margin-small-bottom" name="to" placeholder="cmd-new-name.sh"
-               required pattern="cmd-[a-zA-Z0-9_.\-]+\\.sh" autofocus>
+               required pattern="cmd-[a-zA-Z0-9_.\\-]+\\.sh" autofocus>
         <label class="uk-form-label">Into workspace
           <select class="uk-select" name="target">${wsOptions}</select></label>
         <div class="uk-margin-small-top">
@@ -7977,7 +7977,7 @@ Summarise what you changed and how to verify it`,
       <form hx-post="/actions/command-new" hx-target="#webship-workspace-output" hx-swap="innerHTML">
         <label class="uk-form-label">File name${aiMode ? ' <span class="uk-text-meta">(optional — leave it empty and the AI names it from the purpose)</span>' : ''}
           <input class="uk-input" name="newName" placeholder="cmd-tools-something.sh"
-                 ${aiMode ? '' : 'required'} pattern="cmd-[a-zA-Z0-9_.\-]+\\.sh" autofocus
+                 ${aiMode ? '' : 'required'} pattern="cmd-[a-zA-Z0-9_.\\-]+\\.sh" autofocus
                  title="cmd-<something>.sh — letters, numbers, dot, underscore and dash only"
                  oninput="this.classList.toggle('uk-form-danger', !!this.value && !this.checkValidity())">
           <span class="uk-text-meta">Starts with <code>cmd-</code>, ends with <code>.sh</code>; letters, numbers, <code>. _ -</code> in between. Builders end in <code>-project.sh</code>, per-project tools start with <code>cmd-tools-</code>.</span>
