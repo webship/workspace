@@ -4005,14 +4005,17 @@ async function projectRowsHtml(key, dir, state) {
         return { host: d.host, storybook: !!d.storybook, clash: others.length, shown };
       }).sort((a, b) => (Number(b.storybook) - Number(a.storybook)) || a.host.localeCompare(b.host));
     })();
+    // The "+N" button discloses a list (with a filter at nine or more), not a menu: aria-expanded (UIkit sets
+    // it) and aria-controls, no aria-haspopup, which had it announced as a menu button.
+    const addrListId = `addresses-${String(key).replace(/[^A-Za-z0-9_-]/g, '-')}-${String(p).replace(/[^A-Za-z0-9_-]/g, '-')}`;
     const addressRow = !localSite ? '' : `<div class="pcard-addr${running ? '' : ' is-stopped'}">
           ${running
     ? `<a class="pcard-host" href="${ddevUrl}" target="_blank" rel="noopener" title="Canonical DDEV address">${cardHostHtml(`${ddevName}.ddev.site`)}</a>`
     : `<span class="pcard-host" title="Stopped: start it from the DDEV menu">${cardHostHtml(`${ddevName}.ddev.site`)}</span>`}
           ${extraAddresses.length ? `<div class="uk-inline">
-            <button class="pcard-count" type="button" aria-haspopup="true"
+            <button class="pcard-count" type="button" aria-controls="${addrListId}"
                     aria-label="${extraAddresses.length} more address${extraAddresses.length === 1 ? '' : 'es'}"${extraAddresses.some((a) => a.clash) ? ' data-clash' : ''}>+${extraAddresses.length}</button>
-            <div class="pcard-domains" uk-dropdown="mode: click; pos: bottom-right">${extraAddresses.length >= ADDRESS_FILTER_AT ? `
+            <div class="pcard-domains" id="${addrListId}" uk-dropdown="mode: click; pos: bottom-right">${extraAddresses.length >= ADDRESS_FILTER_AT ? `
               <div class="pcard-domains-find">
                 <input type="search" class="uk-input uk-form-small pcard-domains-filter" placeholder="Filter ${extraAddresses.length} addresses"
                        aria-label="Filter the ${extraAddresses.length} addresses of ${esc(ddevName)}" autocomplete="off" spellcheck="false">
