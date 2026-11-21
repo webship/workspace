@@ -116,7 +116,7 @@ function pluginsSectionHtml(groups, { only = '' } = {}) {
     : '';
   const empty = `
       <div class="settings-empty">
-        <p><strong>No plugins yet.</strong> The base ships empty: folders, platforms, hosting, forges and features are added one package at a time.</p>
+        <p><strong>No plugins yet.</strong> Folders, platforms, hosting, forges and features are added one package at a time.</p>
         <p><a class="uk-button uk-button-primary uk-button-small" href="/settings/plugins">Choose from the catalogue</a>
           <span class="uk-text-meta">or <code>webship-workspace plugin require &lt;name&gt;</code></span></p>
       </div>`;
