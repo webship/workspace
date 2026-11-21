@@ -1286,11 +1286,12 @@ function rowActionsEditorHtml(message = '', pane = 0, { openButton = '' } = {}) 
     <ul class="uk-subnav uk-subnav-pill row-actions-tabs" uk-switcher="connect: #row-actions-panes; active: ${active}">
       <li><a href="#">Rows</a></li><li><a href="#">Activity</a></li><li><a href="#">Definition</a></li>
     </ul>
-    <ul id="row-actions-panes" class="uk-switcher">
-      <li>${rowsPane}</li>
-      <li>${activityPane}</li>
-      <li>${definitionPane}</li>
-    </ul>
+    <!-- Divs, not list items: UIkit gives each pane role="tabpanel", which a list item may not carry. -->
+    <div id="row-actions-panes" class="uk-switcher">
+      <div>${rowsPane}</div>
+      <div>${activityPane}</div>
+      <div>${definitionPane}</div>
+    </div>
   </div>`;
 }
 

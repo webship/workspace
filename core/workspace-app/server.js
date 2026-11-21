@@ -1101,7 +1101,7 @@ function nodeMenuBody(key, p, projectPath, isDdev) {
       return args ? `<button type="button" class="uk-button uk-button-default uk-button-small" hx-post="${route}" hx-include="closest .node-package" ${vals(m)} title="${esc(`${m} ${args.join(' ')}`)} &lt;package&gt;">${esc(a.button)}</button>` : '';
     }).join('');
     const scriptItems = scripts.map((s) => `<li><a href hx-post="${NODE_SCRIPT_ROUTE}" ${vals(m, `,"script":"${esc(s.name)}"`)} title="${esc(s.command || `${m} run ${s.name}`)}"><span uk-icon="icon: play; ratio: .7"></span> ${esc(s.name)}</a></li>`).join('');
-    return `<li><div class="node-columns">
+    return `<div><div class="node-columns">
       <ul class="uk-nav uk-dropdown-nav node-col-commands">${status}${groups}</ul>
       <ul class="uk-nav uk-dropdown-nav node-col-inputs">
         <li class="uk-nav-header">A package</li>
@@ -1113,7 +1113,7 @@ function nodeMenuBody(key, p, projectPath, isDdev) {
         <li class="uk-nav-header">Scripts in package.json</li>
         ${scriptItems || '<li><span class="uk-text-meta">No scripts (lifecycle hooks run on their own).</span></li>'}
       </ul>
-    </div></li>`;
+    </div></div>`;
   };
   const tabs = MANAGERS.map((m) => `<li><a href="#">${m} <span class="uk-text-meta">· ${info.locks[m] ? 'lock ✓' : 'no lock'}</span></a></li>`).join('');
   return `<ul class="uk-nav uk-dropdown-nav">
@@ -1121,7 +1121,7 @@ function nodeMenuBody(key, p, projectPath, isDdev) {
         <li data-entry="how it runs"><span class="uk-text-meta">${isDdev ? 'Runs as ddev npm / ddev yarn in this project.' : "Not a DDEV project — runs in the dashboard's DDEV container."}${info.pinned ? ` packageManager: ${esc(info.pinned.spec)}.` : ''}${info.nodeModules ? ' node_modules is here.' : ' No node_modules yet.'}${info.valid ? '' : ' package.json is not valid JSON.'}</span></li>
       </ul>
       <ul class="uk-tab node-tabs" data-keep-open uk-tab="active: ${Math.max(0, MANAGERS.indexOf(info.preferred))}">${tabs}</ul>
-      <ul class="uk-switcher">${MANAGERS.map(panel).join('')}</ul>`;
+      <div class="uk-switcher">${MANAGERS.map(panel).join('')}</div>`;
 }
 
 
@@ -1938,7 +1938,10 @@ function listEditorHtml(file, key, message, deleting) {
         ${ordered
           ? `<ol class="ws-list" data-sortable=".ws-item" data-order="${esc(block.items.join(','))}"
               data-file="${esc(file)}" data-key="${esc(key)}">${rows}</ol>`
-          : `<ul class="set-list${block.items.length > 40 ? ' set-list-scroll' : ''}">${rows}</ul>`}
+          : block.items.length > 40
+            // A list this long scrolls in its own box; the box takes focus, so a keyboard can scroll it too, and is named.
+            ? `<div class="set-list-scroll" tabindex="0" role="region" aria-label="${esc(listLabel)}, ${block.items.length} entries"><ul class="set-list">${rows}</ul></div>`
+            : `<ul class="set-list">${rows}</ul>`}
         <div class="ws-add">
           <input class="uk-input" id="${newId}" name="newEntry" aria-label="Add to ${esc(listLabel)}"
                  placeholder="${esc(lm.placeholder || `new ${key.split('.').pop().replace(/s$/, '').replace(/_/g, ' ')}`)}"
@@ -2404,7 +2407,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
   return `
     ${modes}
     <div class="uk-card uk-card-default uk-card-body settings-card">
-      <${heading} class="uk-margin-small-bottom settings-card-file">${fname(file)}</${heading}>
+      <${heading} class="${heading === 'h2' ? 'uk-h3 ' : ''}uk-margin-small-bottom settings-card-file">${fname(file)}</${heading}>
       <p class="uk-text-meta">${ws
         ? `Settings for the <strong>${esc(ws)}</strong> workspace.`
         : file === 'settings.yml' ? 'Hub settings: paths, the account used by installs, contributor identity and API keys.'
@@ -2454,7 +2457,7 @@ ${todoCount ? `
  * Three things you can do per style, in the order you want them: wear it, change its variables, or
  * make a new one from it. The one you are wearing does not offer "Use" — it says so instead.
  */
-function stylesPageHtml() {
+function stylesPageHtml({ heading = 'h3' } = {}) {
   const active = styleSettings().theme;
   const cards = listThemes().map((name) => {
     const p = themePreview(name) || {};
@@ -2495,7 +2498,7 @@ function stylesPageHtml() {
       <div>
         <div class="uk-card uk-card-default uk-card-body uk-card-small style-card${isActive ? ' is-active' : ''}" style="${skin}">
           <div class="uk-flex uk-flex-between uk-flex-top">
-            <h3 class="uk-card-title uk-margin-remove" style="${headStyle}">${esc(p.label || name)}</h3>
+            <${heading} class="uk-card-title uk-margin-remove" style="${headStyle}">${esc(p.label || name)}</${heading}>
             ${isActive ? `<span class="uk-label" style="background:${esc(p.brand || '')}">In use</span>` : ''}
           </div>
           <p class="uk-margin-small-top uk-margin-remove-bottom" style="${bodyStyle}">The quick brown fox —
@@ -2852,12 +2855,12 @@ async function settingsPage(section, state, options = {}) {
     ${await require('./screens').pastSessionsSectionHtml()}`
     : isIndex
       ? index
-      : `${options.fragment ? '' : back}${isPlugin ? options.pluginHtml : isPlugins ? require('./plugins-page').pluginsPageHtml() : isStyles ? stylesPageHtml()
+      : `${options.fragment ? '' : back}${isPlugin ? options.pluginHtml : isPlugins ? require('./plugins-page').pluginsPageHtml() : isStyles ? stylesPageHtml({ heading: options.fragment ? 'h3' : 'h2' })
         : isNavigation ? navPage.navEditorHtml(options.scope || 'global')
         : isBuildOrder ? buildOrderPage.editorHtml(options.scope || 'global')
           : isButtons ? (await learnCoreMenus(), rowLayout.rowActionsEditorHtml())
             : options.raw ? settingsRawHtml(current)
-              : await settingsFormHtml(current)}`;
+              : await settingsFormHtml(current, '', { heading: options.fragment ? 'h3' : 'h2' })}`;
 
   // Into a pane of the settings modal: the content alone, and the output boxes its forms answer into.
   if (options.fragment) return `${body}<div id="settings-output"></div>`;
@@ -4181,7 +4184,7 @@ function backupRowsHtml(key, state) {
 
   const pager = listPagerHtml(`/fragments/${key}/backups`, '#webship-workspace-backups', pg, state, 'backups');
   return `
-    <h3 class="uk-margin-small-bottom uk-margin-top">Backups <span class="uk-badge">${backups.length}</span></h3>
+    <h2 class="uk-h3 uk-margin-small-bottom uk-margin-top">Backups <span class="uk-badge">${backups.length}</span></h2>
     ${pager}
     ${rows || '<p class="uk-text-meta">No backups yet — use a project\'s Backup button to create one.</p>'}
     ${pager}`;
@@ -7676,7 +7679,12 @@ Summarise what you changed and how to verify it`,
         <div class="msg error">The guide is missing. It should be at <code>${esc(guide)}</code> —
         a <code>core/scripts/sync-tooling.sh --pull</code> restores it.</div></main>`, 'help'));
     }
-    const html = await renderMarkdown(md);
+    // The guide's own title is the page's one h1, drawn by the page: with pandoc it was the guide's first
+    // heading, without pandoc (the plain text it falls back to) the page had no h1 at all.
+    const titleLine = md.match(/^#[ \t]+(.+?)[ \t#]*$/m);
+    const helpTitle = titleLine ? titleLine[1] : 'Help';
+    const guideBody = titleLine ? md.replace(titleLine[0], '') : md;
+    const html = await renderMarkdown(guideBody);
     // The guide's images are relative paths that work in the repository; over HTTP they need a
     // route. Rewritten rather than the markdown being changed, so the file stays correct in both
     // places at once.
@@ -7688,7 +7696,7 @@ Summarise what you changed and how to verify it`,
     // why it is plain (#572).
     const noPandoc = () => `<div class="msg error help-no-pandoc" role="status">pandoc is not installed where the dashboard runs, so
       the guide below is plain text, cut into its sections. Install pandoc there, or run the dashboard in its DDEV container,
-      which has it, for the guide with its pictures.</div>\n${require('./markdown').plainGuideHtml(md)}`;
+      which has it, for the guide with its pictures.</div>\n${require('./markdown').plainGuideHtml(guideBody)}`;
     const withImages = (html || noPandoc())
       .replace(/src="screenshots\//g, 'src="/help/screenshots/')
       .replace(/<pre(?![^>]*tabindex)/g, '<pre tabindex="0"');
@@ -7714,6 +7722,7 @@ Summarise what you changed and how to verify it`,
           <ul>${toc}</ul>
         </nav>
         <article class="help-body">
+          <h1 class="help-title">${esc(helpTitle)}</h1>
           ${intro}
           ${sections.map((x) => `<section class="help-section" data-help-section="${esc(x.id)}">${x.html}</section>`).join('')}
           <p class="uk-text-meta help-none" hidden>Nothing in the guide matches. Try fewer words, or ask the assistant.</p>

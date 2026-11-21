@@ -28,7 +28,7 @@ test('a style\'s preview carries the inks its card is drawn in', () => {
 });
 
 test('a style card sets those inks on itself, so its contents are its light half in either mode', () => {
-  const page = server.slice(server.indexOf('function stylesPageHtml()'));
+  const page = server.slice(server.indexOf('function stylesPageHtml('));
   const tokens = page.slice(page.indexOf('const tokens = ['), page.indexOf('const skin = ['));
   for (const t of ['--surface-card', '--line', '--text-default', '--text-subtle', '--ink', '--chip-ink', '--text-inverse', '--link']) {
     assert.ok(tokens.includes(`'${t}'`), `${t} is set on the card`);
