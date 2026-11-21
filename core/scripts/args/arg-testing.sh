@@ -30,6 +30,11 @@ parser.add_argument('-d', '--dry-run',
 parser.add_argument('-R', '--retry',
                     default="_none_",
                     help='Retry a failing scenario N times. The projects here already set retry: 1 in cucumber.js; this overrides it for one run.')
+parser.add_argument('--video',
+                    dest='VIDEO',
+                    default="_none_",
+                    choices=['on', 'on-failure', 'off'],
+                    help='Record the scenarios into tests/videos/: on records every one, on-failure keeps the ones that failed, off records none. Without it the suite\'s own config decides, and webship-js records nothing by default.')
 parser.add_argument('-t', '--tags',
                     default="_none_",
                     help='Run only the scenarios carrying a Cucumber tag expression. Example: --tags "@critical and not @wip"')

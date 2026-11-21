@@ -530,6 +530,12 @@ function testing_run() {
   # as the environment variables the config reads (BROWSER, HEADLESS), not as flags cucumber has
   # no idea about.
   local env_prefix="PLAYWRIGHT_BROWSERS_PATH=${TESTING_BROWSERS_PATH} BROWSER=${BROWSER}";
+  # Recordings (#681). webship-js records only when asked (WEBSHIP_VIDEO, or video.mode in the suite's config), and
+  # into ./videos; the Tests menu reads tests/videos/. A run from here puts them there, whoever asked for them.
+  env_prefix="${env_prefix} WEBSHIP_VIDEO_DIR=tests/videos";
+  case "${VIDEO:-_none_}" in
+    on|on-failure|off) env_prefix="${env_prefix} WEBSHIP_VIDEO=${VIDEO}" ;;
+  esac
   # The suite's address is LAUNCH_URL in the web container, which the webship-js add-on sets from the project's
   # primary URL. On a generic project whose router serves another service it comes out empty (#532), and the suite
   # would fall back to localhost: the run then passes the primary URL itself.
@@ -626,7 +632,12 @@ function testing_run() {
     # A failing suite is a result, not a tooling error — say so plainly and point at the evidence
     # rather than burying it in a non-zero exit.
     echo "  The suite FAILED (exit ${status}) after $(( $(date +%s) - started ))s.";
-    echo "  Every failed step leaves a screenshot and a DOM dump; each scenario leaves a recording.";
+    echo "  Every failed step leaves a screenshot and a DOM dump in tests/screenshots/.";
+    case "${VIDEO:-_none_}" in
+      on) echo "  Every scenario left a recording in tests/videos/." ;;
+      on-failure) echo "  Every failed scenario left a recording in tests/videos/." ;;
+      *) echo "  To see the failed scenarios play out, run it again with --video on-failure: it records them into tests/videos/." ;;
+    esac
   fi
   echo "";
   local others;
@@ -636,8 +647,11 @@ function testing_run() {
   fi
   echo "  Report:      ${doc_name}/${PROJECT_NAME}/tests/reports/cucumber_report.html";
   echo "  Screenshots: ${doc_name}/${PROJECT_NAME}/tests/screenshots/";
-  echo "  Recordings:  ${doc_name}/${PROJECT_NAME}/tests/videos/";
-  echo "  The dashboard's Tests menu shows all three, newest first.";
+  case "${VIDEO:-_none_}" in
+    on|on-failure) echo "  Recordings:  ${doc_name}/${PROJECT_NAME}/tests/videos/";
+      echo "  The dashboard's Tests menu shows all three, newest first." ;;
+    *) echo "  The dashboard's Tests menu shows both, newest first." ;;
+  esac
   echo "*---------------------------------------------------------------------*";
   return ${status} ;
 }
