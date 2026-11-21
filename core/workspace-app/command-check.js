@@ -26,8 +26,9 @@ const { spawnSync } = require('child_process');
 const CORE_NEEDS = path.join(__dirname, '..', 'scripts', 'needs.json');
 const WHERE = ['host', 'container', 'project'];
 const CMD_RE = /^[A-Za-z0-9][A-Za-z0-9._+-]*$/;
-// The dashboard's container, as DDEV names it; an empty value means "there is none to ask".
-const CONTAINER = process.env.WORKSPACE_DASHBOARD_CONTAINER !== undefined ? process.env.WORKSPACE_DASHBOARD_CONTAINER : 'ddev-workspace-web';
+// This workspace: the dashboard's folder and the tree it belongs to.
+const APP_DIR = __dirname;
+const WORKSPACE_ROOT = path.resolve(__dirname, '..', '..');
 
 /** Packages whose name is not the command's, per package manager; everything else installs under its own name. */
 const PACKAGES = {
@@ -122,6 +123,46 @@ let localOnly = false;
 const cache = new Map();   // "where:name" -> { at, found, path, version, why }
 const CACHE_MS = 5 * 60 * 1000;   // a page that lists them must not start forty processes on every load
 
+const NOT_RUNNING = 'in the dashboard\'s container, which is not running';
+
+/** The DDEV project of this workspace's dashboard: `name:` in its .ddev/config.yaml, else `workspace`. */
+function dashboardProject() {
+  try {
+    const m = fs.readFileSync(path.join(APP_DIR, '.ddev', 'config.yaml'), 'utf8').match(/^name:[ \t]*["']?([A-Za-z0-9][A-Za-z0-9._-]*)/m);
+    if (m) return m[1];
+  } catch (_) { /* no config: DDEV's default for this folder */ }
+  return 'workspace';
+}
+
+let chosen = null;   // { at, name } or { at, why }
+/**
+ * The container to ask about `where: container`, or why there is none. WORKSPACE_DASHBOARD_CONTAINER
+ * names it outright (an empty value: there is none to ask). Otherwise it is this workspace's own,
+ * ddev-<project>-web, and only when it has this workspace mounted: on a machine with two workspaces,
+ * or for a throwaway tree, the one that is up may serve another tree, and its answers are not this
+ * one's (#628).
+ */
+function dashboardContainer(docker) {
+  if (chosen && Date.now() - chosen.at < CACHE_MS) return chosen;
+  let out;
+  if (process.env.WORKSPACE_DASHBOARD_CONTAINER !== undefined) {
+    const named = process.env.WORKSPACE_DASHBOARD_CONTAINER;
+    out = named ? { name: named } : { why: 'in the dashboard\'s container, and there is none to ask from here' };
+  } else {
+    const name = `ddev-${dashboardProject()}-web`;
+    let r = null;
+    try { r = spawnSync(docker, ['inspect', name, '--format', '{{range .Mounts}}{{println .Source}}{{end}}'], { encoding: 'utf8', timeout: 8000, stdio: ['ignore', 'pipe', 'pipe'] }); } catch (_) { r = null; }
+    const real = (p) => { try { return fs.realpathSync(p); } catch (_) { return p; } };
+    const mounts = r && !r.error && r.status === 0 ? (r.stdout || '').split('\n').map((l) => l.trim()).filter(Boolean).map(real) : null;
+    if (!mounts) out = { why: NOT_RUNNING };
+    else if (!mounts.includes(real(WORKSPACE_ROOT))) out = { why: 'in the dashboard\'s container: the one that is running serves another workspace' };
+    else out = { name };
+  }
+  out.at = Date.now();
+  chosen = out;
+  return out;
+}
+
 /** One command in one place: `{ state: found|missing|unchecked, path, version, why }`. */
 function look(name, where) {
   const key = `${where}:${name}`;
@@ -139,14 +180,17 @@ function look(name, where) {
   } else if (localOnly) {
     out = { state: 'unchecked', why: 'in the dashboard\'s container: this dashboard runs outside one' };
   } else {
-    // From the host, the dashboard's container is asked through docker, when it is running.
+    // From the host, this workspace's dashboard container is asked through docker, when it is running.
     const docker = findOnPath('docker');
+    const target = docker ? dashboardContainer(docker) : { why: NOT_RUNNING };
     let r = null;
-    if (docker && CONTAINER) {
-      try { r = spawnSync(docker, ['exec', CONTAINER, 'sh', '-c', `command -v ${name}`], { encoding: 'utf8', timeout: 8000, stdio: ['ignore', 'pipe', 'pipe'] }); } catch (_) { r = null; }
+    if (target.name) {
+      try { r = spawnSync(docker, ['exec', target.name, 'sh', '-c', `command -v ${name}`], { encoding: 'utf8', timeout: 8000, stdio: ['ignore', 'pipe', 'pipe'] }); } catch (_) { r = null; }
     }
-    if (!r || r.error || (r.status !== 0 && /No such container|is not running|Cannot connect|permission denied/i.test(r.stderr || ''))) {
-      out = { state: 'unchecked', why: CONTAINER ? 'in the dashboard\'s container, which is not running' : 'in the dashboard\'s container, and there is none to ask from here' };
+    if (!target.name) {
+      out = { state: 'unchecked', why: target.why };
+    } else if (!r || r.error || (r.status !== 0 && /No such container|is not running|Cannot connect|permission denied/i.test(r.stderr || ''))) {
+      out = { state: 'unchecked', why: NOT_RUNNING };
     } else if (r.status === 0 && (r.stdout || '').trim()) {
       out = { state: 'found', path: (r.stdout || '').trim().split('\n')[0], version: '' };
     } else {
@@ -246,7 +290,7 @@ function missingText(reports) {
 }
 
 module.exports = { split, commandEntries, findOnPath, versionOf, hintFor, inContainer, checkOwner, checkCore, checkPlugin, checkPlugins,
-  missingNeeded, missingSuggested, reportText, missingText, rowText, CORE_NEEDS, clearCache: () => cache.clear(), setLocalOnly: (on = true) => { localOnly = !!on; cache.clear(); } };
+  missingNeeded, missingSuggested, reportText, missingText, rowText, CORE_NEEDS, clearCache: () => { cache.clear(); chosen = null; }, setLocalOnly: (on = true) => { localOnly = !!on; cache.clear(); chosen = null; } };
 
 if (require.main === module) {
   const args = process.argv.slice(2);

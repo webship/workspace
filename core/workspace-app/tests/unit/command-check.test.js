@@ -258,3 +258,62 @@ test('plugins.sh --require takes a bare name as the plugin of that name, never a
     assert.ok(asked(spec).endsWith(` ${spec}`), `${spec} is taken as written`);
   }
 });
+
+test('the dashboard\'s container is this workspace\'s own, and it is asked only when it has this workspace mounted (#628)', { skip: fs.existsSync('/.dockerenv') && 'inside a container, its own commands are looked at directly' }, () => {
+  // A tree of its own: command-check.js beside a .ddev/config.yaml that names the DDEV project.
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ws-tree-')));
+  const app = path.join(root, 'core', 'workspace-app');
+  fs.mkdirSync(path.join(app, '.ddev'), { recursive: true });
+  fs.copyFileSync(path.join(APP, 'command-check.js'), path.join(app, 'command-check.js'));
+  const config = (text) => fs.writeFileSync(path.join(app, '.ddev', 'config.yaml'), text);
+  const log = path.join(root, 'docker.log');
+  // A docker that says which tree the container has mounted (null: there is no such container) and answers command -v.
+  const docker = (mounted) => stubPath({ docker: `#!/bin/sh
+echo "$*" >> "${log}"
+case "$1" in
+  inspect) ${mounted === null ? 'echo "Error: No such object: $2" >&2; exit 1' : `printf '%s\\n' /var/run/docker.sock "${mounted}"`} ;;
+  exec) echo /usr/bin/found ;;
+esac
+` });
+  const ask = (PATH, env = {}) => {
+    fs.rmSync(log, { force: true });
+    const code = `const c = require(${JSON.stringify(path.join(app, 'command-check.js'))}); console.log(JSON.stringify(c.checkOwner('d', { needs: { commands: ['container:git'] } }).rows[0]))`;
+    const r = spawnSync(process.execPath, ['-e', code], { cwd: root, encoding: 'utf8', timeout: 60000, env: { HOME: os.tmpdir(), PATH, ...env } });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const row = JSON.parse(r.stdout);
+    return { state: row.state, path: row.path, why: row.why, calls: fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n') : [] };
+  };
+
+  config('name: second-ws\ntype: generic\n');
+  // The container that is up serves another tree: its answers are not this workspace's.
+  let a = ask(docker('/home/someone/another-workspace'));
+  assert.deepStrictEqual([a.state, a.path], ['unchecked', '']);
+  assert.match(a.why, /serves another workspace/);
+  assert.match(a.calls[0], /^inspect ddev-second-ws-web /, 'named after this workspace\'s project, not ddev-workspace-web');
+  assert.ok(!a.calls.some((c) => c.startsWith('exec ')), 'nothing is asked of it');
+
+  // There is no such container: unchecked, not running.
+  a = ask(docker(null));
+  assert.deepStrictEqual([a.state, a.path], ['unchecked', '']);
+  assert.match(a.why, /which is not running/);
+  assert.ok(!a.calls.some((c) => c.startsWith('exec ')));
+
+  // Its own container is asked.
+  a = ask(docker(root));
+  assert.deepStrictEqual([a.state, a.path], ['found', '/usr/bin/found']);
+  assert.ok(a.calls.includes('exec ddev-second-ws-web sh -c command -v git'), a.calls.join('\n'));
+
+  // No name in the config: DDEV's project is "workspace".
+  config('type: generic\n');
+  a = ask(docker(root));
+  assert.match(a.calls[0], /^inspect ddev-workspace-web /);
+  assert.strictEqual(a.state, 'found');
+
+  // WORKSPACE_DASHBOARD_CONTAINER names it outright, and an empty value means there is none to ask.
+  a = ask(docker('/home/someone/another-workspace'), { WORKSPACE_DASHBOARD_CONTAINER: 'my-box' });
+  assert.deepStrictEqual(a.calls, ['exec my-box sh -c command -v git']);
+  assert.strictEqual(a.state, 'found');
+  a = ask(docker(root), { WORKSPACE_DASHBOARD_CONTAINER: '' });
+  assert.deepStrictEqual([a.state, a.calls.length], ['unchecked', 0]);
+  assert.match(a.why, /there is none to ask from here/);
+});
