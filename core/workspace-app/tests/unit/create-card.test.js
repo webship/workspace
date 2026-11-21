@@ -14,7 +14,21 @@ test('a project workspace asks "What would you like to create?" in its build car
   // Files workspaces ask the same question inside their card: the create actions as a row, New folder on the right.
   assert.doesNotMatch(server, /class="ws-create"/);
   assert.match(server, /const folder = create\.find\(\(it\) => it\.id === 'new-folder'\);/);
-  assert.match(server, /<div class="create-actions">\$\{rest\.map\(\(it\) => it\.html\)\.join\(''\)\}<\/div>/);
+  assert.match(server, /<div class="create-actions">\$\{others\.join\(''\)\}\$\{primary\.map\(\(it\) => it\.html\)\.join\(''\)\}<\/div>/);
+});
+
+// The primary action of a files workspace ("New doc") sat at the left of a row of filled buttons, where a
+// sites workspace's ("Build") sits at the right end of its box, with nothing else filled beside it.
+test('a files workspace places its primary action where a sites workspace places Build, and quiets the others', () => {
+  assert.match(server, /const primary = rest\.filter\(\(it\) => \/\\buk-button-primary\\b\/\.test\(it\.html\)\);/);
+  assert.match(server, /const others = rest\.filter\(\(it\) => !primary\.includes\(it\)\)\.map\(\(it\) => it\.html\.replace\(\/\\buk-button-secondary\\b\/, 'uk-button-default'\)\);/,
+    'the other ways to make something are outline buttons in the card');
+  const css = fs.readFileSync(path.join(root, 'public/css/components/create-card.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const box = css.match(/\.create-actions \{([^}]*)\}/)[1];
+  for (const d of ['border: 1px solid var(--line)', 'border-radius: 0.875rem', 'padding: 0.625rem 0.75rem']) assert.ok(box.includes(d), `the box is drawn like the build form: ${d}`);
+  assert.match(css, /\.create-actions > \.uk-button-primary \{ margin-left: auto; \}/, 'at the right end, where Build is');
+  assert.match(css, /\.create-actions \.action-btn\.uk-button-primary \{ padding: 0 1\.25rem; line-height: 2\.5rem; \}/, 'as tall as Build');
+  assert.match(css, /@media \(max-width: 39\.9375em\) \{\s*\.create-actions > \.uk-button \{ flex: 1 1 100%; justify-content: center; \}/, 'stacked on a phone, the primary last, as Build is');
 });
 
 test('the build form offers Claude Code after the build, with its prompt shown only when ticked', () => {
