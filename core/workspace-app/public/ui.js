@@ -692,6 +692,13 @@ document.addEventListener('click', (e) => {
   if (e.target.closest && e.target.closest('.actions-side, .uk-dropdown, .uk-modal, #rail-tip')) return;
   applyActionsCollapsed(true);
 });
+// And when keyboard focus moves out of it: Tab past its last tile went on into the page underneath it, and
+// what took focus there (Dev's Build at 1024) was hidden under the open rail (WCAG 2.4.11).
+document.addEventListener('focusin', (e) => {
+  if (!railTight() || document.documentElement.classList.contains('actions-collapsed')) return;
+  if (e.target.closest && e.target.closest('.actions-side, .uk-dropdown, .uk-modal, #rail-tip')) return;
+  applyActionsCollapsed(true);
+});
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || !railTight() || document.documentElement.classList.contains('actions-collapsed')) return;
   if (document.querySelector('.uk-modal.uk-open, .uk-dropdown.uk-open')) return;
