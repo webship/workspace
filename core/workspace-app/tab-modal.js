@@ -38,7 +38,7 @@ function tabModalHtml({ id, title, subtitle = '', back = null, filter = false, h
     return `<button type="button" role="tab" class="tabmodal-tab${on ? ' is-selected' : ''}"
         id="tm-${esc(id)}-${esc(t.id)}" data-tab="${esc(t.id)}" data-label="${esc(t.label)}"
         data-hint="${esc(t.hint || '')}" aria-selected="${on ? 'true' : 'false'}" aria-controls="${esc(pane)}"
-        tabindex="${on ? '0' : '-1'}" hx-get="${esc(t.url)}" hx-target="#${esc(pane)}" hx-swap="innerHTML">
+        tabindex="${on ? '0' : '-1'}" hx-get="${esc(t.url)}" hx-target="#${esc(pane)}" hx-swap="innerHTML" hx-sync="closest [role=tablist]:replace">
         ${iconHtml(t.icon || 'tabler:point', 0.9)}<span class="tabmodal-tab-label">${esc(t.label)}</span>${t.badge ? `<span class="uk-hidden-visually">, </span><span class="tabmodal-badge${t.badgeTone ? ` is-${esc(t.badgeTone)}` : ''}">${esc(t.badge)}</span>` : ''}${group ? `<span class="uk-hidden-visually">, ${esc(group)}</span>` : ''}
       </button>`;
   };
@@ -65,6 +65,7 @@ function tabModalHtml({ id, title, subtitle = '', back = null, filter = false, h
     <header class="tabmodal-head">
       <h2 class="tabmodal-heading">${esc(current.label)}</h2>
       <span class="tabmodal-sub uk-text-meta">${esc(current.hint || '')}</span>
+      <p class="tabmodal-status uk-hidden-visually" role="status"></p>
     </header>
     <div class="tabmodal-pane" id="${esc(pane)}" role="tabpanel" aria-labelledby="tm-${esc(id)}-${esc(current.id)}"
          tabindex="0" aria-busy="true">

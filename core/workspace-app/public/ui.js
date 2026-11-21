@@ -809,10 +809,41 @@ document.addEventListener('keydown', (e) => {
       pane.append(note);
     }
     note.textContent = `Loading ${label || 'this tab'}…`;
+    // Said to a screen reader too, after the same moment the line waits for (aria-busy alone says nothing).
+    tm.dataset.chosen = '1';
+    const status = tm.querySelector('.tabmodal-status');
+    clearTimeout(tm._statusTimer);
+    if (status) {
+      status.textContent = '';
+      tm._statusTimer = setTimeout(() => { if (pane.getAttribute('aria-busy') === 'true') status.textContent = note.textContent; }, 180);
+    }
   };
+  // The answer of a tab that is no longer the chosen one never lands under the chosen one's name. The tabs
+  // share one queue (hx-sync on the tablist, tab-modal.js), so a new choice replaces the request in flight;
+  // and an answer that still arrives for a tab left behind is refused here. A command a plugin page looks
+  // for can take three seconds while the next tab answers in a fraction of one: that slow answer replaced
+  // the tab chosen after it. The modal's first load gives way to a tab chosen before it answered.
+  // On document, not body: htmx dispatches on document when the element that asked has left the page (the
+  // first load's placeholder, once another tab's content replaced it), and reads it from ctx.sourceElement.
+  document.addEventListener('htmx:before:swap', (e) => {
+    const ctx = (e.detail || {}).ctx || {};
+    const pane = ctx.target;
+    if (!pane || !pane.classList || !pane.classList.contains('tabmodal-pane')) return;
+    const src = ctx.sourceElement || e.target;
+    const tab = src && src.closest && src.closest('.tabmodal-tab');
+    const first = src && src.classList && src.classList.contains('tabmodal-loading');
+    const tm = pane.closest('.tabmodal');
+    if ((tab && tab.getAttribute('aria-selected') !== 'true') || (first && tm && tm.dataset.chosen === '1')) e.preventDefault();
+  });
   document.body.addEventListener('htmx:after:swap', (e) => {
     const t = swappedEl(e);
-    if (t && t.classList && t.classList.contains('tabmodal-pane')) t.removeAttribute('aria-busy');
+    if (t && t.classList && t.classList.contains('tabmodal-pane')) {
+      t.removeAttribute('aria-busy');
+      const tm = t.closest('.tabmodal');
+      const status = tm && tm.querySelector('.tabmodal-status');
+      if (tm) clearTimeout(tm._statusTimer);
+      if (status) status.textContent = '';
+    }
   });
   // No answer at all (the dashboard is down, the connection dropped): say so in the pane, rather than
   // leave the last tab under this one's name. A request given up because another tab was chosen is not
