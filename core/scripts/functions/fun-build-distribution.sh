@@ -1,5 +1,20 @@
 #!/usr/bin/env bash
 
+# What a build passes composer when it was asked for --allow-insecure (#569): Composer 2.9 and later refuse to install a
+# package with a published security advisory, and a throwaway test build of an older release line may need one anyway.
+# Every composer call of a build carries $(composer_security_option); it is empty unless the flag was given.
+function composer_security_option() {
+  [ "${ALLOW_INSECURE:-}" == 'yes' ] && printf -- '--no-security-blocking' ;
+  return 0 ;
+}
+
+# Said once at the start of a build that was asked for --allow-insecure.
+function composer_security_warning() {
+  [ "${ALLOW_INSECURE:-}" == 'yes' ] || return 0 ;
+  echo "WARNING: --allow-insecure is on: composer will install packages that have a published security advisory." ;
+  echo "         Keep this build for testing only, and never expose it." ;
+}
+
 # What composer-patches prints when a patch does not apply or does not match its checksum (2.x apply, 2.x download,
 # 1.x apply). Composer has put the package on disk by then, unpatched, so nothing about a later install shows it.
 COMPOSER_PATCH_FAILED='No available patcher was able to apply patch|Hash mismatch for patch downloaded from|Cannot apply patch'
@@ -33,7 +48,7 @@ function composer_patch_failed() {
 # place, so whatever failed the first time (a patch, a script) was not run again and nothing was mended.
 function composer_install_again() {
   echo "composer failed once, trying composer install again before giving up." ;
-  if ! composer_logged install --no-interaction ; then
+  if ! composer_logged install $(composer_security_option) --no-interaction ; then
     composer_patch_failed "${composer_log}" ;
     return 1 ;
   fi
@@ -49,7 +64,7 @@ function composer_install_again() {
 # composer install, once more when it fails on anything but a patch: the first install in a fresh project can fail on
 # a git cache hiccup and pass straight away on the second try. A real dependency problem fails both times.
 function composer_install_retry() {
-  composer_logged install --no-interaction && return 0 ;
+  composer_logged install $(composer_security_option) --no-interaction && return 0 ;
   composer_patch_failed "${composer_log}" && return 1 ;
   composer_install_again ;
 }
@@ -69,9 +84,9 @@ function composer_create_project() {
   site_requires=("${site_composer_requires[@]}") ;
   site_ignores=("${site_patches_ignore[@]}") ;
   if [ -n "${site_requires[0]:-}${site_ignores[0]:-}" ] ; then
-    ddev composer create-project ${project_template} . --no-interaction --no-install --no-scripts "$@" || return 1 ;
+    ddev composer create-project $(composer_security_option) ${project_template} . --no-interaction --no-install --no-scripts "$@" || return 1 ;
     if [ -n "${site_requires[0]:-}" ] ; then
-      ddev composer require "${site_requires[@]}" --no-update --no-interaction || return 1 ;
+      ddev composer require $(composer_security_option) "${site_requires[@]}" --no-update --no-interaction || return 1 ;
     fi
     if [ -n "${site_ignores[0]:-}" ] ; then
       patches_ignore_json=$(python3 -c 'import sys, json; d = {}; [d.setdefault("webship/patches", {}).setdefault(a.split(" ", 1)[0], []).append(a.split(" ", 1)[1]) for a in sys.argv[1:]]; print(json.dumps(d))' "${site_ignores[@]}") ;
@@ -81,7 +96,7 @@ function composer_create_project() {
       echo "composer could not install ${project_template}." ;
       return 1 ;
     fi
-  elif ! composer_logged create-project ${project_template} . --no-interaction "$@" ; then
+  elif ! composer_logged create-project $(composer_security_option) ${project_template} . --no-interaction "$@" ; then
     composer_patch_failed "${composer_log}" && return 1 ;
     # When the project reached the install step, composer.json is already in place: install once more.
     if [ -f composer.json ] && composer_install_again && ddev composer run-script post-create-project-cmd ; then
@@ -94,6 +109,7 @@ function composer_create_project() {
 }
 
 function build_distribution() {
+  composer_security_warning ;
   # Include distribution functions.
   source ${WORKSPACE_SCRIPTS}/functions/fun-distribution-${distribution_name}.sh || exit 1 ;
 
@@ -201,7 +217,7 @@ function build_distribution() {
   if [ "${REQUIRE[0]}" == '_none_' ] ; then
     echo "No extra composer required." ;
   else
-    ddev composer require ${REQUIRE[*]} ;
+    ddev composer require $(composer_security_option) ${REQUIRE[*]} ;
   fi
 
   ## Add default settings file before starting the install.
