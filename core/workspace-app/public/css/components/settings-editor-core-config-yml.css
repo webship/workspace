@@ -264,9 +264,8 @@ html.dark .pres-preview { background: transparent; }
 
 .list-pager .uk-text-meta { font-size: .78rem; }
 
-/* A disabled step renders as a <span>, not a <button>: a button that cannot act still
-   takes a tab stop and still looks pressable. It keeps the same footprint so the row
-   does not shift as you move between the first and last page. */
+/* A step that cannot act is a disabled button (lists.js): no tab stop, said as unavailable, and faded. It keeps
+   the same footprint so the row does not shift as you move between the first and last page. */
 .list-pager [disabled] { opacity: .45; cursor: default; }
 
 .list-pager-size {
