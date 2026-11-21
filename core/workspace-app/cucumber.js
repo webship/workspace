@@ -18,7 +18,9 @@ module.exports = {
     // than as cucumber's "function timed out".
     timeout: 45000,
     require: [stepsFromPackage, 'tests/step-definitions/**/*.js'],
-    paths: ['tests/features/**/*.feature'],
+    // FEATURES narrows the run, the way the projects the testing setup makes do: cucumber-js 12 adds a feature named
+    // on the command line to these paths instead of running only it, so naming one ran every feature (#651).
+    paths: [process.env.FEATURES || 'tests/features/**/*.feature'],
     format: ['progress', 'json:tests/reports/cucumber_report.json'],
     worldParameters: {
       launchUrl: process.env.LAUNCH_URL || 'https://workspace.ddev.site',
