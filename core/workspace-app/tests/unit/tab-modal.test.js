@@ -115,3 +115,20 @@ test('inside a pane a page card loses its frame, but a style card keeps its padd
   assert.match(css, /\.tabmodal-pane \.uk-card-body:not\(\.style-card\) \{ padding: 0; \}/);
   assert.doesNotMatch(css, /\.tabmodal-pane \.uk-card-default \{/, 'no rule left that strips every card');
 });
+
+// From a design review: the "could not be loaded" message was plain body text in the pane (.msg.error is
+// drawn only in the chat and the output area), with no way to ask again; and the loading line, in the
+// pane's flow, pushed the old content 43px down for the moment before it hid.
+test('a tab that does not load offers Try again, drawn as a message; the loading line is laid over the pane', () => {
+  const ui = read('public', 'ui.js');
+  const onError = ui.slice(ui.indexOf("document.addEventListener('htmx:error'"), ui.indexOf("'htmx:finally:request'"));
+  assert.match(onError, /again\.textContent = 'Try again';/);
+  assert.match(onError, /again\.addEventListener\('click', \(\) => \{ if \(asked\) asked\.click\(\); \}\);/, 'the same tab, asked again');
+  assert.match(onError, /again\.focus\(\);/, 'focus goes to the way out');
+  const css = read('public', 'css', 'components', 'tab-modal.css');
+  assert.match(css, /\.tabmodal-pane \.msg\.error \{[^}]*background: var\(--danger-soft\);[^}]*border: 1px solid var\(--danger\);/);
+  assert.match(css, /\.tabmodal-pane \{ position: relative; \}/);
+  assert.match(css, /\.tabmodal-pane\[aria-busy="true"\] > \.tabmodal-wait \{[^}]*position: absolute;[^}]*inset: 1\.25rem 1\.5rem auto;/);
+  assert.match(ui, /note\.className = 'tabmodal-wait';[\s\S]{0,260}pane\.append\(note\);/, 'after the content, so no "* + …" margin moves it');
+  assert.doesNotMatch(ui, /pane\.prepend\(note\)/);
+});
