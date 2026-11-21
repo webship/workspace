@@ -741,7 +741,13 @@ document.addEventListener('keydown', (e) => {
 
   let tip = null;
   let shownFor = null;
-  const hide = () => { if (tip) tip.hidden = true; shownFor = null; };
+  let hideTimer = null;
+  const hide = () => { clearTimeout(hideTimer); if (tip) tip.hidden = true; shownFor = null; };
+  // The pointer can move onto the tooltip and stay there to read it (WCAG 1.4.13, hoverable): leaving a tile
+  // or the tooltip hides it after a moment, and coming onto either of them keeps it.
+  const later = () => { clearTimeout(hideTimer); hideTimer = setTimeout(hide, 150); };
+  const keep = () => clearTimeout(hideTimer);
+  const onTip = (n) => !!(n && n.closest && n.closest('#rail-tip'));
   const show = (el) => {
     if (window.innerWidth < 960 || !el.dataset.tipLabel) return;
     const collapsed = document.documentElement.classList.contains('actions-collapsed');
@@ -752,6 +758,8 @@ document.addEventListener('keydown', (e) => {
       tip = document.createElement('div');
       tip.id = 'rail-tip';
       tip.setAttribute('role', 'tooltip');
+      tip.addEventListener('mouseenter', keep);
+      tip.addEventListener('mouseleave', (e) => { if (!tile({ target: e.relatedTarget })) later(); });
       document.body.appendChild(tip);
     }
     tip.textContent = '';
@@ -764,9 +772,9 @@ document.addEventListener('keydown', (e) => {
     tip.style.top = `${Math.round(Math.max(8, Math.min(window.innerHeight - t.height - 8, r.top + r.height / 2 - t.height / 2)))}px`;
     shownFor = el;
   };
-  const tile = (e) => e.target.closest && e.target.closest('#actions-rail a.action-btn, #actions-rail button.action-btn');
-  rail.addEventListener('mouseover', (e) => { const el = tile(e); if (el && el !== shownFor) show(el); });
-  rail.addEventListener('mouseout', (e) => { if (tile(e)) hide(); });
+  const tile = (e) => e.target && e.target.closest && e.target.closest('#actions-rail a.action-btn, #actions-rail button.action-btn');
+  rail.addEventListener('mouseover', (e) => { const el = tile(e); if (!el) return; keep(); if (el !== shownFor) show(el); });
+  rail.addEventListener('mouseout', (e) => { if (tile(e) && !onTip(e.relatedTarget)) later(); });
   rail.addEventListener('focusin', (e) => { const el = tile(e); if (el) show(el); });
   rail.addEventListener('focusout', hide);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });

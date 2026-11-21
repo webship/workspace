@@ -286,9 +286,11 @@ html.actions-collapsed .actions-group.is-single + .actions-group.is-single:not(.
   color: var(--surface);
   font-size: 0.8125rem;
   line-height: 1.35;
-  pointer-events: none;
   box-shadow: var(--shadow-float, 0 4px 14px rgb(0 0 0 / 20%));
 }
+/* It can be hovered (WCAG 1.4.13): the pointer reaches it across the 10px between it and the tile, which this
+   invisible strip covers, and stays on it to read it (ui.js keeps it while the pointer is on either). */
+#rail-tip::after { content: ""; position: absolute; top: 0; bottom: 0; left: 100%; width: 0.75rem; }
 #rail-tip strong { font-weight: 600; }
 #rail-tip span { opacity: 0.85; }
 #rail-tip[hidden] { display: none; }
