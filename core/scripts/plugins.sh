@@ -298,6 +298,14 @@ case "${verb}" in
       rm -f "${npm_err}" ; exit 1 ;
     fi
     cat "${npm_err}" >&2 ; rm -f "${npm_err}" ;
+    # The packages the plugins share (a family's base, such as workspace-hosting): npm keeps the copy its lock file
+    # holds while it still fits, so the plugin just added or updated would go on running its base's old code (#650).
+    shared="$( cd "${APP}" && node shared-packages.js 2> /dev/null )" ;
+    if [ -n "${shared}" ] ; then
+      echo "→ npm update ${shared} (what the plugins share, to the newest that fits)" ;
+      ( cd "${APP}" && npm update --no-audit --no-fund ${shared} > /dev/null 2>&1 ) \
+        || echo "  npm could not update them now; the plugins keep the versions they have." ;
+    fi
     # What this package brought, and what each of those plugins needs from the workspace.
     fresh="$(comm -13 <(echo "${before}") <(plugin_names))" ;
     spec_given="${name}" ;
