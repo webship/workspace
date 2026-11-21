@@ -2214,6 +2214,41 @@ function settingsModesHtml(file, raw) {
   </p>`;
 }
 
+/**
+ * The plugins of settings.yml, as General shows them: one line each, with the plugin's name as its manifest labels it,
+ * whether it is on, its package and a link to its page in Settings → Plugins, where Activate, Deactivate and the
+ * rest run with the steps that go with them (#661). Nothing here is a form field.
+ */
+function settingsPluginsBlockHtml(pluginRows) {
+  const byName = new Map();
+  for (const r of pluginRows) {
+    const [, name, key] = String(r.dotted).match(/^plugins\.([^.]+)\.(.+)$/) || [];
+    if (!name) continue;
+    if (!byName.has(name)) byName.set(name, {});
+    byName.get(name)[key] = String(r.display == null ? r.value : r.display).trim();
+  }
+  const { pluginByName } = require('./plugin-manifest');
+  const lines = [...byName.entries()].map(([name, v]) => {
+    const p = pluginByName(name);
+    const label = (p && p.manifest && p.manifest.label) || name;
+    const on = /^(true|yes|on|1)$/i.test(v.enabled || '');
+    const others = Object.entries(v).filter(([k]) => k !== 'enabled' && k !== 'module');
+    // A .settings-row too, so "Find a setting in this file" finds a plugin by its name or package (ui.js).
+    return `<li class="settings-row settings-plugin-line">
+        <span class="settings-plugin-name">${esc(label)}</span>
+        ${on ? '<span class="uk-label uk-label-success">On</span>' : '<span class="uk-text-meta settings-plugin-state">Off</span>'}
+        ${v.module ? `<code class="settings-plugin-module">${esc(v.module)}</code>` : ''}
+        ${others.map(([k, val]) => `<span class="uk-text-meta">${esc(k)}: ${esc(val)}</span>`).join(' ')}
+        <a class="settings-plugin-manage" href="/settings/plugins/${encodeURIComponent(name)}">Manage<span class="uk-hidden-visually"> ${esc(label)}</span></a>
+      </li>`;
+  }).join('');
+  return `<fieldset class="settings-group settings-plugins">
+      <legend class="settings-group-name">plugins</legend>
+      <p class="uk-text-meta">The plugins this workspace has added. Each one is turned on or off, updated and taken out on its own page in Settings → Plugins, where the steps that go with it run too.</p>
+      <ul class="uk-list settings-plugins-list">${lines}</ul>
+    </fieldset>`;
+}
+
 async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
   const rows = readSettingsRows(file);
   if (!rows) return '<div class="msg error">Could not read that settings file.</div>';
@@ -2388,11 +2423,18 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
       </div>`;
   };
 
+  // The plugins of settings.yml are one block of lines, not a box per plugin of raw, editable keys: a hand-edited
+  // `module` broke the plugin, and `enabled` flipped here skipped what Activate and Deactivate do (#661). Each line
+  // says the plugin's name, whether it is on, its package, and where it is managed; none of it is posted.
+  const pluginRows = file === 'settings.yml' ? rows.filter((r) => /^plugins\.[^.]+\./.test(String(r.dotted))) : [];
+  const pluginsBlock = pluginRows.length ? settingsPluginsBlockHtml(pluginRows) : '';
+
   // Group by the parent path: `git.github_token` and `git.email` belong together, and a flat
   // list of dotted keys made a nested file read as unrelated lines.
   const ghAuth = await ghCliAuth();
   const groups = [];
   for (const r of rows) {
+    if (pluginRows.includes(r)) continue;
     const parts = String(r.dotted).split('.');
     const section = parts.length > 1 ? parts.slice(0, -1).join('.') : '';
     const last = groups[groups.length - 1];
@@ -2428,6 +2470,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
       <form class="settings-form" hx-post="/actions/save-settings" hx-target="#settings-output" hx-swap="innerHTML">
         <input type="hidden" name="file" value="${esc(file)}">
         ${fields}
+        ${pluginsBlock}
         <div class="uk-margin-top settings-save">
           <button type="submit" class="uk-button uk-button-primary"><span uk-icon="icon: check; ratio: .8"></span> Save ${fname(file)}</button>
 ${todoCount ? `

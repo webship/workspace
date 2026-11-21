@@ -229,3 +229,10 @@
 .settings-dropped .tabler-icon { flex: none; margin-top: 0.15rem; }
 .settings-row.is-todo > .uk-input, .settings-row.is-todo > .uk-select { border-color: var(--warning-ink); }
 .settings-todo-count { margin: 0 0 0 0.75rem; }
+
+/* settings.yml's plugins in General: one line each, managed on their own page (issue 661). */
+.settings-plugins-list .settings-plugin-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin: 0; }
+.settings-plugins-list .settings-plugin-line[hidden] { display: none; }
+.settings-plugin-name { font-weight: 600; }
+.settings-plugin-module { font-size: 0.8rem; word-break: normal; overflow-wrap: anywhere; }
+.settings-plugin-manage { margin-left: auto; }
