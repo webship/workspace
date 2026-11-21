@@ -53,11 +53,18 @@ function browserLibsBuilt(root) {
   });
 }
 
+/** Did the web container itself have them when it was last asked? The testing command asks it before every run
+ *  (fun-testing.sh testing_ensure_browser_libs) and leaves this mark when it did: an image that has them without
+ *  a build file here (a platform plugin's own image) ran its suite green while the card said they were missing (#487). */
+function browserLibsSeen(root) {
+  return fs.existsSync(path.join(root, 'node_modules', '.cache', 'webship-workspace', 'browser-libs'));
+}
+
 function testingReadiness(dir, project) {
   const root = path.join(dir, project);
   const stack = testingStackOf(dir, project);
   const deps = fs.existsSync(path.join(root, 'node_modules', '@cucumber', 'cucumber'));
-  const libs = browserLibsBuilt(root);
+  const libs = browserLibsBuilt(root) || browserLibsSeen(root);
   const missing = [];
   if (stack === 'none') missing.push('a testing stack');
   if (!deps) missing.push('the JS dependencies');
@@ -270,5 +277,5 @@ function testMediaHtml(key, project, kind, wantPage) {
 
 module.exports = {
   findTestReports, testReportSummary, testReportFor, invalidateTestReports, testMediaHtml,
-  reportLabel, testingStackOf, testingReadiness, browserLibsBuilt, REPORT_SEARCH_DIRS,
+  reportLabel, testingStackOf, testingReadiness, browserLibsBuilt, browserLibsSeen, REPORT_SEARCH_DIRS,
 };
