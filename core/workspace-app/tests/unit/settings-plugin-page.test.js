@@ -107,8 +107,11 @@ test('a plugin that is not active and placed nothing offers Remove; one another 
 });
 
 test('the state part is drawn again when a step has run; the form beside it is not; an unknown plugin is a 404 that says where to add it', () => {
-  const p = make('jira', { label: 'Jira' }, 0);
-  const html = page.pluginPageHtml(p, { files: [], known: new Set() });
+  // A plugin with something in each section (a setting, a need, an AI item): one that has nothing in a
+  // section says so in a single line instead (see "a plugin page says in one line what it does not have").
+  const full = { needs: [{ anyOf: ['dev'], metBy: 'dev', pick: 'dev' }], suggests: [], unmet: [], problems: [] };
+  const p = make('jira', { label: 'Jira', settingsFile: 'plugin.jira.settings.yml', ai: { agents: ['agents/jira.md'] } }, 0, { wants: full });
+  const html = page.pluginPageHtml(p, { files: [{ file: 'plugin.jira.settings.yml', kind: 'plugin', exists: false }], known: new Set() });
   assert.match(html, /id="plugin-status" hx-get="\/fragments\/settings\/plugin\/jira\?part=status" hx-trigger="refresh-projects from:body" hx-swap="outerHTML"/);
   const status = html.slice(html.indexOf('id="plugin-status"'), html.indexOf('id="settings"'));
   assert.ok(status.includes('plugin-step-list') && !status.includes('id="needs"'), 'the state and the steps; the needs follow the settings');
@@ -131,8 +134,8 @@ test('a plugin that is active but not loaded says so, with the command that load
 test('saving the form on a plugin page draws its state again: "Needs settings" does not outlive the save', () => {
   const ui = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'ui.js'), 'utf8');
   assert.match(ui, /if \(ok && form\.closest\('\.plugin-page'\)\) document\.body\.dispatchEvent\(new CustomEvent\('refresh-projects'\)\);/);
-  const html = page.pluginPageHtml(make('jira', { label: 'Jira' }, 2), { files: [], known: new Set() });
-  assert.ok(html.indexOf('id="plugin-status"') < html.indexOf('id="settings"'), 'the state is outside the form, so the form is not redrawn under the person');
+  const html = page.pluginPageHtml(make('jira', { label: 'Jira', settingsFile: 'plugin.jira.settings.yml' }, 2), { files: [{ file: 'plugin.jira.settings.yml', kind: 'plugin', exists: true }], known: new Set() });
+  assert.ok(html.indexOf('id="plugin-status"') > 0 && html.indexOf('id="plugin-status"') < html.indexOf('id="settings"'), 'the state is outside the form, so the form is not redrawn under the person');
 });
 
 test('what it ships and the removal follow a step; the settings section follows one only while it has no form', () => {
@@ -212,4 +215,27 @@ test('each page says what it is in its title', () => {
   const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
   assert.match(server, /const titled = isPlugin \? `\$\{options\.pluginName\} · Plugins · Settings`/);
   assert.match(server, /: isPlugins \? 'Add a plugin · Settings'/);
+});
+
+// The notes plugin's page ended in four sections, each with its heading and rule, three of which said only
+// that there was nothing: no settings, no needs, nothing shipped. Said together, in one line under the steps.
+test('a plugin page says in one line what it does not have, instead of a section for each', () => {
+  const none = { needs: [], suggests: [], unmet: [], problems: [] };
+  const empty = make('notes', { label: 'Notes' }, 0, { wants: none });
+  const html = page.pluginPageHtml(empty, { files: [], known: new Set() });
+  assert.match(html, /<p class="plugin-quiet plugin-nothing">It has no settings, needs no other plugin and no command, and places no files in the workspace: its code runs inside the dashboard\.<\/p>/);
+  for (const id of ['settings', 'needs', 'ships']) assert.ok(!html.includes(`id="${id}"`), `no #${id} section that says nothing`);
+  assert.ok(html.includes('id="remove"'), 'the removal stays');
+  // Turned on, it offers Deactivate only, and says nothing of a Reinstall it does not offer.
+  const on = page.removeHtml(make('notes', { label: 'Notes' }, 3, { wants: none }));
+  assert.doesNotMatch(on, /Reinstall/);
+  assert.match(on, /Deactivate keeps its settings\./);
+  // One that has settings and needs, but ships nothing: only that is said in the line.
+  const some = make('jira', { label: 'Jira', settingsFile: 'plugin.jira.settings.yml' }, 2, { wants: { ...none, needs: [{ anyOf: ['dev'], metBy: 'dev', pick: 'dev' }] } });
+  const two = page.pluginPageHtml(some, { files: [{ file: 'plugin.jira.settings.yml', kind: 'plugin', exists: true }], known: new Set() });
+  assert.match(two, /It places no files in the workspace: its code runs inside the dashboard\./);
+  assert.ok(two.includes('id="settings"') && two.includes('id="needs"') && !two.includes('id="ships"'));
+  // And one with something everywhere has no such line.
+  assert.strictEqual(page.nothingHtml(make('jira', { label: 'Jira', settingsFile: 'x.yml', ai: { agents: ['agents/a.md'] } }, 2, { wants: { ...none, needs: [{ anyOf: ['dev'], metBy: 'dev', pick: 'dev' }] } }),
+    { files: [{ file: 'x.yml', kind: 'plugin', exists: true }] }), '');
 });
