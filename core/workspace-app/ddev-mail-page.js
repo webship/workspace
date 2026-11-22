@@ -6,7 +6,7 @@
  * Everything else — the markup, the wiring, the "is it running" rule — lives here, so adding a column
  * to the panel or a verb to the toolbar never touches the server file.
  *
- * The API client is `ddev-mail.js`; the three write verbs are `actions/ddev-mail.js`. This module is
+ * The API client is `ddev-mail.mts`; the three write verbs are `actions/ddev-mail.js`. This module is
  * what joins them to the dashboard.
  */
 
@@ -17,7 +17,7 @@ const { humanSize, humanTime } = require('./format.mts');
 const { workspaceDir } = require('./workspaces');
 const { ddevProjectName } = require('./jobs');
 const { NAME_RE } = require('./validate.mts');
-const mail = require('./ddev-mail');
+const mail = require('./ddev-mail.mts');
 
 // `/fragments/projects/mail/<workspace>/<project>` — the one path this feature answers on, matched
 // here rather than in the server's chain of patterns.

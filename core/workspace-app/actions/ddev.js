@@ -33,7 +33,7 @@ const { wsUrl } = require('../urls');
 const { findGraphifyScript, findRagifyScript } = require('../workspaces');
 const { DDEV_ACTIONS, projectDdevCommands, serialiseRouter, touchesRouter } = require('../ddev');
 const snapshots = require('../ddev-snapshots.mts');
-const ddevImport = require('../ddev-import');
+const ddevImport = require('../ddev-import.mts');
 
 async function ddev_start({ form, res, send, workspace, pathname }) {
     const projectName = String(form.projectName || '');

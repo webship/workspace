@@ -3,7 +3,7 @@
  *
  * artifactIsEmpty(), which drops a blank screenshot and a recording too short to show anything, stayed in server.js
  * when the report's lookup moved into test-reports.js; every call threw, sideFiles() caught it and returned nothing,
- * so the report listed no screenshot, recording or PDF at all. It lives in artifact-empty.js now. This builds a failed
+ * so the report listed no screenshot, recording or PDF at all. It lives in artifact-empty.mts now. This builds a failed
  * run's evidence and checks what the lookup keeps and what it drops.
  */
 const { test, after } = require('node:test');
@@ -13,7 +13,7 @@ const os = require('os');
 const path = require('path');
 const zlib = require('zlib');
 const { findTestReports } = require('../../test-reports');
-const { artifactIsEmpty } = require('../../artifact-empty');
+const { artifactIsEmpty } = require('../../artifact-empty.mts');
 
 const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-report-evidence-'));
 after(() => fs.rmSync(ws, { recursive: true, force: true }));
@@ -65,8 +65,8 @@ test('artifactIsEmpty judges by the bytes: one colour, or two seconds or less, i
   assert.strictEqual(at('screenshots/odd.png'), false, 'a file it cannot read is evidence: kept');
 });
 
-test('server.js keeps none of it; test-reports.js asks artifact-empty.js', () => {
+test('server.js keeps none of it; test-reports.js asks artifact-empty.mts', () => {
   const read = (f) => fs.readFileSync(path.join(__dirname, '..', '..', f), 'utf8');
   assert.doesNotMatch(read('server.js'), /function (artifactIsEmpty|pngIsUniform|videoSeconds)\b/);
-  assert.match(read('test-reports.js'), /const \{ artifactIsEmpty \} = require\('\.\/artifact-empty'\);/);
+  assert.match(read('test-reports.js'), /const \{ artifactIsEmpty \} = require\('\.\/artifact-empty\.mts'\);/);
 });

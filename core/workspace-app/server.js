@@ -47,7 +47,7 @@ const { suggestionsFor } = require('./assistant-suggestions.mts');
 const { activityByDir, listScreens, screensForDir, screenLogFor, screensListHtml, screensGridHtml, screenTailHtml, newScreenFormHtml, promptTemplateText, claudeResumeHtml, screenWhereHtml, termPaneHtml: newScreenPaneHtml, termLayerHtml } = require('./screens');
 const ddevSnapshots = require('./ddev-snapshots.mts');
 const { addonsPanelHtml } = require('./ddev-addons-page');
-const ddevImport = require('./ddev-import');
+const ddevImport = require('./ddev-import.mts');
 const ddevMail = require('./ddev-mail-page');
 const projectRuntime = require('./project-runtime');
 
@@ -2793,7 +2793,7 @@ function settingsHomeData() {
   const settingsModel = require('./settings-model');
   const plugins = require('./plugins-page').rows();
   // A newer version on npm is shown when it is already known; asking is a fragment's job, never a page's.
-  const updates = require('./plugin-updates');
+  const updates = require('./plugin-updates.mts');
   return { files: listSettingsFiles(), plugins, groups: settingsModel.groupByFamily(plugins, { latest: updates.peek().latest, isNewer: updates.isNewer }), folders: loadWorkspaces(),
     styles: { count: listThemes().length, wearing: themeLabel(styleSettings().theme) } };
 }
@@ -6320,7 +6320,7 @@ async function onRequest(req, res) {
       // Newer versions on npm: asked here, on its own, so no page waits for the registry. When the answer
       // is new and names something, the plugins are drawn again to carry it.
       if (pathname === '/fragments/settings/updates') {
-        const updates = require('./plugin-updates');
+        const updates = require('./plugin-updates.mts');
         const list = require('./plugins-page').rows();
         const only = new URL(req.url, 'http://localhost').searchParams.get('plugin') || '';
         const cold = !updates.peek().at;
@@ -6335,7 +6335,7 @@ async function onRequest(req, res) {
         const pp = require('./plugins-page');
         const list = pp.rows();
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        const up = require('./plugin-updates');
+        const up = require('./plugin-updates.mts');
         const grouped = require('./settings-model').groupByFamily(list, { latest: up.peek().latest, isNewer: up.isNewer }).flatMap((g) => g.plugins);
         return res.end(pp.catalogHtml(new Map(grouped.map((p) => [p.module, p]))));
       }
@@ -8464,12 +8464,12 @@ const { WebSocketServer } = require('ws');
 const { spawn: spawnPty } = require('child_process');
 const termWss = new WebSocketServer({ noServer: true });
 const termKeepalive = require('./terminal-keepalive.mts');
-// Terminals relayed to the host runner (runner-attach.js): counted with the ones attached here.
+// Terminals relayed to the host runner (runner-attach.mts): counted with the ones attached here.
 const termRelays = new Set();
 
 /**
  * A session the host runner started and screen here cannot see, attached through the runner instead
- * (runner-attach.js says when that is). True when the runner took the attach; false leaves it to the attach here.
+ * (runner-attach.mts says when that is). True when the runner took the attach; false leaves it to the attach here.
  */
 async function attachThroughRunner(ws, session, size) {
   const { hostRunner, hostSessionsFile } = require('./jobs');
@@ -8477,7 +8477,7 @@ async function attachThroughRunner(ws, session, size) {
   const published = hostSessionsFile();
   if (!runner || !published) return false;
   const own = await require('./screens').readContainerScreens();
-  const runnerAttach = require('./runner-attach');
+  const runnerAttach = require('./runner-attach.mts');
   if (!runnerAttach.attachesThroughRunner(session, { ownRows: own.rows, published })) return false;
   // Its port is on this machine when the dashboard runs here, and on the machine behind the container otherwise.
   const base = requestGuard.inContainer() ? runner.base : `http://127.0.0.1:${runner.port}`;

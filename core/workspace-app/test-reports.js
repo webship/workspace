@@ -11,7 +11,7 @@ const path = require('path');
 const { esc } = require('./html.mts');
 const { humanSize, humanTime, VIDEO_RE } = require('./format.mts');
 const { workspaceDir } = require('./workspaces');
-const { artifactIsEmpty } = require('./artifact-empty');
+const { artifactIsEmpty } = require('./artifact-empty.mts');
 
 // A project's test report, if it ran the tests. webship-js (Playwright + Cucumber) writes
 // <module>/tests/reports/cucumber_report.{html,json}, so the search is bounded to that

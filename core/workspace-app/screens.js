@@ -25,7 +25,7 @@ const hostProcesses = require('./host-processes');
  * Each row says how it is reached (`via`): 'here' when screen here lists it, 'runner' when only the runner does. The
  * dashboard's container has a process space of its own (webship/workspace#564), so screen in it lists only the
  * container's own sessions, and a session on the machine is the runner's to reach: its verbs (screen-verbs.js) and its
- * terminal (runner-attach.js) go through the runner. When the dashboard runs on the machine, screen here lists them all.
+ * terminal (runner-attach.mts) go through the runner. When the dashboard runs on the machine, screen here lists them all.
  */
 async function listScreens() {
   const { hostSessionsFile } = require('./jobs');

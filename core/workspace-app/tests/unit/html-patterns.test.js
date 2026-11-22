@@ -18,7 +18,7 @@ const path = require('path');
 const APP = path.join(__dirname, '../..');
 
 test('every pattern in the app compiles the way the browser compiles it', () => {
-  const files = ['server.js', 'screens.js', 'commands-page.js', 'ddev-addons-page.js', 'ddev-import.js',
+  const files = ['server.js', 'screens.js', 'commands-page.js', 'ddev-addons-page.js', 'ddev-import.mts',
     'build-order-page.js', 'navigation-page.js'].filter((f) => fs.existsSync(path.join(APP, f)));
   const bad = [];
   for (const f of files) {

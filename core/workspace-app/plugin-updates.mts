@@ -13,27 +13,38 @@
  * What is sent: the package names, to the npm registry, and nothing else.
  */
 
-const https = require('https');
+import https from 'node:https';
 
-const { isNewer } = require('./version-check.mts');
+import { isNewer } from './version-check.mts';
 
-const TTL = 6 * 60 * 60 * 1000;
-const FAIL_TTL = 15 * 60 * 1000;
+export { isNewer };
+
+/** What is remembered of the registry: the newest version of each package asked about, and when. */
+export interface UpdatesMemo { at: number; latest: Record<string, string>; error: string; names: string }
+
+/** A plugin row, as far as `outdated` reads it. */
+export interface PluginRow { name: string; module?: string; version?: string; manifest?: { label?: string } | null }
+
+/** A plugin with a newer version on npm. */
+export interface Outdated { name: string; label: string; module: string; version: string | undefined; latest: string }
+
+export const TTL = 6 * 60 * 60 * 1000;
+export const FAIL_TTL = 15 * 60 * 1000;
 const TIMEOUT = 5000;
 const REGISTRY = 'https://registry.npmjs.org';
 
-let memo = { at: 0, latest: {}, error: '', names: '' };
-let pending = null;
+let memo: UpdatesMemo = { at: 0, latest: {}, error: '', names: '' };
+let pending: { key: string; promise: Promise<UpdatesMemo> } | null = null;
 
 /** The `latest` dist-tag of one package, or '' when the registry has no such package. Rejects when it cannot be asked. */
-function registryLatest(name) {
+export function registryLatest(name: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const req = https.get(`${REGISTRY}/${name.replace('/', '%2f')}`, { headers: { Accept: 'application/vnd.npm.install-v1+json', 'User-Agent': 'workspace-dashboard' }, timeout: TIMEOUT }, (res) => {
       if (res.statusCode === 404) { res.resume(); return resolve(''); }
       if (res.statusCode !== 200) { res.resume(); return reject(new Error(`the registry answered ${res.statusCode}`)); }
       let body = '';
       res.setEncoding('utf8');
-      res.on('data', (d) => { body += d; if (body.length > 2e6) req.destroy(new Error('the answer is too long')); });
+      res.on('data', (d: string) => { body += d; if (body.length > 2e6) req.destroy(new Error('the answer is too long')); });
       res.on('end', () => {
         try { resolve(String(((JSON.parse(body) || {})['dist-tags'] || {}).latest || '')); } catch (e) { reject(new Error('the registry answer could not be read')); }
       });
@@ -51,21 +62,22 @@ const NAME_RE = /^(@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
  * Answers `{ latest: { module: version }, error, at }`. One package that fails does not lose the rest;
  * when none could be asked, `error` says why and the answer is kept for minutes, not hours.
  */
-async function refresh(modules, { force = false, ask = registryLatest, now = Date.now() } = {}) {
-  const names = [...new Set(modules.filter((m) => NAME_RE.test(String(m || ''))))].sort();
+export async function refresh(modules: readonly unknown[],
+  { force = false, ask = registryLatest, now = Date.now() }: { force?: boolean; ask?: (name: string) => Promise<string>; now?: number } = {}): Promise<UpdatesMemo> {
+  const names = [...new Set(modules.filter((m): m is string => typeof m === 'string' && NAME_RE.test(m)))].sort();
   const key = names.join(' ');
   const fresh = memo.at && memo.names === key && now - memo.at < (memo.error ? FAIL_TTL : TTL);
   if (!force && fresh) return memo;
   if (process.env.WORKSPACE_NO_UPDATE_CHECK) return { at: 0, latest: {}, error: '', names: key };
   if (pending && pending.key === key) return pending.promise;
   const promise = (async () => {
-    const latest = {};
+    const latest: Record<string, string> = {};
     let failed = 0;
     let why = '';
     const queue = [...names];
     const worker = async () => {
       for (let name = queue.shift(); name; name = queue.shift()) {
-        try { const v = await ask(name); if (v) latest[name] = v; } catch (e) { failed += 1; why = String((e && e.message) || e); }
+        try { const v = await ask(name); if (v) latest[name] = v; } catch (e) { failed += 1; why = e instanceof Error && e.message ? e.message : String(e); }
       }
     };
     await Promise.all(Array.from({ length: Math.min(6, names.length) }, worker));
@@ -77,13 +89,16 @@ async function refresh(modules, { force = false, ask = registryLatest, now = Dat
 }
 
 /** What is remembered, without asking anybody: `{ latest, error, at }`. */
-const peek = () => memo;
-function forget() { memo = { at: 0, latest: {}, error: '', names: '' }; pending = null; }
+export const peek = (): UpdatesMemo => memo;
+export function forget(): void { memo = { at: 0, latest: {}, error: '', names: '' }; pending = null; }
 
 /** The plugins of `rows` that have a newer version on npm: `[{ name, label, module, version, latest }]`. */
-function outdated(rows, latest = memo.latest) {
-  return rows.filter((p) => p.module && latest[p.module] && isNewer(latest[p.module], p.version))
-    .map((p) => ({ name: p.name, label: (p.manifest && p.manifest.label) || p.name, module: p.module, version: p.version, latest: latest[p.module] }));
+export function outdated(rows: readonly PluginRow[], latest: Record<string, string> = memo.latest): Outdated[] {
+  const out: Outdated[] = [];
+  for (const p of rows) {
+    const newest = p.module ? latest[p.module] : undefined;
+    if (!p.module || !newest || !isNewer(newest, p.version)) continue;
+    out.push({ name: p.name, label: (p.manifest && p.manifest.label) || p.name, module: p.module, version: p.version, latest: newest });
+  }
+  return out;
 }
-
-module.exports = { refresh, peek, forget, outdated, registryLatest, isNewer, TTL, FAIL_TTL };

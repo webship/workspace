@@ -171,7 +171,7 @@ Server-rendered HTML fragments, swapped by HTMX.
 - **A terminal's websocket carries what is typed, and one thing more:** an empty binary frame is the page's
   keepalive, sent every 25 s and answered with the same, never written into the session
   (`terminal-keepalive.mts`). The server pings each socket on the same beat and ends one that stops answering.
-- **A terminal on a session only the host runner lists is the runner's attach, relayed** (`runner-attach.js`):
+- **A terminal on a session only the host runner lists is the runner's attach, relayed** (`runner-attach.mts`):
   over `.screens/runner.sock` when the runner left one, else its port. A session `screen -ls` here lists is
   attached here, as before.
 - **Every other verb on a session goes through `screen-verbs.js`** (`screenVerb(session, 'stop' | 'stuff' |

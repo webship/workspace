@@ -15,7 +15,7 @@ const { esc } = require('../html.mts');
 const { workspaceDir } = require('../workspaces');
 const { ddevProjectName } = require('../jobs');
 const { NAME_RE } = require('../validate.mts');
-const mail = require('../ddev-mail');
+const mail = require('../ddev-mail.mts');
 const { mailPanelHtml } = require('../ddev-mail-page');
 
 /**

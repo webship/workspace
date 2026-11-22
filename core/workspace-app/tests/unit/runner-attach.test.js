@@ -24,7 +24,7 @@ const wait = (ms) => new Promise((r) => { setTimeout(r, ms); });
 const hasScript = spawnSync('script', ['--version']).status === 0;
 const WebSocket = require('ws');
 
-const { attachesThroughRunner, attachUrl } = require('../../runner-attach');
+const { attachesThroughRunner, attachUrl } = require('../../runner-attach.mts');
 
 const free = () => new Promise((resolve) => {
   const s = net.createServer();
