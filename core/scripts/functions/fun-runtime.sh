@@ -119,6 +119,19 @@ function rt_ddev_config_args() {
   else RT_DDEV_ARGS+=("--webimage-extra-packages=${pkgs}") ; fi
 }
 
+# The address of the project's mailbox (Mailpit's own page and API), where the tests of a site read the mail it
+# sent. On DDEV it is DDEV's; on Docker Compose and Podman a port of this machine, on Kubernetes a NodePort, both
+# kept in compose.yaml as `mail_port`. Nothing for a project written before the mailbox had a port: `ddev config`
+# and `ddev start` in it give it one.
+function rt_mail_url() {
+  local found rt root port ;
+  found="$(rt_find_project "${1:-$PWD}")" || return 0 ;
+  rt="${found%% *}" ; root="${found#* }" ;
+  if [ "${rt}" = ddev ] ; then echo "https://$(sed -n 's/^name: *//p' "${root}/.ddev/config.yaml" | head -1).ddev.site:8026" ; return 0 ; fi
+  port="$(rt_meta mail_port "${root}")" ; [ -n "${port}" ] || return 0 ;
+  if [ "${rt}" = kubernetes ] ; then echo "http://$(rt_k8s_node_ip):${port}" ; else echo "http://127.0.0.1:${port}" ; fi
+}
+
 function ddev() {
   local rt ; rt="$(runtime_of)" ;
   case "${rt}" in
@@ -141,7 +154,7 @@ function rt_dc() {
 
 # Writes compose.yaml and the stack's build folder for a project: what `ddev config` does for DDEV.
 function rt_compose_write() {
-  local rt="$1" root="$2" name="$3" type="$4" docroot="$5" php="$6" db="$7" port="$8" platform="${9:-}" ;
+  local rt="$1" root="$2" name="$3" type="$4" docroot="$5" php="$6" db="$7" port="$8" platform="${9:-}" mail_port="${10:-}" ;
   mkdir -p "${root}/.webship/runtime" ;
   cp "${RT_STACKS}/php/Dockerfile" "${root}/.webship/runtime/Dockerfile" ;
   # Rootless Podman maps a container's users into a range of their own: with keep-id the user of the web service is
@@ -149,6 +162,9 @@ function rt_compose_write() {
   local userns="" ;
   # The container still starts as root inside (user 0:0), so Apache can bind port 80; its workers are www-data.
   [ "${rt}" = podman ] && userns=$'    userns_mode: keep-id\n    user: "0:0"\n' ;
+  # The mailbox, on this machine only: the tests of the site read the mail it sent there (MAIL_URL).
+  local mail_ports="" ;
+  [ -n "${mail_port}" ] && mail_ports=$'\n    # The mailbox, on this machine only (MAIL_URL).\n    ports:\n      - "127.0.0.1:'"${mail_port}"$':8025"' ;
   cat > "${root}/compose.yaml" <<YAML
 # Written by the Webship Workspace (its ${rt} runtime, webship/workspace#694). Run it with: ${rt} compose up -d
 name: ${name}
@@ -160,7 +176,8 @@ x-webship:${platform:+
   docroot: "${docroot}"
   php: "${php}"
   database: "${db}"
-  port: ${port}
+  port: ${port}${mail_port:+
+  mail_port: ${mail_port}}
 services:
   web:
     build:
@@ -197,7 +214,7 @@ ${userns}    environment:
       timeout: 5s
       retries: 60
   mail:
-    image: axllent/mailpit
+    image: axllent/mailpit${mail_ports}
 volumes:
   db:
 YAML
@@ -285,9 +302,11 @@ function rt_tests_run() {
   fi
   rt_tests_image "${engine}" || return 1 ;
   [ "${engine}" = podman ] && userns=(--userns=keep-id) ;
+  # The mailbox of the site, for the steps that read the mail it sent: a pack's cucumber.js reads MAIL_URL.
+  local mail=() mail_url ; mail_url="$(rt_mail_url "${root}")" ; [ -n "${mail_url}" ] && mail=(-e "MAIL_URL=${mail_url}") ;
   "${engine}" run --rm --network host "${userns[@]}" --user "$(id -u):$(id -g)" \
     -v "${root}:${root}" -v "${RT_TESTS_VOLUME}:/cache" -w "${dir}" \
-    -e "LAUNCH_URL=$(rt_url "${root}")" "${RT_TESTS_IMAGE}" bash -c "$*" ;
+    -e "LAUNCH_URL=$(rt_url "${root}")" "${mail[@]}" "${RT_TESTS_IMAGE}" bash -c "$*" ;
 }
 
 # `--file=<path>` or `--file <path>` (and --src) among a verb's arguments.
@@ -325,20 +344,21 @@ function rt_compose() {
     config)
       [ "${1:-}" = global ] && return 0 ;
       root="${root:-$PWD}" ;
-      local name type docroot php db port platform a ;
+      local name type docroot php db port platform mail_port a ;
       name="$( [ -f "${root}/compose.yaml" ] && sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1 )" ;
       type="$( [ -f "${root}/compose.yaml" ] && rt_meta type "${root}" )" ; docroot="$( [ -f "${root}/compose.yaml" ] && rt_meta docroot "${root}" )" ;
       php="$( [ -f "${root}/compose.yaml" ] && rt_meta php "${root}" )" ; db="$( [ -f "${root}/compose.yaml" ] && rt_meta database "${root}" )" ;
       port="$( [ -f "${root}/compose.yaml" ] && rt_meta port "${root}" )" ;
       # A plugin's claim (rt_claim) stays when the file is written again.
       platform="$( [ -f "${root}/compose.yaml" ] && rt_meta platform "${root}" )" ;
+      mail_port="$( [ -f "${root}/compose.yaml" ] && rt_meta mail_port "${root}" )" ;
       for a in "$@" ; do
         case "${a}" in
           --project-name=*) name="${a#*=}" ;; --project-type=*) type="${a#*=}" ;; --docroot=*) docroot="${a#*=}" ;;
           --php-version=*) php="${a#*=}" ;; --database=*) db="${a#*=}" ; db="${db#*:}" ;;
         esac
       done
-      rt_compose_write "${rt}" "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" ;
+      rt_compose_write "${rt}" "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" ;
       echo "Wrote compose.yaml for ${rt} (${type:-php}, PHP ${php:-8.3}, MariaDB ${db:-10.11}): $(rt_url "${root}")" ;;
     start|restart)
       [ -n "${root}" ] || { echo "No ${rt} project here." >&2 ; return 1 ; } ;
@@ -423,7 +443,8 @@ function rt_k8s_node_ip() {
 
 # A NodePort no Service of the cluster holds yet.
 function rt_k8s_free_nodeport() {
-  local used p ; used="$(rt_kubectl get svc -A -o jsonpath='{range .items[*]}{range .spec.ports[*]}{.nodePort} {end}{end}' 2>/dev/null)" ;
+  # "$@": ports that are taken although no Service holds them yet (the site's own, when its mailbox is given one).
+  local used p ; used="$(rt_kubectl get svc -A -o jsonpath='{range .items[*]}{range .spec.ports[*]}{.nodePort} {end}{end}' 2>/dev/null) $*" ;
   for p in $(seq 30080 32767) ; do case " ${used} " in *" ${p} "*) ;; *) echo "${p}" ; return 0 ;; esac ; done ;
 }
 
@@ -438,9 +459,9 @@ function rt_k8s_web_image() {
 }
 
 function rt_k8s_write() {
-  local root="$1" name type docroot php db port ns image pull=Never ;
+  local root="$1" name type docroot php db port mail_port ns image pull=Never ;
   name="$(sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1)" ; docroot="$(rt_meta docroot "${root}")" ;
-  db="$(rt_meta database "${root}")" ; port="$(rt_meta port "${root}")" ; ns="ws-${name}" ;
+  db="$(rt_meta database "${root}")" ; port="$(rt_meta port "${root}")" ; mail_port="$(rt_meta mail_port "${root}")" ; ns="ws-${name}" ;
   image="$(rt_k8s_web_image "${root}")" ; [ "${image}" = "webship-${name}-web" ] || pull=IfNotPresent ;
   mkdir -p "${root}/k8s" ;
   cat > "${root}/k8s/kustomization.yaml" <<YAML
@@ -563,6 +584,18 @@ spec:
   selector: {app: web}
   ports: [{port: 80, nodePort: ${port}}]
 YAML
+  # The mailbox on a NodePort of its own, where the tests of the site read the mail it sent (MAIL_URL).
+  [ -z "${mail_port}" ] || cat >> "${root}/k8s/stack.yaml" <<YAML
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mail-web
+spec:
+  type: NodePort
+  selector: {app: mail}
+  ports: [{port: 8025, nodePort: ${mail_port}}]
+YAML
 }
 
 function rt_k8s_ns() { echo "ws-$(sed -n 's/^name: *//p' "$1/compose.yaml" | head -1)" ; }
@@ -580,10 +613,12 @@ function rt_k8s() {
     config)
       [ "${1:-}" = global ] && return 0 ;
       rt_k8s_cluster || return 1 ;
-      local port="" ; [ -n "${root}" ] && port="$(rt_meta port "${root}")" ;
+      local port="" mail_port="" ; [ -n "${root}" ] && { port="$(rt_meta port "${root}")" ; mail_port="$(rt_meta mail_port "${root}")" ; } ;
       root="${root:-$PWD}" ;
       rt_compose kubernetes config "$@" > /dev/null || return 1 ;
       [ -n "${port}" ] || sed -i "s/^  port: .*/  port: $(rt_k8s_free_nodeport)/" "${root}/compose.yaml" ;
+      [ -n "${mail_port}" ] || sed -i "s/^  mail_port: .*/  mail_port: $(rt_k8s_free_nodeport "$(rt_meta port "${root}")")/" "${root}/compose.yaml" ;
+      sed -i '/^    # The mailbox, on this machine only (MAIL_URL)\.$/d' "${root}/compose.yaml" ;
       sed -i '/^    ports:$/,/^      - "127.0.0.1:/d' "${root}/compose.yaml" ;
       # No port of this machine on Kubernetes: the address is the node's, which a pod reaches as it is.
       sed -i '/^      # The site.s own port, also inside the container/,/^      WEBSHIP_PORT: /d' "${root}/compose.yaml" ;

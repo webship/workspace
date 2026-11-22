@@ -179,5 +179,5 @@ fi
 ```
 
 Such a builder takes `--runtime` with the one choice `ddev`, so that line can be followed.
-- **Captured mail in a browser:** Mailpit has no published port on a runtime; it is reached from the web container (`http://mail:8025`).
+- **Captured mail in a browser:** Mailpit has a port of its own on a runtime (`mail_port` in `compose.yaml`: a port of this machine, or a NodePort), and the tests container hands a suite its address as `MAIL_URL`. The dashboard has no page for it yet.
 - **HTTPS and a host name:** a runtime's address is plain HTTP on a port.

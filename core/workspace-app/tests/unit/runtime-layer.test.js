@@ -229,15 +229,17 @@ test('the JS side runs in the tests container: npm, npx, node, yarn and `exec -s
   const d = path.join(dir, 'dn'); fs.mkdirSync(path.join(d, 'tests'), { recursive: true });
   run(dir, d, 'ddev config --project-type=drupal --docroot=web --project-name=dn', { WORKSPACE_RUNTIME: 'docker' });
   const port = fs.readFileSync(path.join(d, 'compose.yaml'), 'utf8').match(/^ {2}port: (\d+)$/m)[1];
+  // The mailbox of the site goes with its address: the steps that read the mail it sent ask MAIL_URL.
+  const mail = fs.readFileSync(path.join(d, 'compose.yaml'), 'utf8').match(/^ {2}mail_port: (\d+)$/m)[1];
   const tail = `--user ${uid} -v ${d}:${d} -v webship-workspace-tests:/cache`;
   const r = run(dir, d, 'ddev npm install; ddev exec -s tests "BROWSER=chromium node ./x.js"; cd tests && ddev npx playwright install chromium; ddev php -v');
   assert.deepStrictEqual(r.calls, [
     'docker image inspect webship-workspace-tests',
-    `docker run --rm --network host ${tail} -w ${d} -e LAUNCH_URL=http://127.0.0.1:${port} webship-workspace-tests bash -c npm install `,
+    `docker run --rm --network host ${tail} -w ${d} -e LAUNCH_URL=http://127.0.0.1:${port} -e MAIL_URL=http://127.0.0.1:${mail} webship-workspace-tests bash -c npm install `,
     'docker image inspect webship-workspace-tests',
-    `docker run --rm --network host ${tail} -w ${d} -e LAUNCH_URL=http://127.0.0.1:${port} webship-workspace-tests bash -c BROWSER=chromium node ./x.js`,
+    `docker run --rm --network host ${tail} -w ${d} -e LAUNCH_URL=http://127.0.0.1:${port} -e MAIL_URL=http://127.0.0.1:${mail} webship-workspace-tests bash -c BROWSER=chromium node ./x.js`,
     'docker image inspect webship-workspace-tests',
-    `docker run --rm --network host ${tail} -w ${d}/tests -e LAUNCH_URL=http://127.0.0.1:${port} webship-workspace-tests bash -c npx playwright install chromium `,
+    `docker run --rm --network host ${tail} -w ${d}/tests -e LAUNCH_URL=http://127.0.0.1:${port} -e MAIL_URL=http://127.0.0.1:${mail} webship-workspace-tests bash -c npx playwright install chromium `,
     // PHP stays in the web container.
     'docker compose exec -T -u www-data -w /var/www/html/tests web php -v',
   ]);
@@ -253,7 +255,50 @@ test('the JS side runs in the tests container: npm, npx, node, yarn and `exec -s
   run(dir, k, 'ddev config --project-type=drupal --docroot=web --project-name=kn', { WORKSPACE_RUNTIME: 'kubernetes' });
   const kube = run(dir, k, 'ddev node -v').calls.filter((c) => /^docker/.test(c));
   assert.strictEqual(kube[0], 'docker image inspect webship-workspace-tests');
-  assert.match(kube[1], /^docker run --rm --network host .* -e LAUNCH_URL=http:\/\/172\.18\.0\.2:\d+ webship-workspace-tests bash -c node -v ?$/, "on the host's network, against the node's address");
+  assert.match(kube[1], /^docker run --rm --network host .* -e LAUNCH_URL=http:\/\/172\.18\.0\.2:\d+ -e MAIL_URL=http:\/\/172\.18\.0\.2:\d+ webship-workspace-tests bash -c node -v ?$/, "on the host's network, against the node's address");
+});
+
+test('the mailbox of a site has an address on every runtime: a port of the machine, a NodePort, DDEV\'s own', () => {
+  const dir = sandbox();
+  const d = path.join(dir, 'dm'); fs.mkdirSync(d);
+  run(dir, d, 'ddev config --project-type=php --docroot= --project-name=dm', { WORKSPACE_RUNTIME: 'docker' });
+  let compose = fs.readFileSync(path.join(d, 'compose.yaml'), 'utf8');
+  const port = compose.match(/^ {2}port: (\d+)$/m)[1];
+  const mail = compose.match(/^ {2}mail_port: (\d+)$/m)[1];
+  assert.notStrictEqual(mail, port);
+  // Mailpit's own page and API, on this machine only.
+  assert.match(compose, new RegExp(`\\n {2}mail:\\n {4}image: axllent/mailpit\\n {4}# [^\\n]+\\n {4}ports:\\n {6}- "127\\.0\\.0\\.1:${mail}:8025"\\nvolumes:`));
+  assert.match(run(dir, d, 'rt_mail_url').out, new RegExp(`^http://127\\.0\\.0\\.1:${mail}$`, 'm'));
+  // A second `ddev config` keeps it, as it keeps the site's port.
+  run(dir, d, 'ddev config --project-type=php --docroot= --project-name=dm');
+  assert.strictEqual(fs.readFileSync(path.join(d, 'compose.yaml'), 'utf8'), compose);
+  // A project written before the mailbox had a port: no address, and the tests container is given none.
+  fs.writeFileSync(path.join(d, 'compose.yaml'), compose.replace(/^ {2}mail_port: \d+\n/m, ''));
+  assert.strictEqual(run(dir, d, 'rt_mail_url').out.trim(), '');
+  const old = run(dir, d, 'ddev npm -v').calls.find((c) => /^docker run/.test(c));
+  assert.doesNotMatch(old, /MAIL_URL/);
+  assert.match(old, new RegExp(`-e LAUNCH_URL=http://127\\.0\\.0\\.1:${port} webship-workspace-tests `));
+
+  // Kubernetes: a NodePort of its own beside the site's, on a Service that is only the mailbox's page.
+  const k = path.join(dir, 'km'); fs.mkdirSync(k);
+  fs.writeFileSync(path.join(dir, 'bin', 'kubectl'), `#!/usr/bin/env bash\necho "kubectl $*" >> "${dir}/calls.log"\ncase "$*" in *"get nodes"*) printf 172.18.0.2 ;; *"get svc"*) printf '30080 30081 ' ;; esac\n`, { mode: 0o755 });
+  run(dir, k, 'ddev config --project-type=php --docroot= --project-name=km', { WORKSPACE_RUNTIME: 'kubernetes' });
+  compose = fs.readFileSync(path.join(k, 'compose.yaml'), 'utf8');
+  assert.match(compose, /^ {2}port: 30082$/m, 'the first NodePort no Service holds');
+  assert.match(compose, /^ {2}mail_port: 30083$/m, 'and the next one, not the site\'s own');
+  assert.doesNotMatch(compose, /127\.0\.0\.1|^ {4}ports:/m, 'no port of this machine on Kubernetes');
+  assert.match(compose, /\n {2}mail:\n {4}image: axllent\/mailpit\nvolumes:/);
+  const stack = fs.readFileSync(path.join(k, 'k8s', 'stack.yaml'), 'utf8');
+  assert.match(stack, /\nkind: Service\nmetadata:\n {2}name: mail-web\nspec:\n {2}type: NodePort\n {2}selector: \{app: mail\}\n {2}ports: \[\{port: 8025, nodePort: 30083\}\]\n$/);
+  assert.match(stack, /\n {2}name: mail\nspec:\n {2}selector: \{app: mail\}\n {2}ports: \[\{name: smtp, port: 1025\}, \{name: web, port: 8025\}\]/, 'the Service the site sends to is as it was');
+  assert.match(run(dir, k, 'rt_mail_url').out, /^http:\/\/172\.18\.0\.2:30083$/m);
+  const kube = run(dir, k, 'ddev npm -v').calls.find((c) => /^docker run/.test(c));
+  assert.match(kube, /-e LAUNCH_URL=http:\/\/172\.18\.0\.2:30082 -e MAIL_URL=http:\/\/172\.18\.0\.2:30083 webship-workspace-tests /);
+
+  // DDEV: its own mailbox, where it always was.
+  const v = path.join(dir, 'vm'); fs.mkdirSync(path.join(v, '.ddev'), { recursive: true });
+  fs.writeFileSync(path.join(v, '.ddev', 'config.yaml'), 'name: vm\ntype: php\n');
+  assert.match(run(dir, v, 'rt_mail_url').out, /^https:\/\/vm\.ddev\.site:8026$/m);
 });
 
 test('the tests image is built once, from core/config/runtimes/tests: Node.js 26 and the browsers\' libraries', () => {
