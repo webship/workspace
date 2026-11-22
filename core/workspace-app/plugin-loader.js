@@ -31,7 +31,7 @@ const { upsertSettingsValue, upsertSettingsList } = require('./settings-file');
 const { fileFor, readPluginSettings, ensurePluginSettingsFile } = require('./plugin-settings');
 const googleAuth = require('./auth-google');
 const { iconHtml } = require('./icons');
-const { commandBlock } = require('./command-block');
+const { commandBlock } = require('./command-block.mts');
 const { tabModalHtml } = require('./tab-modal');
 const claudeSessions = require('./claude-sessions');
 const { installedPlugins } = require('./plugin-manifest');
@@ -65,10 +65,10 @@ const lib = {
   // What git says about a folder (its own .git, worktree role, branch, what a remove destroys), the
   // lingering-session tail every short command ends with, a path with ~ for the home, and the host
   // runner (stop a session before starting it afresh): what the GIT plugin and its kin draw from.
-  projectHasGit: (dir) => require('./git-info').projectHasGit(dir),
-  hasOwnGit: (dir) => require('./git-info').hasOwnGit(dir),
-  gitWorktreeInfo: (dir) => require('./git-info').gitWorktreeInfo(dir),
-  gitBranchOf: (dir) => require('./git-info').gitBranchOf(dir),
+  projectHasGit: (dir) => require('./git-info.mts').projectHasGit(dir),
+  hasOwnGit: (dir) => require('./git-info.mts').hasOwnGit(dir),
+  gitWorktreeInfo: (dir) => require('./git-info.mts').gitWorktreeInfo(dir),
+  gitBranchOf: (dir) => require('./git-info.mts').gitBranchOf(dir),
   lingerTail: (label) => require('./linger.mts').lingerTail(label),
   LINGER_MARK: require('./linger.mts').LINGER_MARK,
   tildePath: (p) => require('./format.mts').tildePath(p),

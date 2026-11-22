@@ -105,11 +105,11 @@ const changelog = require('./changelog');
 const rail = require('./navigation');
 const versionCheck = require('./version-check.mts');
 const navPage = require('./navigation-page');
-const notes = require('./notes');
+const notes = require('./notes.mts');
 const buildOrderPage = require('./build-order-page');
 const { uikitIcons, tablerIcons, iconHtml, isKnownIcon } = require('./icons');
 const { PAGE_SIZES, defaultPageSize, PROJECT_FILTERS, SORTS, defaultSort, readPageState, setPageCookie, paginate, listControlsHtml, listPagerHtml } = require('./lists');
-const { commandBlock } = require('./command-block');
+const { commandBlock } = require('./command-block.mts');
 const { HOME_URL, wsUrl, withRequest, hereName, cookieDomain } = require('./urls');
 const { VIDEO_RE, AUDIO_RE, DOC_ARTIFACT_RE, humanTime, humanSize, tildePath } = require('./format.mts');
 const audioVoice = require('./audio-voice');
@@ -222,7 +222,7 @@ function hostnameOwner(label, skipDir) {
 }
 
 const { ITEM_NAME_RE } = require('./validate.mts');
-const { projectHasGit, hasOwnGit, gitWorktreeInfo, gitBranchOf } = require('./git-info');
+const { projectHasGit, hasOwnGit, gitWorktreeInfo, gitBranchOf } = require('./git-info.mts');
 const SCRIPT_RE = /^cmd-[a-zA-Z0-9_.-]+\.sh$/;
 
 // The tooling repository the commands workspace compares against and proposes to.
@@ -3144,7 +3144,7 @@ function homeCardsHtml(message) {
 // A fresh workspace has no folders and no plugins: that is the design, not a fault, and the first
 // thing to see is what can be added and how.
 function emptyWorkspaceHtml() {
-  const { FAMILIES } = require('./plugin-catalog');
+  const { FAMILIES } = require('./plugin-catalog.mts');
   const families = FAMILIES.map((f) => `<li><strong>${esc(f.label)}</strong> <span class="uk-text-meta">${esc(f.plugins.map(([n]) => n).join(' · '))}</span></li>`).join('');
   return `<div class="uk-card uk-card-default uk-card-body uk-margin-small-top empty-workspace">
       <h2 class="uk-h4">Empty, on purpose</h2>
@@ -7333,7 +7333,7 @@ async function onRequest(req, res) {
               <form hx-post="/actions/ddev-config" hx-target="#editor-modal-body" hx-swap="innerHTML">
                 <input type="hidden" name="workspace" value="${esc(cm[1])}">
                 <input type="hidden" name="projectName" value="${esc(cm[2])}">
-                ${require('./ddev-options').fieldsHtml({ current, prefix: 'cfg' })}
+                ${require('./ddev-options.mts').fieldsHtml({ current, prefix: 'cfg' })}
                 <button class="uk-button uk-button-primary uk-button-small" type="submit"><span uk-icon="icon: cog; ratio: .7"></span> Write .ddev/config.yaml</button>
                 <span class="uk-text-meta">Nothing starts yet — run Start from the DDEV menu afterwards.</span>
               </form>

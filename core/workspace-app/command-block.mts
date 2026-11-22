@@ -6,9 +6,10 @@
  * they replace local data. Both are worth reading before they happen.
  */
 
-const { esc } = require('./html.mts');
+import { esc } from './html.mts';
 
-const commandBlock = (title, lines, note) => `<div class="msg assistant">
+/** `note` is HTML, written by the caller. */
+export const commandBlock = (title: string, lines: readonly string[], note: string): string => `<div class="msg assistant">
     <strong>${esc(title)}</strong>
     ${lines.map((l) => `<div class="uk-margin-small-top uk-flex uk-flex-middle" style="gap:.5rem">
       <code style="flex:1;overflow-x:auto;white-space:pre">${esc(l)}</code>
@@ -16,5 +17,3 @@ const commandBlock = (title, lines, note) => `<div class="msg assistant">
     </div>`).join('')}
     <p class="uk-text-meta uk-margin-small-top">${note}</p>
   </div>`;
-
-module.exports = { commandBlock };

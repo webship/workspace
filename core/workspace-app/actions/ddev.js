@@ -28,7 +28,7 @@ const {
   findTestReports, testReportFor, invalidateTestReports, testMediaHtml, testingStackOf,
 } = require('../test-reports');
 const { NAME_RE, SCRIPT_RE } = require('../validate.mts');
-const { commandBlock } = require('../command-block');
+const { commandBlock } = require('../command-block.mts');
 const { wsUrl } = require('../urls');
 const { findGraphifyScript, findRagifyScript } = require('../workspaces');
 const { DDEV_ACTIONS, projectDdevCommands, serialiseRouter, touchesRouter } = require('../ddev');
@@ -220,18 +220,18 @@ module.exports = {
 };
 
 // `ddev config` for a folder DDEV does not manage yet, or one it does. Every value is picked from the lists in
-// ddev-options.js (the DDEV docs), so nothing typed reaches the shell line.
+// ddev-options.mts (the DDEV docs), so nothing typed reaches the shell line.
 async function ddev_config({ form, send, workspace }) {
   const dir = workspaceDir(workspace);
   const projectName = String(form.projectName || '');
   if (!NAME_RE.test(projectName) || !listProjects(dir).includes(projectName)) {
     return send('<div class="msg error">Unknown project.</div>', 400);
   }
-  const opts = require('../ddev-options');
+  const opts = require('../ddev-options.mts');
   const args = ['config', '--auto=false', `--project-name=${projectName}`, ...opts.configArgs(form)];
   return screenAction(send, { workspace, project: projectName, projectDir: path.join(dir, projectName),
     verb: 'config', cmdLine: `ddev ${opts.shellArgs(args)}`, label: 'ddev config' });
 }
 
 module.exports['/actions/ddev-config'] = ddev_config;
-module.exports.CONFIG_CHOICES = require('../ddev-options').CHOICES;
+module.exports.CONFIG_CHOICES = require('../ddev-options.mts').CHOICES;

@@ -7,16 +7,16 @@
  * one of those events, and would be wrong the first time somebody moved a folder in a terminal.
  */
 
-const { test } = require('node:test');
-const assert = require('node:assert');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+import { test } from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
-const notes = require('../../notes');
-const { folderOf } = require('../../actions/notes');
+import * as notes from '../../notes.mts';
+import { folderOf } from '../../actions/notes.js';
 
-const server = fs.readFileSync(path.join(__dirname, '../../server.js'), 'utf8');
+const server = fs.readFileSync(path.join(import.meta.dirname, '../../server.js'), 'utf8');
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'ws-note-'));
 
 test('a note is one file with two fields, written as a titled markdown note', () => {
@@ -115,14 +115,14 @@ test('the cluster rides in the last row of controls, and reserves nothing', () =
   // row — and that padding pushed `More` onto a line of its own while the row still had room for it.
   // As a flex item pushed right it costs nothing until the row is genuinely full.
   assert.match(server, /\$\{testBadge\}\$\{runningBadge\}\s*\$\{noteCorner\}/, 'the cluster ends the facts row of the card');
-  const css = fs.readFileSync(path.join(__dirname, '../../public/css/components/project-rows.css'), 'utf8');
+  const css = fs.readFileSync(path.join(import.meta.dirname, '../../public/css/components/project-rows.css'), 'utf8');
   assert.match(css, /\.project-note-corner \{[^}]*margin-left: auto/);
   assert.ok(!/\.project-row \.project-actions \{[^}]*padding-right/.test(css), 'no reserved gutter');
 });
 
 test('the pen out-specifies UIKit, which is linked after us', () => {
   // A bare .project-note ties with UIKit's own .uk-button-link, and UIKit wins the tie — silently.
-  const css = fs.readFileSync(path.join(__dirname, '../../public/css/components/project-rows.css'), 'utf8');
+  const css = fs.readFileSync(path.join(import.meta.dirname, '../../public/css/components/project-rows.css'), 'utf8');
   assert.match(css, /\.project-note-corner \.project-note \{/);
   assert.ok(!/^\.project-note \{/m.test(css), 'not a single class of ours against UIKit');
 });

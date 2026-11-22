@@ -1,7 +1,7 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
+import test from 'node:test';
+import assert from 'node:assert/strict';
 
-const o = require('../../ddev-options');
+import * as o from '../../ddev-options.mts';
 
 test('every project type in the DDEV docs is offered, and nothing else', () => {
   const docs = ['asterios', 'backdrop', 'cakephp', 'codeigniter', 'craftcms', 'drupal', 'drupal6', 'drupal7', 'drupal8', 'drupal9',

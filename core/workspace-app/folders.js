@@ -90,7 +90,7 @@ function folderFormHtml(ws, { label = ws, suggestion = '', projectTypes = [], ca
         <div class="uk-margin-small-bottom folder-setup">
           <label class="uk-display-block"><input class="uk-checkbox" type="checkbox" name="ddev" value="1"> Configure DDEV, so it can start</label>
           ${canTest ? `<label class="uk-display-block"><input class="uk-checkbox" type="checkbox" name="e2e" value="1"> Set up <code>webship-js</code> testing (Playwright and Cucumber), which configures DDEV too</label>` : ''}
-          <div class="folder-ddev-type uk-margin-small-top">${require('./ddev-options').fieldsHtml({ prefix: 'folder' })}
+          <div class="folder-ddev-type uk-margin-small-top">${require('./ddev-options.mts').fieldsHtml({ prefix: 'folder' })}
           </div>
         </div>
         ${pluginSetups ? `<div class="uk-form-label">Connect it <span class="uk-text-meta">(optional)</span></div>

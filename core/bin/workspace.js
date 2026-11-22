@@ -283,7 +283,7 @@ function writeSettings(dest) {
 }
 
 function catalogText() {
-  const { FAMILIES, SCOPE } = require(path.join(CORE_SRC, 'workspace-app', 'plugin-catalog.js'));
+  const { FAMILIES, SCOPE } = require(path.join(CORE_SRC, 'workspace-app', 'plugin-catalog.mts'));
   const lines = ['What you can add (one npm package each; nothing is installed until you ask):', ''];
   for (const f of FAMILIES) {
     lines.push(`${f.label} — ${f.about}`);

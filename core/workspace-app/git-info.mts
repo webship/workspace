@@ -5,9 +5,23 @@
  * from these answers).
  */
 
-const fs = require('fs');
-const path = require('path');
-const { spawnSync } = require('child_process');
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+
+/** What a folder is to git, and what a remove of it would destroy. */
+export interface WorktreeInfo {
+  role: 'none' | 'plain' | 'primary' | 'linked';
+  branch: string;
+  /** The other worktrees of the same repository. */
+  others: string[];
+  /** The main checkout's path. */
+  primary: string;
+  unpushed: number;
+  dirty: number;
+  /** A repository with a branch and no commit yet. */
+  unborn?: boolean;
+}
 
 /**
  * Is this project directory a git checkout?
@@ -17,7 +31,7 @@ const { spawnSync } = require('child_process');
  * one — and a worktree of a worktree is both legal and useful. Asking git is the
  * only answer that is right for every shape, including a submodule.
  */
-function projectHasGit(dir) {
+export function projectHasGit(dir: string): boolean {
   try {
     return spawnSync('git', ['-C', dir, 'rev-parse', '--git-dir'],
       { stdio: ['ignore', 'ignore', 'ignore'], timeout: 5000 }).status === 0;
@@ -25,7 +39,7 @@ function projectHasGit(dir) {
 }
 
 /** Does this folder have its own `.git`? A directory for a clone, a file for a worktree. */
-function hasOwnGit(dir) {
+export function hasOwnGit(dir: string): boolean {
   try { return fs.existsSync(path.join(dir, '.git')); } catch (_) { return false; }
 }
 
@@ -41,25 +55,26 @@ function hasOwnGit(dir) {
 // Memoised for a few seconds per folder: a page of a hundred repositories asks this for every row,
 // and the IDE plugin asks again for its caption — five git processes each time. A render reads one
 // answer per row; the git actions that change a checkout invalidate it.
-let _worktreeMemo = new Map();
+let _worktreeMemo = new Map<string, WorktreeInfo>();
 let _worktreeMemoAt = 0;
 const WORKTREE_TTL_MS = 5000;
-function gitWorktreeInfo(dir) {
+export function gitWorktreeInfo(dir: string): WorktreeInfo {
   const now = Date.now();
   if (now - _worktreeMemoAt > WORKTREE_TTL_MS) { _worktreeMemo = new Map(); _worktreeMemoAt = now; }
-  if (_worktreeMemo.has(dir)) return _worktreeMemo.get(dir);
+  const known = _worktreeMemo.get(dir);
+  if (known) return known;
   const out = gitWorktreeInfoNow(dir);
   _worktreeMemo.set(dir, out);
   return out;
 }
-function gitWorktreeInfoForget(dir) { if (dir) _worktreeMemo.delete(dir); else _worktreeMemo = new Map(); }
+export function gitWorktreeInfoForget(dir?: string): void { if (dir) _worktreeMemo.delete(dir); else _worktreeMemo = new Map(); }
 
-function gitWorktreeInfoNow(dir) {
-  const out = {
+export function gitWorktreeInfoNow(dir: string): WorktreeInfo {
+  const out: WorktreeInfo = {
     role: 'none', branch: '', others: [], primary: '', unpushed: 0, dirty: 0,
   };
   if (!projectHasGit(dir)) return out;
-  const git = (args) => {
+  const git = (args: string[]): string => {
     const r = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', timeout: 5000 });
     return r.status === 0 ? String(r.stdout || '').trim() : '';
   };
@@ -67,7 +82,7 @@ function gitWorktreeInfoNow(dir) {
   const common = git(['rev-parse', '--path-format=absolute', '--git-common-dir']);
   const list = git(['worktree', 'list', '--porcelain'])
     .split('\n').filter((l) => l.startsWith('worktree ')).map((l) => l.slice(9));
-  const self = fs.realpathSync.native ? (() => { try { return fs.realpathSync(dir); } catch (_) { return dir; } })() : dir;
+  const self = (() => { try { return fs.realpathSync(dir); } catch (_) { return dir; } })();
   out.primary = list[0] || '';
   out.others = list.filter((p) => { try { return fs.realpathSync(p) !== self; } catch (_) { return p !== self; } });
   // A repository with no commits yet has a branch that EXISTS but points at nothing, so
@@ -86,12 +101,10 @@ function gitWorktreeInfoNow(dir) {
 }
 
 /** The branch a checkout is on, or '' — used only to label the worktree control. */
-function gitBranchOf(dir) {
+export function gitBranchOf(dir: string): string {
   try {
     const r = spawnSync('git', ['-C', dir, 'rev-parse', '--abbrev-ref', 'HEAD'],
       { encoding: 'utf8', timeout: 5000 });
     return r.status === 0 ? String(r.stdout || '').trim() : '';
   } catch (_) { return ''; }
 }
-
-module.exports = { projectHasGit, hasOwnGit, gitWorktreeInfo, gitWorktreeInfoNow, gitWorktreeInfoForget, gitBranchOf };

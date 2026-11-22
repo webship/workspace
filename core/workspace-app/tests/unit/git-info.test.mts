@@ -2,14 +2,14 @@
  * What the dashboard asks git about a folder is answered once per row per render: the worktree
  * answer is memoised for a few seconds and forgotten on demand.
  */
-const assert = require('node:assert');
-const { test } = require('node:test');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { execFileSync } = require('child_process');
+import assert from 'node:assert';
+import { test } from 'node:test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
-const g = require('../../git-info');
+import * as g from '../../git-info.mts';
 
 test('gitWorktreeInfo answers from the memo within the window, and forgets when told', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-info-'));
