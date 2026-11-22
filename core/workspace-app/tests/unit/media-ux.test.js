@@ -65,7 +65,7 @@ test('an mp4 length is found whether the encoder put its header first or last', 
 });
 
 test('the player offers what people expect, and the cards say how long and whether there are words', () => {
-  const js = fs.readFileSync(path.join(APP, 'public/media-player.js'), 'utf8');
+  const js = fs.readFileSync(path.join(APP, 'src/browser/media-player.ts'), 'utf8');   // the source of public/media-player.js
   for (const bit of ["key === 'j'", "key === 'l'", "'ArrowLeft'", "'ArrowUp'", "key === 'm'", "requestFullscreen", "key === '<'", "/^[0-9]$/", "ws-media-speed", "media.play()", "data-media-step", "mouseover"]) {
     assert.ok(js.includes(bit), bit);
   }

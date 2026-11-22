@@ -54,6 +54,31 @@ jobs:
       - name: every cmd-*.sh parses and answers --help
         run: bash core/scripts/tests/cmd-smoke-test.sh
 
+  browser-scripts:
+    # The browser scripts are TypeScript in core/workspace-app/src/browser, built by esbuild into public/ and committed,
+    # so a fresh clone runs with no build. This fails when a committed script is not what its source builds to.
+    name: the browser scripts are built from their sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: core/workspace-app/package-lock.json
+      - name: install the dashboard
+        working-directory: core/workspace-app
+        run: npm ci --no-audit --no-fund
+      - name: the type check of the browser sources
+        working-directory: core/workspace-app
+        run: npx tsc -p src/browser
+      - name: the committed scripts match a fresh build
+        working-directory: core/workspace-app
+        run: npm run build:browser -- --check
+
   node-22:
     # 22: the lowest Node.js line the engines field accepts (">=22.18"), which the README and getting-started promise.
     name: the command line and the unit tests on Node.js 22

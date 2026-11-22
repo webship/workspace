@@ -34,6 +34,7 @@
     "core/workspace-app/docs",
     "core/workspace-app/public",
     "core/workspace-app/scripts",
+    "core/workspace-app/src",
     "core/workspace-app/plugins/workspace-notes",
     "core/workspace-app/tests",
     "core/workspace-app/.ddev",

@@ -1,0 +1,21 @@
+{
+  // The browser scripts' type check. src/browser/<name>.ts is built by esbuild into public/<name>.js
+  // (npm run build:browser), the file the pages load; tsc only checks. See docs/DEVELOPER-GUIDE.md, "TypeScript".
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "target": "es2022",
+    "lib": ["es2022", "dom", "dom.iterable"],
+    // No Node.js types: these run in a page.
+    "types": [],
+    // Each file is a classic script (no import, no export): forcing module detection keeps each file's names its own.
+    "moduleDetection": "force",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "skipLibCheck": true
+  },
+  "include": ["*.ts"]
+}
