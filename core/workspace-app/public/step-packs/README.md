@@ -18,6 +18,8 @@ names the file of each pack.
 - `django-cms.png`: the favicon of the django CMS repository (`cms/static/cms/img/favicon.png`).
 - `backdrop-cms.png`: the logo in the Backdrop CMS repository (`core/themes/seven/logo.png`).
 - `diffy.svg`: the favicon of diffy.website.
+- `bbpress.svg`: the mark bbPress 2.6.22 ships (`includes/admin/assets/icons/logo.svg`, GPL-2.0-or-later), filled
+  black (Simple Icons has no bbPress icon).
 
 A pack with no logo here shows the one its own package ships (`assets/logo.svg` or `.png`), and a puzzle piece
 when there is none.
