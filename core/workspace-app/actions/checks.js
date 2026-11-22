@@ -17,7 +17,7 @@ const path = require('path');
 const { esc } = require('../html');
 const { workspaceDir } = require('../workspaces');
 const { jobFragment, runningJobKey, startJob, listProjects , startInScreen, screenStartedHtml } = require('../jobs');
-const { shWords } = require('../shell-quote');
+const { shWords } = require('../shell-quote.mts');
 const { NAME_RE } = require('../validate');
 const { checksDeclaredOf } = require('../checks');
 

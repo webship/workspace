@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 
 const folders = require('../../folders');
-const { typeActions } = require('../../workspace-types');
+const { typeActions } = require('../../workspace-types.mts');
 
 const root = path.join(__dirname, '..', '..');
 const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');

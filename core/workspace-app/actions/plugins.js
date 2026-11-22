@@ -9,7 +9,7 @@ const path = require('path');
 
 const { ROOT } = require('../workspaces');
 const { screenStartedHtml } = require('../jobs');
-const { shWords } = require('../shell-quote');
+const { shWords } = require('../shell-quote.mts');
 const { startUnlessRunning } = require('./composer');
 const { lingerTail } = require('../linger');
 const { pluginByName } = require('../plugin-manifest');

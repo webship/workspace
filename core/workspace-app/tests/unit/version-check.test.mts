@@ -11,15 +11,16 @@
  * `web_environment` — so "cannot read it" is the normal case, not the edge case.
  */
 
-const assert = require('node:assert');
-const { test } = require('node:test');
-const fs = require('fs');
-const path = require('path');
+import assert from 'node:assert';
+import { test } from 'node:test';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const vc = require('../../version-check');
-const esc = (v) => String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const src = fs.readFileSync(path.join(__dirname, '..', '..', 'version-check.js'), 'utf8');
-const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
+import * as vc from '../../version-check.mts';
+const ENTITIES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
+const esc = (v: unknown): string => String(v).replace(/[&<>"]/g, (c) => ENTITIES[c] ?? c);
+const src = fs.readFileSync(path.join(import.meta.dirname, '..', '..', 'version-check.mts'), 'utf8');
+const server = fs.readFileSync(path.join(import.meta.dirname, '..', '..', 'server.js'), 'utf8');
 
 test('newer is segment by segment, numerically — not by string', () => {
   assert.strictEqual(vc.isNewer('1.0.14', '1.0.13'), true);

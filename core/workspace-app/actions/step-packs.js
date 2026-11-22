@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { esc } = require('../html');
-const { shWords } = require('../shell-quote');
+const { shWords } = require('../shell-quote.mts');
 const { workspaceDir, ROOT } = require('../workspaces');
 const { listProjects, startInScreen, screenStartedHtml } = require('../jobs');
 const { NAME_RE } = require('../validate');

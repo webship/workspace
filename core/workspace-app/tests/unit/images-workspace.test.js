@@ -85,7 +85,7 @@ test('the workspace is registered before videos, as a media workspace with a gal
   assert.match(settings, /\n {2}- images\n {2}- videos\n/);
   assert.match(fs.readFileSync(path.join(repo, 'core/config/workspace.images.settings.yml'), 'utf8'), /type: media/);
   assert.match(read('workspaces.js'), /images: +\{ icon: 'tabler:photo', subtitle: 'Images, screenshots and generated pictures', noun: 'image', kind: 'files' \}/);
-  assert.match(read('workspace-types.js'), /images: 'media'/);
+  assert.match(read('workspace-types.mts'), /images: 'media'/);
   assert.match(read('files-browser.js'), /'images'/);
   assert.match(read('.ddev/config.yaml'), /"\*\.images\.workspace"/);
   for (const f of ['README.md', 'AGENTS.md', 'CLAUDE.md']) assert.ok(fs.existsSync(path.join(repo, 'images', f)), f);

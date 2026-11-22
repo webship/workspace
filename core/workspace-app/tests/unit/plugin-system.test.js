@@ -91,7 +91,7 @@ test('a plugin reaches every hook, and what it registers is what the dashboard d
   const t = tree();
   const out = node(`
     const l = require('./plugin-loader');
-    const { TYPES } = require('./workspace-types');
+    const { TYPES } = require('./workspace-types.mts');
     const rl = require('./row-layout');
     const vals = () => '';
     const menus = l.pluginRowMenus({ key: 'dev', project: 'site1', dir: '${t.root}/dev', meta: {}, allowed: new Set(['x-cloud']), vals });

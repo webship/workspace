@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
-const { resolveType, typeActions } = require('./workspace-types');
+const { resolveType, typeActions } = require('./workspace-types.mts');
 // What the assistant is called on this workspace's page, and what its composer says when empty.
 // The rule about which level wins lives in speech.js with the rest of the assistant's settings.
 const { assistantIdentity } = require('./speech');
@@ -189,7 +189,7 @@ function _loadWorkspacesFresh() {
     const kind = pres.kind || 'projects';
     // What the folder's projects are FOR — the action policy its rows follow. Chosen in
     // this workspace's own settings file (`type:`), defaulting per shipped folder so an
-    // unset file behaves as it always did. See workspace-types.js.
+    // unset file behaves as it always did. See workspace-types.mts.
     const type = resolveType(name, wsSettings.type, kind);
     map[name] = {
       key: name,
@@ -532,9 +532,9 @@ function exposureRisk() {
       reasons.push(`hub_domain is ${hub}, which is not a local address`);
     }
   } catch (_) { /* ignore */ }
-  // The dashboard's own socket, when it was started with node and told to listen past loopback (request-guard.js).
+  // The dashboard's own socket, when it was started with node and told to listen past loopback (request-guard.mts).
   try {
-    const bind = require('./request-guard').bindExposure();
+    const bind = require('./request-guard.mts').bindExposure();
     if (bind) reasons.push(bind);
   } catch (_) { /* ignore */ }
   _exposure = { at: Date.now(), value: reasons };

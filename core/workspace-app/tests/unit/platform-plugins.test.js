@@ -231,7 +231,7 @@ test('a project\'s user list: its profile, the plugin that claims it, its DDEV t
 });
 
 test('the Build form reads a plugin builder\'s arguments from the args file the installer placed', () => {
-  const { parseBuilderArgs } = require('../../builder-args');
+  const { parseBuilderArgs } = require('../../builder-args.mts');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-args-'));
   fs.mkdirSync(path.join(root, 'dev'));
   fs.mkdirSync(path.join(root, 'core', 'scripts', 'plugins', 'x-cms', 'args'), { recursive: true });

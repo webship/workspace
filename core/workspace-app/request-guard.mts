@@ -18,36 +18,39 @@
  *   WORKSPACE_ALLOWED_HOSTS (comma separated; `.example.org` takes its subdomains too).
  */
 
-const fs = require('fs');
-const net = require('net');
+import fs from 'node:fs';
+import net from 'node:net';
+
+/** Where the answers come from: the environment, and whether a file exists (both replaceable in a test). */
+export interface PlaceOptions { env?: NodeJS.ProcessEnv; exists?: (file: string) => boolean }
 
 /** Inside a container: DDEV's web container, any Docker or Podman one, or a pod of a Kubernetes cluster. */
-function inContainer({ env = process.env, exists = fs.existsSync } = {}) {
+export function inContainer({ env = process.env, exists = fs.existsSync }: PlaceOptions = {}): boolean {
   return env.IS_DDEV_PROJECT === 'true' || exists('/.dockerenv') || exists('/run/.containerenv') || !!env.KUBERNETES_SERVICE_HOST;
 }
 
 /** The address to listen on: WORKSPACE_LISTEN when it is set, every interface in a container (undefined), else 127.0.0.1. */
-function listenHost({ env = process.env, exists = fs.existsSync } = {}) {
+export function listenHost({ env = process.env, exists = fs.existsSync }: PlaceOptions = {}): string | undefined {
   const asked = String(env.WORKSPACE_LISTEN || '').trim();
   if (asked) return asked;
   return inContainer({ env, exists }) ? undefined : '127.0.0.1';
 }
 
 /** Is this a loopback address (or the name of one)? */
-function isLoopback(address) {
+export function isLoopback(address: string | null | undefined): boolean {
   const a = String(address || '').toLowerCase().replace(/^\[|\]$/g, '').replace(/^::ffff:/, '');
   return a === 'localhost' || a === '::1' || /^127\./.test(a);
 }
 
 /** The names WORKSPACE_ALLOWED_HOSTS adds, lower case. `*.example.org` is read as `.example.org`. */
-function extraHosts(env = process.env) {
+export function extraHosts(env: NodeJS.ProcessEnv = process.env): string[] {
   return String(env.WORKSPACE_ALLOWED_HOSTS || '').split(/[\s,]+/)
     .map((h) => h.trim().toLowerCase().replace(/^\*\./, '.').replace(/\.$/, ''))
     .filter(Boolean);
 }
 
 /** The name in a Host header: lower case, without its port or a trailing dot, an IPv6 address without brackets. */
-function hostName(header) {
+export function hostName(header: string | string[] | null | undefined): string {
   const h = String(header || '').trim().toLowerCase();
   if (!h) return '';
   if (h.startsWith('[')) {
@@ -60,7 +63,7 @@ function hostName(header) {
 }
 
 /** May a request with this Host header be answered? A request with no Host at all is a local tool, not a browser. */
-function hostAllowed(header, { hub = '', extra = [] } = {}) {
+export function hostAllowed(header: string | string[] | null | undefined, { hub = '', extra = [] }: { hub?: string; extra?: readonly string[] } = {}): boolean {
   const h = hostName(header);
   if (!h) return true;
   if (net.isIP(h)) return true;
@@ -72,7 +75,7 @@ function hostAllowed(header, { hub = '', extra = [] } = {}) {
 }
 
 /** What a refused request is told: plain text, because it is not a page of this dashboard. */
-function refusalText(header) {
+export function refusalText(header: string | string[] | null | undefined): string {
   const h = hostName(header) || String(header || '');
   return `This dashboard does not answer to the name ${h.slice(0, 100)}. It answers to localhost, `
     + 'an IP address, *.ddev.site and its hub domain: a page that reached it under any other name is '
@@ -81,15 +84,13 @@ function refusalText(header) {
 }
 
 // Where the server is listening, once it is: what the exposure banner reads (workspaces.js exposureRisk).
-let bound = null;
-function setBound(address) { bound = address || null; }
+let bound: string | null = null;
+export function setBound(address: string | null | undefined): void { bound = address || null; }
 
 /** Why this dashboard can be reached from other machines, or '' when it cannot. */
-function bindExposure({ env = process.env, exists = fs.existsSync, address = bound } = {}) {
+export function bindExposure({ env = process.env, exists = fs.existsSync, address = bound }: PlaceOptions & { address?: string | null } = {}): string {
   if (inContainer({ env, exists })) return '';
   const a = String(address || '');
   if (!a || isLoopback(a)) return '';
   return `the dashboard listens on ${a === '::' || a === '0.0.0.0' ? 'every interface of this machine' : a} (WORKSPACE_LISTEN), not only on 127.0.0.1`;
 }
-
-module.exports = { inContainer, listenHost, isLoopback, extraHosts, hostName, hostAllowed, refusalText, setBound, bindExposure };

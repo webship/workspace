@@ -25,7 +25,7 @@ const {
 } = require('./jobs');
 const { NAME_RE } = require('./validate');
 const { wsUrl } = require('./urls');
-const { TYPES, addTypeAction } = require('./workspace-types');
+const { TYPES, addTypeAction } = require('./workspace-types.mts');
 const rowLayout = require('./row-layout');
 const { upsertSettingsValue, upsertSettingsList } = require('./settings-file');
 const { fileFor, readPluginSettings, ensurePluginSettingsFile } = require('./plugin-settings');

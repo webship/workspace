@@ -186,7 +186,7 @@ only; in a container it listens on the container's interfaces and the router dec
 a request is answered only under a name the dashboard is known by — `localhost`, an IP address,
 `*.ddev.site`, the hub domain and its subdomains, and the names in `WORKSPACE_ALLOWED_HOSTS` — so a
 page of another site whose name was pointed at this machine (DNS rebinding) is refused, its terminal
-socket included (`request-guard.js`).
+socket included (`request-guard.mts`).
 
 **Two settings end that**, and both get changed for a good-looking reason:
 

@@ -8,13 +8,11 @@
  *
  * A NUL cannot be carried by any shell word (or any argv): it is dropped.
  */
-function shq(value) {
+export function shq(value: unknown): string {
   return `'${String(value == null ? '' : value).replace(/\0/g, '').replace(/'/g, `'\\''`)}'`;
 }
 
 /** Several values as words of a bash line. */
-function shWords(values) {
-  return values.map(shq).join(' ');
+export function shWords(values: readonly unknown[]): string {
+  return values.map((v) => shq(v)).join(' ');
 }
-
-module.exports = { shq, shWords };

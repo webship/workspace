@@ -415,7 +415,7 @@ test('the cloud-init file is one a server can run: it parses, its script parses,
 });
 
 test('a pod is a container: the dashboard listens on every interface of it, and DDEV is not what it needs', () => {
-  const guard = require(path.join(CORE, 'workspace-app', 'request-guard.js'));
+  const guard = require(path.join(CORE, 'workspace-app', 'request-guard.mts'));
   const none = () => false;
   assert.strictEqual(guard.inContainer({ env: { KUBERNETES_SERVICE_HOST: '10.96.0.1' }, exists: none }), true);
   assert.strictEqual(guard.listenHost({ env: { KUBERNETES_SERVICE_HOST: '10.96.0.1' }, exists: none }), undefined);

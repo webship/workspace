@@ -16,7 +16,7 @@ const { ROOT, loadWorkspaces, workspaceDir, isValidWorkspace } = require('../wor
 const filesBrowser = require('../files-browser');
 const { screenAction } = require('../jobs');
 const { NAME_RE, ITEM_NAME_RE } = require('../validate');
-const { shq, shWords } = require('../shell-quote');
+const { shq, shWords } = require('../shell-quote.mts');
 const {
   INSTALL_TARGETS, NO_CLAUDE_SYNC, AI_ITEMS_REPO, AI_ITEMS_REPO_PATHS, AI_ITEMS_PROJECT_PATHS,
   itemFile, itemFileInside, invalidateRepoCaches,

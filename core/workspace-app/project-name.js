@@ -29,7 +29,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { scriptAssignments } = require('./builder-args');
+const { scriptAssignments } = require('./builder-args.mts');
 const { loadSettings } = require('./workspaces');
 
 /**

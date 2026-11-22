@@ -4,23 +4,23 @@
  * Started with node on a machine it listened on every interface, so another device on the network could
  * post an action or open a terminal; and it answered any Host, so a page of another site whose name was
  * pointed at 127.0.0.1 (DNS rebinding) passed the same-origin check with its own name as Host and Origin.
- * Unit checks of request-guard.js, then a real server over a temp workspace tree.
+ * Unit checks of request-guard.mts, then a real server over a temp workspace tree.
  */
 
-const { test, before, after } = require('node:test');
-const assert = require('node:assert');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const net = require('net');
-const http = require('http');
-const { spawn } = require('child_process');
+import { test, before, after } from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import net from 'node:net';
+import http from 'node:http';
+import { spawn, type ChildProcess } from 'node:child_process';
 
-const guard = require('../../request-guard');
+import * as guard from '../../request-guard.mts';
 
-const APP = path.join(__dirname, '../..');
+const APP = path.join(import.meta.dirname, '../..');
 const REPO = path.join(APP, '../..');
-const { copyConfig } = require('./_isolated-config');
+import { copyConfig } from './_isolated-config.js';
 
 test('the names a request is answered under', () => {
   const hub = 'workspace.ddev.site';
@@ -60,13 +60,13 @@ test('where it listens: 127.0.0.1 on a machine, every interface in a container, 
 
 // ---------------------------------------------------------------- a real server
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-request-guard-'));
-let proc;
-let port;
+let proc: ChildProcess | undefined;
+let port = 0;
 let log = '';
 
-const free = () => new Promise((resolve) => {
+const free = (): Promise<number> => new Promise((resolve) => {
   const s = net.createServer();
-  s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); });
+  s.listen(0, '127.0.0.1', () => { const p = (s.address() as net.AddressInfo).port; s.close(() => resolve(p)); });
 });
 
 before(async () => {
@@ -76,13 +76,14 @@ before(async () => {
   fs.symlinkSync(APP, path.join(root, 'core/workspace-app'));
   fs.mkdirSync(path.join(root, 'dev', 'site1'), { recursive: true });
   port = await free();
-  const env = { ...process.env, PORT: String(port), WORKSPACE_ROOT: root, HOME: root, WORKSPACE_PLUGINS_NO_RESTART: '1' };
+  const env: NodeJS.ProcessEnv = { ...process.env, PORT: String(port), WORKSPACE_ROOT: root, HOME: root, WORKSPACE_PLUGINS_NO_RESTART: '1' };
   delete env.IS_DDEV_PROJECT; delete env.WORKSPACE_LISTEN; delete env.WORKSPACE_ALLOWED_HOSTS;
-  proc = spawn(process.execPath, ['server.js'], { cwd: APP, env, stdio: ['ignore', 'pipe', 'pipe'] });
-  await new Promise((resolve, reject) => {
+  const server = spawn(process.execPath, ['server.js'], { cwd: APP, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  proc = server;
+  await new Promise<void>((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('server did not start')), 20000);
-    proc.stdout.on('data', (d) => { log += d; if (/listening/.test(log)) { clearTimeout(t); resolve(); } });
-    proc.on('exit', (c) => { clearTimeout(t); reject(new Error(`server exited ${c}`)); });
+    server.stdout.on('data', (d: Buffer) => { log += d; if (/listening/.test(log)) { clearTimeout(t); resolve(); } });
+    server.on('exit', (c) => { clearTimeout(t); reject(new Error(`server exited ${c}`)); });
   });
 });
 
@@ -92,9 +93,13 @@ after(() => {
 });
 
 /** A request with the Host (and Origin) a browser would send for that name. */
-function ask(method, pathname, host, { origin = null, body = null, upgrade = false } = {}) {
+/** What a request answered: its status (0 when it could not be made) and its body. */
+interface Answer { status: number | undefined; text: string }
+
+function ask(method: string, pathname: string, host: string,
+  { origin = null, body = null, upgrade = false }: { origin?: string | null; body?: string | null; upgrade?: boolean } = {}): Promise<Answer> {
   return new Promise((resolve) => {
-    const headers = { Host: host };
+    const headers: http.OutgoingHttpHeaders = { Host: host };
     if (origin) headers.Origin = origin;
     if (body) Object.assign(headers, { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) });
     if (upgrade) Object.assign(headers, { Connection: 'Upgrade', Upgrade: 'websocket', 'Sec-WebSocket-Version': '13', 'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==' });

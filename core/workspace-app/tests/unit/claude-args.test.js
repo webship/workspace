@@ -4,7 +4,7 @@
  * The form used to carry a permission-mode select and one free-text box called "more claude options",
  * which meant knowing the flags by heart and typing them with no check at all until the screen either
  * started or died. The CLI documents every one of them, so the list is PARSED rather than kept here by
- * hand — the same reason the icon chooser parses the vendored sprite and builder-args.js reads a
+ * hand — the same reason the icon chooser parses the vendored sprite and builder-args.mts reads a
  * builder's own argparse block.
  *
  * Parsed against a fixture of the real help text, so these tests do not need claude on the machine and
