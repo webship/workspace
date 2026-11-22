@@ -170,7 +170,7 @@ Server-rendered HTML fragments, swapped by HTMX.
   `listScreens()` stamps the notes of the sessions that are gone.
 - **A terminal's websocket carries what is typed, and one thing more:** an empty binary frame is the page's
   keepalive, sent every 25 s and answered with the same, never written into the session
-  (`terminal-keepalive.js`). The server pings each socket on the same beat and ends one that stops answering.
+  (`terminal-keepalive.mts`). The server pings each socket on the same beat and ends one that stops answering.
 - **A terminal on a session only the host runner lists is the runner's attach, relayed** (`runner-attach.js`):
   over `.screens/runner.sock` when the runner left one, else its port. A session `screen -ls` here lists is
   attached here, as before.
@@ -260,6 +260,9 @@ Why so (checked on Node.js 22.18.0, 24.22.3 and 26.13.1):
   anything (and `export =` is not erasable), so its callers cannot be typed. When nothing CommonJS is left, the
   package can say `"type": "module"` and the files can be renamed `.ts`.
 - `node --test` runs `.test.mts` files as they are; `__dirname` is `import.meta.dirname` in an ES module.
+- The npm package ships `core/workspace-app/*.mts` (the root `package.json` `files`), and `npm run test:unit` runs
+  `tests/unit/*.test.mts` with the `.test.js` files. A type `ws` does not ship is written as an interface of what is
+  used of it (`KeepaliveSocket` in `terminal-keepalive.mts`), not `any`.
 
 A converted module may only use what Node.js 22 has (`target`/`lib` `es2024`, `@types/node` 22).
 

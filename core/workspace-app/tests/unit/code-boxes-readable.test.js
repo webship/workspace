@@ -18,7 +18,7 @@ const sources = () => {
       if (['node_modules', 'tests', 'vendor', '.git'].includes(e.name)) continue;
       const p = path.join(dir, e.name);
       if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith('.js')) out.push(p);
+      else if (e.name.endsWith('.js') || e.name.endsWith('.mts')) out.push(p);
     }
   };
   walk(APP);

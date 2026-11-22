@@ -13,16 +13,16 @@
  * this dashboard live in a directory of its own, and every command it starts inherits that choice
  * through SCREENDIR. A SCREENDIR set from outside is left alone.
  */
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { spawnSync } = require('child_process');
+import { lstatSync, mkdirSync, chmodSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 /** What screen says when its socket directory cannot be used. */
 const UNUSABLE = /must have mode|Cannot make directory|Cannot access|Permission denied|must be owned/i;
 
 /** Does this answer of `screen -ls` say the socket directory cannot be used? */
-function socketDirUnusable(output) {
+export function socketDirUnusable(output: string | null | undefined): boolean {
   return UNUSABLE.test(String(output || ''));
 }
 
@@ -35,20 +35,29 @@ const SOCKET_NAME_MAX = 1 + 7 + 1 + 60;
  *  leaves no room for a session's socket (a workspace made for a test, a home on a deep mount), screen failed to
  *  start every session without a word (#485): then it is a short one of this user's under /tmp, the same on
  *  every start, so the sessions it holds are found again after a restart. */
-function ownSocketDir(home = os.homedir(), tmp = '/tmp') {
-  const dir = path.join(home, '.screen-workspace');
+export function ownSocketDir(home: string = homedir(), tmp: string = '/tmp'): string {
+  const dir = join(home, '.screen-workspace');
   if (dir.length + SOCKET_NAME_MAX <= SOCKET_PATH_MAX) return dir;
   const uid = typeof process.getuid === 'function' ? process.getuid() : 'user';
-  return path.join(tmp, `ws-screen-${uid}`);
+  return join(tmp, `ws-screen-${uid}`);
 }
 
 /**
  * Decide and set. Returns the directory chosen, or '' when the default one is left in use
  * (it works, screen is not installed, or SCREENDIR was set from outside).
  */
-function ensureScreenDir({ env = process.env, probe, home, tmp } = {}) {
+export interface ScreenDirOptions {
+  /** The environment to read SCREENDIR from and set it in. */
+  env?: NodeJS.ProcessEnv;
+  /** What `screen -ls` answers, or null when screen is not installed. */
+  probe?: () => string | null;
+  home?: string;
+  tmp?: string;
+}
+
+export function ensureScreenDir({ env = process.env, probe, home, tmp }: ScreenDirOptions = {}): string {
   if (env.SCREENDIR) return '';
-  const ask = probe || (() => {
+  const ask = probe || ((): string | null => {
     const out = spawnSync('screen', ['-ls'], { encoding: 'utf8', timeout: 10 * 1000, stdio: ['ignore', 'pipe', 'pipe'] });
     if (out.error) return null;   // screen is not installed here
     return `${out.stdout || ''}${out.stderr || ''}`;
@@ -57,16 +66,14 @@ function ensureScreenDir({ env = process.env, probe, home, tmp } = {}) {
   if (answer === null || !socketDirUnusable(answer)) return '';
   const dir = ownSocketDir(home, tmp);
   try {
-    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
     // Under /tmp anyone can make that name first: only a real directory of this user's is used, never a link.
-    const st = fs.lstatSync(dir);
+    const st = lstatSync(dir);
     if (!st.isDirectory() || (typeof process.getuid === 'function' && st.uid !== process.getuid())) return '';
-    fs.chmodSync(dir, 0o700);
+    chmodSync(dir, 0o700);
   } catch (_) {
     return '';
   }
   env.SCREENDIR = dir;
   return dir;
 }
-
-module.exports = { ensureScreenDir, socketDirUnusable, ownSocketDir };

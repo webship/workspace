@@ -26,6 +26,8 @@
     "core/k8s",
     "core/scripts",
     "core/workspace-app/*.js",
+    "core/workspace-app/*.mts",
+    "core/workspace-app/tsconfig.json",
     "core/workspace-app/actions",
     "core/workspace-app/images-providers",
     "core/workspace-app/commands",

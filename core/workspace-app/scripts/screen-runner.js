@@ -359,7 +359,7 @@ if (WebSocketServer) {
       attached.add(ws);
       child.on('exit', () => { repaints.forEach(clearTimeout); children.delete(child); try { ws.close(); } catch (_) { /* closed */ } });
       ws.on('close', () => attached.delete(ws));
-      // An empty binary frame is a window's keepalive (terminal-keepalive.js): never typed into the session.
+      // An empty binary frame is a window's keepalive (terminal-keepalive.mts): never typed into the session.
       ws.on('message', (d, isBinary) => { if (isBinary && !d.length) return; try { child.stdin.write(d); } catch (_) { /* gone */ } });
       ws.on('close', reap);
       ws.on('error', reap);

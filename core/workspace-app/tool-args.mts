@@ -13,16 +13,19 @@ const WORD = 'a-zA-Z0-9._@^~:/=,\\-';
 const WORD_RE = new RegExp(`^[${WORD}]$`);
 const QUOTED_RE = new RegExp(`^[${WORD} ]*$`);
 
-const ALLOWED = 'Arguments may hold letters, numbers, and ._@^~:/=,- only. Put an argument of several words in quotes: --run "plugin list".';
-const UNCLOSED = 'A quote in the arguments is not closed.';
+export const ALLOWED = 'Arguments may hold letters, numbers, and ._@^~:/=,- only. Put an argument of several words in quotes: --run "plugin list".';
+export const UNCLOSED = 'A quote in the arguments is not closed.';
 
 // The same rule for the form field (the pattern attribute of the input), so the browser says it before the request.
-const ARGS_PATTERN = `(?:[a-zA-Z0-9 ._@^~:\\/=,\\-]|"[a-zA-Z0-9 ._@^~:\\/=,\\-]*"|'[a-zA-Z0-9 ._@^~:\\/=,\\-]*')*`;
+export const ARGS_PATTERN = `(?:[a-zA-Z0-9 ._@^~:\\/=,\\-]|"[a-zA-Z0-9 ._@^~:\\/=,\\-]*"|'[a-zA-Z0-9 ._@^~:\\/=,\\-]*')*`;
+
+/** What splitToolArgs answers: the arguments, or why there are none. */
+export type SplitResult = { ok: true; argv: string[] } | { ok: false; error: string };
 
 /** Split the typed arguments. Answers { ok: true, argv } or { ok: false, error }. */
-function splitToolArgs(raw) {
+export function splitToolArgs(raw: unknown): SplitResult {
   const s = String(raw == null ? '' : raw).trim();
-  const argv = [];
+  const argv: string[] = [];
   let i = 0;
   while (i < s.length) {
     if (/\s/.test(s[i])) { i += 1; continue; }
@@ -49,13 +52,11 @@ function splitToolArgs(raw) {
 }
 
 /** The arguments as the shell is given them: each one in single quotes, which nothing in an argument can close. */
-function shellArgs(argv) {
+export function shellArgs(argv: readonly string[]): string {
   return argv.map((a) => `'${a}'`).join(' ');
 }
 
 /** The arguments as a person reads them in a label: quotes only where an argument has a space, or is empty. */
-function shownArgs(argv) {
+export function shownArgs(argv: readonly string[]): string {
   return argv.map((a) => (a === '' || /\s/.test(a) ? `'${a}'` : a)).join(' ');
 }
-
-module.exports = { splitToolArgs, shellArgs, shownArgs, ARGS_PATTERN, ALLOWED, UNCLOSED };

@@ -13,21 +13,35 @@
  *     a browser that went away without closing would otherwise leave its `screen -x` client attached, holding
  *     the session's size to its own and one of the terminal slots.
  *
- * Plain node; `ws` is the server's.
+ * Plain node; `ws` is the server's. The socket is typed by what is used of it here, so this module needs no
+ * types of `ws`.
  */
 
-const KEEPALIVE_MS = Number(process.env.WORKSPACE_TERM_KEEPALIVE_MS) || 25 * 1000;
+export const KEEPALIVE_MS: number = Number(process.env.WORKSPACE_TERM_KEEPALIVE_MS) || 25 * 1000;
+
+/** A frame as `ws` hands it over (its RawData). */
+export type Frame = Buffer | ArrayBuffer | Buffer[];
+
+/** What the keepalive uses of a `ws` WebSocket. */
+export interface KeepaliveSocket {
+  readonly readyState: number;
+  on(event: 'pong' | 'message' | 'close' | 'error', listener: () => void): unknown;
+  ping(): void;
+  terminate(): void;
+}
 
 /** Is this frame the page's keepalive rather than something typed? An empty binary frame, and only that. */
-function isKeepalive(data, isBinary) {
-  return !!isBinary && (!data || data.length === 0 || data.byteLength === 0);
+export function isKeepalive(data: Frame | null | undefined, isBinary: boolean): boolean {
+  if (!isBinary) return false;
+  if (!data) return true;
+  return ('length' in data ? data.length : data.byteLength) === 0;
 }
 
 /**
  * Ping `ws` every `everyMs` and end it when the page did not answer the ping before. Any frame from the page
  * counts as an answer. Returns the function that stops it; closing the socket stops it too.
  */
-function keepAlive(ws, { everyMs = KEEPALIVE_MS } = {}) {
+export function keepAlive(ws: KeepaliveSocket, { everyMs = KEEPALIVE_MS }: { everyMs?: number } = {}): () => void {
   let answered = true;
   const heard = () => { answered = true; };
   ws.on('pong', heard);
@@ -44,10 +58,8 @@ function keepAlive(ws, { everyMs = KEEPALIVE_MS } = {}) {
     try { ws.ping(); } catch (_) { /* closing */ }
   }, everyMs);
   if (timer.unref) timer.unref();
-  function stop() { clearInterval(timer); }
+  function stop(): void { clearInterval(timer); }
   ws.on('close', stop);
   ws.on('error', stop);
   return stop;
 }
-
-module.exports = { KEEPALIVE_MS, isKeepalive, keepAlive };

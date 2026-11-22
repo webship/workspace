@@ -258,7 +258,7 @@
     let attachedAt = { cols: 0, rows: 0 };
 
     /**
-     * A quiet terminal stays attached (terminal-keepalive.js on the server says why it went quiet and dropped).
+     * A quiet terminal stays attached (terminal-keepalive.mts on the server says why it went quiet and dropped).
      *
      * Every 25 seconds the window sends an empty binary frame, which no keystroke can make, and the server
      * answers with the same: traffic for every proxy in between, and an answer that proves the socket is alive.
