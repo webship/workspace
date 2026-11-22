@@ -6,6 +6,10 @@
  * `@needs-runtime-<docker|podman|kubernetes>`: the scenario reads and drives a real, running site of that runtime
  * (a builder run with `--runtime <name>`). Where the workspace has none, or it is stopped, or the runtime does not
  * answer (no cluster on a runner), the scenario is skipped with the reason, like the other preconditions.
+ *
+ * `@needs-platform-<name>` beside it: the site is one of that platform (its project type, or the plugin that claims
+ * it: `wordpress`, `laravel`, `django-cms`), so a platform plugin's feature drives a site its own builder made, and
+ * is skipped where the workspace has none.
  */
 
 'use strict';
@@ -37,10 +41,13 @@ function sitesOf(runtime) {
   return found;
 }
 
-/** The first running site of a runtime, or why there is none. */
-async function runningSite(runtime) {
-  const sites = sitesOf(runtime);
-  if (!sites.length) return { why: `the workspace holds no site on ${TITLES[runtime]} (build one with --runtime ${runtime})` };
+/** Is a project this platform's? Its type, or the plugin that claims it (`-` and `_` are one, as in the layer). */
+const isPlatform = (project, platform) => [project.type, project.platform].some((v) => v && v.replace(/-/g, '_') === platform.replace(/-/g, '_'));
+
+/** The first running site of a runtime (of one platform, when one is named), or why there is none. */
+async function runningSite(runtime, platform = '') {
+  const sites = sitesOf(runtime).filter((s) => !platform || isPlatform(s.project, platform));
+  if (!sites.length) return { why: `the workspace holds no ${platform ? `${platform} ` : ''}site on ${TITLES[runtime]} (build one with --runtime ${runtime})` };
   const projectRuntime = require(path.join(APP, 'project-runtime'));
   projectRuntime.invalidate();
   const states = await projectRuntime.statesFor(sites.map((s) => s.project));
@@ -50,11 +57,14 @@ async function runningSite(runtime) {
 }
 
 const NEEDS_RUNTIME = /^@needs-runtime-(docker|podman|kubernetes)$/;
+const NEEDS_PLATFORM = /^@needs-platform-([a-z0-9][a-z0-9_-]*)$/;
 Before(async function (scenario) {
-  for (const t of scenario.pickle.tags || []) {
-    const m = NEEDS_RUNTIME.exec(t.name);
+  const tags = (scenario.pickle.tags || []).map((t) => t.name);
+  const platform = (tags.map((t) => NEEDS_PLATFORM.exec(t)).find(Boolean) || [])[1] || '';
+  for (const name of tags) {
+    const m = NEEDS_RUNTIME.exec(name);
     if (!m) continue;
-    const { site, why } = await runningSite(m[1]);
+    const { site, why } = await runningSite(m[1], platform);
     if (!site) {
       this.attach(`SKIPPED: ${why}, and this becomes a real test again.`);
       return 'skipped';
@@ -106,6 +116,18 @@ Then('the address of the {string} site should answer', async function (runtime) 
   assert.ok(response.status() < 500, `${href} answered ${response.status()}`);
 });
 
+// A page of the site itself, at the address its row links to: a platform plugin's feature reads the front page or
+// the login screen of the site its builder made. The address is read from the row the first time (the folder's
+// page is open then) and kept for the scenario, so a second page of the site is opened from the first.
+When('I open {string} on the {string} site', async function (pathname, runtime) {
+  const site = siteOf(this, runtime);
+  if (!this.runtimeSiteAddress) this.runtimeSiteAddress = await rowOf(this, site).locator('a.pcard-host').getAttribute('href', { timeout: 15000 });
+  const href = this.runtimeSiteAddress;
+  assert.match(pathname, /^\//, 'a path of the site, starting with /');
+  const response = await this.page.goto(href.replace(/\/+$/, '') + pathname, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  assert.ok(response && response.status() < 400, `${href}${pathname} answered ${response && response.status()}`);
+});
+
 Then('the row of the {string} site should carry the {string} menu and no DDEV menu', async function (runtime, label) {
   const site = siteOf(this, runtime);
   const button = rowOf(this, site).locator(`.act-menu-runtime.act-menu-runtime-${runtime} > button`);
@@ -148,7 +170,7 @@ When('I choose {string} in the open menu', async function (words) {
   await this.openMenu.locator('a', { hasText: startsWith(words) }).first().click();
 });
 
-module.exports = { sitesOf, runningSite };
+module.exports = { sitesOf, runningSite, isPlatform };
 
 // ---------------------------------------------------------------------------------------------------------------
 // The dashboard itself on a plain address (tests/features/runtimes/dashboard.feature): node on a port, the

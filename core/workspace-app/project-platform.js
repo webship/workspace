@@ -87,18 +87,27 @@ function userListNames(root) {
 
 /**
  * The platform plugin that claims a project: a plugin that builds apps on a DDEV type of no platform (php,
- * generic) or of another one (a shop on wordpress) writes `.ddev/config.<plugin>.yaml` in it. When that plugin
- * carries a user list (`names`), the project takes that list (#490).
+ * generic) or of another one (a shop on wordpress) writes `.ddev/config.<plugin>.yaml` in it. On another runtime
+ * (Docker Compose, Podman, Kubernetes) the claim is `platform: <plugin>` in the `x-webship:` block of its
+ * `compose.yaml`, written by `rt_claim` (fun-runtime.sh). When that plugin carries a user list (`names`), the
+ * project takes that list (#490).
  */
 function claimOfProject(projectDir, names) {
-  let entries = [];
-  try { entries = fs.readdirSync(path.join(projectDir, '.ddev')); } catch (_) { return ''; }
-  for (const e of entries.sort()) {
-    const m = e.match(/^config\.([a-z0-9][a-z0-9-]*)\.ya?ml$/);
-    const name = m && m[1].replace(/-/g, '_');
-    if (name && names.has(name)) return name;
+  let entries = null;
+  try { entries = fs.readdirSync(path.join(projectDir, '.ddev')); } catch (_) { /* not a DDEV project */ }
+  if (entries) {
+    for (const e of entries.sort()) {
+      const m = e.match(/^config\.([a-z0-9][a-z0-9-]*)\.ya?ml$/);
+      const name = m && m[1].replace(/-/g, '_');
+      if (name && names.has(name)) return name;
+    }
+    // A DDEV project is DDEV's (rt_find_project decides the same way): its compose.yaml, if any, is not asked.
+    if (entries.includes('config.yaml')) return '';
   }
-  return '';
+  const on = require('./project-runtime').readProject(projectDir);
+  if (!require('./project-runtime').isRuntimeProject(on)) return '';
+  const name = /^[a-z0-9][a-z0-9_-]*$/.test(on.platform) ? on.platform.replace(/-/g, '_') : '';
+  return name && names.has(name) ? name : '';
 }
 
 /**

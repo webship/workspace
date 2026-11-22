@@ -79,9 +79,9 @@ test('a folder is what it carries: DDEV, the runtime its compose.yaml names, or 
   const both = box.site('b', { '.ddev/config.yaml': 'name: both\n', 'compose.yaml': COMPOSE('both', 'docker', 41300) });
   const odd = box.site('o', { 'compose.yaml': COMPOSE('odd', 'lando', 41400) });
 
-  assert.deepStrictEqual(rt.readProject(ddev), { runtime: 'ddev', name: 'my-ddev', root: ddev, port: '', type: 'drupal11', docroot: 'web', namespace: '' });
+  assert.deepStrictEqual(rt.readProject(ddev), { runtime: 'ddev', name: 'my-ddev', root: ddev, port: '', type: 'drupal11', docroot: 'web', platform: '', namespace: '' });
   assert.strictEqual(rt.readProject(unnamed).name, 'no-name-here', "DDEV's own default name");
-  assert.deepStrictEqual(rt.readProject(docker), { runtime: 'docker', name: 'shop', root: docker, port: '41167', type: 'drupal', docroot: 'web', namespace: '' });
+  assert.deepStrictEqual(rt.readProject(docker), { runtime: 'docker', name: 'shop', root: docker, port: '41167', type: 'drupal', docroot: 'web', platform: '', namespace: '' });
   assert.strictEqual(rt.readProject(podman).runtime, 'podman');
   assert.deepStrictEqual([rt.readProject(kube).runtime, rt.readProject(kube).namespace, rt.readProject(kube).port], ['kubernetes', 'ws-kube1', '30081']);
   assert.strictEqual(rt.readProject(plainCompose).runtime, 'none', 'a compose file the Workspace did not write');
