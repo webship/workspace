@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { esc } = require('../html');
-const { shq } = require('../shell-quote');
+const { shq } = require('../shell-quote.mts');
 const { humanSize, humanTime } = require('../format');
 const { ROOT, loadWorkspaces, workspaceDir } = require('../workspaces');
 const {

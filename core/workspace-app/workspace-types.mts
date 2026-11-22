@@ -19,7 +19,10 @@
  * actions its project rows carry.
  */
 
-const TYPES = {
+/** One workspace type: its label in Settings, what it is for, and the actions its project rows carry. */
+export interface WorkspaceType { label: string; description: string; actions: string[] }
+
+export const TYPES: Record<string, WorkspaceType> = {
   sites: {
     label: 'Sites — DDEV projects',
     description: 'Built Drupal sites: DDEV controls, tests, users, the full toolbelt.',
@@ -49,7 +52,7 @@ const TYPES = {
 
 // What each shipped folder is, so nothing changes until somebody edits a `type:`.
 // A folder absent here (a new workspace) defaults by its kind: projects → sites.
-const DEFAULT_TYPE_BY_KEY = {
+export const DEFAULT_TYPE_BY_KEY: Record<string, string> = {
   products: 'sites', dev: 'sites', test: 'sites', demos: 'sites', sandboxes: 'sites',
   projects: 'sites', profiles: 'sites', 'site-templates': 'sites', rag: 'sites', designs: 'sites',
   recipes: 'code', components: 'code', themes: 'code', modules: 'code', libraries: 'code',
@@ -60,26 +63,25 @@ const DEFAULT_TYPE_BY_KEY = {
   'ai-commands': 'ai-items', 'ai-prompts': 'ai-items',
 };
 
-function isType(name) {
-  return Object.prototype.hasOwnProperty.call(TYPES, name);
+export function isType(name: unknown): name is string {
+  return typeof name === 'string' && Object.prototype.hasOwnProperty.call(TYPES, name);
 }
 
 /** The type a workspace resolves to: its own `type:`, the shipped default, or by kind. */
-function resolveType(key, declaredType, kind) {
+export function resolveType(key: string, declaredType?: string | null, kind?: string): string {
   if (declaredType && isType(declaredType)) return declaredType;
   if (DEFAULT_TYPE_BY_KEY[key]) return DEFAULT_TYPE_BY_KEY[key];
   return kind === 'files' ? 'files' : 'sites';
 }
 
-function typeActions(type) {
-  return new Set((TYPES[type] || TYPES.sites).actions);
+export function typeActions(type: string): Set<string> {
+  return new Set((TYPES[type] ?? TYPES.sites)?.actions);
 }
 
 /** An action a plugin brings ('upsun' on sites): allowed on the types it names from now on. */
-function addTypeAction(action, types) {
+export function addTypeAction(action: string, types?: readonly string[] | null): void {
   for (const type of types || []) {
-    if (TYPES[type] && !TYPES[type].actions.includes(action)) TYPES[type].actions.push(action);
+    const t = TYPES[type];
+    if (t && !t.actions.includes(action)) t.actions.push(action);
   }
 }
-
-module.exports = { TYPES, DEFAULT_TYPE_BY_KEY, isType, resolveType, typeActions, addTypeAction };

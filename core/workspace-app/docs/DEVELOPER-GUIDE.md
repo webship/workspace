@@ -233,17 +233,17 @@ The JavaScript files are part of the program (`allowJs`) but not checked (`check
 
 ```ts
 // shell-quote.mts
-export function quote(s: string): string { /* … */ }
+export function shq(value: unknown): string { /* … */ }
 ```
 
 ```js
 // a caller that is still CommonJS names the file with its extension
-const { quote } = require('./shell-quote.mts');
+const { shq } = require('./shell-quote.mts');
 ```
 
 ```ts
 // a test, or a module that is already TypeScript
-import { quote } from '../../shell-quote.mts';
+import { shq } from '../../shell-quote.mts';
 ```
 
 Why so (checked on Node.js 22.18.0, 24.22.3 and 26.13.1):

@@ -14,7 +14,7 @@ const APP = path.join(__dirname, '..', '..');
 const UPDATER = path.join(APP, 'scripts', 'update.sh');
 
 test('the update hint names npx -y @webship.co/workspace@latest update', () => {
-  const src = fs.readFileSync(path.join(APP, 'version-check.js'), 'utf8');
+  const src = fs.readFileSync(path.join(APP, 'version-check.mts'), 'utf8');
   assert.match(src, /Update with: npx -y @webship\.co\/workspace@latest update/);
   assert.doesNotMatch(src, /Update with: bash core\/workspace-app\/scripts\/update\.sh/);
 });

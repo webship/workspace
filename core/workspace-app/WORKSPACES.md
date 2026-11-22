@@ -22,7 +22,7 @@ stray `cmd` file into a folder no longer grows its interface.
 | `media` | Images, recordings and sounds (images, videos, audio) | none — the page is an item list |
 | `ai-items` | Claude Code items (agents, skills, prompts) | none — these pages carry their own install/fetch/propose surface |
 
-Defaults live in `core/workspace-app/workspace-types.js`; an unset `type:` resolves to the shipped
+Defaults live in `core/workspace-app/workspace-types.mts`; an unset `type:` resolves to the shipped
 default for that folder, so nothing changes until somebody chooses differently. A brand-new
 workspace folder defaults by its kind: `projects` → `sites`, `files` → `files`.
 

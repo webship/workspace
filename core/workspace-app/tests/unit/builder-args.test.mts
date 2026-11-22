@@ -2,28 +2,31 @@
  * The Build form's Arguments panel must offer exactly what each builder accepts.
  *
  * Ground truth is the builder's own argparse: every arg source in the tree is run
- * with --help and its flags compared with what builder-args.js returns. The old
+ * with --help and its flags compared with what builder-args.mts returns. The old
  * parser guessed the arg file from distribution_name and was wrong for 96
  * builders — a panel full of flags for the Drupal CMS site-template builders, whose
  * parser takes a name and nothing else, and flags the Webship site-template parser
  * refuses outright.
  */
 
-const assert = require('node:assert');
-const { test } = require('node:test');
-const fs = require('fs');
-const path = require('path');
-const { spawnSync } = require('child_process');
-const { parseBuilderArgs, argSourceOf } = require('../../builder-args');
+import assert from 'node:assert';
+import { test } from 'node:test';
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { parseBuilderArgs, argSourceOf } from '../../builder-args.mts';
 
-const ROOT = path.join(__dirname, '..', '..', '..', '..');
+const ROOT = path.join(import.meta.dirname, '..', '..', '..', '..');
 const SCRIPTS = path.join(ROOT, 'core', 'scripts');
 
-function builders() {
-  const out = [];
+/** A builder script: its workspace folder, that folder's path, and its file name. */
+interface Builder { w: string; dir: string; f: string }
+
+function builders(): Builder[] {
+  const out: Builder[] = [];
   for (const w of fs.readdirSync(ROOT)) {
     const dir = path.join(ROOT, w);
-    let names = [];
+    let names: string[] = [];
     try { names = fs.readdirSync(dir); } catch (_) { continue; }
     for (const f of names) if (/^cmd-.*project.*\.sh$/.test(f)) out.push({ w, dir, f });
   }
@@ -31,7 +34,7 @@ function builders() {
 }
 
 /** The flags a builder's real parser prints for --help, without running the builder. */
-function realFlags({ w, dir, f }) {
+function realFlags({ w, dir, f }: Builder): Set<string> | null {
   const src = fs.readFileSync(path.join(dir, f), 'utf8');
   const where = argSourceOf(src, ROOT);
   if (!where) return null;
@@ -50,7 +53,7 @@ function realFlags({ w, dir, f }) {
     ${parser}`;
   const r = spawnSync('bash', ['-c', script], { encoding: 'utf8', timeout: 20000, stdio: ['ignore', 'pipe', 'pipe'] });
   const help = `${r.stdout}\n${r.stderr}`;
-  return new Set([...help.matchAll(/(?:^|[\s,\[])(--[a-z][a-z0-9-]*)/g)].map((m) => m[1]).filter((x) => x !== '--help'));
+  return new Set([...help.matchAll(/(?:^|[\s,\[])(--[a-z][a-z0-9-]*)/g)].map((m) => m[1] ?? '').filter((x) => x !== '' && x !== '--help'));
 }
 
 test('every builder: the panel offers exactly the flags its real parser accepts', () => {
@@ -87,7 +90,7 @@ test('Drupal CMS site-template builders take a name and nothing else', () => {
 
 test('Webship site-template builders: no flags their parser refuses, and only the ones it takes', () => {
   const dir = path.join(ROOT, 'site-templates');
-  const flagsOf = (f) => parseBuilderArgs(dir, f, ROOT).map((x) => x.flag).sort();
+  const flagsOf = (f: string): string[] => parseBuilderArgs(dir, f, ROOT).map((x) => x.flag).sort();
   // The Website line's parser takes the users and the pending fixes, nothing from the distribution set.
   assert.deepStrictEqual(flagsOf('cmd-website_starter-1-0-x-project.sh'), ['--add-users', '--with-pending-fixes']);
   assert.deepStrictEqual(flagsOf('cmd-webship_portal-1-0-x-project.sh'), ['--add-users', '--with-pending-fixes']);

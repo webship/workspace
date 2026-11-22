@@ -6,11 +6,16 @@
  * existed, and an explicit `type:` must win over that default.
  */
 
-const { test } = require('node:test');
-const assert = require('node:assert');
+import { test } from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const { TYPES, DEFAULT_TYPE_BY_KEY, isType, resolveType, typeActions } = require('../../workspace-types');
-const { loadWorkspaces, CONFIG_DIR } = require('../../workspaces');
+import { TYPES, DEFAULT_TYPE_BY_KEY, isType, resolveType, typeActions, addTypeAction } from '../../workspace-types.mts';
+import { loadWorkspaces, CONFIG_DIR } from '../../workspaces.js';
+
+/** What this test reads of a workspace (workspaces.js is not TypeScript yet). */
+interface WorkspaceView { type: string; typeActions: Set<string>; kind?: string; alsoFiles?: boolean }
 
 test('every default points at a real type', () => {
   for (const [key, type] of Object.entries(DEFAULT_TYPE_BY_KEY)) {
@@ -39,7 +44,7 @@ test('sites carry the full toolbelt, code drops the site controls, lists carry n
 });
 
 test('every loaded workspace resolves a type and its action set', () => {
-  for (const [key, meta] of Object.entries(loadWorkspaces())) {
+  for (const [key, meta] of Object.entries(loadWorkspaces() as Record<string, WorkspaceView>)) {
     assert.ok(isType(meta.type), `${key} resolved to unknown type '${meta.type}'`);
     assert.ok(meta.typeActions instanceof Set, `${key} has no typeActions set`);
     // files-kind pages have no project rows to act on — their types agree.
@@ -50,16 +55,13 @@ test('every loaded workspace resolves a type and its action set', () => {
 });
 
 test('the settings dropdown and the registry cannot drift', () => {
-  const fs = require('fs');
-  const path = require('path');
-  const labels = fs.readFileSync(path.join(CONFIG_DIR, 'settings.labels.yml'), 'utf8');
+  const labels = fs.readFileSync(path.join(CONFIG_DIR as string, 'settings.labels.yml'), 'utf8');
   for (const type of Object.keys(TYPES)) {
     assert.ok(labels.includes(`    ${type}:`), `settings.labels.yml type options miss '${type}'`);
   }
 });
 
 test('a plugin can allow its action on the types it names, and only there', () => {
-  const { addTypeAction } = require('../../workspace-types');
   addTypeAction('x-cloud', ['sites']);
   assert.ok(typeActions('sites').has('x-cloud'));
   assert.ok(!typeActions('code').has('x-cloud'));

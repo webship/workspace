@@ -1,7 +1,7 @@
 /**
  * Is there a newer version of a plugin on npm than the one this workspace has?
  *
- * The same three rules as version-check.js, which answers this for the core:
+ * The same three rules as version-check.mts, which answers this for the core:
  *
  *   - **Unknown is not up to date.** A package that is not on the registry (a path, a GitHub repo, a
  *     folder under plugins/), or a registry that cannot be reached, gives no answer, and no answer is
@@ -15,7 +15,7 @@
 
 const https = require('https');
 
-const { isNewer } = require('./version-check');
+const { isNewer } = require('./version-check.mts');
 
 const TTL = 6 * 60 * 60 * 1000;
 const FAIL_TTL = 15 * 60 * 1000;

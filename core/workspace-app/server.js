@@ -98,12 +98,12 @@ const { assistantReply } = require('./assistant');
 const chats = require('./chat-threads');
 const googleAuth = require('./auth-google');
 // Which address the server listens on, and which host names it answers to (DNS rebinding).
-const requestGuard = require('./request-guard');
-// A value as one word of a bash line, in single quotes (shell-quote.js): JSON.stringify is not that.
-const { shq, shWords } = require('./shell-quote');
+const requestGuard = require('./request-guard.mts');
+// A value as one word of a bash line, in single quotes (shell-quote.mts): JSON.stringify is not that.
+const { shq, shWords } = require('./shell-quote.mts');
 const changelog = require('./changelog');
 const rail = require('./navigation');
-const versionCheck = require('./version-check');
+const versionCheck = require('./version-check.mts');
 const navPage = require('./navigation-page');
 const notes = require('./notes');
 const buildOrderPage = require('./build-order-page');
@@ -4138,9 +4138,9 @@ async function projectRowsHtml(key, dir, state) {
 }
 
 
-// A builder's arguments come from the file that really parses them — see builder-args.js
+// A builder's arguments come from the file that really parses them — see builder-args.mts
 // for why the old distribution_name guess was wrong for 96 builders.
-const builderArgs = require('./builder-args');
+const builderArgs = require('./builder-args.mts');
 // The name the Build form proposes for a new project — see project-name.js
 const { suggestProjectName } = require('./project-name');
 const { userListOfProject, profileOfProject } = require('./project-platform');
@@ -6045,7 +6045,7 @@ async function onRequest(req, res) {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   // Answered only under a name this dashboard is known by. A page of another site whose name was pointed
   // at this machine (DNS rebinding) sends that name as Host and as Origin, which passed the same-origin
-  // check below and let it run actions (request-guard.js).
+  // check below and let it run actions (request-guard.mts).
   if (!requestGuard.hostAllowed(req.headers.host, { hub: hubDomain(), extra: requestGuard.extraHosts() })) {
     res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
     return res.end(requestGuard.refusalText(req.headers.host));
@@ -7798,7 +7798,7 @@ Summarise what you changed and how to verify it`,
   }
 
   // Is there a newer release than the one this machine runs? Its own fragment, cached for hours, and
-  // silent unless the answer is yes — see version-check.js for why silence is the only honest answer
+  // silent unless the answer is yes — see version-check.mts for why silence is the only honest answer
   // when the check cannot be made.
   // What the command palette can go to (public/palette.js): workspaces, pages and project folders.
   if (pathname === '/fragments/palette.json') {
@@ -8626,7 +8626,7 @@ process.on('uncaughtExceptionMonitor', (err) => {
 });
 
 // 127.0.0.1 when started with node on a machine, every interface inside a container (the router in front of
-// it decides what reaches it), or WORKSPACE_LISTEN: request-guard.js says why.
+// it decides what reaches it), or WORKSPACE_LISTEN: request-guard.mts says why.
 const LISTEN_HOST = requestGuard.listenHost();
 server.listen(PORT, LISTEN_HOST, () => {
   const where = server.address();

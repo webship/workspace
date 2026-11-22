@@ -9,19 +9,19 @@
  * scripts and `claude` are stand-ins that write down what they received.
  */
 
-const { test, before, after } = require('node:test');
-const assert = require('node:assert');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const net = require('net');
-const { spawn, spawnSync } = require('child_process');
+import { test, before, after } from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import net from 'node:net';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 
-const { shq, shWords } = require('../../shell-quote');
+import { shq, shWords } from '../../shell-quote.mts';
 
-const APP = path.join(__dirname, '../..');
+const APP = path.join(import.meta.dirname, '../..');
 const REPO = path.join(APP, '../..');
-const { copyConfig } = require('./_isolated-config');
+import { copyConfig } from './_isolated-config.js';
 
 test('shq: what bash reads back is the value, whatever is in it', () => {
   const values = ['a$(touch /nonexistent/r10)b', '`id`', '$HOME and ${PATH}', "it's", '"q"', 'back\\slash', 'new\nline', '!bang', ';|&<>*?[]{}~', 'emoji \u{1F600}', ''];
@@ -37,16 +37,16 @@ test('shq: what bash reads back is the value, whatever is in it', () => {
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-shell-quoting-'));
 const bin = path.join(root, 'bin');
 const ran = path.join(root, 'ran');          // where the canaries would land
-let proc;
-let base;
+let proc: ChildProcess | undefined;
+let base = '';
 
-const free = () => new Promise((resolve) => {
+const free = (): Promise<number> => new Promise((resolve) => {
   const s = net.createServer();
-  s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); });
+  s.listen(0, '127.0.0.1', () => { const p = (s.address() as net.AddressInfo).port; s.close(() => resolve(p)); });
 });
 
 /** A script that writes down the arguments it was given, one per line, beside itself. */
-const recorder = (file, extra = '') => `#!/usr/bin/env bash\nprintf '%s\\n' "$@" > ${shq(file)}\n${extra}exit 0\n`;
+const recorder = (file: string, extra = ''): string => `#!/usr/bin/env bash\nprintf '%s\\n' "$@" > ${shq(file)}\n${extra}exit 0\n`;
 
 before(async () => {
   fs.mkdirSync(path.join(root, 'core'), { recursive: true });
@@ -86,11 +86,12 @@ EOF
   const port = await free();
   base = `http://127.0.0.1:${port}`;
   const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, PORT: String(port), WORKSPACE_ROOT: root, HOME: root, WORKSPACE_PLUGINS_NO_RESTART: '1' };
-  proc = spawn(process.execPath, ['server.js'], { cwd: APP, env, stdio: ['ignore', 'pipe', 'pipe'] });
-  await new Promise((resolve, reject) => {
+  const server = spawn(process.execPath, ['server.js'], { cwd: APP, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  proc = server;
+  await new Promise<void>((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('server did not start')), 20000);
-    proc.stdout.on('data', (d) => { if (/listening/.test(String(d))) { clearTimeout(t); resolve(); } });
-    proc.on('exit', (c) => { clearTimeout(t); reject(new Error(`server exited ${c}`)); });
+    server.stdout.on('data', (d: Buffer) => { if (/listening/.test(String(d))) { clearTimeout(t); resolve(); } });
+    server.on('exit', (c) => { clearTimeout(t); reject(new Error(`server exited ${c}`)); });
   });
 });
 
@@ -99,13 +100,13 @@ after(() => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-const post = async (p, form) => {
+const post = async (p: string, form: Record<string, string>): Promise<{ status: number; text: string }> => {
   const r = await fetch(base + p, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(form) });
   return { status: r.status, text: await r.text() };
 };
-const lines = (file) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8').replace(/\n$/, '').split('\n') : null);
+const lines = (file: string): string[] | null => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8').replace(/\n$/, '').split('\n') : null);
 /** A value that would leave a file in `ran/` if any shell ran it, and says which way. */
-const hostile = (tag) => `x $(touch ${ran}/${tag}-dollar) \`touch ${ran}/${tag}-tick\` $HOME 'q'`;
+const hostile = (tag: string): string => `x $(touch ${ran}/${tag}-dollar) \`touch ${ran}/${tag}-tick\` $HOME 'q'`;
 const nothingRan = () => assert.deepStrictEqual(fs.readdirSync(ran), [], 'no shell ran a value');
 
 test('a build argument reaches the builder as typed', async () => {

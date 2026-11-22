@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { ROOT } = require('../../workspaces');
-const { parseArgparseText, parseBuilderArgs } = require('../../builder-args');
+const { parseArgparseText, parseBuilderArgs } = require('../../builder-args.mts');
 
 const VERSIONS = ['8.5', '8.4', '8.3', '8.2', '8.1', '8.0', '7.4'];
 const ARGS = path.join(ROOT, 'core/scripts/args');

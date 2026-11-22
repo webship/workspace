@@ -24,14 +24,20 @@
  * builder sources `${WORKSPACE_SCRIPTS}/plugins/<plugin>/args/…`, read the same way.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+
+/** One argument a builder takes. `def` is a string, or true/false for a flag. */
+export interface BuilderArg { flag: string; bool: boolean; def: string | boolean; choices: string[]; help: string }
+
+/** Where a builder's arguments come from. */
+export type ArgSource = { kind: 'inline' } | { kind: 'file'; file: string };
 
 /** Every `name="value"` assignment a script makes at the top level, last one wins. */
-function scriptAssignments(src) {
-  const out = {};
+export function scriptAssignments(src: string): Record<string, string> {
+  const out: Record<string, string> = {};
   for (const m of src.matchAll(/^[ \t]*([A-Za-z_][A-Za-z0-9_]*)="([^"$`]*)";?[ \t]*(?:#.*)?$/gm)) {
-    out[m[1]] = m[2];
+    if (m[1] !== undefined && m[2] !== undefined) out[m[1]] = m[2];
   }
   return out;
 }
@@ -41,20 +47,23 @@ function scriptAssignments(src) {
  * would, from the builder's own assignments. Without this the panel showed the
  * literal text `${site_template_version_default:-1.0.x-dev}` as a default.
  */
-function expandDefaults(text, vars) {
+export function expandDefaults(text: string, vars: Record<string, string>): string {
   return text.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g,
-    (_, name, fallback) => (vars[name] !== undefined && vars[name] !== '' ? vars[name] : (fallback ?? '')));
+    (_: string, name: string, fallback: string | undefined): string => {
+      const v = vars[name];
+      return v !== undefined && v !== '' ? v : (fallback ?? '');
+    });
 }
 
-function parseArgparseText(argSrc) {
-  const out = [];
+export function parseArgparseText(argSrc: string): BuilderArg[] {
+  const out: BuilderArg[] = [];
   for (const block of argSrc.split('parser.add_argument(').slice(1)) {
-    const flags = [...block.matchAll(/'(--?[a-zA-Z0-9_\-]+)'/g)].map((m) => m[1]);
+    const flags = [...block.matchAll(/'(--?[a-zA-Z0-9_\-]+)'/g)].map((m) => m[1] ?? '');
     const long = flags.find((f) => f.startsWith('--'));
     if (!long) continue; // positional (PROJECT_NAME etc.)
-    const bool = /action='store_true'/.test(block.split('parser.add_argument')[0]);
+    const bool = /action='store_true'/.test(block.split('parser.add_argument')[0] ?? '');
     const dm2 = block.match(/default=(?:"([^"]*)"|'([^']*)'|(False|True))/);
-    let def = dm2 ? (dm2[1] ?? dm2[2] ?? dm2[3]) : '';
+    let def: string | boolean = dm2 ? (dm2[1] ?? dm2[2] ?? dm2[3] ?? '') : '';
     if (def === 'False') def = false; else if (def === 'True') def = true;
     if (def === '_none_') def = '';
     const hm = block.match(/help='((?:[^'\\]|\\.)*)'/);
@@ -63,9 +72,9 @@ function parseArgparseText(argSrc) {
     // Build form can draw the control the argument's own shape asks for.
     const cm = block.match(/choices=\[([^\]]*)\]/);
     const choices = cm
-      ? [...cm[1].matchAll(/'([^']*)'|"([^"]*)"/g)].map((m) => m[1] ?? m[2]).filter((v) => v !== undefined)
+      ? [...(cm[1] ?? '').matchAll(/'([^']*)'|"([^"]*)"/g)].map((m) => m[1] ?? m[2]).filter((v): v is string => v !== undefined)
       : [];
-    out.push({ flag: long, bool, def, choices, help: hm ? hm[1].replace(/\\'/g, "'") : '' });
+    out.push({ flag: long, bool, def, choices, help: hm ? (hm[1] ?? '').replace(/\\'/g, "'") : '' });
   }
   return out;
 }
@@ -74,14 +83,14 @@ function parseArgparseText(argSrc) {
  * Where a builder's arguments come from:
  *   { kind: 'inline' } | { kind: 'file', file } | null
  */
-function argSourceOf(src, root) {
+export function argSourceOf(src: string, root: string): ArgSource | null {
   if (/argparse "\$@"/.test(src) && src.includes('parser.add_argument(')) return { kind: 'inline' };
   // A plugin's command sources its args from where the installer put them:
   // ${WORKSPACE_SCRIPTS}/plugins/<plugin>/args/arg-<name>.sh.
   const m = src.match(/^[ \t]*source[ \t]+\$\{?WORKSPACE_SCRIPTS\}?\/((?:plugins\/[a-z0-9-]+\/)?)args\/(arg-[A-Za-z0-9_${}.-]+\.sh)/m);
   if (!m) return null;
-  const from = m[1];
-  let name = m[2];
+  const from = m[1] ?? '';
+  let name = m[2] ?? '';
   if (name.includes('$')) {
     const vars = scriptAssignments(src);
     name = expandDefaults(name, vars);
@@ -100,7 +109,7 @@ function argSourceOf(src, root) {
  * Showing an empty default there would tell the user the builder takes the latest
  * release when it actually builds 1.0.x-dev.
  */
-function parseBuilderArgs(dir, script, root) {
+export function parseBuilderArgs(dir: string, script: string, root: string): BuilderArg[] {
   try {
     const src = fs.readFileSync(path.join(dir, script), 'utf8');
     const where = argSourceOf(src, root);
@@ -117,5 +126,3 @@ function parseBuilderArgs(dir, script, root) {
     return [];
   }
 }
-
-module.exports = { parseBuilderArgs, parseArgparseText, argSourceOf, expandDefaults, scriptAssignments };
