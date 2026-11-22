@@ -22,5 +22,5 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": ["**/*.ts", "**/*.mts", "**/*.cts", "**/*.js"],
-  "exclude": ["node_modules", "public/vendor", "plugins", "tests/reports", "logs", ".ddev"]
+  "exclude": ["node_modules", "public/vendor", "plugins", "tests/reports", "logs", ".ddev", "src/browser"]
 }

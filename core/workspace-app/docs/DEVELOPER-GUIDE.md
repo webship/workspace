@@ -266,9 +266,26 @@ Why so (checked on Node.js 22.18.0, 24.22.3 and 26.13.1):
 
 A converted module may only use what Node.js 22 has (`target`/`lib` `es2024`, `@types/node` 22).
 
-**The browser scripts in `public/` stay JavaScript.** A browser cannot run `.ts` without a build, and the
-dashboard has none. Whether they get a build of their own, JSDoc types checked by `tsc`, or stay as they are is
-an open question for the owner.
+### The browser scripts
+
+A browser cannot run `.ts`, so the scripts the pages load are the one place with a build, and the build's output is
+committed: a fresh clone still runs the dashboard with no build step.
+
+- **The source** of `public/<name>.js` is `src/browser/<name>.ts`: strict, the DOM library and no Node.js types
+  (`src/browser/tsconfig.json`), a classic script (no `import`, no `export`), what `window` carries declared in
+  `src/browser/globals.d.ts`. A script the unit tests also `require` keeps its UMD wrapper (`narration.ts`).
+- **The build** is esbuild (a pinned dev dependency), one file at a time with no bundling and no module format, into
+  `public/` at the same name: no page changes, and the file starts with a line that says it is built.
+  `npm run build:browser` rebuilds what changed. **Change the `.ts`, run it, and commit both**; never edit a built
+  `public/<name>.js`, the next build replaces it.
+- **The checks:** `npm run typecheck` checks the browser sources too (`tsc -p src/browser`); CI's
+  `browser-scripts` job and `tests/unit/browser-build.test.mts` fail when a committed script is not what its source
+  builds to (`npm run build:browser -- --check`).
+- **A test that reads a script's source** reads the `.ts` (`src/browser/media-player.ts`): the built file has no
+  comments and esbuild's formatting. A test that runs a script requires the built `public/<name>.js`.
+- **Not built:** the vendored libraries (`public/vendor/`, `htmx.min.js`, UIkit) stay as they are shipped.
+- **Converted so far:** `narration`, `media-player`, `sortable`. The other scripts in `public/` are still
+  hand-written JavaScript until their turn.
 
 ---
 
@@ -277,7 +294,8 @@ an open question for the owner.
 ```bash
 bash core/scripts/tests/cmd-smoke-test.sh    # every cmd-*.sh: syntax, bootstrap chain, header
 cd core/workspace-app && npm run test:unit   # node --test
-cd core/workspace-app && npm run typecheck   # tsc, no output written
+cd core/workspace-app && npm run typecheck   # tsc, no output written (the server and the browser sources)
+cd core/workspace-app && npm run build:browser   # src/browser/*.ts into public/*.js; commit both
 cd core/workspace-app && npm test            # unit + the cucumber browser suite
 cd core/workspace-app && FEATURES=tests/features/settings.feature npm run test:browser   # one feature (or a glob)
 ```

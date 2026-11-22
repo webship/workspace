@@ -179,7 +179,7 @@ test('the transcript opens on its own, and says nothing it should not', async ()
 });
 
 test('the seek buttons and the card styles are in the front end', () => {
-  assert.match(fs.readFileSync(path.join(APP, 'public/media-player.js'), 'utf8'), /\[data-seek\][\s\S]*media\.currentTime = /);
+  assert.match(fs.readFileSync(path.join(APP, 'src/browser/media-player.ts'), 'utf8'), /\[data-seek\][\s\S]*media\.currentTime = /);
   assert.match(fs.readFileSync(path.join(APP, 'public/css/components/project-rows.css'), 'utf8'), /\.fx-thumb\.is-default/);
 });
 

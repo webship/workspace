@@ -46,11 +46,12 @@ test('the audio folder is browsable and a sound row gets the music icon', () => 
 });
 
 test('the sound player controls act on the audio in their own card', () => {
-  const ui = read(APP, 'public/media-player.js');
+  // The source the page's public/media-player.js is built from (npm run build:browser).
+  const ui = read(APP, 'src/browser/media-player.ts');
   assert.match(ui, /\[data-sound-speed\]/);
   assert.match(ui, /media\.playbackRate = r/);
   assert.match(ui, /\[data-sound-loop\]/);
-  assert.match(ui, /media\.loop = e\.target\.checked/);
+  assert.match(ui, /media\.loop = box\.checked/);
   assert.ok(fs.existsSync(path.join(APP, 'public/css/components/sound-player.css')));
 });
 
