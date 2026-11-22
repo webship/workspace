@@ -225,6 +225,33 @@ test('a plugin\'s CI builds the one site its manifest names, on Docker Compose, 
   for (const bad of ['cmd-x-project.sh a; curl x', 'bash cmd-x.sh', 'cmd-x-project.sh $(id)', '../cmd-x.sh a', 'cmd-x-project.sh a && b', 'cmd-x-project.sh `id`', 'cmd-x-project.sh a|b']) assert.doesNotMatch(bad, pattern, bad);
 });
 
+test('the site a plugin\'s CI builds gets an account an installer accepts: the placeholder password is too short for some', () => {
+  const workflow = fs.readFileSync(path.join(REPO, '.github', 'workflows', 'plugin-browser-suite.yml'), 'utf8');
+  const step = workflow.slice(workflow.indexOf('- name: the site the plugin\'s features drive'), workflow.indexOf('- name: a placeholder project in every workspace folder'));
+  const line = step.split('\n').find((l) => /^\s*sed -i .* core\/config\/settings\.yml$/.test(l));
+  assert.ok(line, 'the step sets the account of the job');
+  assert.ok(step.indexOf(line) < step.indexOf('bash $line'), 'before the site is built');
+  // Run on the settings the repository ships: the account's password, and no other line.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ci-account-'));
+  fs.mkdirSync(path.join(dir, 'core', 'config'), { recursive: true });
+  const shipped = fs.readFileSync(path.join(REPO, 'core', 'config', 'settings.yml'), 'utf8');
+  fs.writeFileSync(path.join(dir, 'core', 'config', 'settings.yml'), shipped);
+  const r = spawnSync('bash', ['-c', line.trim()], { cwd: dir, encoding: 'utf8' });
+  assert.strictEqual(r.status, 0, r.stderr);
+  const after = fs.readFileSync(path.join(dir, 'core', 'config', 'settings.yml'), 'utf8').split('\n');
+  const changed = shipped.split('\n').map((l, i) => [l, after[i]]).filter(([a, b]) => a !== b);
+  assert.strictEqual(changed.length, 1, 'one line');
+  assert.strictEqual(changed[0][0], '  pass: CHANGE_ME');
+  const pass = changed[0][1].replace(/^  pass: /, '');
+  assert.ok(pass.length >= 12, 'long enough for the installers that ask for 10 or 12 characters');
+  assert.match(pass, /^[a-z0-9-]+$/, 'plain: nothing a shell or YAML reads');
+  assert.strictEqual(after[shipped.split('\n').indexOf('  pass: CHANGE_ME') - 2], 'account:', 'the account\'s own');
+  // A workspace whose owner set a password keeps it.
+  fs.writeFileSync(path.join(dir, 'core', 'config', 'settings.yml'), shipped.replace('  pass: CHANGE_ME', '  pass: mine-and-long-enough'));
+  spawnSync('bash', ['-c', line.trim()], { cwd: dir });
+  assert.match(fs.readFileSync(path.join(dir, 'core', 'config', 'settings.yml'), 'utf8'), /^  pass: mine-and-long-enough$/m);
+});
+
 test('a feature can open a page of the site itself, and ask for a site of its own platform', () => {
   const steps = fs.readFileSync(path.join(APP, 'tests', 'step-definitions', 'runtimes.steps.js'), 'utf8');
   assert.match(steps, /When\('I open \{string\} on the \{string\} site'/);
