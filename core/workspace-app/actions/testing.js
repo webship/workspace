@@ -28,7 +28,7 @@ const {
   findTestReports, testReportFor, invalidateTestReports, testMediaHtml, testingStackOf,
 } = require('../test-reports');
 const { NAME_RE, SCRIPT_RE } = require('../validate.mts');
-const { commandBlock } = require('../command-block');
+const { commandBlock } = require('../command-block.mts');
 const { wsUrl } = require('../urls');
 const { findGraphifyScript, findRagifyScript } = require('../workspaces');
 const { DDEV_ACTIONS } = require('../ddev');

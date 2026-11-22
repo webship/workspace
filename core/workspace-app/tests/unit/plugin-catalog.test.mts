@@ -2,10 +2,19 @@
  * The catalogue: what the empty dashboard suggests and the Plugins page offers to require. Every
  * entry is an npm package of the one scope, named once, and the page marks what is already required.
  */
-const assert = require('node:assert');
-const { test } = require('node:test');
+import assert from 'node:assert';
+import { test } from 'node:test';
 
-const { FAMILIES, SCOPE, catalog } = require('../../plugin-catalog');
+import { FAMILIES, SCOPE, catalog } from '../../plugin-catalog.mts';
+import $plugins_page from '../../plugins-page.js';
+import $settings_model from '../../settings-model.js';
+import * as $fs from 'node:fs';
+import * as $path from 'node:path';
+
+/** What this test uses of plugins-page.js and settings-model.js, which are not TypeScript yet. */
+interface CatalogRow { module: string }
+interface PluginsPageView { catalogHtml(required?: Set<string> | Map<string, CatalogRow>): string }
+interface SettingsModelView { groupByFamily(rows: object[]): { plugins: CatalogRow[] }[] }
 
 test('every catalogue entry is an @webship.co/workspace-<name> package, named once, in a family that says what it is for', () => {
   assert.strictEqual(SCOPE, '@webship.co');
@@ -23,7 +32,7 @@ test('every catalogue entry is an @webship.co/workspace-<name> package, named on
 });
 
 test('the catalogue is rows by family: a name, the line that says what it does and a short id; nothing is cut, and what it needs is not here', () => {
-  const { catalogHtml } = require('../../plugins-page');
+  const { catalogHtml } = $plugins_page as unknown as PluginsPageView;
   const html = catalogHtml(new Set(['@webship.co/workspace-git']));
   assert.match(html, /Catalogue/);
   assert.strictEqual((html.match(/<span>Added<\/span>/g) || []).length, 1, 'git is marked, once');
@@ -38,8 +47,8 @@ test('the catalogue is rows by family: a name, the line that says what it does a
 });
 
 test('a plugin that is here shows the state it is in, not a green "Added" over something that is not installed', () => {
-  const { catalogHtml } = require('../../plugins-page');
-  const model = require('../../settings-model');
+  const { catalogHtml } = $plugins_page as unknown as PluginsPageView;
+  const model = $settings_model as unknown as SettingsModelView;
   const row = { name: 'cpanel', module: '@webship.co/workspace-cpanel', version: '1.0.0', manifest: { name: 'cpanel', label: 'cPanel' }, step: 1, wants: { unmet: [], problems: [] } };
   const p = model.groupByFamily([row])[0].plugins[0];
   const html = catalogHtml(new Map([[p.module, p]]));
@@ -68,7 +77,7 @@ test('the AI folders are a family of their own, the platforms on npm are listed,
 });
 
 test('the Plugins page is where a plugin is added: a labelled box, the catalogue under a filter, the commands of the base closed at the end', () => {
-  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'plugins-page.js'), 'utf8');
+  const src = $fs.readFileSync($path.join(import.meta.dirname, '..', '..', 'plugins-page.js'), 'utf8');
   assert.match(src, /<label class="settings-search-label" for="plugin-require-spec">Add a package by name<\/label>/);
   assert.match(src, /<div class="settings-search" hidden>/);
   assert.match(src, /data-show="\$\{show\}"/);
@@ -80,7 +89,7 @@ test('the Plugins page is where a plugin is added: a labelled box, the catalogue
 });
 
 test('a row of the catalogue wraps its line instead of cutting it, and an empty catalogue is not drawn', () => {
-  const read = (f) => require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'public', f), 'utf8');
+  const read = (f: string): string => $fs.readFileSync($path.join(import.meta.dirname, '..', '..', 'public', f), 'utf8');
   assert.match(read('css/components/settings-home.css'), /\.plugin-row-summary \{ white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; \}/);
   assert.ok(!/\.plugin-catalog \.plugin-row-summary \{ white-space: nowrap; \}/.test(read('css/components/plugins-page.css')));
   assert.match(read('ui.js'), /querySelectorAll\('\.plugin-catalog-section'\)\.forEach\(\(g\) => \{ g\.hidden = /);

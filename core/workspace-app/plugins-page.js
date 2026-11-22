@@ -24,7 +24,7 @@ const commandCheck = require('./command-check');
 const { status, RECORD } = require('./plugin-install');
 const { pluginConfigs, loadedPlugins } = require('./plugin-loader');
 const { ROOT, CONFIG_DIR } = require('./workspaces');
-const { FAMILIES, SCOPE } = require('./plugin-catalog');
+const { FAMILIES, SCOPE } = require('./plugin-catalog.mts');
 
 const STEPS = ['required', 'activated', 'installed', 'configured'];
 

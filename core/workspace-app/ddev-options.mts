@@ -5,36 +5,45 @@
  * Every value is picked from a list, never typed into a shell line.
  */
 
-const { esc } = require('./html.mts');
+import { esc } from './html.mts';
 
-const PROJECT_TYPES = ['php', 'generic', 'drupal12', 'drupal11', 'drupal10', 'drupal9', 'drupal8', 'drupal7', 'drupal6', 'drupal',
+/** A DDEV quickstart: the `ddev config` settings it starts from. */
+export interface Preset {
+  id: string; label: string; project_type: string; docroot?: string; php_version?: string; database?: string;
+  webserver_type?: string; omit_db?: boolean; python?: boolean;
+}
+
+/** The fields of the form, as posted. */
+export type DdevForm = Partial<Record<string, string | null>>;
+
+export const PROJECT_TYPES: string[] = ['php', 'generic', 'drupal12', 'drupal11', 'drupal10', 'drupal9', 'drupal8', 'drupal7', 'drupal6', 'drupal',
   'backdrop', 'wordpress', 'wp-bedrock', 'typo3', 'laravel', 'symfony', 'craftcms', 'shopware6', 'magento2', 'magento', 'maho',
   'joomla', 'silverstripe', 'cakephp', 'codeigniter', 'modx', 'asterios'];
 
-const PHP_VERSIONS = ['8.5', '8.4', '8.3', '8.2', '8.1', '8.0', '7.4', '7.3', '7.2', '7.1', '7.0', '5.6'];
+export const PHP_VERSIONS: string[] = ['8.5', '8.4', '8.3', '8.2', '8.1', '8.0', '7.4', '7.3', '7.2', '7.1', '7.0', '5.6'];
 
-const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => String(b - i));
-const DATABASES = [
+const range = (a: number, b: number): string[] => Array.from({ length: b - a + 1 }, (_, i) => String(b - i));
+export const DATABASES: string[] = [
   ...['12.3', '11.8', '11.4', '10.11', '10.8', '10.7', '10.6', '10.5', '10.4', '10.3', '10.2', '10.1', '10.0', '5.5'].map((v) => `mariadb:${v}`),
   ...['9.7', '8.4', '8.0', '5.7', '5.6', '5.5'].map((v) => `mysql:${v}`),
   ...range(9, 18).map((v) => `postgres:${v}`),
 ];
 
-const WEBSERVERS = ['nginx-fpm', 'apache-fpm', 'generic'];
+export const WEBSERVERS: string[] = ['nginx-fpm', 'apache-fpm', 'generic'];
 // "" uses the version already in the image; auto and engine read it from the project's own files.
-const NODE_VERSIONS = ['26', '24', '22', '20', '18', 'auto', 'engine', ''];
-const COMPOSER_VERSIONS = ['2', '2.2', 'stable', 'preview', 'snapshot', ''];
+export const NODE_VERSIONS: string[] = ['26', '24', '22', '20', '18', 'auto', 'engine', ''];
+export const COMPOSER_VERSIONS: string[] = ['2', '2.2', 'stable', 'preview', 'snapshot', ''];
 // The packages DDEV's own Python quickstart (Wagtail) adds; the version is the one Debian ships in the web image.
-const PYTHON_PACKAGES = 'python3-pip,python3-venv';
-const DOCROOT_RE = /^(?:[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*)?$/;
+export const PYTHON_PACKAGES = 'python3-pip,python3-venv';
+export const DOCROOT_RE = /^(?:[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*)?$/;
 
-const CHOICES = {
+export const CHOICES: Record<string, string[]> = {
   project_type: PROJECT_TYPES, php_version: PHP_VERSIONS, database: DATABASES,
   webserver_type: WEBSERVERS, nodejs_version: NODE_VERSIONS, composer_version: COMPOSER_VERSIONS,
 };
 
 // The DDEV quickstarts, with the settings each one's `ddev config` uses. Unset fields keep DDEV's defaults.
-const PRESETS = [
+export const PRESETS: Preset[] = [
   { id: 'php', label: 'Plain PHP', project_type: 'php' },
   { id: 'asterios', label: 'Asterios', project_type: 'asterios', docroot: 'public' },
   { id: 'backdrop', label: 'Backdrop', project_type: 'backdrop' },
@@ -73,12 +82,12 @@ const PRESETS = [
 ];
 
 /** The `ddev config` flags a form asks for, each checked against the lists above. Unchosen values are left to DDEV. */
-function configArgs(form) {
-  const args = [];
-  const pick = (field, flag) => {
+export function configArgs(form: DdevForm): string[] {
+  const args: string[] = [];
+  const pick = (field: string, flag: string): void => {
     const v = form[field];
     if (v === undefined || v === null || v === '__default') return;
-    if (CHOICES[field].includes(String(v))) args.push(`${flag}=${String(v)}`);
+    if ((CHOICES[field] ?? []).includes(String(v))) args.push(`${flag}=${String(v)}`);
   };
   pick('project_type', '--project-type');
   const docroot = String(form.docroot === undefined ? '' : form.docroot).trim();
@@ -94,7 +103,7 @@ function configArgs(form) {
 }
 
 /** Shell-quote each argument, for a line run in a screen session. */
-function shellArgs(args) {
+export function shellArgs(args: readonly string[]): string {
   return args.map((a) => `'${a.replace(/'/g, `'\\''`)}'`).join(' ');
 }
 
@@ -102,8 +111,8 @@ function shellArgs(args) {
  * The fields, for a form. `current` holds the values a project already has (Configure DDEV on an existing
  * project); a field with no current value starts on "DDEV's default", so nothing is changed unasked.
  */
-function fieldsHtml({ current = {}, prefix = 'ddev' } = {}) {
-  const sel = (name, label, values, hint, def = '__default') => {
+export function fieldsHtml({ current = {}, prefix = 'ddev' }: { current?: Partial<Record<string, string | boolean>>; prefix?: string } = {}): string {
+  const sel = (name: string, label: string, values: readonly string[], hint: string, def = '__default'): string => {
     const now = current[name] !== undefined ? String(current[name]) : def;
     const opts = [`<option value="__default"${now === '__default' ? ' selected' : ''}>DDEV's default</option>`]
       .concat(values.map((v) => `<option value="${esc(v)}"${now === v ? ' selected' : ''}>${esc(v === '' ? '(empty: what the image has)' : v)}</option>`));
@@ -113,7 +122,7 @@ function fieldsHtml({ current = {}, prefix = 'ddev' } = {}) {
   };
   const presetOpts = PRESETS.map((p) => {
     const data = ['project_type', 'docroot', 'php_version', 'database', 'webserver_type']
-      .map((k) => `data-${k.replace(/_/g, '-')}="${esc(p[k] === undefined ? '__default' : p[k])}"`).join(' ');
+      .map((k) => { const v = p[k as keyof Preset]; return `data-${k.replace(/_/g, '-')}="${esc(v === undefined ? '__default' : v)}"`; }).join(' ');
     return `<option value="${esc(p.id)}" ${data} data-omit-db="${p.omit_db ? 1 : 0}" data-python="${p.python ? 1 : 0}">${esc(p.label)}</option>`;
   }).join('');
   return `
@@ -123,7 +132,7 @@ function fieldsHtml({ current = {}, prefix = 'ddev' } = {}) {
           <option value="">Choose…</option>${presetOpts}
         </select>
         <div class="uk-grid-small uk-child-width-1-2@m" uk-grid>
-          ${sel('project_type', 'Project type', PROJECT_TYPES, 'What DDEV configures the container for.', current.project_type ? current.project_type : 'php')}
+          ${sel('project_type', 'Project type', PROJECT_TYPES, 'What DDEV configures the container for.', current.project_type ? String(current.project_type) : 'php')}
           <div><label class="uk-form-label" for="${prefix}-docroot">Docroot</label>
             <input class="uk-input uk-form-small" id="${prefix}-docroot" name="docroot" value="${esc(current.docroot || '')}"
                    pattern="[a-zA-Z0-9_/-]*" maxlength="80" placeholder="(the folder itself)">
@@ -140,6 +149,3 @@ function fieldsHtml({ current = {}, prefix = 'ddev' } = {}) {
         </div>
       </div>`;
 }
-
-module.exports = { PROJECT_TYPES, PHP_VERSIONS, DATABASES, WEBSERVERS, NODE_VERSIONS, COMPOSER_VERSIONS, PRESETS, CHOICES,
-  PYTHON_PACKAGES, configArgs, shellArgs, fieldsHtml };

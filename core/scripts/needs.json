@@ -51,7 +51,7 @@
       },
       {
         "command": "container:git",
-        "for": "core/workspace-app/git-info.js"
+        "for": "core/workspace-app/git-info.mts"
       },
       {
         "command": "container:ddev",

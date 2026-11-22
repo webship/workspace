@@ -11,7 +11,7 @@ const path = require('path');
 
 const { esc } = require('../html.mts');
 const { isValidWorkspace, workspaceDir } = require('../workspaces');
-const notes = require('../notes');
+const notes = require('../notes.mts');
 
 /**
  * The folder a request names, or null.

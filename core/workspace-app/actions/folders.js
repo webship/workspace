@@ -8,7 +8,7 @@ const path = require('path');
 const { esc } = require('../html.mts');
 const { isValidWorkspace, loadWorkspaces, loadSettings, workspaceDir } = require('../workspaces');
 const folders = require('../folders');
-const notes = require('../notes');
+const notes = require('../notes.mts');
 const { startInScreen, screenStartedHtml } = require('../jobs');
 const { pluginFolderSetups } = require('../plugin-loader');
 
@@ -40,7 +40,7 @@ function canTest(ws) { return ships(ws, 'cmd-tools-testing.sh'); }
 
 /** DDEV project types the form offers, the same list Configure DDEV uses. */
 function projectTypes() {
-  return require('../ddev-options').PROJECT_TYPES;
+  return require('../ddev-options.mts').PROJECT_TYPES;
 }
 
 /** The setup shell line: DDEV, then the testing stack, then what the plugins add. Each step needs the one before. */
@@ -48,7 +48,7 @@ function setupLine(ws, name, form) {
   const steps = [];
   const wantE2e = form.e2e === '1' && canTest(ws);
   if (form.ddev === '1' || wantE2e) {
-    const opts = require('../ddev-options');
+    const opts = require('../ddev-options.mts');
     const chosen = { docroot: '', ...form };
     if (!opts.PROJECT_TYPES.includes(String(chosen.project_type))) chosen.project_type = 'php';
     const args = ['config', '--auto=false', `--project-name=${name}`, ...opts.configArgs(chosen)];

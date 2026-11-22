@@ -2,10 +2,25 @@
  * A newer version of a plugin on npm: asked a few packages at a time, remembered, and never claimed
  * when it is not known.
  */
-const assert = require('node:assert');
-const { test } = require('node:test');
+import assert from 'node:assert';
+import { test } from 'node:test';
 
-const updates = require('../../plugin-updates.mts');
+import * as updates from '../../plugin-updates.mts';
+import $settings_home from '../../settings-home.js';
+import $settings_model from '../../settings-model.js';
+import $settings_plugin_page from '../../settings-plugin-page.js';
+
+/** What this test uses of the Settings modules, which are not TypeScript yet. */
+interface SettingsHomeView {
+  updatesLineHtml(list: object[], error?: string): string;
+  homeHtml(data: { files: string[]; plugins: object[]; groups: object[]; styles: { count: number; wearing: string } }): string;
+}
+interface PluginView { state: { update?: string } }
+interface SettingsModelView { groupByFamily(rows: object[], opts?: { latest: Record<string, string>; isNewer: (a: unknown, b: unknown) => boolean }): { plugins: PluginView[] }[] }
+interface SettingsPluginPageView { statusHtml(p: PluginView): string }
+const home = $settings_home as unknown as SettingsHomeView;
+const model = $settings_model as unknown as SettingsModelView;
+const page = $settings_plugin_page as unknown as SettingsPluginPageView;
 
 const rows = [
   { name: 'git', module: '@webship.co/workspace-git', version: '1.0.8', manifest: { label: 'Git' } },
@@ -15,8 +30,8 @@ const rows = [
 
 test('only a version that is really greater is an update, and a plugin with no package is not asked about', async () => {
   updates.forget();
-  const asked = [];
-  const ask = async (name) => { asked.push(name); return '1.0.9'; };
+  const asked: string[] = [];
+  const ask = async (name: string): Promise<string> => { asked.push(name); return '1.0.9'; };
   const got = await updates.refresh(rows.map((p) => p.module), { ask });
   assert.deepStrictEqual(asked.sort(), ['@webship.co/workspace-git', '@webship.co/workspace-jira']);
   assert.strictEqual(got.error, '');
@@ -50,7 +65,7 @@ test('a registry that cannot be reached is an error that is said, never "up to d
 
 test('a package the registry does not have, and a name that is not a package name, give no answer', async () => {
   updates.forget();
-  const asked = [];
+  const asked: string[] = [];
   const got = await updates.refresh(['plugins/notes', '../x', 'github:webship/thing', 'local-only'], { ask: async (n) => { asked.push(n); return ''; } });
   assert.deepStrictEqual(asked, ['local-only']);
   assert.deepStrictEqual(got.latest, {});
@@ -58,7 +73,6 @@ test('a package the registry does not have, and a name that is not a package nam
 });
 
 test('Settings says it in a line with a link to each plugin, says when npm could not be asked, and says nothing when there is nothing', () => {
-  const home = require('../../settings-home');
   assert.strictEqual(home.updatesLineHtml([], ''), '');
   const one = home.updatesLineHtml([{ name: 'git', label: 'Git', version: '1.0.8', latest: '1.0.9' }]);
   assert.match(one, /A newer version is on npm: <a href="\/settings\/plugin\/git">Git 1\.0\.8 → 1\.0\.9<\/a>\./);
@@ -68,8 +82,6 @@ test('Settings says it in a line with a link to each plugin, says when npm could
 });
 
 test('a plugin with a newer version shows it in its state and offers the update with the same command for a terminal', () => {
-  const model = require('../../settings-model');
-  const page = require('../../settings-plugin-page');
   const row = { name: 'git', module: '@webship.co/workspace-git', version: '1.0.8', manifest: { name: 'git', label: 'Git', settingsTemplate: 'c.yml' }, step: 3, wants: { needs: [], suggests: [], unmet: [], problems: [] }, placed: {} };
   const p = model.groupByFamily([row], { latest: { '@webship.co/workspace-git': '1.0.9' }, isNewer: updates.isNewer })[0].plugins[0];
   assert.strictEqual(p.state.update, '1.0.9');

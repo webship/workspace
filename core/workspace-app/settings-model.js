@@ -7,7 +7,7 @@
  * tested without a workspace, and so the home page, a plugin's page and the modal cannot disagree.
  */
 
-const { FAMILIES: CATALOG, SCOPE } = require('./plugin-catalog');
+const { FAMILIES: CATALOG, SCOPE } = require('./plugin-catalog.mts');
 
 /** The families Settings groups plugins by, in the order they are shown. */
 const FAMILIES = [

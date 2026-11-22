@@ -7,12 +7,12 @@
  * site of this machine, and an answer kept before the fix comes back from the history as text.
  */
 
-const { test } = require('node:test');
-const assert = require('node:assert');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { spawnSync } = require('child_process');
+import { test } from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-md-safe-'));
 fs.mkdirSync(path.join(root, 'core', 'config'), { recursive: true });
@@ -21,7 +21,16 @@ fs.mkdirSync(path.join(root, 'dev'), { recursive: true });
 process.env.WORKSPACE_ROOT = root;
 process.env.WORKSPACE_CONFIG = path.join(root, 'core', 'config');
 
-const { renderMarkdown } = require('../../markdown.mts');
+import { renderMarkdown } from '../../markdown.mts';
+import $assistant from '../../assistant.js';
+import $chat_threads from '../../chat-threads.js';
+import * as $markdown from '../../markdown.mts';
+
+/** What this test uses of assistant.js, which is not TypeScript yet. */
+interface AssistantView {
+  assistantReply(prompt: string, context: string, session: string | null, opts: object, avatar: string | null):
+    Promise<{ replyHtml: string; directive: { open?: string; navigate?: string } }>;
+}
 
 const HOSTILE = [
   'a <img src=x onerror=alert(3)> b <script>alert(2)</script>',
@@ -49,7 +58,7 @@ test('a markdown file with markup in it renders as text, and only safe addresses
 });
 
 test('the assistant opens a site of this machine, and no other', () => {
-  const { localSiteUrl } = require('../../assistant');
+  const { localSiteUrl } = $assistant;
   for (const ok of ['https://site1.ddev.site', 'https://site1.dev.workspace.ddev.site/user', 'https://workspace.ddev.site/dev', 'http://localhost:8080/', 'http://127.0.0.1:3000']) {
     assert.strictEqual(localSiteUrl(ok), true, ok);
   }
@@ -71,7 +80,7 @@ test('an answer that names another site in an OPEN line opens nothing, and its m
   const PATH = process.env.PATH;
   process.env.PATH = `${bin}${path.delimiter}${PATH}`;
   try {
-    const { assistantReply } = require('../../assistant');
+    const { assistantReply } = $assistant as unknown as AssistantView;
     const { replyHtml, directive } = await assistantReply('summarise the README', '', null, {}, null);
     assert.strictEqual(directive.open, undefined, 'another site is not opened');
     assert.ok(directive.navigate, 'a page of the dashboard still is');
@@ -86,7 +95,7 @@ test('an answer that names another site in an OPEN line opens nothing, and its m
 });
 
 test('an answer kept with live markup before the fix comes back from the history as text', () => {
-  const { historyFor } = require('../../chat-threads');
+  const { historyFor } = $chat_threads;
   const thread = { turns: [
     { role: 'user', text: 'hi' },
     { role: 'ai', html: '<p>Badge <img src="x" onerror="alert(1)"></p>' },
@@ -100,7 +109,7 @@ test('an answer kept with live markup before the fix comes back from the history
 });
 
 test('the filter ships in the npm package: the files list names the .lua, which "*.js" would not take', () => {
-  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', '..', 'package.json'), 'utf8'));
+  const pkg = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '..', '..', '..', '..', 'package.json'), 'utf8'));
   assert.ok(pkg.files.includes('core/workspace-app/markdown-safe.lua'), 'package.json files');
-  assert.ok(fs.existsSync(require('../../markdown.mts').FILTER), 'markdown.mts points at it');
+  assert.ok(fs.existsSync($markdown.FILTER), 'markdown.mts points at it');
 });
