@@ -2,7 +2,7 @@
  * The container runtime of a project folder (webship/workspace#694): DDEV, Docker Compose, Podman or Kubernetes.
  *
  * A project's runtime is what it carries, read the way core/scripts/functions/fun-runtime.sh reads it:
- * `.ddev/config.yaml` is DDEV; a `compose.yaml` with an `x-webship:` block is the runtime that block names
+ * A `compose.yaml` with an `x-webship:` block is the runtime that block names; else `.ddev/config.yaml` is DDEV
  * (docker, podman, kubernetes), written by a builder run with `--runtime`. Anything else has none.
  *
  *   readProject(dir)        { runtime, name, root, port, type, docroot, platform, namespace }: files only, no process.
@@ -60,22 +60,26 @@ function webshipBlock(text) {
   return out;
 }
 
-/** What a project folder is, from its files alone. DDEV first, as rt_find_project decides. */
+/**
+ * What a project folder is, from its files alone. The `x-webship:` block first, as rt_find_project decides: only the
+ * Workspace writes it, on a build that is not DDEV's, and a project template may ship a `.ddev/` of its own.
+ */
 function readProject(projectDir) {
   const root = path.resolve(String(projectDir || ''));
+  let text = '';
+  try { text = fs.readFileSync(path.join(root, 'compose.yaml'), 'utf8'); } catch (_) { /* no compose file */ }
+  const block = text ? webshipBlock(text) : null;
+  if (block && RUNTIMES.includes(block.runtime)) {
+    const name = (text.match(/^name:\s*["']?([\w.-]+)/m) || [])[1] || path.basename(root);
+    return { runtime: block.runtime, name, root, port: /^\d+$/.test(block.port || '') ? block.port : '',
+      type: block.type || '', docroot: block.docroot || '', platform: block.platform || '', namespace: block.runtime === 'kubernetes' ? `ws-${name}` : '' };
+  }
   try {
     const cfg = fs.readFileSync(path.join(root, '.ddev', 'config.yaml'), 'utf8');
     const m = cfg.match(/^name:\s*["']?([^"'\s]+)/m);
     return { ...NONE, runtime: 'ddev', root, name: m ? m[1] : path.basename(root).replace(/[^a-zA-Z0-9._-]/g, '-'),
       docroot: (cfg.match(/^docroot:\s*["']?([^"'\s]*)/m) || [])[1] || '', type: (cfg.match(/^type:\s*["']?([^"'\s]+)/m) || [])[1] || '' };
-  } catch (_) { /* not DDEV */ }
-  let text;
-  try { text = fs.readFileSync(path.join(root, 'compose.yaml'), 'utf8'); } catch (_) { return NONE; }
-  const block = webshipBlock(text);
-  if (!block || !RUNTIMES.includes(block.runtime)) return NONE;
-  const name = (text.match(/^name:\s*["']?([\w.-]+)/m) || [])[1] || path.basename(root);
-  return { runtime: block.runtime, name, root, port: /^\d+$/.test(block.port || '') ? block.port : '',
-    type: block.type || '', docroot: block.docroot || '', platform: block.platform || '', namespace: block.runtime === 'kubernetes' ? `ws-${name}` : '' };
+  } catch (_) { return NONE; }
 }
 
 /** Is this one of the runtimes the layer runs besides DDEV? */

@@ -45,6 +45,44 @@ test('a DDEV project: every verb is DDEV itself, unchanged', () => {
   assert.match(r.out, /https:\/\/site\.ddev\.site/);
 });
 
+test('a template that ships .ddev/: the project stays on the runtime the Workspace built it on', () => {
+  const dir = sandbox();
+  const p = path.join(dir, 'site'); fs.mkdirSync(path.join(p, '.ddev'), { recursive: true });
+  fs.writeFileSync(path.join(p, 'compose.yaml'), 'name: site\nx-webship:\n  runtime: docker\n  type: drupal\n  port: 41555\nservices:\n  web:\n    image: x\n');
+  // What `composer create-project drupal/webship_project` copies in after `ddev config` wrote compose.yaml.
+  fs.writeFileSync(path.join(p, '.ddev', 'config.yaml'), 'type: drupal11\ndocroot: web\n');
+  const r = run(dir, p, 'runtime_of; ddev drush status; rt_url');
+  assert.match(r.out, /^docker$/m);
+  assert.ok(r.calls.length > 0 && r.calls.every((c) => c.startsWith('docker ')), r.calls.join(' | '));
+  assert.match(r.out, /http:\/\/127\.0\.0\.1:41555/);
+  // A DDEV project that has a compose file of its own, without the block, is still DDEV.
+  const d = path.join(dir, 'plain'); fs.mkdirSync(path.join(d, '.ddev'), { recursive: true });
+  fs.writeFileSync(path.join(d, '.ddev', 'config.yaml'), 'name: plain\n');
+  fs.writeFileSync(path.join(d, 'compose.yaml'), 'services:\n  web:\n    image: nginx\n');
+  assert.match(run(dir, d, 'runtime_of').out, /^ddev$/m);
+});
+
+test('drush runs from the bin-dir of Composer: bin/ when the project says so, else vendor/bin', () => {
+  const dir = sandbox();
+  const p = path.join(dir, 'site'); fs.mkdirSync(p);
+  fs.writeFileSync(path.join(p, 'compose.yaml'), 'name: site\nx-webship:\n  runtime: docker\n  type: drupal\n  port: 41556\nservices:\n  web:\n    image: x\n');
+  assert.match(run(dir, p, 'ddev drush status').calls.join('\n'), /web \/var\/www\/html\/vendor\/bin\/drush status$/);
+  fs.writeFileSync(path.join(p, 'composer.json'), JSON.stringify({ config: { 'bin-dir': 'bin/' } }));
+  assert.match(run(dir, p, 'ddev drush status').calls.join('\n'), /web \/var\/www\/html\/bin\/drush status$/);
+  // A bin-dir that is not a plain path inside the project is not used.
+  for (const bad of ['../x', '$(id)', 'a b']) {
+    fs.writeFileSync(path.join(p, 'composer.json'), JSON.stringify({ config: { 'bin-dir': bad } }));
+    assert.match(run(dir, p, 'rt_bin_dir "$PWD"').out, /^vendor\/bin$/m, bad);
+  }
+});
+
+test('the php stack: the database clients skip SSL even when a tool gives them its own defaults file', () => {
+  // Drush runs `mysql --defaults-file=<its own>`, which leaves /etc/mysql out; the stack's database has no TLS.
+  const dockerfile = fs.readFileSync(path.join(STACKS, 'php', 'Dockerfile'), 'utf8');
+  assert.match(dockerfile, /for b in mysql mariadb mysqldump mariadb-dump ; do printf '#!\/bin\/sh\\nexec \/usr\/bin\/%s "\$@" --skip-ssl\\n' "\$b" > \/usr\/local\/bin\/\$b/);
+  assert.match(dockerfile, /PATH=\/var\/www\/html\/vendor\/bin:\/var\/www\/html\/bin:\$PATH/);
+});
+
 test('a new build takes --runtime (WORKSPACE_RUNTIME), else settings, else DDEV', () => {
   const dir = sandbox();
   const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-runtime-new-'));
