@@ -242,7 +242,7 @@ report g++     "package manager";
 report make    "package manager";
 report python  "python-is-python3 via package manager";
 report gh      "GitHub CLI — cli.github.com";
-report node    "Node.js 24 — nodejs.org";
+report node    "Node.js 26 — nodejs.org";
 report npm     "ships with Node.js";
 report npx     "ships with Node.js";
 report docker  "get.docker.com / Docker Desktop";
@@ -457,10 +457,10 @@ if missing gh && confirm "Install the GitHub CLI (gh)?" ; then
   esac
 fi
 
-if missing node && confirm "Install Node.js 24 (brings npm and npx)?" ; then
+if missing node && confirm "Install Node.js 26 (brings npm and npx)?" ; then
   case "${PKG}" in
     apt)
-      wget -qO- https://deb.nodesource.com/setup_24.x | ${SUDO} bash - ;
+      wget -qO- https://deb.nodesource.com/setup_26.x | ${SUDO} bash - ;
       ${SUDO} apt-get install -y nodejs ;;
     dnf)  ${SUDO} dnf install -y nodejs npm ;;
     brew) brew install node ;;

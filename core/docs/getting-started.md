@@ -4,7 +4,7 @@ The Webship Workspace is a folder (`~/workspace` by default) with a web dashboar
 
 ## What you need
 
-- Node.js 20 or newer (24 is what the dashboard runs on).
+- Node.js 22.18 or newer; 26, the latest LTS, is what the dashboard runs on and what to install.
 - Docker, and [DDEV](https://ddev.readthedocs.io/en/stable/users/install/). DDEV is the default. Without it, the dashboard runs on Docker Compose (Docker alone) or on Kubernetes (`kubectl` and `helm`): see below.
 - A terminal. Windows works through WSL2.
 

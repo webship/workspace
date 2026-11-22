@@ -219,7 +219,7 @@ test('COMPOSER and NODE say where they run on a runtime, and DDEV\'s sentence is
   assert.match(composer.html, /Runs as composer in this project's Docker Compose web container\./);
   assert.doesNotMatch(composer.html, /ddev composer|dashboard's DDEV container/);
   const node = await text('/fragments/row-menu/node/dev/dock-site');
-  assert.match(node.html, /Runs as npm \/ yarn in the Docker Compose tests container of this project \(Node\.js 24\)\./);
+  assert.match(node.html, /Runs as npm \/ yarn in the Docker Compose tests container of this project \(Node\.js 26\)\./);
   assert.match((await text('/fragments/row-menu/composer/dev/ddev-site')).html, /Runs as ddev composer in this project\./);
 });
 

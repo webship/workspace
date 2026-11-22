@@ -13,7 +13,7 @@
 # Left out, because only the dashboard's DDEV project needs it: DDEV's web server, PHP, the router shim, code-server,
 # supervisor. The ddev binary is left out by default too: a dashboard run from this image builds sites on Docker
 # Compose and Kubernetes, not DDEV sites (core/docs/runtimes.md). DDEV_VERSION adds the binary for who wants to try.
-ARG NODE_VERSION=24
+ARG NODE_VERSION=26
 FROM node:${NODE_VERSION}-bookworm-slim
 
 # git, screen (every command runs in a screen session), python (the builders' arguments, the settings files),

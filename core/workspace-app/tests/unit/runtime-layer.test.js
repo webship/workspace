@@ -45,6 +45,23 @@ test('a DDEV project: every verb is DDEV itself, unchanged', () => {
   assert.match(r.out, /https:\/\/site\.ddev\.site/);
 });
 
+test('ddev config with Node.js 25 or later on DDEV: libatomic1 goes with it, beside the packages asked for', () => {
+  const dir = sandbox();
+  const p = path.join(dir, 'new'); fs.mkdirSync(p);
+  const calls = (script) => run(dir, p, script).calls;
+  assert.deepStrictEqual(calls('ddev config --project-type=drupal --nodejs-version=26 --auto'),
+    ['ddev config --project-type=drupal --nodejs-version=26 --auto --webimage-extra-packages=libatomic1']);
+  assert.deepStrictEqual(calls('ddev config --webimage-extra-packages="" --nodejs-version=26'),
+    ['ddev config --webimage-extra-packages=libatomic1 --nodejs-version=26'], 'an emptied list');
+  assert.deepStrictEqual(calls('ddev config --nodejs-version=26 --webimage-extra-packages=python3-pip,python3-venv'),
+    ['ddev config --nodejs-version=26 --webimage-extra-packages=python3-pip,python3-venv,libatomic1']);
+  assert.deepStrictEqual(calls('ddev config --nodejs-version=26 --webimage-extra-packages=libatomic1'),
+    ['ddev config --nodejs-version=26 --webimage-extra-packages=libatomic1'], 'not twice');
+  // An older Node.js, a config without a Node.js, and every other verb: as written.
+  assert.deepStrictEqual(calls('ddev config --nodejs-version=24 --auto; ddev config --php-version=8.4; ddev start -y; ddev exec "node -v"'),
+    ['ddev config --nodejs-version=24 --auto', 'ddev config --php-version=8.4', 'ddev start -y', 'ddev exec node -v']);
+});
+
 test('a template that ships .ddev/: the project stays on the runtime the Workspace built it on', () => {
   const dir = sandbox();
   const p = path.join(dir, 'site'); fs.mkdirSync(path.join(p, '.ddev'), { recursive: true });
@@ -239,7 +256,7 @@ test('the JS side runs in the tests container: npm, npx, node, yarn and `exec -s
   assert.match(kube[1], /^docker run --rm --network host .* -e LAUNCH_URL=http:\/\/172\.18\.0\.2:\d+ webship-workspace-tests bash -c node -v ?$/, "on the host's network, against the node's address");
 });
 
-test('the tests image is built once, from core/config/runtimes/tests: Node.js 24 and the browsers\' libraries', () => {
+test('the tests image is built once, from core/config/runtimes/tests: Node.js 26 and the browsers\' libraries', () => {
   const dir = sandbox();
   const d = path.join(dir, 'ti'); fs.mkdirSync(d);
   run(dir, d, 'ddev config --project-type=drupal --docroot=web --project-name=ti', { WORKSPACE_RUNTIME: 'docker' });
@@ -249,7 +266,7 @@ test('the tests image is built once, from core/config/runtimes/tests: Node.js 24
   assert.strictEqual(r.calls[1], `docker build -t webship-workspace-tests ${STACKS}/tests`);
   assert.match(r.out, /Building the tests image webship-workspace-tests \(once\)/);
   const dockerfile = fs.readFileSync(path.join(STACKS, 'tests', 'Dockerfile'), 'utf8');
-  assert.match(dockerfile, /^FROM node:24-/m, 'every build runs Node.js 24');
+  assert.match(dockerfile, /^FROM node:26-/m, 'every build runs Node.js 26');
   assert.match(dockerfile, /playwright@[\d.]+ install-deps chromium/);
   assert.match(dockerfile, /PLAYWRIGHT_BROWSERS_PATH=\/cache\/ms-playwright/);
   assert.match(dockerfile, /PLAYWRIGHT_SKIP_BROWSER_GC=1/, "one project's Playwright never removes another's browser");

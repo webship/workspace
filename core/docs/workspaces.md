@@ -14,7 +14,7 @@ A workspace is a folder under the workspace root with a `workspace.<key>.setting
 
 ## Builders
 
-A `cmd-*-project.sh` in a `sites` folder builds a project: Drupal (9 to 12), Drupal CMS, the Webship distributions. Each carries a `# workspace-name:` header the dashboard shows in its Build dropdown, declares its own distribution values, and runs everything through DDEV (`ddev config`, `ddev composer`, `ddev drush`), never against the host. Every build runs Node.js 24.
+A `cmd-*-project.sh` in a `sites` folder builds a project: Drupal (9 to 12), Drupal CMS, the Webship distributions. Each carries a `# workspace-name:` header the dashboard shows in its Build dropdown, declares its own distribution values, and runs everything through DDEV (`ddev config`, `ddev composer`, `ddev drush`), never against the host. Every build runs Node.js 26.
 
 ## Commands
 

@@ -19,7 +19,7 @@ The verbs the layer knows:
 | `ddev composer …` | Composer in the web container. `create-project <pkg> .` works in a folder that already holds the runtime's files |
 | `ddev php …`, `ddev wp …`, `ddev drush …` | In the web container, as the site's user, in the folder the builder is in. What is piped in reaches the command |
 | `ddev exec "<command line>"`, `ddev exec -s db …`, `ddev exec -d <dir> …` | `bash -c` in the web (or db) container |
-| `ddev npm`, `npx`, `node`, `yarn`, `ddev exec -s tests …` | In the tests container (Node.js 24), not in the web container |
+| `ddev npm`, `npx`, `node`, `yarn`, `ddev exec -s tests …` | In the tests container (Node.js 26), not in the web container |
 | `ddev mysql`, `ddev export-db --file=<f>`, `ddev import-db --file=<f>` | The MariaDB of the project |
 | `ddev add-on`, `get`, `snapshot`, `xdebug`, `share`, `auth` | Nothing: a line says so, and the build goes on |
 | Anything else (`ddev artisan`, `ddev dotenv`, `ddev craft`, `ddev typo3`, `ddev magento`, `ddev console`) | **Fails**, with a message. Call it through `ddev exec` instead, which works on DDEV too: `ddev exec "php artisan migrate --force"` |

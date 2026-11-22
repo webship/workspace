@@ -20,7 +20,7 @@
 #
 # A project on another runtime (Docker Compose, Podman, Kubernetes: fun-runtime.sh, webship/workspace#694) gets the
 # same webship-js stack without the add-on, which is DDEV's: webship-js is installed and scaffolds itself
-# (init-webship-js), and the suite runs in the runtime's tests container (Node.js 24 and the browsers' libraries in
+# (init-webship-js), and the suite runs in the runtime's tests container (Node.js 26 and the browsers' libraries in
 # its image, the browsers in a volume every project shares), against the site's own address.
 #
 # Both write their results to <project>/tests/reports/, which is what the dashboard's Tests menu

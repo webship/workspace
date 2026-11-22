@@ -10,7 +10,7 @@
  * One module, two callers, like checks_plan.js beside it: `cmd-tools-testing.sh` shells out to it
  * (`node step_packs.js <verb> …`) and the dashboard requires it for the Extra steps panel, so the
  * panel and the command can never disagree about what a project has. No dependencies: Node's own
- * modules, so it runs wherever the workspace runs (Node.js 20 or later); a pack given as a file is
+ * modules, so it runs wherever the workspace runs (Node.js 22.18 or later); a pack given as a file is
  * read with tar, and a pack given as a folder is packed with npm.
  *
  * The rules it keeps:

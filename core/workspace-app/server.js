@@ -1123,7 +1123,7 @@ function nodeMenuBody(key, p, projectPath, isDdev) {
         <li class="uk-nav-header">Node · ${esc((info.pkg && typeof info.pkg.name === 'string' && info.pkg.name) || p)}</li>
         <li data-entry="how it runs"><span class="uk-text-meta">${isDdev ? 'Runs as ddev npm / ddev yarn in this project.'
           : (projectRuntime.isRuntimeProject(projectRuntime.readProject(projectPath))
-            ? `Runs as npm / yarn in the ${projectRuntime.TITLES[projectRuntime.readProject(projectPath).runtime]} tests container of this project (Node.js 24).`
+            ? `Runs as npm / yarn in the ${projectRuntime.TITLES[projectRuntime.readProject(projectPath).runtime]} tests container of this project (Node.js 26).`
             : "Not a DDEV project — runs in the dashboard's DDEV container.")}${info.pinned ? ` packageManager: ${esc(info.pinned.spec)}.` : ''}${info.nodeModules ? ' node_modules is here.' : ' No node_modules yet.'}${info.valid ? '' : ' package.json is not valid JSON.'}</span></li>
       </ul>
       <ul class="uk-tab node-tabs" data-keep-open uk-tab="active: ${Math.max(0, MANAGERS.indexOf(info.preferred))}">${tabs}</ul>

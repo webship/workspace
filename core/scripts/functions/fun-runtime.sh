@@ -97,10 +97,32 @@ function rt_url() {
   esac
 }
 
+# `ddev config --nodejs-version=<25 or later>` on DDEV: Node.js from 25 on links against libatomic, which DDEV's web
+# image does not carry (DDEV 1.24.7: "node: error while loading shared libraries: libatomic.so.1"). The package goes
+# on that `ddev config`, added to the packages the caller asked for, so every builder, a plugin's too, gets a Node.js
+# that starts. Sets RT_DDEV_ARGS.
+function rt_ddev_config_args() {
+  RT_DDEV_ARGS=("$@") ;
+  [ "${1:-}" = config ] || return 0 ;
+  local a node="" i pkgs_at=-1 pkgs="" ;
+  for i in "${!RT_DDEV_ARGS[@]}" ; do
+    a="${RT_DDEV_ARGS[$i]}" ;
+    case "${a}" in
+      --nodejs-version=*) node="${a#--nodejs-version=}" ;;
+      --webimage-extra-packages=*) pkgs_at="${i}" ; pkgs="${a#--webimage-extra-packages=}" ;;
+    esac
+  done
+  [[ "${node}" =~ ^[0-9]+ ]] && [ "${BASH_REMATCH[0]}" -ge 25 ] || return 0 ;
+  case ",${pkgs}," in *,libatomic1,*) return 0 ;; esac
+  pkgs="${pkgs:+${pkgs},}libatomic1" ;
+  if [ "${pkgs_at}" -ge 0 ] ; then RT_DDEV_ARGS[${pkgs_at}]="--webimage-extra-packages=${pkgs}" ;
+  else RT_DDEV_ARGS+=("--webimage-extra-packages=${pkgs}") ; fi
+}
+
 function ddev() {
   local rt ; rt="$(runtime_of)" ;
   case "${rt}" in
-    ''|ddev) command ddev "$@" ;;
+    ''|ddev) rt_ddev_config_args "$@" ; command ddev "${RT_DDEV_ARGS[@]}" ;;
     docker|podman) rt_compose "${rt}" "$@" ;;
     kubernetes) rt_k8s "$@" ;;
     *) echo "The ${rt} runtime cannot run 'ddev $1' yet (webship/workspace#694)." >&2 ; return 1 ;;
@@ -231,7 +253,7 @@ function rt_create_project_cmd() {
 # --- The tests container ---------------------------------------------------------------------------------------
 # Node.js and Playwright's browsers are not in a project's web image (the php stack is Apache and PHP). The JS side
 # of a project (npm, npx, node, yarn: its webship-js suite) runs in a container of its own, from one image the
-# Workspace builds once (core/config/runtimes/tests: Node.js 24 and the libraries the browsers link against), with
+# Workspace builds once (core/config/runtimes/tests: Node.js 26 and the libraries the browsers link against), with
 # the browsers and npm's cache in one named volume every project shares, as DDEV's global cache does. It runs on
 # the host's network, so the site is reached at its own address (rt_url) on Docker, Podman and Kubernetes alike,
 # and the project is mounted at its own path, so what a run writes is where the dashboard reads it.
@@ -247,7 +269,7 @@ function rt_engine() { if [ "$1" = podman ] ; then echo podman ; else echo docke
 function rt_tests_image() {
   local engine="$1" ;
   "${engine}" image inspect "${RT_TESTS_IMAGE}" > /dev/null 2>&1 && return 0 ;
-  echo "Building the tests image ${RT_TESTS_IMAGE} (once): Node.js 24 and the libraries Playwright's browsers need." ;
+  echo "Building the tests image ${RT_TESTS_IMAGE} (once): Node.js 26 and the libraries Playwright's browsers need." ;
   "${engine}" build -t "${RT_TESTS_IMAGE}" "${RT_STACKS}/tests" ;
 }
 

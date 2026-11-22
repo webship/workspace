@@ -243,7 +243,7 @@ test('a second platform pack gets a profile of its own; any-site and an extensio
 
 test('the default profile excludes a profile\'s folder in the glob cucumber-js expands', (t) => {
   // cucumber-js 13 expands paths with Node's own fs.glob, cucumber-js 12 with the glob package (13): in both
-  // `!(…)` is an extglob, not a negation. Node 20 has no fs.glob; the job on Node 24 runs this.
+  // `!(…)` is an extglob, not a negation. Node 20 had no fs.glob; every Node.js the base accepts now has it.
   const glob = typeof fs.globSync === 'function' ? fs.globSync : null;
   if (!glob) { t.skip('this Node.js has no fs.globSync (Node 22 or later)'); return; }
   const dir = project();

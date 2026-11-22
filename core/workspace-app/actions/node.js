@@ -133,7 +133,7 @@ function nodeScreenCommand(label, manager, args, { isDdev, projectDir, pinned, v
   if (isDdev) {
     line = `ddev ${manager} ${args.join(' ')}`;
   } else if (viaRuntime) {
-    // A project on Docker Compose, Podman or Kubernetes: in that runtime's tests container (Node.js 24), through
+    // A project on Docker Compose, Podman or Kubernetes: in that runtime's tests container (Node.js 26), through
     // the runtime layer.
     line = `${viaRuntime} ${manager} ${args.join(' ')}`;
   } else {

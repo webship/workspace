@@ -7,7 +7,7 @@ A container-based development workspace with a web dashboard, for Webship projec
 ## Install
 
 ```bash
-# 1. Node.js 20 or newer, Docker, and DDEV (https://ddev.readthedocs.io)
+# 1. Node.js 22.18 or newer (26 is the one to install), Docker, and DDEV (https://ddev.readthedocs.io)
 # 2. The workspace, from npm
 npm install -g @webship.co/workspace
 webship-workspace init ~/workspace       # the core, an empty settings file, the dashboard started
