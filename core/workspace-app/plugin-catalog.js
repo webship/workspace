@@ -42,6 +42,7 @@ const FAMILIES = [
     ['spring-boot', 'Spring Boot', 'A builder for Spring Boot apps with Spring Security, new or the PetClinic sample, and its wrapper tool'],
     ['aspnet-core', 'ASP.NET Core', 'A builder for ASP.NET Core apps with individual accounts, Razor Pages or a Blazor Web App, and its .NET tool'],
     ['wagtail', 'Wagtail', 'A builder for Wagtail sites, new or the Bakery demo, and the manage.py tool'],
+    ['bbpress', 'bbPress', 'A builder for forums on WordPress with bbPress, with sample content, and its forums tool'],
     ['phpbb', 'phpBB', 'A builder for phpBB boards from the release package, with sample content, and its CLI tool'],
     ['django', 'Django', 'A builder for Django projects with the admin, and the manage tool'],
     ['nextjs', 'Next.js', 'A builder for Next.js apps (the Learn course or the default app), and its CLI tool'],
