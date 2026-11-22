@@ -97,6 +97,15 @@ function clone_project() {
     echo "'${target_dir}' already exists — pick another name or remove it first." ;
     return 1 ;
   fi
+  # A project on another runtime (Docker Compose, Podman, Kubernetes: fun-runtime.sh) is not cloned yet: a copy
+  # would carry the source's compose project name and port, and the two folders would drive one set of containers.
+  local source_runtime ;
+  if [ ! -f "${source_dir}/.ddev/config.yaml" ] && source_runtime="$(rt_find_project "${source_dir}")" \
+     && [ "${source_runtime#* }" == "${source_dir}" ] ; then
+    echo "'${source_name}' runs on ${source_runtime%% *}, and cloning a project of that runtime is not done yet" ;
+    echo "(webship/workspace#694). Build a new one instead, with the same builder and --runtime ${source_runtime%% *}." ;
+    return 1 ;
+  fi
   # A name DDEV already tracks belongs to some other project, wherever its folder is.
   if ddev list -j 2>/dev/null | grep -q "\"name\":[[:space:]]*\"${target_name}\"" ; then
     echo "DDEV already has a project named '${target_name}' — pick another name." ;

@@ -86,8 +86,16 @@ function remove_project() {
   wt_primary="$(git_worktree_primary "${workspace_dir}/${project}")" ;
 
   local name;
+  # A project on another runtime (Docker Compose, Podman, Kubernetes: fun-runtime.sh) is taken down there first.
+  local found ;
+  if [ ! -f "${workspace_dir}/${project}/.ddev/config.yaml" ] && found="$(rt_find_project "${workspace_dir}/${project}")" \
+     && [ "${found#* }" == "${workspace_dir}/${project}" ] ; then
+    remove_runtime_project "${project}" "${found%% *}" "${wt_role}" "${wt_primary}" ;
+    return $? ;
+  fi
   if ! name=$(ddev_project_name "${workspace_dir}/${project}") ; then
     echo "${project} has no .ddev/config.yaml — removing the directory only." ;
+    remove_project_writable "${workspace_dir}/${project}" ;
     rm -rf "${workspace_dir}/${project}" || return 1 ;
     remove_project_worktree_after "${wt_role}" "${wt_primary}" "${project}" ;
     echo "Removed ${workspace_dir}/${project}" ;
@@ -160,6 +168,97 @@ function remove_project() {
   remove_project_worktree_after "${wt_role}" "${wt_primary}" "${project}" ;
 
   echo "  Removed ${workspace_dir}/${project}, its containers, volumes and registry entry." ;
+}
+
+# Drupal takes the write bit off sites/default (and settings.php) after an install, and `rm -rf` cannot empty a
+# folder it may not write to. Only the owner's write bit, only on folders that lack it, only when asked for a
+# folder that is about to be removed.
+function remove_project_writable() {
+  local dir="$1" ;
+  [ -d "${dir}" ] || return 0 ;
+  find "${dir}" -xdev -type d ! -perm -u+w -exec chmod u+w {} + 2> /dev/null ;
+  return 0 ;
+}
+
+# What a runtime still holds for a project, one line per object: containers and volumes of the compose project, or
+# the namespace.
+function runtime_leftovers() {
+  local rt="$1" name="$2" engine ;
+  if [ "${rt}" == 'kubernetes' ] ; then
+    rt_kubectl get ns "ws-${name}" -o name 2> /dev/null ;
+    return 0 ;
+  fi
+  engine="$(rt_engine "${rt}")" ;
+  "${engine}" ps -a --filter "label=com.docker.compose.project=${name}" --format '{{.Names}}' 2> /dev/null ;
+  "${engine}" volume ls --filter "label=com.docker.compose.project=${name}" --format '{{.Name}}' 2> /dev/null ;
+}
+
+# Remove a project that runs on Docker Compose, Podman or Kubernetes: the runtime first (its containers and its
+# database volume, or its namespace), then the image the project was built with, then the directory — and never the
+# directory while the runtime still holds something, as for DDEV.
+function remove_runtime_project() {
+  local project="$1" rt="$2" wt_role="$3" wt_primary="$4" ;
+  local workspace_dir="${WORKSPACE_ROOT}/${doc_name}" dir name engine ;
+  dir="${workspace_dir}/${project}" ;
+  name="$(sed -n 's/^name: *//p' "${dir}/compose.yaml" | head -1 | tr -d '"')" ; name="${name:-${project}}" ;
+  engine="$(rt_engine "${rt}")" ;
+
+  echo "*---------------------------------------------------------------------*";
+  echo "  Removing ${doc_name}/${project}  (${rt} project: ${name})";
+  echo "*---------------------------------------------------------------------*";
+
+  if [ ! "${BACKUP}" == 'yes' ]; then
+    echo "  No backup requested — removing without one." ;
+  else
+    local backup_dir="${WORKSPACE_ROOT}/backups/${doc_name}/${project}" stamp ;
+    stamp="$(date +%Y-%m-%d-%H%M%S)";
+    mkdir -p "${backup_dir}" ;
+    echo "  Backing the database up before anything is deleted…" ;
+    if ( cd "${dir}" && ddev start -y > /dev/null 2>&1 \
+         && ddev export-db --file="${backup_dir}/${project}-before-remove-${stamp}.sql.gz" > /dev/null 2>&1 ) ; then
+      echo "    ${backup_dir}/${project}-before-remove-${stamp}.sql.gz" ;
+    else
+      echo "    no database export (the project would not start, or has no database) — continuing." ;
+      rm -f "${backup_dir}/${project}-before-remove-${stamp}.sql.gz" ; rmdir "${backup_dir}" 2>/dev/null ;
+    fi
+  fi
+
+  ( cd "${dir}" && ddev delete -y -O ) || echo "  delete on ${rt} failed: its words are above." ;
+
+  local leftovers ;
+  leftovers="$(runtime_leftovers "${rt}" "${name}")" ;
+  if [ -n "${leftovers}" ] && [ "${rt}" != 'kubernetes' ] ; then
+    echo "  ${engine} still holds:" ; echo "${leftovers}" | sed 's/^/    /' ;
+    echo "  Cleaning those up…" ;
+    "${engine}" ps -a --filter "label=com.docker.compose.project=${name}" -q 2> /dev/null | xargs -r "${engine}" rm -f > /dev/null 2>&1 ;
+    "${engine}" volume ls --filter "label=com.docker.compose.project=${name}" -q 2> /dev/null | xargs -r "${engine}" volume rm -f > /dev/null 2>&1 ;
+    leftovers="$(runtime_leftovers "${rt}" "${name}")" ;
+  fi
+  if [ -n "${leftovers}" ] ; then
+    echo "" ;
+    echo "  KEEPING the directory: ${rt} still holds these for '${name}':" ;
+    echo "${leftovers}" | sed 's/^/    /' ;
+    echo "  Deleting the files now would orphan those. Clear them, then re-run." ;
+    return 1 ;
+  fi
+
+  # The image the project's web container was built from: nothing else uses it. On a kind cluster it was loaded
+  # into the node too.
+  "${engine}" image rm "webship-${name}-web" > /dev/null 2>&1 || true ;
+  if [ "${rt}" == 'kubernetes' ] ; then
+    case "$(rt_kctx)" in kind-*) docker exec "${RT_KIND_CLUSTER}-control-plane" crictl rmi "docker.io/library/webship-${name}-web:latest" > /dev/null 2>&1 || true ;; esac
+  fi
+
+  remove_project_writable "${dir}" ;
+  rm -rf "${dir}" || {
+    echo "  Could not remove ${dir} — check permissions." ;
+    return 1 ;
+  }
+
+  remove_project_worktree_after "${wt_role}" "${wt_primary}" "${project}" ;
+
+  if [ "${rt}" == 'kubernetes' ] ; then echo "  Removed ${dir}, its namespace ws-${name} and its image." ;
+  else echo "  Removed ${dir}, its containers, its database volume and its image." ; fi
 }
 
 # Refuse a removal that would destroy more than the folder named.

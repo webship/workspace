@@ -5,7 +5,7 @@
 - Unit: `node --test core/workspace-app/tests/unit/*.test.js` (Node's own runner). The plugin system has its own file, `plugin-system.test.js`, which drives `plugins.sh` against a temporary tree with `WORKSPACE_PLUGINS_NO_RESTART=1`, so a test never restarts the dashboard that serves this machine.
 - Browser: `cd core/workspace-app && ddev test-dashboard browser` runs the webship-js (Playwright + cucumber-js) features under `tests/features` against the live dashboard, one scenario at a time. Every installed plugin's `features/*.feature` is placed under `tests/features/plugins/<name>/`, so the suite covers what is actually on.
 - The same suite against any other dashboard (one started with node on a port, a fresh workspace): `cd core/workspace-app && LAUNCH_URL=http://localhost:<port> npx cucumber-js --config cucumber.js` (`npx playwright install chromium` once). CI does this on every pull request: the `browser` job starts the dashboard with node in the job, with a placeholder project in `dev`, `products` and `rag`, and runs the base's own features; the report and the dashboard's log are its artifact.
-- A scenario that needs a state the machine may not be in carries a tag, and is skipped with the reason while that state is missing: `@needs-project-<folder>` (a project in that folder: any folder, with a `.ddev/config.yaml` where it opens the DDEV menu), `@needs-running-project`, `@needs-testing-stack`, `@needs-test-report`, `@needs-check-aliases`, `@needs-jira-writes-off`, `@needs-setting-<plugin>-<key>`. A plugin's features use the same tags.
+- A scenario that needs a state the machine may not be in carries a tag, and is skipped with the reason while that state is missing: `@needs-project-<folder>` (a project in that folder: any folder, with a `.ddev/config.yaml` where it opens the DDEV menu), `@needs-running-project`, `@needs-runtime-docker` / `@needs-runtime-kubernetes` / `@needs-runtime-podman` (a running site built with `--runtime` on that runtime, for the features in `tests/features/runtimes/`), `@needs-testing-stack`, `@needs-test-report`, `@needs-check-aliases`, `@needs-jira-writes-off`, `@needs-setting-<plugin>-<key>`. A plugin's features use the same tags.
 - Scripts: `bash core/scripts/tests/cmd-smoke-test.sh` parses every `cmd-*.sh`.
 
 ## A project's suite and its step packs
@@ -14,6 +14,12 @@
 webship-js stack up on a project that is already there, and `--run` runs it, in the project's container
 (DDEV by default). A platform plugin adds its own step pack while the stack is set up
 (`testing_configure_<name>`, in [the plugin contract](../workspace-app/PLUGINS.md#a-platform-as-a-plugin)).
+On a project built on another runtime (`--runtime docker`, `podman` or `kubernetes`) the same command sets the
+same stack up without the DDEV add-on: webship-js is installed and scaffolds itself (`init-webship-js`), and the
+suite runs in a tests container of the Workspace's own image (`core/config/runtimes/tests`: Node.js 24 and the
+libraries Playwright's browsers need), on the host's network, against the site's own address. The browsers and
+npm's cache live in one volume every project shares (`webship-workspace-tests`).
+
 Any other webship-js extra-steps pack (`@webship-js/<name>-steps`) is added from the same command:
 
 ```bash

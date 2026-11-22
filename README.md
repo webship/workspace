@@ -35,7 +35,7 @@ bash dev/cmd-drupal11-recommended-project.sh mysite --install --runtime docker  
 | | DDEV | Docker Compose | Kubernetes | Podman |
 |---|---|---|---|---|
 | Build and install a Drupal site | Yes | Yes | Yes | Yes, not yet run on a real Podman |
-| The dashboard's row, the Tests menu, backups | Yes | On the way | On the way | On the way |
+| The dashboard's row, the Tests menu, backups | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman |
 | The platform plugins' builders | Yes | On the way | On the way | On the way |
 | The dashboard itself | Yes | On the way | On the way | On the way |
 

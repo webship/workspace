@@ -149,6 +149,9 @@ $databases['default']['default'] = [
   'collation' => 'utf8mb4_general_ci',
 ];
 $settings['trusted_host_patterns'] = ['.*'];
+// A development runtime, as DDEV's own settings say: Drupal leaves sites/default writable, so the folder can be
+// removed and settings edited without a chmod first.
+$settings['skip_permissions_hardening'] = TRUE;
 if (empty($settings['hash_salt'])) {
   $settings['hash_salt'] = hash('sha256', __DIR__);
 }
@@ -168,6 +171,64 @@ function rt_create_project_cmd() {
   local args=() a target_dot=0 ;
   for a in "$@" ; do if [ "${a}" = "." ] && [ ${target_dot} -eq 0 ] ; then args+=("/tmp/webship-create") ; target_dot=1 ; else args+=("${a}") ; fi ; done
   printf 'rm -rf /tmp/webship-create && composer %s && cp -a /tmp/webship-create/. "$PWD"/ && rm -rf /tmp/webship-create' "$(printf '%q ' "${args[@]}")" ;
+}
+
+# --- The tests container ---------------------------------------------------------------------------------------
+# Node.js and Playwright's browsers are not in a project's web image (the php stack is Apache and PHP). The JS side
+# of a project (npm, npx, node, yarn: its webship-js suite) runs in a container of its own, from one image the
+# Workspace builds once (core/config/runtimes/tests: Node.js 24 and the libraries the browsers link against), with
+# the browsers and npm's cache in one named volume every project shares, as DDEV's global cache does. It runs on
+# the host's network, so the site is reached at its own address (rt_url) on Docker, Podman and Kubernetes alike,
+# and the project is mounted at its own path, so what a run writes is where the dashboard reads it.
+
+RT_TESTS_IMAGE="${WORKSPACE_TESTS_IMAGE:-webship-workspace-tests}"
+RT_TESTS_VOLUME="${WORKSPACE_TESTS_VOLUME:-webship-workspace-tests}"
+RT_TESTS_BROWSERS_PATH='/cache/ms-playwright'
+
+# The engine that runs containers for a runtime: podman for Podman, docker for Docker and Kubernetes.
+function rt_engine() { if [ "$1" = podman ] ; then echo podman ; else echo docker ; fi ; }
+
+# Builds the tests image when it is not there yet.
+function rt_tests_image() {
+  local engine="$1" ;
+  "${engine}" image inspect "${RT_TESTS_IMAGE}" > /dev/null 2>&1 && return 0 ;
+  echo "Building the tests image ${RT_TESTS_IMAGE} (once): Node.js 24 and the libraries Playwright's browsers need." ;
+  "${engine}" build -t "${RT_TESTS_IMAGE}" "${RT_STACKS}/tests" ;
+}
+
+# A command line in the tests container, in a folder of the project (a path on the host).
+function rt_tests_run() {
+  local rt="$1" root="$2" dir="$3" ; shift 3 ;
+  local engine userns=() ; engine="$(rt_engine "${rt}")" ;
+  rt_tests_image "${engine}" || return 1 ;
+  [ "${engine}" = podman ] && userns=(--userns=keep-id) ;
+  "${engine}" run --rm --network host "${userns[@]}" --user "$(id -u):$(id -g)" \
+    -v "${root}:${root}" -v "${RT_TESTS_VOLUME}:/cache" -w "${dir}" \
+    -e "LAUNCH_URL=$(rt_url "${root}")" "${RT_TESTS_IMAGE}" bash -c "$*" ;
+}
+
+# `--file=<path>` or `--file <path>` (and --src) among a verb's arguments.
+function rt_file_arg() {
+  local file="" ;
+  while [ $# -gt 0 ] ; do
+    case "$1" in
+      --file=*|--src=*) file="${1#*=}" ;;
+      --file|--src|-f) file="${2:-}" ; shift ;;
+    esac
+    shift ;
+  done
+  echo "${file}" ;
+}
+
+# Does a gzipped dump hold anything? A dump command that wrote nothing still leaves a few bytes of gzip.
+function rt_dump_has_content() {
+  [ -n "$(gunzip -c "$1" 2> /dev/null | head -c 64 | tr -d '\0')" ] ;
+}
+
+# `ddev describe -j`: the two values the tools read from DDEV's own answer, in its shape.
+function rt_describe_json() {
+  local name="$1" status="$2" url="$3" rt="$4" ;
+  printf '{"raw":{"name":"%s","status":"%s","primary_url":"%s","runtime":"%s"}}\n' "${name}" "${status}" "${url}" "${rt}" ;
 }
 
 function rt_compose() {
@@ -196,6 +257,8 @@ function rt_compose() {
       echo "Wrote compose.yaml for ${rt} (${type:-php}, PHP ${php:-8.3}, MariaDB ${db:-10.11}): $(rt_url "${root}")" ;;
     start|restart)
       [ -n "${root}" ] || { echo "No ${rt} project here." >&2 ; return 1 ; } ;
+      # A restart stops what runs first: `up` alone leaves running containers as they are.
+      [ "${verb}" = restart ] && { rt_dc "${rt}" "${root}" stop || return 1 ; } ;
       rt_dc "${rt}" "${root}" up -d --build --wait || return 1 ;
       case "$(rt_meta type "${root}")" in drupal*) rt_drupal_settings "${root}" ;; esac ;
       echo "Running on ${rt}: $(rt_url "${root}")" ;;
@@ -206,6 +269,10 @@ function rt_compose() {
         [ -n "$( (docker compose -p "$1" ps -q 2>/dev/null || true) )" ] ; return $? ;
       fi
       [ -n "${root}" ] || return 1 ;
+      case "${1:-}" in -j|--json-output)
+        local up=stopped ; [ -n "$(rt_dc "${rt}" "${root}" ps --status running -q web 2>/dev/null)" ] && up=running ;
+        rt_describe_json "$(sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1)" "${up}" "$(rt_url "${root}")" "${rt}" ; return 0 ;;
+      esac
       echo "$(sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1) on ${rt}: $(rt_url "${root}")" ; rt_dc "${rt}" "${root}" ps ;;
     delete)
       if [ -n "${root}" ] ; then rt_dc "${rt}" "${root}" down -v --remove-orphans ;
@@ -214,18 +281,24 @@ function rt_compose() {
       if [ "${1:-}" = create-project ] ; then rt_dc "${rt}" "${root}" exec -T -u www-data -w "${workdir}" web bash -c "$(rt_create_project_cmd "$@")" ;
       else rt_dc "${rt}" "${root}" exec -T -u www-data -w "${workdir}" web composer "$@" ; fi ;;
     drush) rt_dc "${rt}" "${root}" exec -T -u www-data -w "/var/www/html" web /var/www/html/vendor/bin/drush "$@" ;;
-    php|npm|npx|node|yarn|wp) rt_dc "${rt}" "${root}" exec -T -u www-data -w "${workdir}" web "${verb}" "$@" ;;
+    php|wp) rt_dc "${rt}" "${root}" exec -T -u www-data -w "${workdir}" web "${verb}" "$@" ;;
+    npm|npx|node|yarn) rt_tests_run "${rt}" "${root}" "${PWD}" "${verb} $(printf '%q ' "$@")" ;;
     exec)
       local svc=web ; while [ $# -gt 0 ] ; do case "$1" in -s|--service) svc="$2" ; shift 2 ;; -d|--dir) workdir="$2" ; shift 2 ;; --raw) shift ;; *) break ;; esac ; done
+      if [ "${svc}" = tests ] ; then rt_tests_run "${rt}" "${root}" "${PWD}" "$*" ; return $? ; fi
       rt_dc "${rt}" "${root}" exec -T -u "$( [ "${svc}" = web ] && echo www-data || echo root )" -w "${workdir}" "${svc}" bash -c "$*" ;;
-    ssh) rt_dc "${rt}" "${root}" exec -u www-data web bash ;;
+    ssh)
+      # At a terminal (a screen session of the dashboard, whose output is also logged through a pipe) the shell gets
+      # a terminal of its own, so it shows its prompt: compose leaves it out when its output is not one.
+      if [ -t 0 ] ; then "$(rt_engine "${rt}")" exec -it -u www-data "$(rt_dc "${rt}" "${root}" ps -q web | head -1)" bash ;
+      else rt_dc "${rt}" "${root}" exec -u www-data web bash ; fi ;;
     mysql) rt_dc "${rt}" "${root}" exec -T db mariadb -udb -pdb db "$@" ;;
     export-db)
-      local file="" a ; for a in "$@" ; do case "${a}" in --file=*) file="${a#*=}" ;; esac ; done
-      if [ -n "${file}" ] ; then rt_dc "${rt}" "${root}" exec -T db mariadb-dump -udb -pdb db | gzip > "${file}" ;
+      local file ; file="$(rt_file_arg "$@")" ;
+      if [ -n "${file}" ] ; then rt_dc "${rt}" "${root}" exec -T db mariadb-dump -udb -pdb db | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
       else rt_dc "${rt}" "${root}" exec -T db mariadb-dump -udb -pdb db | gzip ; fi ;;
     import-db)
-      local file="" a ; for a in "$@" ; do case "${a}" in --file=*|--src=*) file="${a#*=}" ;; esac ; done
+      local file ; file="$(rt_file_arg "$@")" ;
       [ -f "${file}" ] || { echo "No such file: ${file}" >&2 ; return 1 ; } ;
       case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | rt_dc "${rt}" "${root}" exec -T db mariadb -udb -pdb db ;;
     launch) echo "$(rt_url "${root}")${1:-}" ;;
@@ -435,6 +508,10 @@ function rt_k8s() {
     describe)
       if [ -n "${1:-}" ] && [ -z "${root}" ] ; then rt_kubectl get ns "ws-$1" > /dev/null 2>&1 ; return $? ; fi
       [ -n "${root}" ] || return 1 ;
+      case "${1:-}" in -j|--json-output)
+        local up=stopped ; [ "$(rt_kubectl -n "${ns}" get deploy web -o jsonpath='{.status.availableReplicas}' 2>/dev/null)" -ge 1 ] 2>/dev/null && up=running ;
+        rt_describe_json "${ns#ws-}" "${up}" "$(rt_url "${root}")" kubernetes ; return 0 ;;
+      esac
       echo "${ns#ws-} on kubernetes ($(rt_kctx)): $(rt_url "${root}")" ; rt_kubectl -n "${ns}" get pods ;;
     delete)
       if [ -n "${root}" ] ; then rt_kubectl delete ns "${ns}" --wait=true ;
@@ -443,17 +520,20 @@ function rt_k8s() {
       if [ "${1:-}" = create-project ] ; then kx web runuser -u www-data -- env COMPOSER_HOME=/tmp/composer bash -c "cd '${workdir}' && $(rt_create_project_cmd "$@")" ;
       else kx web runuser -u www-data -- env COMPOSER_HOME=/tmp/composer bash -c "cd '${workdir}' && composer $(printf '%q ' "$@")" ; fi ;;
     drush) kx web runuser -u www-data -- bash -c "cd /var/www/html && vendor/bin/drush $(printf '%q ' "$@")" ;;
-    php|npm|npx|node|yarn|wp) kx web runuser -u www-data -- bash -c "cd '${workdir}' && ${verb} $(printf '%q ' "$@")" ;;
+    php|wp) kx web runuser -u www-data -- bash -c "cd '${workdir}' && ${verb} $(printf '%q ' "$@")" ;;
+    npm|npx|node|yarn) rt_tests_run kubernetes "${root}" "${PWD}" "${verb} $(printf '%q ' "$@")" ;;
     exec)
       local svc=web ; while [ $# -gt 0 ] ; do case "$1" in -s|--service) svc="$2" ; shift 2 ;; -d|--dir) workdir="$2" ; shift 2 ;; --raw) shift ;; *) break ;; esac ; done
+      if [ "${svc}" = tests ] ; then rt_tests_run kubernetes "${root}" "${PWD}" "$*" ; return $? ; fi
       if [ "${svc}" = web ] ; then kx web runuser -u www-data -- bash -c "cd '${workdir}' && $*" ; else kx "${svc}" bash -c "$*" ; fi ;;
     ssh) rt_kubectl -n "${ns}" exec -it deploy/web -c web -- runuser -u www-data -- bash ;;
     mysql) kx db mariadb -udb -pdb db "$@" ;;
     export-db)
-      local file="" a ; for a in "$@" ; do case "${a}" in --file=*) file="${a#*=}" ;; esac ; done
-      if [ -n "${file}" ] ; then kx db mariadb-dump -udb -pdb db | gzip > "${file}" ; else kx db mariadb-dump -udb -pdb db | gzip ; fi ;;
+      local file ; file="$(rt_file_arg "$@")" ;
+      if [ -n "${file}" ] ; then kx db mariadb-dump -udb -pdb db | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
+      else kx db mariadb-dump -udb -pdb db | gzip ; fi ;;
     import-db)
-      local file="" a ; for a in "$@" ; do case "${a}" in --file=*|--src=*) file="${a#*=}" ;; esac ; done
+      local file ; file="$(rt_file_arg "$@")" ;
       [ -f "${file}" ] || { echo "No such file: ${file}" >&2 ; return 1 ; } ;
       case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | kx db mariadb -udb -pdb db ;;
     launch) echo "$(rt_url "${root}")${1:-}" ;;

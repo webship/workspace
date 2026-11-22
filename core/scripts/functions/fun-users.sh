@@ -20,6 +20,11 @@ function load_distribution_users () {
   if [ -z "${distribution_webroot}" ] && [ -f "${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/.ddev/config.yaml" ]; then
     distribution_webroot=$(grep '^docroot:' "${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/.ddev/config.yaml" | awk '{print $2}') ;
   fi
+  # A project on another runtime (Docker Compose, Podman, Kubernetes) keeps it in its compose.yaml (fun-runtime.sh).
+  if [ -z "${distribution_webroot}" ] && rt_find_project "${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}" > /dev/null 2>&1 \
+     && [ ! -f "${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}/.ddev/config.yaml" ] ; then
+    distribution_webroot="$(rt_meta docroot "${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}")" ;
+  fi
 }
 
 # Add users to a project.
