@@ -17,6 +17,7 @@ const APP = path.join(__dirname, '../..');
 const REPO = path.join(APP, '../..');
 const { copyConfig } = require('./_isolated-config');
 const read = (f) => fs.readFileSync(path.join(APP, f), 'utf8');
+// palette.js is built from src/browser/palette.ts (npm run build:browser): the checks of its code read the source.
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-palette-root-'));
 process.env.WORKSPACE_ROOT = root;
@@ -50,7 +51,7 @@ test('the index lists workspaces, the pages, and the project folders of workspac
 });
 
 test('it opens on Ctrl or Cmd + K and "/", the sheet on "?", and chords on "g" then a letter', () => {
-  const js = read('public/palette.js');
+  const js = read('src/browser/palette.ts');
   assert.match(js, /\(e\.ctrlKey \|\| e\.metaKey\) && !e\.altKey && !e\.shiftKey && k\.toLowerCase\(\) === 'k'/);
   assert.match(js, /if \(k === '\/'\) \{ e\.preventDefault\(\); open\(''\); return; \}/);
   assert.match(js, /if \(k === '\?'\) \{ e\.preventDefault\(\); open\('\?'\); return; \}/);
@@ -59,7 +60,7 @@ test('it opens on Ctrl or Cmd + K and "/", the sheet on "?", and chords on "g" t
 });
 
 test('it never fires while somebody is typing, or while a modal is open', () => {
-  const js = read('public/palette.js');
+  const js = read('src/browser/palette.ts');
   // (The element the key went to, a field inside a web component included: palette-keys-in-a-component-field.test.js, #671.)
   assert.match(js, /n === 'input' \|\| n === 'textarea' \|\| n === 'select' \|\| n === 'deep-chat' \|\| t\.isContentEditable/);
   assert.match(js, /\.ace_editor, \.xterm/, 'an editor and a terminal are somewhere to type');
@@ -67,7 +68,7 @@ test('it never fires while somebody is typing, or while a modal is open', () => 
 });
 
 test('it is a dialog with a combobox and a listbox, announces its results, and holds the page behind it inert', () => {
-  const js = read('public/palette.js');
+  const js = read('src/browser/palette.ts');
   assert.match(js, /role="dialog" aria-modal="true" aria-label="Command palette"/);
   assert.match(js, /role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list"/);
   assert.match(js, /role="listbox" aria-label="Results"/);
@@ -98,10 +99,10 @@ test('there is a visible way in: a toolbar button that says what key opens it', 
   assert.match(server, /class="uk-navbar-item palette-trigger" type="button"/);
   // The name starts with what is printed on the button (WCAG 2.5.3): "Ctrl K".
   assert.match(server, /aria-label="Ctrl K: open the command palette" aria-keyshortcuts="Control\+K Meta\+K"/);
-  assert.match(read('public/palette.js'), /closest\('\.palette-trigger'\)/);
-  assert.match(read('public/palette.js'), /k\.textContent = '⌘K'/);
+  assert.match(read('src/browser/palette.ts'), /closest\('\.palette-trigger'\)/);
+  assert.match(read('src/browser/palette.ts'), /k\.textContent = '⌘K'/);
 });
 
 test('letters-in-order matches are a fallback, not noise next to real matches', () => {
-  assert.match(read('public/palette.js'), /out\.some\(function \(x\) \{ return x\.score >= 40; \}\)\) out = out\.filter\(function \(x\) \{ return x\.score >= 40; \}\)/);
+  assert.match(read('src/browser/palette.ts'), /out\.some\(function \(x\) \{ return x\.score >= 40; \}\)\) out = out\.filter\(function \(x\) \{ return x\.score >= 40; \}\)/);
 });

@@ -32,7 +32,7 @@ test('the shell controls are named by what they show, and its landmarks have nam
 });
 
 test('the dictate button of a field is named after the field', () => {
-  const mic = read('public/mic.js');
+  const mic = read('src/browser/mic.ts');   // the source of public/mic.js
   assert.match(mic, /`Dictate into \$\{into\}`/);
   assert.match(mic, /field\.labels && field\.labels\[0\] && field\.labels\[0\]\.textContent/);
 });

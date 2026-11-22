@@ -9,7 +9,11 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 
-const read = (f) => fs.readFileSync(path.join(__dirname, '../../public', f), 'utf8');
+// A script built from src/browser (npm run build:browser) is read at its source: the built file is esbuild's.
+const read = (f) => {
+  const ts = path.join(__dirname, '../../src/browser', f.replace(/\.js$/, '.ts'));
+  return fs.readFileSync(fs.existsSync(ts) ? ts : path.join(__dirname, '../../public', f), 'utf8');
+};
 
 test('the pen reads the pointer in the drawing\'s own units, by the browser\'s matrix: the box is only the fallback', () => {
   const ui = read('assistant-avatar-ui.js');

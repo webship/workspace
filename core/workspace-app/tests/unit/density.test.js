@@ -45,7 +45,7 @@ test('compact folds the caption away from sight, not from a screen reader', () =
 });
 
 test('the palette offers both, through the same preference', () => {
-  const js = read('public/palette.js');
+  const js = read('src/browser/palette.ts');   // the source of public/palette.js
   assert.match(js, /label: 'Rows: compact'/);
   assert.match(js, /label: 'Rows: comfortable'/);
   assert.match(js, /window\.wsPrefSet\('ws-density', value\)/);
