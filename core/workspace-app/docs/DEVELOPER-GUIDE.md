@@ -214,11 +214,67 @@ Four things that have taken the app down or hidden a feature:
 
 ---
 
+## TypeScript
+
+The dashboard is moving from JavaScript to TypeScript, module by module, and **Node.js runs the `.ts` files as
+they are**: its built-in type stripping removes the types when a file is loaded. There is no build step and no
+`dist/`: a fresh clone starts with `node server.js`, as before. Stripping is on without a flag from Node.js 22.18
+(and 23.6), so the core asks for `>= 22.18`; the dashboard's container (24) and the host (26) run it the same way.
+
+`tsc` only checks: `npm run typecheck` (`tsc -p .`, `noEmit` in `tsconfig.json`), run in CI next to the unit tests.
+The JavaScript files are part of the program (`allowJs`) but not checked (`checkJs: false`) until they are converted.
+
+**Only erasable syntax** (`erasableSyntaxOnly`), since Node.js removes types and never rewrites code: no `enum`
+(use a `const` object and a union type), no `namespace` with code in it, no parameter properties
+(`constructor(private x)`), no `import x = require()` and no `export =`. Type-only imports are written
+`import type` (`verbatimModuleSyntax`).
+
+**A converted module is an ES module in a `.mts` file**, with named exports:
+
+```ts
+// shell-quote.mts
+export function quote(s: string): string { /* … */ }
+```
+
+```js
+// a caller that is still CommonJS names the file with its extension
+const { quote } = require('./shell-quote.mts');
+```
+
+```ts
+// a test, or a module that is already TypeScript
+import { quote } from '../../shell-quote.mts';
+```
+
+Why so (checked on Node.js 22.18.0, 24.22.3 and 26.13.1):
+
+- `require('./x')` does not find `x.ts`, `x.mts` or `x.cts` on any of them: **a caller always names the file with
+  its extension**, and `allowImportingTsExtensions` lets `tsc` accept that.
+- `require()` of an ES module works without a flag and without a warning on all three. It returns the module's
+  namespace: named exports are its properties; a default export is under `.default`. So **named exports only**: a
+  module that was `module.exports = fn` exports `fn` by name and its callers read it by name.
+- The namespace is read-only: a test that replaced a function on a module's exports (`mod.fn = stub`) throws on a
+  converted module. Pass the dependency in, or stub it at the caller.
+- `.mts`, not `.ts`: `package.json` has no `"type"`, so `tsc` reads a `.ts` file as CommonJS and refuses `export` in
+  it under `verbatimModuleSyntax`. A CommonJS `.cts` with `module.exports` is not seen by `tsc` as exporting
+  anything (and `export =` is not erasable), so its callers cannot be typed. When nothing CommonJS is left, the
+  package can say `"type": "module"` and the files can be renamed `.ts`.
+- `node --test` runs `.test.mts` files as they are; `__dirname` is `import.meta.dirname` in an ES module.
+
+A converted module may only use what Node.js 22 has (`target`/`lib` `es2024`, `@types/node` 22).
+
+**The browser scripts in `public/` stay JavaScript.** A browser cannot run `.ts` without a build, and the
+dashboard has none. Whether they get a build of their own, JSDoc types checked by `tsc`, or stay as they are is
+an open question for the owner.
+
+---
+
 ## Testing
 
 ```bash
 bash core/scripts/tests/cmd-smoke-test.sh    # every cmd-*.sh: syntax, bootstrap chain, header
 cd core/workspace-app && npm run test:unit   # node --test
+cd core/workspace-app && npm run typecheck   # tsc, no output written
 cd core/workspace-app && npm test            # unit + the cucumber browser suite
 cd core/workspace-app && FEATURES=tests/features/settings.feature npm run test:browser   # one feature (or a glob)
 ```

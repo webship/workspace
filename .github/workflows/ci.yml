@@ -35,6 +35,9 @@ jobs:
       - name: install the dashboard (plugins build on install)
         working-directory: core/workspace-app
         run: npm ci --no-audit --no-fund
+      - name: the type check (tsc, nothing written)
+        working-directory: core/workspace-app
+        run: npm run typecheck
       - name: unit tests
         working-directory: core/workspace-app
         run: npm run test:unit
@@ -73,6 +76,9 @@ jobs:
       - name: install the dashboard
         working-directory: core/workspace-app
         run: npm ci --no-audit --no-fund
+      - name: the type check (tsc, nothing written)
+        working-directory: core/workspace-app
+        run: npm run typecheck
       - name: unit tests
         working-directory: core/workspace-app
         run: npm run test:unit
