@@ -116,7 +116,7 @@ const audioVoice = require('./audio-voice');
 const videoEdit = require('./video-edit');
 const projectMake = require('./project-make');
 const SCRIPTS_ALSO = () => ({ dir: workspaceDir('videos'), key: 'videos' });
-const transcripts = require('./transcripts');
+const transcripts = require('./transcripts.mts');
 const mediaInfo = require('./media-info.mts');
 const filesBrowser = require('./files-browser');
 const {
@@ -1464,9 +1464,9 @@ function commandMenuGroups(scope) {
 // What the assistant panel does, from settings.yml's `assistant:` block. Voice is the browser's
 // own — no key, no service — so turning it off removes the microphone rather than leaving a button
 // that does nothing.
-// The assistant panel's voice settings live in speech.js: the rules about which deep-chat keys may
+// The assistant panel's voice settings live in speech.mts: the rules about which deep-chat keys may
 // be absent are the whole substance of it, and they belong somewhere a test can require.
-const { panelConfig, assistantIdentity, LANGUAGES, assistantSettings: speechAssistantSettings } = require('./speech');
+const { panelConfig, assistantIdentity, LANGUAGES, assistantSettings: speechAssistantSettings } = require('./speech.mts');
 
 /**
  * How each setting is labelled, explained and edited — from core/config/settings.labels.yml.
@@ -1542,7 +1542,7 @@ const fieldMetaFor = (file) => {
 /** A label file's `options`, as [value, label] pairs. */
 function enumOptions(o) {
   if (!o) return undefined;
-  // The language list is owned by speech.js, which validates against it. A copy here would drift.
+  // The language list is owned by speech.mts, which validates against it. A copy here would drift.
   if (o === 'from:speech-languages') return LANGUAGES;
   // The themes on disk, so choosing one is a pick from what exists rather than a name typed from
   // memory. themes.js owns the list; a copy here would go stale the first time one is added.
@@ -2813,7 +2813,7 @@ async function settingsPluginData(name, want = '', { form = true } = {}) {
   const chosen = files.find((f) => f.exists && f.kind === want) || files.find((f) => f.exists) || null;
   // On a plugin's page the form sits under the section heading "Settings" (h3), so its file name is one level down.
   const formHtml = form && chosen ? await settingsFormHtml(chosen.file, '', { heading: 'h4' }) : '';
-  const st = require('./plugin-needs').state();
+  const st = require('./plugin-needs.mts').state();
   return { plugin, known: new Set(all.map((p) => p.name)), files, chosen, formHtml, record: st.record[name] || null, workspaces: st.workspaces };
 }
 
@@ -5080,7 +5080,7 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
     let after = null;
     if (form.ai_after === '1') {
       // The same Claude Code options New screen offers, checked the same way, before anything is built.
-      const claudeArgs = require('./claude-args');
+      const claudeArgs = require('./claude-args.mts');
       const { options, error } = await claudeArgs.claudeOptions();
       if (error) return send(`<div class="msg error">The Claude Code options could not be read on this machine: ${esc(error.slice(0, 200))}</div>`, 503);
       const { words, problems } = claudeArgs.flagsFromForm(options, form);

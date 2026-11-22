@@ -168,7 +168,7 @@ async function assistantReply(message, ctx, thread = null, { voice = false, avat
   const ctxWs = ctxScope && isValidWorkspace(ctxScope[1]) ? ctxScope[1] : '';
   const ctxProj = ctxWs && ctxScope[2] ? ctxScope[2] : '';
   // Its memory: one folder (settings.yml assistant.memory), made on first use and private to this user.
-  const memoryDir = path.join(ROOT, require('./speech').assistantSettings(loadSettings()).memory);
+  const memoryDir = path.join(ROOT, require('./speech.mts').assistantSettings(loadSettings()).memory);
   try { fs.mkdirSync(memoryDir, { recursive: true, mode: 0o700 }); } catch (_) { /* reported by the agent if it cannot write */ }
   const system = [
     `You are the Webship Workspace AI Assistant embedded in the web dashboard at https://workspace.ddev.site, managing the Webship Workspace tooling rooted at ${ROOT}.`,
@@ -179,7 +179,7 @@ async function assistantReply(message, ctx, thread = null, { voice = false, avat
     pageContext,
     (() => {
       // The Workspace's default language (settings.yml `language:`): answer in it unless spoken to in another.
-      const sp = require('./speech');
+      const sp = require('./speech.mts');
       const lang = sp.workspaceLanguage(loadSettings());
       return `The Workspace's language is ${sp.languageName(lang)} (${lang}): answer in it, unless the person writes to you in another language; then answer in theirs. Commands, paths and code stay as they are.`;
     })(),
@@ -397,7 +397,7 @@ async function assistantReply(message, ctx, thread = null, { voice = false, avat
   // The agent it runs as (settings.yml assistant.agent, `webship-workspace` by default): that agent's rules
   // and skills, on top of everything above. Only when the agent is installed for this user.
   // An avatar may bring an agent of its own (settings.yml assistant.avatar_agents), while it is shown.
-  const agentName = (avatar && mind.agent) || require('./speech').assistantSettings(loadSettings()).agent;
+  const agentName = (avatar && mind.agent) || require('./speech.mts').assistantSettings(loadSettings()).agent;
   if (agentName && fs.existsSync(path.join(process.env.HOME || '', '.claude', 'agents', `${agentName}.md`))) baseArgs.push('--agent', agentName);
   const withSession = (id, resume) => [...baseArgs, ...(resume ? ['--resume', id] : ['--session-id', id])];
 

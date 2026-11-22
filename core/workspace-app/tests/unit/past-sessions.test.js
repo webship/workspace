@@ -1,7 +1,7 @@
 /**
  * Past sessions: a screen session that is gone can still be read, and its Claude Code conversation resumed.
  *
- * Every session the dashboard starts leaves a note (screen-notes.js), stamped when it is found gone. The Screens
+ * Every session the dashboard starts leaves a note (screen-notes.mts), stamped when it is found gone. The Screens
  * modal and page list the notes of the sessions that are not running, with Read (the conversation from its
  * transcript, or the end of a command's log, all of it escaped), Resume (a new screen with `claude --resume <id>`)
  * and Forget. Run against a workspace built here, a HOME of its own (so ~/.claude/projects is a fixture), a
@@ -44,7 +44,7 @@ process.env.PATH = `${bin}${path.delimiter}${process.env.PATH}`;
 process.env.WORKSPACE_ROOT = root;
 process.env.HOME = home;
 
-const notes = require('../../screen-notes');
+const notes = require('../../screen-notes.mts');
 const claudeSessions = require('../../claude-sessions');
 const screens = require('../../screens');
 const actions = require('../../actions/screens');
@@ -379,8 +379,8 @@ test('every way a session starts leaves a note', () => {
   assert.match(action, /screenNotes\.noteStarted\(logDir, \{\n\s+session: fullSession, dir,/, 'New screen');
   assert.match(action, /claudeId = resumable \|\| crypto\.randomUUID\(\);/, 'a new conversation gets its id at the start');
   const jobs = read('jobs.js');
-  assert.match(jobs, /if \(started && started\.ok\) \{[\s\S]*?const notes = require\('\.\/screen-notes'\);[\s\S]*?notes\.noteStarted\(/, 'every command a row, a build or a tool starts');
-  assert.match(read('actions/claude-session.js'), /require\('\.\.\/screen-notes'\)\.noteStarted\(/, 'Resume Claude Code in a SCREENS menu');
+  assert.match(jobs, /if \(started && started\.ok\) \{[\s\S]*?const notes = require\('\.\/screen-notes\.mts'\);[\s\S]*?notes\.noteStarted\(/, 'every command a row, a build or a tool starts');
+  assert.match(read('actions/claude-session.js'), /require\('\.\.\/screen-notes\.mts'\)\.noteStarted\(/, 'Resume Claude Code in a SCREENS menu');
   assert.match(read('build-ai.js'), /claude --session-id \$\{claudeId\}/, 'Claude Code after a build');
   assert.match(read('scripts/screen-then.js'), /noteStarted\(path\.join\(ROOT, '\.screens'\)/);
 });

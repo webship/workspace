@@ -12,7 +12,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { avatarCast, avatarMind, discoverAvatars, findAvatar, ownMovesOf, voiceOf, serveAvatarMoves, elevenKey, elevenSpeak, elevenVoices } = require('../../assistant-cast');
-const { assistantSettings, workspaceLanguage } = require('../../speech');
+const { assistantSettings, workspaceLanguage } = require('../../speech.mts');
 
 function tree() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cast-'));

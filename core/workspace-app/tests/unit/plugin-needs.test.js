@@ -1,6 +1,6 @@
 /**
  * What a plugin needs from another plugin: the manifest's `needs` and `suggests`, read by
- * plugin-needs.js, honoured by plugins.sh (--require, --activate, --install, --deactivate,
+ * plugin-needs.mts, honoured by plugins.sh (--require, --activate, --install, --deactivate,
  * --uninstall, --list), by the installer and by the Plugins page.
  *
  * Every check runs against a temporary tree with fake plugin folders, the way plugin-system.test.js
@@ -86,7 +86,7 @@ const snapshot = (t) => {
 };
 
 test('needs and suggests are one shape: a name, or a list of names when any one will do; what is wrong is said, not guessed', () => {
-  const { normalize } = require('../../plugin-needs');
+  const { normalize } = require('../../plugin-needs.mts');
   assert.deepStrictEqual(normalize(undefined), { groups: [], problems: [] });
   assert.deepStrictEqual(normalize([['dev', 'test', 'dev'], 'ai-agents']).groups, [['dev', 'test'], ['ai-agents']]);
   assert.strictEqual(normalize('dev').problems.length, 1, 'a bare string is not a list');
@@ -99,7 +99,7 @@ test('needs and suggests are one shape: a name, or a list of names when any one 
 });
 
 test('a needed package is required from the same source as the plugin that needs it', () => {
-  const { specFor } = require('../../plugin-needs');
+  const { specFor } = require('../../plugin-needs.mts');
   assert.strictEqual(specFor({ module: '@webship.co/workspace-wordpress', spec: '^1.0.8' }, 'dev'), '@webship.co/workspace-dev');
   assert.strictEqual(specFor({ module: '@acme/workspace-shop', spec: '1.2.3' }, 'dev'), '@acme/workspace-dev', 'the scope of the plugin that needs it');
   assert.strictEqual(specFor({ module: '@webship.co/workspace-wordpress', spec: 'github:webship/workspace-wordpress#1.0.x' }, 'dev'), 'github:webship/workspace-dev', 'the repository beside it, on its default branch');
@@ -120,7 +120,7 @@ test('a need is met by a plugin that is activated AND installed here, never by a
   platform(t.plugins, 'wp', { needs: [['dev', 'test'], 'ai-agents'], suggests: ['graph'] });
   folder(t.plugins, 'dev');
   folder(t.plugins, 'ai-agents', 'ai-items');
-  const check = () => JSON.parse(node(t, 'console.log(JSON.stringify(require("./plugin-needs").check("wp")))'));
+  const check = () => JSON.parse(node(t, 'console.log(JSON.stringify(require("./plugin-needs.mts").check("wp")))'));
   let c = check();
   assert.deepStrictEqual(c.needs.map((n) => [n.anyOf.join('|'), n.metBy, n.pick, n.required]), [['dev|test', null, 'dev', true], ['ai-agents', null, 'ai-agents', true]], 'the packages are there, the needs are not met');
   assert.deepStrictEqual(c.suggests.map((n) => [n.pick, n.metBy, n.required, n.spec]), [['graph', null, false, '@webship.co/workspace-graph']]);
@@ -139,14 +139,14 @@ test('a workspace folder that was here before folders were plugins meets the nee
   fs.mkdirSync(path.join(t.root, 'test'));
   fs.writeFileSync(path.join(t.config, 'workspace.test.settings.yml'), 'doc:\n  name: test\ntype: sites\n');
   fs.writeFileSync(path.join(t.config, 'settings.yml'), 'workspaces:\n  - test\nplugins: {}\n');
-  const c = JSON.parse(node(t, 'console.log(JSON.stringify(require("./plugin-needs").check("wp")))'));
+  const c = JSON.parse(node(t, 'console.log(JSON.stringify(require("./plugin-needs.mts").check("wp")))'));
   assert.strictEqual(c.needs[0].metBy, 'test');
   ok(sh(t, '--activate', 'wp'));
   ok(sh(t, '--install', 'wp'));
   assert.ok(fs.existsSync(path.join(t.root, 'test', 'cmd-wp-project.sh')), 'and the builder lands in it');
   // A folder that is on disk but not on the workspaces list is not a workspace.
   fs.writeFileSync(path.join(t.config, 'settings.yml'), 'workspaces: []\nplugins: {}\n');
-  assert.strictEqual(JSON.parse(node(t, 'console.log(JSON.stringify(require("./plugin-needs").check("wp")))')).needs[0].metBy, null);
+  assert.strictEqual(JSON.parse(node(t, 'console.log(JSON.stringify(require("./plugin-needs.mts").check("wp")))')).needs[0].metBy, null);
 });
 
 test('declined: without --with-needs an activate and an install stop, say the exact commands, and change nothing', () => {

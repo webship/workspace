@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { cleanSpoken, summaryFromHtml, createNarrator } = require('../../public/narration');
-const { panelConfig } = require('../../speech');
+const { panelConfig } = require('../../speech.mts');
 
 const app = (f) => fs.readFileSync(path.join(__dirname, '../..', f), 'utf8');
 

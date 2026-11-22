@@ -41,7 +41,7 @@ function afterBuildStep({ ws, dir, project, label, installed, text, flags = [] }
   const env = Object.entries(vars).map(([k, v]) => `${k}=${shq(v)}`).join(' ');
   const payloadFile = path.join(promptsDir, `${session}.start.json`);
   // The conversation's id is chosen here (--session-id), and the note the session gets when it starts carries it
-  // (screen-notes.js), so a session that is gone can still be read and resumed.
+  // (screen-notes.mts), so a session that is gone can still be read and resumed.
   const claudeId = require('crypto').randomUUID();
   fs.writeFileSync(payloadFile, JSON.stringify({
     session, dir: projectDir, owner: projectDir,

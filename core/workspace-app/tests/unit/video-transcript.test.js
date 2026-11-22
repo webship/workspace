@@ -16,7 +16,7 @@ const { spawn } = require('child_process');
 const APP = path.join(__dirname, '../..');
 const REPO = path.join(APP, '../..');
 const { copyConfig } = require('./_isolated-config');
-const tr = require('../../transcripts');
+const tr = require('../../transcripts.mts');
 
 const SCRIPT = `# Demo: voiceover script (draft 1)
 

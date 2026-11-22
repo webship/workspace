@@ -7,7 +7,7 @@
  * command that starts with `exec` interactive, which a step inside the build's own piped session could not be.
  *
  * The payload is {session, dir, owner, cmd, note}, written by the dashboard into .screens/prompts/; `note` is what
- * the session's note keeps (screen-notes.js).
+ * the session's note keeps (screen-notes.mts).
  */
 const fs = require('fs');
 const http = require('http');
@@ -39,7 +39,7 @@ const req = http.request({ host: '127.0.0.1', port: PORT, path: '/start', method
       console.log(`Claude Code is starting in ${payload.dir} as the session ${payload.session}. Open it from Screens.`);
       // Noted like every session the dashboard starts, so it can be read and resumed once it is gone.
       try {
-        require(path.join(__dirname, '..', 'screen-notes')).noteStarted(path.join(ROOT, '.screens'),
+        require(path.join(__dirname, '..', 'screen-notes.mts')).noteStarted(path.join(ROOT, '.screens'),
           { ...(payload.note || {}), session: payload.session, dir: payload.dir });
       } catch (_) { /* a session with no note still runs */ }
       try { fs.unlinkSync(file); } catch (_) { /* already gone */ }

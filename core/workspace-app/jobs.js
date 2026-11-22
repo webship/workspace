@@ -444,11 +444,11 @@ async function startInScreen(opts) {
 
 async function startInScreenOnce(opts, session) {
   const started = await startInScreenWhere(opts, session);
-  // Noted, so the Screens page can say what ran here once it is gone (screen-notes.js). A command that ran Claude
+  // Noted, so the Screens page can say what ran here once it is gone (screen-notes.mts). A command that ran Claude
   // Code with an id (`--session-id`, `--resume`) is noted as the conversation it holds.
   if (started && started.ok) {
     const { ROOT } = require('./workspaces');
-    const notes = require('./screen-notes');
+    const notes = require('./screen-notes.mts');
     const line = require('./linger.mts').withoutLinger(opts.cmdLine || '');
     const claude = notes.claudeIdIn(line);
     notes.noteStarted(path.join(ROOT, '.screens'), {

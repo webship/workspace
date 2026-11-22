@@ -6,14 +6,20 @@
  * difference until someone dictates a sentence and the message sends itself.
  */
 
-'use strict';
+import test from 'node:test';
+import assert from 'node:assert';
 
-const test = require('node:test');
-const assert = require('node:assert');
+import { assistantSettings, assistantIdentity, speechToTextConfig, textToSpeechConfig, panelConfig } from '../../speech.mts';
+import type { PanelConfig, SpeechToText, TextToSpeech } from '../../speech.mts';
+import * as $speech from '../../speech.mts';
+import * as $fs from 'node:fs';
+import * as $path from 'node:path';
+import $workspaces from '../../workspaces.js';
 
-const { assistantSettings, assistantIdentity, speechToTextConfig, textToSpeechConfig, panelConfig } = require('../../speech');
-
-const of = (assistant) => panelConfig({ assistant });
+/** The panel's config as these tests read it: the voice objects as objects. A test that expects one to be `false`
+ *  compares the value itself, so reading it as an object costs nothing there. */
+type Read = Omit<PanelConfig, 'speechToText' | 'textToSpeech'> & { speechToText: SpeechToText; textToSpeech: TextToSpeech };
+const of = (assistant: Record<string, unknown>): Read => panelConfig({ assistant }) as Read;
 
 test('with nothing configured, the recogniser is pinned to en-US', () => {
   // en-US ships as the default rather than the browser's language: most dictation here is English,
@@ -52,7 +58,7 @@ test('only the commands actually given a phrase are sent', () => {
 test('substring matching is off, so a command word inside a sentence does not fire', () => {
   // deep-chat defaults this to true: "submit the form" would send the message mid-sentence.
   const { speechToText } = of({ command_submit: 'submit' });
-  assert.strictEqual(speechToText.commands.settings.substrings, false);
+  assert.strictEqual(speechToText.commands?.settings.substrings, false);
 });
 
 test('submit-after-silence of 0 removes the key rather than sending zero', () => {
@@ -86,7 +92,7 @@ test('speech colours are tokens, so both themes follow', () => {
 
 test('the microphone button is styled in all three states', () => {
   const { button } = of({}).speechToText;
-  for (const state of ['default', 'active', 'commandMode']) {
+  for (const state of ['default', 'active', 'commandMode'] as const) {
     assert.ok(button[state], `the ${state} microphone state has no styling`);
   }
 });
@@ -108,8 +114,10 @@ test('a nonsense number falls back rather than reaching the browser', () => {
 
 test('the two builders can be used on their own', () => {
   const cfg = assistantSettings({ assistant: { voice_name: 'X' } });
-  assert.ok(speechToTextConfig(cfg).webSpeech);
-  assert.strictEqual(textToSpeechConfig(cfg).voiceName, 'X');
+  const stt = speechToTextConfig(cfg);
+  const tts = textToSpeechConfig(cfg);
+  assert.ok(stt && stt.webSpeech);
+  assert.strictEqual(tts && tts.voiceName, 'X');
 });
 
 test('the words for "not set" all resolve to nothing, so no row in settings.yml is empty', () => {
@@ -128,8 +136,8 @@ test('the field microphones get the same language as the assistant', () => {
   // Before this they were pinned to document.documentElement.lang and ignored the setting, so
   // 35 microphones stayed on English while the assistant moved.
   const { fieldMic, speechToText } = of({ speech_language: 'ar-JO' });
-  assert.strictEqual(fieldMic.lang, 'ar-JO');
-  assert.strictEqual(speechToText.webSpeech.language, 'ar-JO');
+  assert.strictEqual(fieldMic && fieldMic.lang, 'ar-JO');
+  assert.strictEqual(typeof speechToText.webSpeech === 'object' ? speechToText.webSpeech.language : '', 'ar-JO');
 });
 
 test('turning the microphone off removes the field mics too', () => {
@@ -137,7 +145,7 @@ test('turning the microphone off removes the field mics too', () => {
 });
 
 test('every offered language is a usable BCP-47 tag, and "follow the browser" stays reachable', () => {
-  const { LANGUAGES } = require('../../speech');
+  const { LANGUAGES } = $speech;
   assert.strictEqual(LANGUAGES[0][0], 'auto', 'the browser default must be the first option');
   for (const [code, label] of LANGUAGES.slice(1)) {
     assert.match(code, /^[a-z]{2}-[A-Z]{2}$/, `${code} is not a BCP-47 tag`);
@@ -149,13 +157,13 @@ test('a voice command is a checkbox: true listens for the command\'s own word', 
   // A text box holding `off` asked people to type a phrase when what they wanted was to switch
   // something on. `true` means "listen for the obvious word".
   const { speechToText } = of({ command_stop: true, command_submit: true });
-  assert.strictEqual(speechToText.commands.stop, 'stop');
-  assert.strictEqual(speechToText.commands.submit, 'submit');
+  assert.strictEqual(speechToText.commands?.stop, 'stop');
+  assert.strictEqual(speechToText.commands?.submit, 'submit');
 });
 
 test('a phrase of your own still works — the only way to have one in another language', () => {
   const { speechToText } = of({ command_stop: 'توقف' });
-  assert.strictEqual(speechToText.commands.stop, 'توقف');
+  assert.strictEqual(speechToText.commands?.stop, 'توقف');
 });
 
 test('false and off both mean no command, so the old spelling keeps working', () => {
@@ -167,23 +175,23 @@ test('false and off both mean no command, so the old spelling keeps working', ()
 test('the language dropdown is fed from the module, so the form and the resolver cannot disagree', () => {
   // settings.labels.yml says `options: from:speech-languages` rather than repeating the list. A copy
   // there would drift from the one the resolver validates against, and the drift would be invisible.
-  const fs = require('fs');
-  const path = require('path');
+  const fs = $fs;
+  const path = $path;
   // CONFIG_DIR, not a relative walk: the app runs from /var/www/html inside its container, so
   // ../../.. lands outside the tree and the file is simply not found.
-  const { CONFIG_DIR } = require('../../workspaces');
+  const { CONFIG_DIR } = $workspaces;
   const labels = fs.readFileSync(path.join(CONFIG_DIR, 'settings.labels.yml'), 'utf8');
   assert.match(labels, /options:\s*["']?from:speech-languages/,
-    'the language options are spelled out in the labels file instead of coming from speech.js');
+    'the language options are spelled out in the labels file instead of coming from speech.mts');
 });
 
 test('a command describes itself, and shell variables in that description are resolved', () => {
   // Read from the script, not from a list beside it: 218 of the 239 commands already carry an
   // ARGPARSE_DESCRIPTION, and a second copy would be wrong the first time somebody edited a command
   // without knowing the copy existed.
-  const { commandDescription } = require('../../workspaces');
-  const path = require('path');
-  const { ROOT } = require('../../workspaces');
+  const { commandDescription } = $workspaces;
+  const path = $path;
+  const { ROOT } = $workspaces;
 
   const built = commandDescription(path.join(ROOT, 'dev'), 'cmd-webship11-0-x-project.sh');
   assert.ok(built, 'a builder with ARGPARSE_DESCRIPTION described itself as nothing');
@@ -192,13 +200,13 @@ test('a command describes itself, and shell variables in that description are re
 });
 
 test('a command with no description at all returns empty rather than throwing', () => {
-  const { commandDescription } = require('../../workspaces');
+  const { commandDescription } = $workspaces;
   assert.strictEqual(commandDescription('/nonexistent', 'cmd-nope.sh'), '');
 });
 
 test('a command title is short, and a builder keeps its product name however long', () => {
-  const { commandTitle, ROOT } = require('../../workspaces');
-  const path = require('path');
+  const { commandTitle, ROOT } = $workspaces;
+  const path = $path;
 
   // Derived from the file name when nothing brief is declared: cmd-tools-reclaim.sh -> "Reclaim".
   assert.strictEqual(commandTitle(path.join(ROOT, 'products'), 'cmd-tools-reclaim.sh'), 'Reclaim');
@@ -214,9 +222,9 @@ test('a command title is short, and a builder keeps its product name however lon
 });
 
 test('every command in every workspace folder has a description', () => {
-  const { commandDescription, ROOT } = require('../../workspaces');
-  const fs = require('fs');
-  const path = require('path');
+  const { commandDescription, ROOT } = $workspaces;
+  const fs = $fs;
+  const path = $path;
   const missing = [];
   for (const d of fs.readdirSync(ROOT)) {
     let files = [];
@@ -234,7 +242,7 @@ test('every command in every workspace folder has a description', () => {
 // and everything unscoped, and a workspace's own file for its page. The rule is the same at each
 // level — say nothing and you inherit — so shipping the keys in every workspace file costs nothing.
 
-const id = (global, own) => assistantIdentity({ assistant: global }, own ? { assistant: own } : null);
+const id = (global: Record<string, unknown>, own?: Record<string, unknown> | null): { name: string; placeholder: string } => assistantIdentity({ assistant: global }, own ? { assistant: own } : null);
 
 test('with nothing configured it is the AI Assistant, and the composer says nothing', () => {
   assert.deepStrictEqual(assistantIdentity(), { name: 'AI Assistant', placeholder: '' });

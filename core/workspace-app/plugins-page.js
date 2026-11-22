@@ -19,7 +19,7 @@ const path = require('path');
 
 const { esc } = require('./html.mts');
 const { installedPlugins, needsInstall } = require('./plugin-manifest.mts');
-const needs = require('./plugin-needs');
+const needs = require('./plugin-needs.mts');
 const commandCheck = require('./command-check');
 const { status, RECORD } = require('./plugin-install');
 const { pluginConfigs, loadedPlugins } = require('./plugin-loader');

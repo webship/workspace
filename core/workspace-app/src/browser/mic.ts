@@ -8,7 +8,7 @@
  * settings.yml moved the assistant and left every other microphone on English. That is the failure
  * this whole setting exists to prevent: a recogniser on the wrong language does not error, it returns
  * confident nonsense, so the bug looks like bad dictation rather than a configuration problem. Both
- * kinds of microphone now read the same resolved config, from speech.js, through `window.WS_SPEECH`.
+ * kinds of microphone now read the same resolved config, from speech.mts, through `window.WS_SPEECH`.
  */
 
 (function () {
@@ -21,7 +21,7 @@
   /** A field the microphones type into. */
   type Field = HTMLInputElement | HTMLTextAreaElement;
 
-  // Resolved server-side by speech.js. Absent only if the page failed to render its head, in which
+  // Resolved server-side by speech.mts. Absent only if the page failed to render its head, in which
   // case the browser's own defaults are the right fallback rather than refusing to work.
   const cfg = (window.WS_SPEECH && window.WS_SPEECH.fieldMic) || null;
   // `|| null` turns `fieldMic: false` (voice input off) into null, so the microphones stay on then: kept as it was in
