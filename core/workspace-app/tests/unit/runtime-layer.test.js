@@ -62,6 +62,7 @@ test('docker: `ddev config` writes compose.yaml with the stack, and the project 
   assert.match(compose, /^x-webship:\n {2}runtime: docker\n {2}stack: php\n {2}type: drupal\n {2}docroot: "web"\n {2}php: "8\.3"\n {2}database: "10\.11"\n {2}port: \d+$/m);
   assert.match(compose, /APACHE_DOCUMENT_ROOT: \/var\/www\/html\/web/);
   assert.match(compose, /image: mariadb:10\.11/);
+  assert.doesNotMatch(compose, /userns_mode|user: "0:0"/, 'Docker keeps its own user mapping');
   assert.ok(fs.existsSync(path.join(p, '.webship', 'runtime', 'Dockerfile')), 'the stack image');
   assert.match(r.out, /^docker$/m);
   assert.match(r.out, /http:\/\/127\.0\.0\.1:\d+/);
@@ -103,6 +104,9 @@ test('podman: the same compose file, run with podman compose', () => {
   const p = path.join(dir, 'pd'); fs.mkdirSync(p);
   run(dir, p, 'ddev config --project-type=drupal --docroot=web --project-name=pd', { WORKSPACE_RUNTIME: 'podman' });
   assert.match(fs.readFileSync(path.join(p, 'compose.yaml'), 'utf8'), /^ {2}runtime: podman$/m);
+  // Rootless Podman: the web service keeps the host user (so it can write the project folder), and starts as root
+  // inside so Apache can bind port 80. Found on a real Podman 4.9.3 build; Docker's file has neither line.
+  assert.match(fs.readFileSync(path.join(p, 'compose.yaml'), 'utf8'), /image: webship-pd-web\n {4}userns_mode: keep-id\n {4}user: "0:0"\n {4}environment:/);
   const r = run(dir, p, 'ddev start; ddev composer install');
   assert.deepStrictEqual(r.calls, ['podman compose up -d --build --wait', 'podman compose exec -T -u www-data -w /var/www/html web composer install']);
 });
