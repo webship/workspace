@@ -11,7 +11,8 @@ const APP = path.join(__dirname, '..', '..');
 const SKIP = new Set(['server.js']); // starts listening on require
 
 function modules(dir) {
-  return fs.readdirSync(dir).filter((f) => f.endsWith('.js') && !SKIP.has(f)).map((f) => path.join(dir, f));
+  // .mts: a module converted to TypeScript, an ES module a CommonJS caller requires by its full name.
+  return fs.readdirSync(dir).filter((f) => /\.m?[jt]s$/.test(f) && !f.endsWith('.d.ts') && !SKIP.has(f)).map((f) => path.join(dir, f));
 }
 
 test('every core module in the app root and actions/ loads', () => {

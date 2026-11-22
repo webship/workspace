@@ -34,7 +34,8 @@ test('the files test:unit hands node --test are the unit test files, and a patte
   const r = spawnSync('sh', ['-c', `for a in ${words}; do echo "$a"; done`], { cwd: APP, encoding: 'utf8' });
   assert.strictEqual(r.status, 0, r.stderr);
   const given = r.stdout.trim().split('\n').filter(Boolean).sort();
-  const expected = fs.readdirSync(path.join(APP, 'tests', 'unit')).filter((f) => f.endsWith('.test.js')).map((f) => `tests/unit/${f}`);
+  // .test.mts: a unit test converted to TypeScript, which node --test runs as it is.
+  const expected = fs.readdirSync(path.join(APP, 'tests', 'unit')).filter((f) => f.endsWith('.test.js') || f.endsWith('.test.mts')).map((f) => `tests/unit/${f}`);
   for (const dir of fs.readdirSync(path.join(APP, 'plugins'))) {
     const t = path.join(APP, 'plugins', dir, 'tests');
     if (fs.existsSync(t)) for (const f of fs.readdirSync(t)) if (f.endsWith('.test.js')) expected.push(`plugins/${dir}/tests/${f}`);

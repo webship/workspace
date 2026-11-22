@@ -12,7 +12,7 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 // Before anything is started: where this dashboard's screen sessions live when the default socket
 // directory cannot be used (a machine with no screen of its own). Every child inherits the choice.
-require('./screen-dir').ensureScreenDir();
+require('./screen-dir.mts').ensureScreenDir();
 const yamlLoad = (text) => (typeof yaml.safeLoad === 'function' ? yaml.safeLoad(text) : yaml.load(text));
 const os = require('os');
 const { spawn, spawnSync } = require('child_process');
@@ -5259,7 +5259,7 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
     // embedding them in the shell line is safe.)
     // An empty dump (a project with no database, backed up by an older command) is named, not imported:
     // `ddev import-db` ends the restore with "failed to extract provided file: EOF" on it.
-    const { file: dbFile, empty: emptyDump } = require('./restore-dump').dumpBeside(meta.backupsDir, file);
+    const { file: dbFile, empty: emptyDump } = require('./restore-dump.mts').dumpBeside(meta.backupsDir, file);
     let shellLine = `set -e; echo "Extracting ${file}…"; tar -xzf '${archive}'`;
     // A project on Docker Compose, Podman or Kubernetes carries a compose.yaml with an x-webship block: it is
     // started, and its dump imported, through the runtime layer (core/scripts/runtime-verb.sh).
@@ -5668,9 +5668,9 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
       if (!fs.existsSync(path.join(dir, script))) return send('<div class="msg error">No such command in this workspace.</div>', 404);
       // The same shapes the build action accepts: names, flags, versions, paths — nothing
       // that can escape an argument or smuggle a second command. An argument of several words is
-      // typed in quotes (a platform tool's --run "plugin list"): tool-args.js splits them, and each
+      // typed in quotes (a platform tool's --run "plugin list"): tool-args.mts splits them, and each
       // argument reaches the shell in single quotes.
-      const toolArgs = require('./tool-args');
+      const toolArgs = require('./tool-args.mts');
       const split = toolArgs.splitToolArgs(form.args);
       if (!split.ok) return send(`<div class="msg error">${esc(split.error)}</div>`, 400);
       const shown = toolArgs.shownArgs(split.argv);
@@ -8006,7 +8006,7 @@ Summarise what you changed and how to verify it`,
         <input class="uk-input uk-margin-small-bottom" name="args" placeholder="Arguments, e.g. myproject --install --launch"
                aria-label="Arguments" aria-describedby="cmd-args-hint"
                title="Letters, numbers and ._@^~:/=,- ; an argument of several words goes in quotes"
-               pattern="${esc(require('./tool-args').ARGS_PATTERN)}">
+               pattern="${esc(require('./tool-args.mts').ARGS_PATTERN)}">
         <p class="uk-text-meta uk-margin-remove-top" id="cmd-args-hint">An argument of several words goes in quotes: <code>myproject --run "plugin list"</code>.</p>
         <button type="submit" class="uk-button uk-button-primary"><span uk-icon="icon: play; ratio: .8"></span> Run</button>
       </form>
@@ -8463,7 +8463,7 @@ const PORT = process.env.PORT || 3000;
 const { WebSocketServer } = require('ws');
 const { spawn: spawnPty } = require('child_process');
 const termWss = new WebSocketServer({ noServer: true });
-const termKeepalive = require('./terminal-keepalive');
+const termKeepalive = require('./terminal-keepalive.mts');
 // Terminals relayed to the host runner (runner-attach.js): counted with the ones attached here.
 const termRelays = new Set();
 
@@ -8548,7 +8548,7 @@ server.on('upgrade', (req, socket, head) => {
   const rows = Math.min(200, Math.max(5, parseInt(u.searchParams.get('rows'), 10) || 30));
   termWss.handleUpgrade(req, socket, head, async (ws) => {
     // A quiet terminal stays attached: pinged on a beat that every proxy in between sees as traffic, and ended
-    // when its browser stopped answering (terminal-keepalive.js).
+    // when its browser stopped answering (terminal-keepalive.mts).
     termKeepalive.keepAlive(ws);
     // A session on the machine that screen here cannot reach (its own socket directory, no shared process
     // namespace): the runner attaches it, and this relays. Everything else attaches here, below.

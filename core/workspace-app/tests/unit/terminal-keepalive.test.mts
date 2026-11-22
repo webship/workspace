@@ -9,33 +9,45 @@
  * `screen` stand-in that writes down what reaches the session.
  */
 
-const { test, before, after } = require('node:test');
-const assert = require('node:assert');
-const EventEmitter = require('events');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const net = require('net');
-const { spawn, spawnSync } = require('child_process');
-const { copyConfig } = require('./_isolated-config');
+import { test, before, after } from 'node:test';
+import assert from 'node:assert';
+import { EventEmitter } from 'node:events';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import net from 'node:net';
+import { createRequire } from 'node:module';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { copyConfig } from './_isolated-config.js';
 
-const APP = path.join(__dirname, '../..');
+import { isKeepalive, keepAlive, KEEPALIVE_MS, type KeepaliveSocket } from '../../terminal-keepalive.mts';
+
+const APP = path.join(import.meta.dirname, '../..');
 const REPO = path.join(APP, '../..');
-const read = (f) => fs.readFileSync(path.join(APP, f), 'utf8');
-const wait = (ms) => new Promise((r) => { setTimeout(r, ms); });
+const read = (f: string): string => fs.readFileSync(path.join(APP, f), 'utf8');
+const wait = (ms: number): Promise<void> => new Promise((r) => { setTimeout(r, ms); });
 
-const { isKeepalive, keepAlive, KEEPALIVE_MS } = require('../../terminal-keepalive');
+/** What this test uses of a `ws` client (the package ships no types). */
+interface WsClient {
+  on(event: 'open' | 'ping', listener: () => void): this;
+  on(event: 'close', listener: (code: number) => void): this;
+  on(event: 'error', listener: (err: Error) => void): this;
+  on(event: 'message', listener: (data: Buffer, isBinary: boolean) => void): this;
+  send(data: Buffer | string, opts?: { binary: boolean }): void;
+  close(code: number): void;
+}
+type WsClientClass = new (url: string, opts?: { autoPong?: boolean }) => WsClient;
+const WebSocket = createRequire(import.meta.url)('ws') as WsClientClass;
 
 /** A socket as `ws` has it, as far as the keepalive is concerned. */
-function fakeSocket() {
-  const s = new EventEmitter();
-  s.readyState = 1;
-  s.pings = 0;
-  s.terminated = false;
-  s.ping = () => { s.pings += 1; };
-  s.terminate = () => { s.terminated = true; s.readyState = 3; s.emit('close'); };
-  return s;
+class FakeSocket extends EventEmitter implements KeepaliveSocket {
+  readyState = 1;
+  pings = 0;
+  terminated = false;
+  ping(): void { this.pings += 1; }
+  terminate(): void { this.terminated = true; this.readyState = 3; this.emit('close'); }
 }
+const fakeSocket = (): FakeSocket => new FakeSocket();
 
 test('the keepalive is an empty binary frame, which nothing typed can be', () => {
   assert.strictEqual(isKeepalive(Buffer.alloc(0), true), true);
@@ -79,12 +91,12 @@ test('the server pings on a beat, keeps a socket that answers, and ends one that
 const hasScript = spawnSync('script', ['--version']).status === 0;
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-term-keepalive-'));
 const typed = path.join(root, 'typed.txt');
-let proc;
-let port;
+let proc: ChildProcess | undefined;
+let port = 0;
 
-const free = () => new Promise((resolve) => {
+const free = (): Promise<number> => new Promise((resolve) => {
   const s = net.createServer();
-  s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); });
+  s.listen(0, '127.0.0.1', () => { const p = (s.address() as net.AddressInfo).port; s.close(() => resolve(p)); });
 });
 
 before(async () => {
@@ -101,13 +113,14 @@ case "$1" in --version) echo "Screen version 4.09.01 (stand-in)"; exit 0 ;; -ls)
 exit 0
 `, { mode: 0o755 });
   port = await free();
-  proc = spawn(process.execPath, ['server.js'], { cwd: APP, stdio: ['ignore', 'pipe', 'pipe'],
+  const server = spawn(process.execPath, ['server.js'], { cwd: APP, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, PORT: String(port), WORKSPACE_ROOT: root, HOME: root,
       WORKSPACE_PLUGINS_NO_RESTART: '1', WORKSPACE_TERM_KEEPALIVE_MS: '200' } });
-  await new Promise((resolve, reject) => {
+  proc = server;
+  await new Promise<void>((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('server did not start')), 20000);
-    proc.stdout.on('data', (d) => { if (/listening/.test(String(d))) { clearTimeout(t); resolve(); } });
-    proc.on('exit', (c) => { clearTimeout(t); reject(new Error(`server exited ${c}`)); });
+    server.stdout.on('data', (d: Buffer) => { if (/listening/.test(String(d))) { clearTimeout(t); resolve(); } });
+    server.on('exit', (c) => { clearTimeout(t); reject(new Error(`server exited ${c}`)); });
   });
 });
 
@@ -117,8 +130,7 @@ after(() => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-const connect = (opts = {}) => new Promise((resolve, reject) => {
-  const WebSocket = require('ws');
+const connect = (opts: { autoPong?: boolean } = {}): Promise<WsClient> => new Promise((resolve, reject) => {
   const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/screen/dev--site1--quiet?cols=100&rows=30`, opts);
   ws.on('open', () => resolve(ws));
   ws.on('error', reject);
@@ -126,7 +138,7 @@ const connect = (opts = {}) => new Promise((resolve, reject) => {
 
 test('the page\'s keepalive is answered, and never reaches the session', { skip: !hasScript && 'script(1) is not installed' }, async () => {
   const ws = await connect();
-  const answers = [];
+  const answers: Buffer[] = [];
   let pings = 0;
   ws.on('message', (d, isBinary) => { if (isBinary && d.length === 0) answers.push(d); });
   ws.on('ping', () => { pings += 1; });
@@ -145,7 +157,7 @@ test('the page\'s keepalive is answered, and never reaches the session', { skip:
 
 test('a browser that stops answering pings is let go', { skip: !hasScript && 'script(1) is not installed' }, async () => {
   const ws = await connect({ autoPong: false });
-  const closed = new Promise((resolve) => ws.on('close', resolve));
+  const closed = new Promise<number>((resolve) => { ws.on('close', resolve); });
   const t0 = Date.now();
   const code = await Promise.race([closed, wait(5000).then(() => 'still open')]);
   assert.notStrictEqual(code, 'still open', 'ended by the server');

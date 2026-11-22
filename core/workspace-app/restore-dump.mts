@@ -8,22 +8,23 @@
  * the restore with `failed to extract provided file: EOF`, so an empty file is named, not imported.
  */
 
-const fs = require('fs');
-const path = require('path');
+import { statSync, type Stats } from 'node:fs';
+import { join } from 'node:path';
+
+/** The dump to import (`file`), or the name of an empty one that is not imported (`empty`). */
+export interface DumpChoice { file: string | null; empty: string | null }
 
 /** The dump beside `archive` (a file name in `backupsDir`): `{ file }` to import, or `{ file: null, empty }`. */
-function dumpBeside(backupsDir, archive) {
+export function dumpBeside(backupsDir: string, archive: string): DumpChoice {
   const base = String(archive).replace(/\.tar\.gz$/, '');
-  let empty = null;
+  let empty: string | null = null;
   for (const name of [`${base}-db.sql.gz`, `${base}-db.sql`]) {
-    const full = path.join(backupsDir, name);
-    let st;
-    try { st = fs.statSync(full); } catch { continue; }
+    const full = join(backupsDir, name);
+    let st: Stats;
+    try { st = statSync(full); } catch { continue; }
     if (!st.isFile()) continue;
     if (st.size > 0) return { file: full, empty: null };
     if (!empty) empty = name;
   }
   return { file: null, empty };
 }
-
-module.exports = { dumpBeside };
