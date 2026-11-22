@@ -2,16 +2,17 @@
  * Settings home: the base as a few entries, the plugins as rows by family with a state in words and
  * one action, a filter that is hidden until a script shows it, and honest empty states.
  */
-const assert = require('node:assert');
-const fs = require('node:fs');
-const path = require('node:path');
-const { test } = require('node:test');
+import assert from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
+import { test } from 'node:test';
 
-const model = require('../../settings-model.mts');
-const home = require('../../settings-home');
+import * as model from '../../settings-model.mts';
+import type { PluginRow } from '../../settings-model.mts';
+import * as home from '../../settings-home.mts';
 
 const none = { unmet: [], problems: [] };
-const plugin = (name, manifest, step, more = {}) => ({ name, module: `@webship.co/workspace-${name}`, version: '1.0.0', manifest: { name, ...manifest }, step, wants: none, ...more });
+const plugin = (name: string, manifest: Record<string, unknown>, step: number, more: Record<string, unknown> = {}): PluginRow => ({ name, module: `@webship.co/workspace-${name}`, version: '1.0.0', manifest: { name, ...manifest }, step, wants: none, ...more });
 const plugins = [
   plugin('jira', { label: 'Jira', settingsFile: 'plugin.jira.settings.yml' }, 2),
   plugin('wordpress', { label: 'WordPress' }, 1, { wants: { unmet: [{ anyOf: ['dev', 'test'], pick: 'dev' }], problems: [] } }),
@@ -106,7 +107,7 @@ test('the filter is drawn hidden (a script shows it), is labelled, and announces
   assert.match(html, /role="status" aria-live="polite"/);
   assert.strictEqual((html.match(/class="settings-chip"/g) || []).length, 5);
   assert.match(html, /data-show="all" aria-pressed="true"/);
-  const ui = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'ui.js'), 'utf8');
+  const ui = fs.readFileSync(path.join(import.meta.dirname, '..', '..', 'public', 'ui.js'), 'utf8');
   assert.match(ui, /function settingsSearchApply/);
   assert.match(ui, /box\.hidden = false/);
 });
@@ -120,16 +121,16 @@ test('a workspace with no plugin says so and leads to the catalogue', () => {
 
 test('the plugins are drawn again when a step has run, and the page says its files by the workspace path', () => {
   assert.match(html, /hx-get="\/fragments\/settings\/plugins" hx-trigger="refresh-projects from:body"/);
-  const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
+  const server = fs.readFileSync(path.join(import.meta.dirname, '..', '..', 'server.js'), 'utf8');
   assert.match(server, /pathname === '\/fragments\/settings\/plugins'/);
   assert.ok(!server.includes(': fname(CONFIG_DIR);'), 'the heading does not print the home folder');
 });
 
 test('focus stays with the plugin when its row or its steps are drawn again after a step', () => {
   assert.match(html, /<li class="plugin-row" data-refocus="row-jira"/);
-  const page = fs.readFileSync(path.join(__dirname, '..', '..', 'settings-plugin-page.js'), 'utf8');
+  const page = fs.readFileSync(path.join(import.meta.dirname, '..', '..', 'settings-plugin-page.js'), 'utf8');
   assert.match(page, /data-refocus="steps-\$\{esc\(p\.name\)\}"/);
-  const ui = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'ui.js'), 'utf8');
+  const ui = fs.readFileSync(path.join(import.meta.dirname, '..', '..', 'public', 'ui.js'), 'utf8');
   assert.match(ui, /document\.activeElement !== document\.body\)\) return;/, 'only when focus was lost: a person who moved on is left where they are');
   assert.match(ui, /clearTimeout\(settingsRefocusTimer\);/, 'after the last of the redraws, not the first');
   assert.match(ui, /holder\.setAttribute\('tabindex', '-1'\)/);

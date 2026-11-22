@@ -48,7 +48,7 @@ test('the modal takes focus into the dialog when it opens and gives it back to w
 });
 
 test('modal tabs: the panel is not a live region, a tab says its badge and its group apart from its name, the filter says what is left', () => {
-  const { tabModalHtml } = require('../../tab-modal');
+  const { tabModalHtml } = require('../../tab-modal.mts');
   const html = tabModalHtml({ id: 'settings', title: 'Settings', filter: true, groups: [
     { id: 'family-platforms', label: 'Platforms', tabs: [{ id: 'plugin-drupal', label: 'Drupal', url: '/x', badge: 'Needs settings', badgeTone: 'warning' }, { id: 'plugin-odoo', label: 'Odoo', url: '/y', badge: 'Not active' }] }] });
   assert.ok(!html.includes('aria-live'), 'a 5,000-character panel is not read out on every tab change');

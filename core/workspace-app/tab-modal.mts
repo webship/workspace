@@ -15,29 +15,43 @@
  * only below 640px (tab-modal.css), so wider screens are as they were.
  */
 
-const { esc } = require('./html.mts');
-const { iconHtml } = require('./icons.mts');
+import { esc } from './html.mts';
+import { iconHtml } from './icons.mts';
 
-/**
- * @param {object} o
- * @param {string} o.id        names the modal in the address: #<id>/<tab>
- * @param {string} o.title     heading of the left column
- * @param {string} [o.subtitle]
- * @param {{label: string, url: string}} [o.back]  a way out above the tabs, loaded into the whole modal
- * @param {boolean} [o.filter] a filter box above the tabs, for a long list
- * @param {boolean} [o.hash]   keep #<id>/<tab> in the address, so the place can be linked to and reopened
- * @param {{id: string, label: string, tabs: {id: string, label: string, url: string, icon?: string, hint?: string, badge?: string, badgeTone?: string}[]}[]} o.groups
- * @param {string} [o.active]  the tab to open on; the first one when it is not found
- */
-function tabModalHtml({ id, title, subtitle = '', back = null, filter = false, hash = false, groups, active = '' }) {
+/** One tab: its fragment URL is loaded into the pane when it is chosen. */
+export interface Tab { id: string; label: string; url: string; icon?: string; hint?: string; badge?: string; badgeTone?: string }
+
+/** A group of tabs, with a label for the eye. */
+export interface TabGroup { id: string; label: string; tabs: Tab[] }
+
+/** What a tabbed modal is made from. */
+export interface TabModalOptions {
+  /** Names the modal in the address: #<id>/<tab>. */
+  id: string;
+  /** The heading of the left column. */
+  title: string;
+  subtitle?: string;
+  /** A way out above the tabs, loaded into the whole modal. */
+  back?: { label: string; url: string } | null;
+  /** A filter box above the tabs, for a long list. */
+  filter?: boolean;
+  /** Keep #<id>/<tab> in the address, so the place can be linked to and reopened. */
+  hash?: boolean;
+  groups: TabGroup[];
+  /** The tab to open on; the first one when it is not found. */
+  active?: string;
+}
+
+/** The modal (see TabModalOptions). */
+export function tabModalHtml({ id, title, subtitle = '', back = null, filter = false, hash = false, groups, active = '' }: TabModalOptions): string {
   const all = groups.flatMap((g) => g.tabs);
-  if (!all.length) return '<div class="msg error">Nothing to show here.</div>';
   const current = all.find((t) => t.id === active) || all[0];
+  if (!current) return '<div class="msg error">Nothing to show here.</div>';
   const pane = `tm-${id}-pane`;
   // A tab says its name, then (after a pause a screen reader can hear) what it wants and which group it
   // is in. The group's printed label is for the eye only: inside a tablist a label is not a tab, so it is
   // hidden from assistive technology and the group goes into each tab's name instead.
-  const tab = (t, group = '') => {
+  const tab = (t: Tab, group = ''): string => {
     const on = t === current;
     return `<button type="button" role="tab" class="tabmodal-tab${on ? ' is-selected' : ''}"
         id="tm-${esc(id)}-${esc(t.id)}" data-tab="${esc(t.id)}" data-label="${esc(t.label)}"
@@ -85,5 +99,3 @@ function tabModalHtml({ id, title, subtitle = '', back = null, filter = false, h
   </section>
 </div>`;
 }
-
-module.exports = { tabModalHtml };

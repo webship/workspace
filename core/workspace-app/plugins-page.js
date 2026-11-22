@@ -2,7 +2,7 @@
  * Settings → Add a plugin: where a plugin is added, and what every Settings page knows of the plugins.
  *
  * `rows()` is every plugin package the dashboard can see with the step it is at, what it needs and
- * who needs it; the Settings home and a plugin's own page draw from it (settings-home.js,
+ * who needs it; the Settings home and a plugin's own page draw from it (settings-home.mts,
  * settings-plugin-page.js). The page itself is the box that requires a package, the catalogue by
  * family, and the commands the core needs on this machine. The four steps are exactly
  * core/scripts/plugins.sh's verbs — every button runs that script as a job, so the button and the
@@ -180,7 +180,7 @@ function commandsSectionHtml() {
 function catalogHtml(added = new Set()) {
   const { iconHtml } = require('./icons.mts');
   const model = require('./settings-model.mts');
-  const home = require('./settings-home');
+  const home = require('./settings-home.mts');
   const families = FAMILIES.map((f) => {
     const fam = model.familyById({ workspaces: 'folders', drives: 'features' }[f.id] || f.id);
     return `

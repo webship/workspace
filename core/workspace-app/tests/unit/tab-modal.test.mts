@@ -1,11 +1,11 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('fs');
-const path = require('path');
-const { tabModalHtml } = require('../../tab-modal');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { tabModalHtml } from '../../tab-modal.mts';
 
-const root = path.join(__dirname, '..', '..');
-const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
+const root = path.join(import.meta.dirname, '..', '..');
+const read = (...p: string[]): string => fs.readFileSync(path.join(root, ...p), 'utf8');
 const groups = [
   { id: 'a', label: 'First', tabs: [
     { id: 'one', label: 'One', url: '/x/one', hint: 'The first' },

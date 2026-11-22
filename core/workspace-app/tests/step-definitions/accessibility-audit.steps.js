@@ -68,7 +68,7 @@ Then(/^every tab of the Settings modal should have no accessibility violations, 
       const tab = this.page.locator(`#editor-modal [role="tab"][data-tab="${id}"]`);
       await tab.scrollIntoViewIfNeeded();
       await tab.click();
-      // The pane is busy until the tab's content has arrived (tab-modal.js, ui.js).
+      // The pane is busy until the tab's content has arrived (tab-modal.mts, ui.js).
       await this.page.waitForFunction(() => {
         const pane = document.querySelector('#editor-modal .tabmodal-pane');
         return pane && pane.getAttribute('aria-busy') !== 'true';

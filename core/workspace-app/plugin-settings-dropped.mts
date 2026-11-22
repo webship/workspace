@@ -7,29 +7,32 @@
  * compares the file with the template the installed version ships, so the form can say so. The file is never changed.
  */
 
-'use strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const fs = require('fs');
-const path = require('path');
+import { pluginByName, type InstalledPlugin } from './plugin-manifest.mts';
+
+/** A row of a settings file (settings-file.js readSettingsRows), as far as its dotted key is read. */
+export interface SettingsRow { dotted?: string; [field: string]: unknown }
 
 /**
  * The keys a template has, as dotted paths, and the ones it leaves to the person: a map or a list written empty on
  * one line (`api_tokens: {}`), a key with nothing under it, or a list. Whatever sits under those is the person's.
  */
-function templateShape(text) {
-  const keys = new Set();
-  const open = new Set();
-  const parents = new Set();
-  const withChildren = new Set();
-  const stack = [];   // [{ indent, key }]
+export function templateShape(text: unknown): { keys: Set<string>; open: Set<string> } {
+  const keys = new Set<string>();
+  const open = new Set<string>();
+  const parents = new Set<string>();
+  const withChildren = new Set<string>();
+  const stack: { indent: number; key: string }[] = [];
   const lines = String(text || '').split('\n');
   lines.forEach((line, i) => {
     if (/^\s*(#|$)/.test(line)) return;
     const m = line.match(/^(\s*)([A-Za-z0-9_.-]+):\s*(.*)$/);
     if (!m) return;   // a list item, or a line that is not a key
-    const [, indentStr, key, rawValue] = m;
+    const [, indentStr = '', key = '', rawValue = ''] = m;
     const indent = indentStr.length;
-    while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop();
+    while (stack.length && (stack[stack.length - 1]?.indent ?? -1) >= indent) stack.pop();
     const parent = stack.map((x) => x.key).join('.');
     const dotted = parent ? `${parent}.${key}` : key;
     keys.add(dotted);
@@ -48,9 +51,9 @@ function templateShape(text) {
 }
 
 /** The dotted keys of a settings file's rows (settings-file.js readSettingsRows) that the template has no place for. */
-function droppedKeys(rows, templateText) {
+export function droppedKeys(rows: readonly (SettingsRow | null | undefined)[] | null | undefined, templateText: unknown): Set<string> {
   const { keys, open } = templateShape(templateText);
-  const dropped = new Set();
+  const dropped = new Set<string>();
   for (const r of rows || []) {
     if (!r || !r.dotted || keys.has(r.dotted)) continue;
     const parts = String(r.dotted).split('.');
@@ -61,13 +64,12 @@ function droppedKeys(rows, templateText) {
 }
 
 /** For a plugin's own settings file: the keys its installed template no longer has, or none when there is no template. */
-function droppedSettingsOf(pluginName, rows, lookup = require('./plugin-manifest.mts').pluginByName) {
+export function droppedSettingsOf(pluginName: string, rows: readonly (SettingsRow | null | undefined)[] | null | undefined,
+  lookup: (name: string) => InstalledPlugin | null = pluginByName): Set<string> {
   const plugin = pluginName ? lookup(pluginName) : null;
   const rel = plugin && plugin.manifest && plugin.manifest.settingsTemplate;
-  if (!rel) return new Set();
-  let text;
+  if (!plugin || !rel) return new Set();
+  let text: string;
   try { text = fs.readFileSync(path.join(plugin.dir, rel), 'utf8'); } catch (_) { return new Set(); }
   return droppedKeys(rows, text);
 }
-
-module.exports = { templateShape, droppedKeys, droppedSettingsOf };

@@ -9,7 +9,7 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const model = require('../../settings-model.mts');
-const home = require('../../settings-home');
+const home = require('../../settings-home.mts');
 
 const none = { unmet: [], problems: [] };
 const plugin = (name, manifest, step) => ({ name, module: `@webship.co/workspace-${name}`, version: '1.0.0', manifest: { name, ...manifest }, step, wants: none });
