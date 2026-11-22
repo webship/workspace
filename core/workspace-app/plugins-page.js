@@ -18,7 +18,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { esc } = require('./html.mts');
-const { installedPlugins, needsInstall } = require('./plugin-manifest');
+const { installedPlugins, needsInstall } = require('./plugin-manifest.mts');
 const needs = require('./plugin-needs');
 const commandCheck = require('./command-check');
 const { status, RECORD } = require('./plugin-install');
@@ -93,7 +93,7 @@ function rows() {
  * the catalogue by family under the same filter, and (closed, at the end) the commands the base uses.
  */
 function pluginsPageHtml() {
-  const model = require('./settings-model');
+  const model = require('./settings-model.mts');
   const list = rows();
   const grouped = model.groupByFamily(list, { latest: require('./plugin-updates.mts').peek().latest, isNewer: require('./plugin-updates.mts').isNewer }).flatMap((g) => g.plugins);
   const added = new Map(grouped.map((p) => [p.module, p]));
@@ -179,7 +179,7 @@ function commandsSectionHtml() {
  */
 function catalogHtml(added = new Set()) {
   const { iconHtml } = require('./icons.mts');
-  const model = require('./settings-model');
+  const model = require('./settings-model.mts');
   const home = require('./settings-home');
   const families = FAMILIES.map((f) => {
     const fam = model.familyById({ workspaces: 'folders', drives: 'features' }[f.id] || f.id);

@@ -251,14 +251,14 @@ function checkCore(file = CORE_NEEDS) {
 
 /** One plugin's list, from its manifest, or null when no such plugin package is here. */
 function checkPlugin(name) {
-  const { pluginByName } = require('./plugin-manifest');
+  const { pluginByName } = require('./plugin-manifest.mts');
   const p = pluginByName(name);
   return p ? checkOwner(name, p.manifest) : null;
 }
 
 /** Every plugin package's list (only the ones that declare commands). */
 function checkPlugins() {
-  const { installedPlugins } = require('./plugin-manifest');
+  const { installedPlugins } = require('./plugin-manifest.mts');
   return installedPlugins().map((p) => checkOwner(p.name, p.manifest)).filter((r) => r.rows.length || r.problems.length);
 }
 

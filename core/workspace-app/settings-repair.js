@@ -30,7 +30,7 @@ function workspacesAgain(doc) {
   let order = [];
   try { order = Object.keys(yaml.load(fs.readFileSync(path.join(CONFIG_DIR, 'plugins.installed.yml'), 'utf8')) || {}); } catch (_) { /* no record */ }
   const ranked = [...order.filter((n) => enabled.includes(n)), ...enabled.filter((n) => !order.includes(n))];
-  const { pluginByName } = require('./plugin-manifest');
+  const { pluginByName } = require('./plugin-manifest.mts');
   const folders = [];
   for (const name of ranked) {
     const p = pluginByName(name);

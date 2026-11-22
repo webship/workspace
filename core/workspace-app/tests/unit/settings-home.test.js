@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const model = require('../../settings-model');
+const model = require('../../settings-model.mts');
 const home = require('../../settings-home');
 
 const none = { unmet: [], problems: [] };

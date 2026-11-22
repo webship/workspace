@@ -8,7 +8,7 @@
 const assert = require('node:assert');
 const { test } = require('node:test');
 
-const model = require('../../settings-model');
+const model = require('../../settings-model.mts');
 const { placeholderKeys } = require('../../plugins-page');
 
 const none = { unmet: [], problems: [] };

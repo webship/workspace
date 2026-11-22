@@ -7,14 +7,12 @@ import { test } from 'node:test';
 
 import { FAMILIES, SCOPE, catalog } from '../../plugin-catalog.mts';
 import $plugins_page from '../../plugins-page.js';
-import $settings_model from '../../settings-model.js';
+import * as $settings_model from '../../settings-model.mts';
 import * as $fs from 'node:fs';
 import * as $path from 'node:path';
 
-/** What this test uses of plugins-page.js and settings-model.js, which are not TypeScript yet. */
-interface CatalogRow { module: string }
-interface PluginsPageView { catalogHtml(required?: Set<string> | Map<string, CatalogRow>): string }
-interface SettingsModelView { groupByFamily(rows: object[]): { plugins: CatalogRow[] }[] }
+/** What this test uses of plugins-page.js, which is not TypeScript yet. */
+interface PluginsPageView { catalogHtml(required?: Set<string> | Map<string, object>): string }
 
 test('every catalogue entry is an @webship.co/workspace-<name> package, named once, in a family that says what it is for', () => {
   assert.strictEqual(SCOPE, '@webship.co');
@@ -48,10 +46,10 @@ test('the catalogue is rows by family: a name, the line that says what it does a
 
 test('a plugin that is here shows the state it is in, not a green "Added" over something that is not installed', () => {
   const { catalogHtml } = $plugins_page as unknown as PluginsPageView;
-  const model = $settings_model as unknown as SettingsModelView;
+  const model = $settings_model;
   const row = { name: 'cpanel', module: '@webship.co/workspace-cpanel', version: '1.0.0', manifest: { name: 'cpanel', label: 'cPanel' }, step: 1, wants: { unmet: [], problems: [] } };
   const p = model.groupByFamily([row])[0].plugins[0];
-  const html = catalogHtml(new Map([[p.module, p]]));
+  const html = catalogHtml(new Map([[String(p.module), p]]));
   const at = html.indexOf('href="/settings/plugin/cpanel"');
   const li = html.slice(at, html.indexOf('</li>', at));
   assert.match(li, /<span>Not installed<\/span>/);
