@@ -136,6 +136,36 @@ test('the values are kept: a second init and an update keep the port, the name a
   assert.match(read(dir, 'core/config/settings.yml'), /^ {2}runtime: docker$/m);
 });
 
+test('an init that names another runtime moves the dashboard: the old one is stopped and its values go', () => {
+  const f = fakes();
+  const dir = newDir();
+  const env = { PATH: f.PATH, WEBSHIP_WORKSPACE_DOCKER_SOCKET: f.socket };
+  assert.strictEqual(cli(['init', dir, '--runtime', 'docker', '--port', '3444'], env).status, 0);
+  f.clear();
+  const toKube = cli(['init', dir, '--runtime', 'kubernetes', '--context', 'kind-unit', '--no-sites-image'], env);
+  assert.strictEqual(toKube.status, 0, toKube.stderr);
+  assert.match(toKube.stdout, /the dashboard moves from Docker Compose to Kubernetes/);
+  assert.ok(f.calls().some((c) => /^docker compose down \[/.test(c) && c.includes('port=3444')), f.calls().join('\n'));
+  assert.ok(!fs.existsSync(path.join(dir, rt.DOCKER_ENV)), 'core/docker/.env is gone');
+  assert.strictEqual(rt.runtimeOf(dir), 'kubernetes');
+  assert.match(read(dir, 'core/config/settings.yml'), /^ {2}runtime: kubernetes$/m);
+  // Back to DDEV: no pod, the values gone, and the release is said, not removed.
+  f.clear();
+  const k = rt.readKube(dir);
+  const toDdev = cli(['init', dir, '--runtime', 'ddev'], env);
+  assert.strictEqual(toDdev.status, 0, toDdev.stderr);
+  assert.ok(f.calls().includes(`kubectl --context kind-unit -n webship-workspace scale deploy/${k.release} --replicas=0`), f.calls().join('\n'));
+  assert.match(toDdev.stdout, new RegExp(`uninstall ${k.release}`));
+  assert.strictEqual(rt.runtimeOf(dir), 'ddev');
+  assert.match(read(dir, 'core/config/settings.yml'), /^ {2}runtime: ddev$/m);
+  assert.ok(f.calls().some((c) => c.startsWith('ddev start -y')));
+  // And from DDEV to Docker the DDEV project is left alone, and said.
+  f.clear();
+  const toDocker = cli(['init', dir, '--runtime', 'docker'], env);
+  assert.match(toDocker.stdout, /Its DDEV project is left as it is/);
+  assert.ok(!f.calls().some((c) => /^ddev (stop|delete|poweroff)/.test(c)), f.calls().join('\n'));
+});
+
 test('a machine without Docker is told, and nothing is called started', () => {
   const dir = newDir();
   const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-no-docker-'));

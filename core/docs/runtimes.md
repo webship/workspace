@@ -82,6 +82,8 @@ webship-workspace start ~/workspace                       # and stop, status, up
 
 `init --runtime` also writes `container.runtime` to `settings.yml`, so the builders build sites on the same runtime by default. You can change that line later without moving the dashboard.
 
+To move the dashboard of a workspace to another runtime, run `init` on it again with the other `--runtime`. The old container or pod is stopped; a DDEV project is left for you to stop.
+
 Both use one image, `core/docker/Dockerfile`: Node.js 24, git, screen, Python, pandoc, the Docker client with the compose plugin, kubectl, kind and the Claude Code CLI. The app is not in the image. The workspace is mounted at the same path it has on the host, because the dashboard builds sites through the host's Docker, and the Docker daemon reads a site's folder on the host.
 
 Outside DDEV the dashboard has no `workspace.ddev.site`. It answers on a plain address, and its pages are paths on it: `/dev`, `/settings`, `/screens`.

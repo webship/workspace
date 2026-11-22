@@ -328,10 +328,17 @@ function init(dirArg, { update = false, flags = {} } = {}) {
   const made = fs.existsSync(path.join(dest, 'core')) ? dashboardRuntime.runtimeOf(dest) : 'ddev';
   if (update && asked.runtime && asked.runtime !== made) fail(`The dashboard of ${dest} runs on ${dashboardRuntime.TITLES[made]}: update keeps it there. To move it, run:  webship-workspace init ${dest} --runtime ${asked.runtime}`);
   const runtime = asked.runtime || made;
+  // An init that names another runtime than the one the workspace was made for moves the dashboard: the old
+  // one is stopped and its values go, so the workspace carries one runtime. DDEV's project is left to its owner.
+  const moved = !update && asked.runtime && asked.runtime !== made && isWorkspace(dest) ? made : '';
   fs.mkdirSync(dest, { recursive: true });
   say(`${update ? 'Updating' : 'Making'} the Webship Workspace at ${dest}${runtime === 'ddev' ? '' : ` (the dashboard on ${dashboardRuntime.TITLES[runtime]})`}`);
   // Said before anything starts: what the core calls and this machine does not have.
   doctor(null, { only: 'core', quiet: true, runtime });
+  if (moved) {
+    say(`  the dashboard moves from ${dashboardRuntime.TITLES[moved]} to ${dashboardRuntime.TITLES[runtime]}`);
+    dashboardRuntime.leave(dest, moved, say, { stop: !(process.env.WEBSHIP_WORKSPACE_SKIP_DDEV || process.env.WEBSHIP_WORKSPACE_SKIP_START) });
+  }
   const machine = update ? readMachineDashboard(dest) : null;
   const shippedBefore = update ? readShipped(dest) : null;
   const { shipped, packaged } = copyCore(dest);

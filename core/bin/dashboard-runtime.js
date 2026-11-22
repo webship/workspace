@@ -344,7 +344,27 @@ function kubeStatus(dest, say) {
   return running;
 }
 
+/**
+ * The dashboard leaves a runtime (an init that names another one): its container or pod is stopped and this
+ * machine's values for it go, so the workspace carries one runtime. A DDEV project is never stopped from here:
+ * it is said how.
+ */
+function leave(dest, runtime, say, { stop = true } = {}) {
+  if (runtime === 'docker') {
+    if (stop) compose(dest, ['down'], { capture: true });
+    fs.rmSync(path.join(dest, DOCKER_ENV), { force: true });
+  } else if (runtime === 'kubernetes') {
+    const k = readKube(dest);
+    if (stop && k && k.context) kubectl(k.context, ['-n', k.namespace, 'scale', `deploy/${k.release}`, '--replicas=0'], { capture: true });
+    fs.rmSync(path.join(dest, K8S_VALUES), { force: true });
+    if (k && k.context) say(`  Its release stays on the cluster, with no pod. To remove it:  helm --kube-context ${k.context} -n ${k.namespace} uninstall ${k.release}`);
+  } else {
+    say(`  Its DDEV project is left as it is. One dashboard serves a workspace: stop that one with  cd ${path.join(dest, 'core', 'workspace-app')} && ddev stop`);
+  }
+}
+
 module.exports = {
+  leave,
   RUNTIMES, TITLES, DOCKER_ENV, K8S_VALUES, parseArgs, askedRuntime, runtimeOf, recordRuntime, readEnv, projectName, freePort, dockerGid,
   writeDockerEnv, compose, dockerAddress, dockerRunning, dockerStart, dockerStop, dockerStatus,
   readKube, writeKubeValues, kubeAddress, kubeRunning, kubeStart, kubeStop, kubeStatus,
