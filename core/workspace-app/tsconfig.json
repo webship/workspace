@@ -1,0 +1,26 @@
+{
+  // The dashboard's type check. Node.js runs the .ts files as they are (type stripping, Node.js >= 22.18),
+  // so tsc never writes a file: it only checks. See docs/DEVELOPER-GUIDE.md, "TypeScript".
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    // Only syntax Node.js can strip: no enum, no namespace with code, no parameter properties, no import = require().
+    "erasableSyntaxOnly": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    // Node.js 22, the lowest line the engines field accepts.
+    "target": "es2024",
+    "lib": ["es2024"],
+    "types": ["node"],
+    // The JavaScript files are part of the program (a .ts file may require them) but not checked yet.
+    "allowJs": true,
+    "checkJs": false,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["**/*.ts", "**/*.mts", "**/*.cts", "**/*.js"],
+  "exclude": ["node_modules", "public/vendor", "plugins", "tests/reports", "logs", ".ddev"]
+}
