@@ -310,11 +310,26 @@ if (getenv('WEBSHIP_RUNTIME') && file_exists($app_root . '/' . $site_path . '/se
 PHP
 }
 
-# `composer create-project <pkg> .` into a folder that already holds the runtime's files: as DDEV does, the project is
-# created in a scratch folder in the container and copied in, so compose.yaml and .webship/ stay.
+# `composer create-project <pkg> [.]` into a folder that already holds the runtime's files: as DDEV does, the project
+# is created in a scratch folder in the container and copied in, so compose.yaml and .webship/ stay. As on DDEV, a
+# create-project that names no folder makes the project in the project root, not in a folder named after the package
+# (`ddev composer create-project codeigniter4/appstarter`). A folder other than "." is Composer's, as it is given.
 function rt_create_project_cmd() {
-  local args=() a target_dot=0 ;
-  for a in "$@" ; do if [ "${a}" = "." ] && [ ${target_dot} -eq 0 ] ; then args+=("/tmp/webship-create") ; target_dot=1 ; else args+=("${a}") ; fi ; done
+  local args=() a positional=0 skip=0 after_package=-1 ;
+  for a in "$@" ; do
+    if [ ${skip} -eq 1 ] ; then args+=("${a}") ; skip=0 ; continue ; fi
+    case "${a}" in
+      # The options of create-project that take their value as the next argument.
+      -s|--stability|--repository|--repository-url|--prefer-install|--ignore-platform-req) args+=("${a}") ; skip=1 ; continue ;;
+      -*) args+=("${a}") ; continue ;;
+    esac
+    positional=$(( positional + 1 )) ;
+    # create-project, the package, then the folder: "." is the project root.
+    if [ ${positional} -eq 3 ] && [ "${a}" = "." ] ; then args+=("/tmp/webship-create") ; else args+=("${a}") ; fi
+    [ ${positional} -eq 2 ] && after_package=${#args[@]} ;
+  done
+  # No folder named: the project root, as DDEV takes it.
+  if [ ${positional} -eq 2 ] ; then args=("${args[@]:0:${after_package}}" "/tmp/webship-create" "${args[@]:${after_package}}") ; fi
   printf 'rm -rf /tmp/webship-create && composer %s && cp -a /tmp/webship-create/. "$PWD"/ && rm -rf /tmp/webship-create' "$(printf '%q ' "${args[@]}")" ;
 }
 

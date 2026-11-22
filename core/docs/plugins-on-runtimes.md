@@ -16,7 +16,7 @@ The verbs the layer knows:
 | --- | --- |
 | `ddev config --project-type=<t> --docroot=<d> --project-name=<n> [--php-version=<v>] [--database=mariadb:<v>] --auto` | Writes `compose.yaml` (and `k8s/`) and `.webship/runtime/Dockerfile`. Other flags are ignored. A second call keeps the port and the claim |
 | `ddev start`, `restart`, `stop`, `delete -y -O`, `describe`, `describe -j`, `logs`, `launch` | The same meaning. `launch` prints the address |
-| `ddev composer …` | Composer in the web container. `create-project <pkg> .` works in a folder that already holds the runtime's files |
+| `ddev composer …` | Composer in the web container. `create-project <pkg>` and `create-project <pkg> .` make the project in the project root, as on DDEV, in a folder that already holds the runtime's files |
 | `ddev php …`, `ddev wp …`, `ddev drush …` | In the web container, as the site's user, in the folder the builder is in. What is piped in reaches the command |
 | `ddev exec "<command line>"`, `ddev exec -s db …`, `ddev exec -d <dir> …` | `bash -c` in the web (or db) container |
 | `ddev npm`, `npx`, `node`, `yarn`, `ddev exec -s tests …` | In the tests container (Node.js 26), not in the web container |
