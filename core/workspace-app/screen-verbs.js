@@ -26,7 +26,7 @@ const listedIn = (data, session) => (data && Array.isArray(data.sessions)
 
 /**
  * Where a session can be reached from here: { where: 'here' | 'runner' | 'runner-down' | 'none', row, published }.
- * Screen here first, the way a terminal attaches (runner-attach.js): what it lists, it can reach.
+ * Screen here first, the way a terminal attaches (runner-attach.mts): what it lists, it can reach.
  */
 async function reachOf(session) {
   const own = await require('./screens').readContainerScreens();

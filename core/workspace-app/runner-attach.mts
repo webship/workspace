@@ -14,22 +14,42 @@
  * everything else is attached here, exactly as before.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
 
-const { isKeepalive } = require('./terminal-keepalive.mts');
+import { isKeepalive, type Frame } from './terminal-keepalive.mts';
+
+/** A session in a listing: screen's own here, or the one the runner published. */
+export interface SessionRow { session: string }
+
+/** Where the host runner answers and the token it asks for. */
+export interface Runner { base: string; token: string }
+
+/** What the relay uses of a `ws` WebSocket, on either end (the package ships no types). */
+export interface RelaySocket {
+  readonly readyState: number;
+  on(event: 'message', listener: (data: Frame, isBinary: boolean) => void): unknown;
+  on(event: 'close', listener: (code: number) => void): unknown;
+  on(event: 'open' | 'error', listener: () => void): unknown;
+  send(data: Frame, opts: { binary: boolean }): void;
+  close(): void;
+  terminate(): void;
+}
+type RelaySocketClass = new (url: string, opts: { handshakeTimeout: number }) => RelaySocket;
 
 /**
  * Should this session be attached through the runner? Yes when the runner is up and lists it, and screen where the
  * dashboard runs does not. `ownRows` is that screen's own listing, `published` the runner's (jobs.hostSessionsFile).
  */
-function attachesThroughRunner(session, { ownRows = [], published = null } = {}) {
+export function attachesThroughRunner(session: string,
+  { ownRows = [], published = null }: { ownRows?: readonly SessionRow[]; published?: { sessions?: unknown } | null } = {}): boolean {
   if (ownRows.some((s) => s.session === session)) return false;
-  return !!(published && Array.isArray(published.sessions) && published.sessions.some((s) => s.session === session));
+  return !!(published && Array.isArray(published.sessions) && (published.sessions as SessionRow[]).some((s) => s.session === session));
 }
 
 /** Where the runner's attach is: its unix socket in the store when it left one, else its port. */
-function attachUrl(store, runner, session, { cols, rows }) {
+export function attachUrl(store: string, runner: Runner, session: string, { cols, rows }: { cols: number | string; rows: number | string }): string {
   const q = `/attach/${encodeURIComponent(session)}?token=${encodeURIComponent(runner.token)}&cols=${cols}&rows=${rows}`;
   const sock = path.join(store, 'runner.sock');
   let unix = false;
@@ -43,10 +63,10 @@ function attachUrl(store, runner, session, { cols, rows }) {
  * sent on. A runner that ends the attach cleanly (the session ended) closes the window cleanly; one that drops it
  * drops the window too, which then attaches itself again (public/terminal.js).
  */
-function relay(ws, url, { timeoutMs = 5000 } = {}) {
-  const WebSocket = require('ws');
+export function relay(ws: RelaySocket, url: string, { timeoutMs = 5000 }: { timeoutMs?: number } = {}): Promise<boolean> {
+  const WebSocket = createRequire(import.meta.url)('ws') as RelaySocketClass;
   return new Promise((resolve) => {
-    let up;
+    let up: RelaySocket;
     try { up = new WebSocket(url, { handshakeTimeout: timeoutMs }); } catch (_) { resolve(false); return; }
     let open = false;
     up.on('error', () => {
@@ -76,5 +96,3 @@ function relay(ws, url, { timeoutMs = 5000 } = {}) {
     });
   });
 }
-
-module.exports = { attachesThroughRunner, attachUrl, relay };

@@ -5,7 +5,7 @@
 const assert = require('node:assert');
 const { test } = require('node:test');
 
-const updates = require('../../plugin-updates');
+const updates = require('../../plugin-updates.mts');
 
 const rows = [
   { name: 'git', module: '@webship.co/workspace-git', version: '1.0.8', manifest: { label: 'Git' } },

@@ -8,18 +8,18 @@
  * copy of an afternoon's work.
  */
 
-const { test } = require('node:test');
-const assert = require('node:assert');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+import { test } from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
-const imp = require('../../ddev-import');
+import * as imp from '../../ddev-import.mts';
 
-const APP = path.join(__dirname, '../..');
+const APP = path.join(import.meta.dirname, '../..');
 const actions = fs.readFileSync(path.join(APP, 'actions/ddev.js'), 'utf8');
 
-function backups(files) {
+function backups(files: readonly string[]): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-dump-'));
   for (const f of files) fs.writeFileSync(path.join(dir, f), 'x');
   return dir;

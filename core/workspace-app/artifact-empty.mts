@@ -7,15 +7,15 @@
  * out, so every call threw, and the report listed no screenshot, recording or PDF at all (webship/workspace#677).
  */
 
-const fs = require('fs');
-const zlib = require('zlib');
-const { VIDEO_RE } = require('./format.mts');
+import fs from 'node:fs';
+import zlib from 'node:zlib';
+import { VIDEO_RE } from './format.mts';
 
 // Shortest recording worth showing. A scenario that failed on its first step records well
 // under a second and shows nothing; across the 737 recordings here the median is 5s and
 // nothing is shorter than 0.96s, so a zero-length rule excluded none of them. At 2s this
 // drops 159 of 737.
-const MIN_VIDEO_SECONDS = 2;
+export const MIN_VIDEO_SECONDS = 2;
 
 // Is this PNG a single solid colour? A failed step often screenshots a page that never
 // rendered, leaving a 1600x1200 sheet of white — 59 of the 735 screenshots in this tree,
@@ -26,13 +26,13 @@ const MIN_VIDEO_SECONDS = 2;
 // be uniform (a solid PNG of that size is ~8KB; the smallest real screenshot here is 10KB,
 // so the cap is generous). Returns null when the format is not one this handles, and null
 // means KEEP: never hide real evidence over an unsupported bit depth.
-function pngIsUniform(full, size) {
+export function pngIsUniform(full: string, size: number): boolean | null {
   if (size > 262144) return null;
-  let buf;
+  let buf: Buffer;
   try { buf = fs.readFileSync(full); } catch (_) { return null; }
   if (buf.length < 26 || buf.readUInt32BE(0) !== 0x89504e47) return null;
   let w = 0, h = 0, depth = 0, colour = 0, interlace = 0;
-  const idat = [];
+  const idat: Buffer[] = [];
   let off = 8;
   while (off + 8 <= buf.length) {
     const len = buf.readUInt32BE(off);
@@ -40,30 +40,30 @@ function pngIsUniform(full, size) {
     const data = buf.subarray(off + 8, off + 8 + len);
     if (type === 'IHDR') {
       w = data.readUInt32BE(0); h = data.readUInt32BE(4);
-      depth = data[8]; colour = data[9]; interlace = data[12];
+      depth = data[8] ?? 0; colour = data[9] ?? 0; interlace = data[12] ?? 0;
     } else if (type === 'IDAT') idat.push(data);
     else if (type === 'IEND') break;
     off += 12 + len;
   }
   if (!w || !h || depth !== 8 || interlace !== 0) return null;   // 16-bit, palette, interlaced: not judged
-  const channels = { 0: 1, 2: 3, 4: 2, 6: 4 }[colour];
+  const channels = ({ 0: 1, 2: 3, 4: 2, 6: 4 } as Record<number, number>)[colour];
   if (!channels) return null;
-  let raw;
+  let raw: Buffer;
   try { raw = zlib.inflateSync(Buffer.concat(idat)); } catch (_) { return null; }
   const stride = w * channels;
   if (raw.length < (stride + 1) * h) return null;
   // Un-filter into one reusable scanline pair and compare every pixel with the first.
   const prev = Buffer.alloc(stride);
   const cur = Buffer.alloc(stride);
-  let first = null;
+  let first: Buffer | null = null;
   for (let y = 0; y < h; y++) {
-    const ft = raw[y * (stride + 1)];
+    const ft = raw[y * (stride + 1)] ?? 0;
     raw.copy(cur, 0, y * (stride + 1) + 1, y * (stride + 1) + 1 + stride);
     for (let i = 0; i < stride; i++) {
-      const a = i >= channels ? cur[i - channels] : 0;
-      const b = prev[i];
-      const c = i >= channels ? prev[i - channels] : 0;
-      let v = cur[i];
+      const a = i >= channels ? cur[i - channels] ?? 0 : 0;
+      const b = prev[i] ?? 0;
+      const c = i >= channels ? prev[i - channels] ?? 0 : 0;
+      let v = cur[i] ?? 0;
       if (ft === 1) v += a;
       else if (ft === 2) v += b;
       else if (ft === 3) v += (a + b) >> 1;
@@ -85,8 +85,8 @@ function pngIsUniform(full, size) {
 // A recording's length, without ffprobe (the container has none). webm: the EBML Duration
 // element scaled by TimecodeScale. mp4: mvhd duration / timescale. null when it cannot be
 // read — and null means KEEP.
-function videoSeconds(full) {
-  let buf;
+export function videoSeconds(full: string): number | null {
+  let buf: Buffer;
   try {
     const fd = fs.openSync(full, 'r');
     buf = Buffer.alloc(Math.min(262144, fs.fstatSync(fd).size));
@@ -109,8 +109,8 @@ function videoSeconds(full) {
   }
   const i = buf.indexOf(Buffer.from([0x44, 0x89]));            // EBML Duration
   if (i < 0) return null;
-  const size = buf[i + 2] & 0x7f;
-  let val;
+  const size = (buf[i + 2] ?? 0) & 0x7f;
+  let val: number;
   try {
     if (size === 4) val = buf.readFloatBE(i + 3);
     else if (size === 8) val = buf.readDoubleBE(i + 3);
@@ -119,7 +119,7 @@ function videoSeconds(full) {
   let scale = 1000000;                                          // EBML default, in nanoseconds
   const k = buf.indexOf(Buffer.from([0x2a, 0xd7, 0xb1]));       // TimecodeScale
   if (k >= 0) {
-    const sl = buf[k + 3] & 0x7f;
+    const sl = (buf[k + 3] ?? 0) & 0x7f;
     if (sl > 0 && sl <= 8) scale = Number(buf.readUIntBE(k + 4, sl));
   }
   return (val * scale) / 1e9;
@@ -128,16 +128,15 @@ function videoSeconds(full) {
 // Both answers depend only on the bytes, so they are cached on path+size+mtime and never
 // recomputed for an unchanged file. Without this a report with 300 screenshots would decode
 // all of them on every job poll.
-const _artifactJudgement = new Map();
-function artifactIsEmpty(full, name, size, mtimeMs) {
+const _artifactJudgement = new Map<string, boolean>();
+export function artifactIsEmpty(full: string, name: string, size: number, mtimeMs: number): boolean {
   if (size === 0) return true;
   const k = `${full}:${size}:${mtimeMs}`;
-  if (_artifactJudgement.has(k)) return _artifactJudgement.get(k);
+  const known = _artifactJudgement.get(k);
+  if (known !== undefined) return known;
   let verdict = false;
   if (/\.png$/i.test(name)) verdict = pngIsUniform(full, size) === true;
   else if (VIDEO_RE.test(name)) { const d = videoSeconds(full); verdict = d !== null && d <= MIN_VIDEO_SECONDS; }
   _artifactJudgement.set(k, verdict);
   return verdict;
 }
-
-module.exports = { artifactIsEmpty, pngIsUniform, videoSeconds, MIN_VIDEO_SECONDS };

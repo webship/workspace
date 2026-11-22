@@ -95,7 +95,7 @@ function rows() {
 function pluginsPageHtml() {
   const model = require('./settings-model');
   const list = rows();
-  const grouped = model.groupByFamily(list, { latest: require('./plugin-updates').peek().latest, isNewer: require('./plugin-updates').isNewer }).flatMap((g) => g.plugins);
+  const grouped = model.groupByFamily(list, { latest: require('./plugin-updates.mts').peek().latest, isNewer: require('./plugin-updates.mts').isNewer }).flatMap((g) => g.plugins);
   const added = new Map(grouped.map((p) => [p.module, p]));
   const chip = (show, label, count, pressed = false) => `<button type="button" class="settings-chip" data-show="${show}" aria-pressed="${pressed ? 'true' : 'false'}">${esc(label)} <span class="settings-chip-count">${count}</span></button>`;
   const all = FAMILIES.reduce((n, f) => n + f.plugins.length, 0);

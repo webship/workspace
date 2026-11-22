@@ -7,18 +7,18 @@
  * next run — belong on the row.
  */
 
-const { test } = require('node:test');
-const assert = require('node:assert');
-const fs = require('fs');
-const path = require('path');
+import { test } from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const mail = require('../../ddev-mail');
+import * as mail from '../../ddev-mail.mts';
 
-const APP = path.join(__dirname, '../..');
+const APP = path.join(import.meta.dirname, '../..');
 const server = fs.readFileSync(path.join(APP, 'server.js'), 'utf8');
 const page = fs.readFileSync(path.join(APP, 'ddev-mail-page.js'), 'utf8');
 const actions = fs.readFileSync(path.join(APP, 'actions/ddev-mail.js'), 'utf8');
-const mod = fs.readFileSync(path.join(APP, 'ddev-mail.js'), 'utf8');
+const mod = fs.readFileSync(path.join(APP, 'ddev-mail.mts'), 'utf8');
 
 test('a write answers `ok` in plain text, and that is a success', () => {
   // Found by deleting a real message: Mailpit answers reads with JSON and writes with the word `ok`,

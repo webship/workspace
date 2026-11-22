@@ -18,19 +18,22 @@
  *     so nothing is imported if it fails — the same shape `drush sql:drop` already uses.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
 
-const { esc } = require('./html.mts');
-const { humanSize, humanTime } = require('./format.mts');
+import { esc } from './html.mts';
+import { humanSize, humanTime } from './format.mts';
+
+/** A database dump in a workspace's backups folder. */
+export interface Dump { name: string; size: number; mtime: Date }
 
 // What `ddev import-db` reads AND what is unambiguously a database dump. `.zip`, `.tgz` and `.tar.gz`
 // are left out on purpose: DDEV accepts them, and in this folder they are whole-project archives.
-const DUMP_RE = /\.(sql|mysql)(\.(gz|bz2|xz))?$/i;
+export const DUMP_RE = /\.(sql|mysql)(\.(gz|bz2|xz))?$/i;
 
 /** The dumps a workspace holds, newest first. */
-function listDumps(backupsDir) {
-  let names = [];
+export function listDumps(backupsDir: string): Dump[] {
+  let names: string[] = [];
   try {
     names = fs.readdirSync(backupsDir, { withFileTypes: true })
       .filter((e) => e.isFile() && !e.name.startsWith('.') && DUMP_RE.test(e.name))
@@ -38,11 +41,13 @@ function listDumps(backupsDir) {
   } catch (_) {
     return [];
   }
-  return names.map((name) => {
-    let st;
-    try { st = fs.statSync(path.join(backupsDir, name)); } catch (_) { return null; }
-    return { name, size: st.size, mtime: st.mtime };
-  }).filter(Boolean).sort((a, b) => b.mtime - a.mtime);
+  const out: Dump[] = [];
+  for (const name of names) {
+    let st: fs.Stats;
+    try { st = fs.statSync(path.join(backupsDir, name)); } catch (_) { continue; }
+    out.push({ name, size: st.size, mtime: st.mtime });
+  }
+  return out.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
 }
 
 /**
@@ -51,16 +56,16 @@ function listDumps(backupsDir) {
  * A basename, matched against what the folder actually holds — never joined from a browser value and
  * hoped about. `path.basename` first, so a name carrying a directory cannot even be compared.
  */
-function findDump(backupsDir, name) {
+export function findDump(backupsDir: string, name: unknown): Dump | null {
   const wanted = path.basename(String(name || ''));
   if (!wanted || wanted !== String(name || '')) return null;
   return listDumps(backupsDir).find((d) => d.name === wanted) || null;
 }
 
 /** The panel: what there is to import, and what importing one will do. */
-function importPanelHtml({ workspace, project, backupsDir, backupsLabel }) {
+export function importPanelHtml({ workspace, project, backupsDir, backupsLabel }: { workspace: string; project: string; backupsDir: string; backupsLabel: string }): string {
   const dumps = listDumps(backupsDir);
-  const vals = (extra) => esc(JSON.stringify({ workspace, projectName: project, ...extra }));
+  const vals = (extra: Record<string, string>): string => esc(JSON.stringify({ workspace, projectName: project, ...extra }));
   const rows = dumps.map((d) => `
     <li>
       <div class="import-line">
@@ -89,5 +94,3 @@ function importPanelHtml({ workspace, project, backupsDir, backupsLabel }) {
         <code>ddev import-db --file &lt;path&gt;</code> in a terminal.</p>
     </div>`;
 }
-
-module.exports = { DUMP_RE, listDumps, findDump, importPanelHtml };

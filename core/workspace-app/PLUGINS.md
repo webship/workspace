@@ -544,7 +544,7 @@ names was checked on this machine and is missing; one that cannot be checked fro
 runs changes nothing), Ready. Beside them: Needs <plugin> (something it needs is not here; the action
 adds it in the same run, `--with-needs`), Files missing (Reinstall), Needs cannot be met (a cycle).
 
-A plugin whose package is on npm also says when a newer version is there (`plugin-updates.js`): the
+A plugin whose package is on npm also says when a newer version is there (`plugin-updates.mts`): the
 registry is asked for the `latest` tag of each package in a fragment of its own, a few at a time, and
 the answer is kept for six hours. A package that is not on the registry (a path, a GitHub repository,
 a folder under `plugins/`) gets no answer, and no answer is never shown as up to date.
