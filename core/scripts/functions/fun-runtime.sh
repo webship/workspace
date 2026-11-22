@@ -17,10 +17,12 @@ function rt_find_project() {
   local d="${1:-$PWD}" ;
   d="$(cd "${d}" 2>/dev/null && pwd)" || return 1 ;
   while [ -n "${d}" ] && [ "${d}" != "/" ] ; do
-    if [ -f "${d}/.ddev/config.yaml" ] ; then echo "ddev ${d}" ; return 0 ; fi
+    # The x-webship block first: only the Workspace writes it, on a build that is not DDEV's, and a project template
+    # may ship a .ddev/ of its own (drupal/webship_project does), which must not turn that build into a DDEV one.
     if [ -f "${d}/compose.yaml" ] && grep -q '^x-webship:' "${d}/compose.yaml" ; then
       echo "$(sed -n '/^x-webship:/,/^[^ ]/s/^  runtime: *//p' "${d}/compose.yaml" | head -1 | tr -d '"') ${d}" ; return 0 ;
     fi
+    if [ -f "${d}/.ddev/config.yaml" ] ; then echo "ddev ${d}" ; return 0 ; fi
     d="$(dirname "${d}")" ;
   done
   return 1 ;
@@ -33,6 +35,17 @@ function runtime_of() {
   # A builder's --runtime (RUNTIME), else WORKSPACE_RUNTIME, else settings.yml's container.runtime, else DDEV.
   local asked="${RUNTIME:-_none_}" ; [ "${asked}" = '_none_' ] && asked="" ;
   echo "${asked:-${WORKSPACE_RUNTIME:-${container_runtime:-ddev}}}" ;
+}
+
+# Where Composer puts the project's commands: composer.json's config.bin-dir (drupal/webship_project has "bin/"),
+# else vendor/bin. Drush is run from there.
+function rt_bin_dir() {
+  local dir="" ;
+  [ -f "$1/composer.json" ] && dir="$(python3 -c 'import json,sys
+try: print(str(json.load(open(sys.argv[1])).get("config",{}).get("bin-dir","")).strip("/"))
+except Exception: pass' "$1/composer.json" 2>/dev/null)" ;
+  [[ "${dir}" =~ ^[A-Za-z0-9._/-]+$ ]] && [[ "${dir}" != *..* ]] || dir="vendor/bin" ;
+  echo "${dir}" ;
 }
 
 # A value of the project's x-webship block.
@@ -352,7 +365,7 @@ function rt_compose() {
     composer)
       if [ "${1:-}" = create-project ] ; then rt_dc "${rt}" "${root}" exec -T -u www-data -w "${workdir}" web bash -c "$(rt_create_project_cmd "$@")" ;
       else rt_dc "${rt}" "${root}" exec -T -u www-data -w "${workdir}" web composer "$@" ; fi ;;
-    drush) rt_dc "${rt}" "${root}" exec -T -u www-data -w "/var/www/html" web /var/www/html/vendor/bin/drush "$@" ;;
+    drush) rt_dc "${rt}" "${root}" exec -T -u www-data -w "/var/www/html" web "/var/www/html/$(rt_bin_dir "${root}")/drush" "$@" ;;
     php|wp) rt_dc "${rt}" "${root}" exec -T -u www-data -w "${workdir}" web "${verb}" "$@" ;;
     npm|npx|node|yarn) rt_tests_run "${rt}" "${root}" "${PWD}" "${verb} $(printf '%q ' "$@")" ;;
     exec)
@@ -608,7 +621,7 @@ function rt_k8s() {
     composer)
       if [ "${1:-}" = create-project ] ; then kx web runuser -u www-data -- env COMPOSER_HOME=/tmp/composer bash -c "cd '${workdir}' && $(rt_create_project_cmd "$@")" ;
       else kx web runuser -u www-data -- env COMPOSER_HOME=/tmp/composer bash -c "cd '${workdir}' && composer $(printf '%q ' "$@")" ; fi ;;
-    drush) kx web runuser -u www-data -- bash -c "cd /var/www/html && vendor/bin/drush $(printf '%q ' "$@")" ;;
+    drush) kx web runuser -u www-data -- bash -c "cd /var/www/html && $(rt_bin_dir "${root}")/drush $(printf '%q ' "$@")" ;;
     php|wp) kx web runuser -u www-data -- bash -c "cd '${workdir}' && ${verb} $(printf '%q ' "$@")" ;;
     npm|npx|node|yarn) rt_tests_run kubernetes "${root}" "${PWD}" "${verb} $(printf '%q ' "$@")" ;;
     exec)

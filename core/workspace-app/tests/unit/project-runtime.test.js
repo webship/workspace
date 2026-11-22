@@ -85,7 +85,10 @@ test('a folder is what it carries: DDEV, the runtime its compose.yaml names, or 
   assert.strictEqual(rt.readProject(podman).runtime, 'podman');
   assert.deepStrictEqual([rt.readProject(kube).runtime, rt.readProject(kube).namespace, rt.readProject(kube).port], ['kubernetes', 'ws-kube1', '30081']);
   assert.strictEqual(rt.readProject(plainCompose).runtime, 'none', 'a compose file the Workspace did not write');
-  assert.strictEqual(rt.readProject(both).runtime, 'ddev', 'DDEV first, as rt_find_project decides');
+  // A project template may ship a .ddev/ of its own: the block the Workspace wrote decides.
+  assert.strictEqual(rt.readProject(both).runtime, 'docker', 'the x-webship block first, as rt_find_project decides');
+  const ddevWithCompose = box.site('dc', { '.ddev/config.yaml': 'name: dc\n', 'compose.yaml': 'name: hand\nservices:\n  web:\n    image: nginx\n' });
+  assert.strictEqual(rt.readProject(ddevWithCompose).runtime, 'ddev', 'a DDEV project with a compose file of its own stays DDEV');
   assert.strictEqual(rt.readProject(odd).runtime, 'none', 'a runtime the layer does not run');
   assert.strictEqual(rt.readProject(path.join(box.dir, 'missing')).runtime, 'none');
   assert.strictEqual(rt.isRuntimeProject(rt.readProject(docker)), true);
