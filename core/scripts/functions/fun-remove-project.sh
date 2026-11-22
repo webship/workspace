@@ -195,12 +195,18 @@ function runtime_leftovers() {
     docker volume ls --filter "label=com.docker.compose.project=${app}" --format '{{.Name}}' 2> /dev/null ;
     return 0 ;
   fi
+  # Docksal runs compose in the project's .docksal/, under the name rt_docksal_project gives it.
+  if [ "${rt}" == 'docksal' ] ; then
+    docker ps -a --filter "label=com.docker.compose.project.working_dir=${3:-}/.docksal" --format '{{.Names}}' 2> /dev/null ;
+    docker volume ls --filter "label=com.docker.compose.project=$(rt_docksal_project "${3:-}")" --format '{{.Name}}' 2> /dev/null ;
+    return 0 ;
+  fi
   engine="$(rt_engine "${rt}")" ;
   "${engine}" ps -a --filter "label=com.docker.compose.project=${name}" --format '{{.Names}}' 2> /dev/null ;
   "${engine}" volume ls --filter "label=com.docker.compose.project=${name}" --format '{{.Name}}' 2> /dev/null ;
 }
 
-# Remove a project that runs on Docker Compose, Podman, Kubernetes or Lando: the runtime first (its containers and its
+# Remove a project that runs on Docker Compose, Podman, Kubernetes, Lando or Docksal: the runtime first (its containers and its
 # database volume, or its namespace), then the image the project was built with, then the directory — and never the
 # directory while the runtime still holds something, as for DDEV.
 function remove_runtime_project() {
@@ -241,6 +247,12 @@ function remove_runtime_project() {
     docker ps -a -q --filter "label=io.lando.root=${dir}" 2> /dev/null | xargs -r docker rm -f > /dev/null 2>&1 ;
     docker volume ls -q --filter "label=com.docker.compose.project=${app}" 2> /dev/null | xargs -r docker volume rm -f > /dev/null 2>&1 ;
     leftovers="$(runtime_leftovers "${rt}" "${name}" "${dir}")" ;
+  elif [ -n "${leftovers}" ] && [ "${rt}" == 'docksal' ] ; then
+    echo "  docker still holds:" ; echo "${leftovers}" | sed 's/^/    /' ;
+    echo "  Cleaning those up…" ;
+    docker ps -a -q --filter "label=com.docker.compose.project.working_dir=${dir}/.docksal" 2> /dev/null | xargs -r docker rm -f > /dev/null 2>&1 ;
+    docker volume ls -q --filter "label=com.docker.compose.project=$(rt_docksal_project "${dir}")" 2> /dev/null | xargs -r docker volume rm -f > /dev/null 2>&1 ;
+    leftovers="$(runtime_leftovers "${rt}" "${name}" "${dir}")" ;
   elif [ -n "${leftovers}" ] && [ "${rt}" != 'kubernetes' ] ; then
     echo "  ${engine} still holds:" ; echo "${leftovers}" | sed 's/^/    /' ;
     echo "  Cleaning those up…" ;
@@ -273,6 +285,7 @@ function remove_runtime_project() {
 
   if [ "${rt}" == 'kubernetes' ] ; then echo "  Removed ${dir}, its namespace ws-${name} and its image." ;
   elif [ "${rt}" == 'lando' ] ; then echo "  Removed ${dir}, its Lando app (containers and volumes)." ;
+  elif [ "${rt}" == 'docksal' ] ; then echo "  Removed ${dir}, its Docksal project (containers and volumes)." ;
   else echo "  Removed ${dir}, its containers, its database volume and its image." ; fi
 }
 

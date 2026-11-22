@@ -1,19 +1,20 @@
 /**
- * The container runtime of a project folder (webship/workspace#694): DDEV, Docker Compose, Podman, Kubernetes or
- * Lando (#729).
+ * The container runtime of a project folder (webship/workspace#694): DDEV, Docker Compose, Podman, Kubernetes,
+ * Lando (#729) or Docksal (#730).
  *
  * A project's runtime is what it carries, read the way core/scripts/functions/fun-runtime.sh reads it:
- * an `x-webship:` block (in `compose.yaml` for docker, podman and kubernetes, in `.lando.yml` for lando), written by
+ * an `x-webship:` block (in `compose.yaml` for docker, podman and kubernetes, in `.lando.yml` for lando, in
+ * `.docksal/docksal.yml` for docksal), written by
  * a builder run with `--runtime`, is the runtime that block names; else `.ddev/config.yaml` is DDEV. Anything else
- * has none here: a Landofile or a compose file of the project's own keeps its container plugin's menu.
+ * has none here: a Landofile, a .docksal/ or a compose file of the project's own keeps its container plugin's menu.
  *
  *   readProject(dir)        { runtime, name, root, port, type, docroot, platform, namespace }: files only, no process.
  *                           `platform` is the plugin that claims the project (rt_claim), '' when none does.
  *   urlOf(project)          the site's address: https://<name>.ddev.site, http://127.0.0.1:<port>, or the
  *                           cluster node's address and the NodePort ('' until the node's address is known).
  *   statesFor(projects)     Map(root -> 'running' | 'stopped' | 'unknown'), from one `docker compose ls`, one
- *                           `podman ps`, one `kubectl get deploy` per namespace and one `docker ps` for Lando's
- *                           containers (by their labels), cached like the DDEV statuses.
+ *                           `podman ps`, one `kubectl get deploy` per namespace and one `docker ps` each for
+ *                           Lando's and Docksal's containers (by their labels), cached like the DDEV statuses.
  *
  * It never hangs a page: every CLI call has a timeout, an error or a missing CLI is 'unknown', and a page waits
  * only for the first answer about a project (bounded); after that it is served what was last read while a refresh
@@ -26,19 +27,19 @@ const path = require('path');
 const { run } = require('./jobs');
 
 /** The runtimes the layer runs besides DDEV. */
-const RUNTIMES = ['docker', 'podman', 'kubernetes', 'lando'];
+const RUNTIMES = ['docker', 'podman', 'kubernetes', 'lando', 'docksal'];
 /** What a row's menu button says. */
-const LABELS = { ddev: 'DDEV', docker: 'DOCKER', podman: 'PODMAN', kubernetes: 'K8S', lando: 'LANDO' };
+const LABELS = { ddev: 'DDEV', docker: 'DOCKER', podman: 'PODMAN', kubernetes: 'K8S', lando: 'LANDO', docksal: 'DOCKSAL' };
 /** What a sentence says. */
-const TITLES = { ddev: 'DDEV', docker: 'Docker Compose', podman: 'Podman', kubernetes: 'Kubernetes', lando: 'Lando' };
+const TITLES = { ddev: 'DDEV', docker: 'Docker Compose', podman: 'Podman', kubernetes: 'Kubernetes', lando: 'Lando', docksal: 'Docksal' };
 /** The icon of each, the container plugins' own (no logos). */
-const ICONS = { docker: 'tabler:box-multiple', podman: 'tabler:capsule', kubernetes: 'tabler:steering-wheel', lando: 'tabler:chef-hat' };
+const ICONS = { docker: 'tabler:box-multiple', podman: 'tabler:capsule', kubernetes: 'tabler:steering-wheel', lando: 'tabler:chef-hat', docksal: 'tabler:anchor' };
 /** The runtimes whose site runs on the runtime's own images: removing it removes no image of the Workspace's. */
-const BUILDS_NO_IMAGE = ['lando'];
+const BUILDS_NO_IMAGE = ['lando', 'docksal'];
 /** The file that carries a runtime's x-webship block, in the order rt_find_project reads them. */
-const META_FILES = ['compose.yaml', '.lando.yml'];
+const META_FILES = ['compose.yaml', '.lando.yml', '.docksal/docksal.yml'];
 /** The runtimes whose block lives in each file. */
-const RUNTIMES_OF = { 'compose.yaml': ['docker', 'podman', 'kubernetes'], '.lando.yml': ['lando'] };
+const RUNTIMES_OF = { 'compose.yaml': ['docker', 'podman', 'kubernetes'], '.lando.yml': ['lando'], '.docksal/docksal.yml': ['docksal'] };
 
 const FRESH_MS = 5 * 1000;
 // How long a runtime's CLI may take to answer before the state is 'unknown'. WORKSPACE_RUNTIME_TIMEOUT_MS changes
@@ -81,8 +82,11 @@ function readProject(projectDir) {
     const block = webshipBlock(text);
     if (!block || !RUNTIMES_OF[file].includes(block.runtime)) continue;
     const name = block.name || (text.match(/^name:\s*["']?([\w.-]+)/m) || [])[1] || path.basename(root);
-    return { runtime: block.runtime, name, root, port: /^\d+$/.test(block.port || '') ? block.port : '',
+    const out = { runtime: block.runtime, name, root, port: /^\d+$/.test(block.port || '') ? block.port : '',
       type: block.type || '', docroot: block.docroot || '', platform: block.platform || '', namespace: block.runtime === 'kubernetes' ? `ws-${name}` : '' };
+    // Docksal's proxy answers for the project's host name, not a port.
+    if (block.runtime === 'docksal') out.host = /^[a-z0-9.-]+$/.test(block.host || '') ? block.host : '';
+    return out;
   }
   try {
     const cfg = fs.readFileSync(path.join(root, '.ddev', 'config.yaml'), 'utf8');
@@ -127,6 +131,7 @@ function nodeIp(context = kubeContext()) {
 function urlOf(project) {
   if (!project || project.runtime === 'none') return '';
   if (project.runtime === 'ddev') return `https://${project.name}.ddev.site`;
+  if (project.runtime === 'docksal') return project.host ? `http://${project.host}` : '';
   if (!project.port) return '';
   if (project.runtime === 'kubernetes') {
     const ip = nodeIp();
@@ -171,11 +176,17 @@ function podmanState(rows, project) {
  * `docker ps -a --filter label=io.lando.container=TRUE --format '{{.State}}\t{{.Label "io.lando.root"}}'`: Lando labels
  * each container of an app with its folder. Running when every one of them runs.
  */
-function landoState(lines, project) {
-  const mine = String(lines || '').split('\n').map((l) => l.split('\t')).filter((c) => c.length >= 2 && c[1].trim() === project.root);
+function landoState(lines, project, label = project.root) {
+  const mine = String(lines || '').split('\n').map((l) => l.split('\t')).filter((c) => c.length >= 2 && c[1].trim() === label);
   if (!mine.length) return 'stopped';
   return mine.every((c) => c[0].trim().toLowerCase() === 'running') ? 'running' : 'stopped';
 }
+
+/**
+ * The same listing for Docksal, whose compose runs in the project's .docksal/ folder: the containers whose
+ * `com.docker.compose.project.working_dir` is it.
+ */
+const docksalState = (lines, project) => landoState(lines, project, path.join(project.root, '.docksal'));
 
 /** `kubectl -n ws-<name> get deploy -o json`: the web Deployment decides. */
 function deployState(list) {
@@ -211,6 +222,13 @@ async function readStates(projects) {
       const r = await run('docker', ['ps', '-a', '--filter', 'label=io.lando.container=TRUE', '--format', '{{.State}}\t{{.Label "io.lando.root"}}'],
         home, { timeoutMs: CLI_TIMEOUT_MS });
       for (const p of by('lando')) out.set(p.root, r.ok ? landoState(r.stdout, p) : 'unknown');
+    })());
+  }
+  if (by('docksal').length) {
+    jobs.push((async () => {
+      const r = await run('docker', ['ps', '-a', '--filter', 'label=com.docker.compose.project.working_dir', '--format',
+        '{{.State}}\t{{.Label "com.docker.compose.project.working_dir"}}'], home, { timeoutMs: CLI_TIMEOUT_MS });
+      for (const p of by('docksal')) out.set(p.root, r.ok ? docksalState(r.stdout, p) : 'unknown');
     })());
   }
   const context = kubeContext();
@@ -289,5 +307,5 @@ function invalidate(root) {
 
 module.exports = {
   RUNTIMES, LABELS, TITLES, ICONS, kubeContext, webshipBlock, readProject, isRuntimeProject, urlOf, nodeIp,
-  statesFor, stateOf, invalidate, verbLine, composeState, podmanState, deployState, landoState, META_FILES, BUILDS_NO_IMAGE,
+  statesFor, stateOf, invalidate, verbLine, composeState, podmanState, deployState, landoState, docksalState, META_FILES, BUILDS_NO_IMAGE,
 };

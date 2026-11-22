@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 # The container runtimes of the Webship Workspace (webship/workspace#694): DDEV by default, and Docker Compose,
-# Podman, Kubernetes and Lando (#729) for a project built with --runtime docker|podman|kubernetes|lando.
+# Podman, Kubernetes, Lando (#729) and Docksal (#730) for a project built with --runtime
+# docker|podman|kubernetes|lando|docksal.
 #
 # Every builder, tool and menu speaks DDEV's verbs (`ddev config`, `ddev start`, `ddev composer`, `ddev drush`,
 # `ddev exec`, `ddev export-db` ...). On a DDEV project those are DDEV itself, exactly as before. On another runtime
 # the `ddev` function below gives each verb its meaning there, so the same builders and plugins work unchanged.
 #
 # A project's runtime is what it carries: an `x-webship:` block, written by the Workspace (in compose.yaml for Docker,
-# Podman, or Kubernetes, whose manifests are written from it into k8s/; in .lando.yml for Lando), else .ddev/config.yaml
-# (DDEV), else a .lando.yml of the project's own (Lando). A new build takes WORKSPACE_RUNTIME (a builder's --runtime),
+# Podman, or Kubernetes, whose manifests are written from it into k8s/; in .lando.yml for Lando; in .docksal/docksal.yml
+# for Docksal), else .ddev/config.yaml (DDEV), else a .lando.yml of the project's own (Lando), else a .docksal/ folder
+# (Docksal). A new build takes WORKSPACE_RUNTIME (a builder's --runtime),
 # else settings.yml's container.runtime, else DDEV.
 
 RT_STACKS="${WORKSPACE_ROOT:-}/core/config/runtimes"
 
 # The files that can carry the x-webship block, in the order they are read.
-RT_META_FILES=(compose.yaml .lando.yml)
+RT_META_FILES=(compose.yaml .lando.yml .docksal/docksal.yml)
 
 # The file of a project that carries its x-webship block, relative to its root (compose.yaml when none does).
 function rt_meta_file() {
@@ -40,12 +42,15 @@ function rt_find_project() {
     if [ -f "${d}/.ddev/config.yaml" ] ; then echo "ddev ${d}" ; return 0 ; fi
     # A Landofile of the project's own, which the Workspace did not write: Lando's (#729).
     if [ -f "${d}/.lando.yml" ] || [ -f "${d}/.lando.yaml" ] ; then echo "lando ${d}" ; return 0 ; fi
+    # A .docksal/ folder of the project's own: Docksal's (#730). Never the home folder's: ~/.docksal is Docksal's own
+    # settings (it holds a docksal.env), and Docksal does not take the home folder for a project either.
+    if [ "${d}" != "${HOME%/}" ] && { [ -f "${d}/.docksal/docksal.env" ] || [ -f "${d}/.docksal/docksal.yml" ] ; } ; then echo "docksal ${d}" ; return 0 ; fi
     d="$(dirname "${d}")" ;
   done
   return 1 ;
 }
 
-# The runtime of a folder's project, or of a new build: ddev, docker, podman, kubernetes or lando.
+# The runtime of a folder's project, or of a new build: ddev, docker, podman, kubernetes, lando or docksal.
 function runtime_of() {
   local found ;
   found="$(rt_find_project "${1:-$PWD}")" && { echo "${found%% *}" ; return 0 ; } ;
@@ -129,6 +134,8 @@ function rt_url() {
     kubernetes) echo "http://$(rt_k8s_node_ip):$(rt_meta port "${root}")" ;;
     # A Landofile of the project's own has no port of the Workspace: Lando's proxy address.
     lando) if [ -n "$(rt_meta port "${root}")" ] ; then echo "http://127.0.0.1:$(rt_meta port "${root}")" ; else echo "https://$(rt_lando_app "${root}").lndo.site" ; fi ;;
+    # Docksal's own proxy answers for the project's host name.
+    docksal) echo "http://$(rt_docksal_host "${root}")" ;;
     *) echo "http://127.0.0.1:$(rt_meta port "${root}")" ;;
   esac
 }
@@ -164,6 +171,8 @@ function rt_mail_url() {
   found="$(rt_find_project "${1:-$PWD}")" || return 0 ;
   rt="${found%% *}" ; root="${found#* }" ;
   if [ "${rt}" = ddev ] ; then echo "https://$(sed -n 's/^name: *//p' "${root}/.ddev/config.yaml" | head -1).ddev.site:8026" ; return 0 ; fi
+  # Docksal: its mail service has a host name of its own on Docksal's proxy.
+  if [ "${rt}" = docksal ] ; then echo "http://mail.$(rt_docksal_host "${root}")" ; return 0 ; fi
   port="$(rt_meta mail_port "${root}")" ; [ -n "${port}" ] || return 0 ;
   # Lando: a port of this machine, as on Docker Compose.
   if [ "${rt}" = kubernetes ] ; then echo "http://$(rt_k8s_node_ip):${port}" ; else echo "http://127.0.0.1:${port}" ; fi
@@ -176,6 +185,7 @@ function ddev() {
     docker|podman) rt_compose "${rt}" "$@" ;;
     kubernetes) rt_k8s "$@" ;;
     lando) rt_lando "$@" ;;
+    docksal) rt_docksal "$@" ;;
     *) echo "The ${rt} runtime cannot run 'ddev $1' yet (webship/workspace#694)." >&2 ; return 1 ;;
   esac
 }
@@ -293,7 +303,7 @@ PHP
   sed -i "s/'host' => 'db',/'host' => '${host}',/" "${dir}/settings.webship-runtime.php" ;
   grep -q 'settings.webship-runtime.php' "${dir}/settings.php" || cat >> "${dir}/settings.php" <<'PHP'
 
-// The Webship Workspace's container runtime (Docker, Podman, Kubernetes, Lando): its database settings.
+// The Webship Workspace's container runtime (Docker, Podman, Kubernetes, Lando, Docksal): its database settings.
 if (getenv('WEBSHIP_RUNTIME') && file_exists($app_root . '/' . $site_path . '/settings.webship-runtime.php')) {
   include $app_root . '/' . $site_path . '/settings.webship-runtime.php';
 }
@@ -959,5 +969,179 @@ function rt_lando() {
     logs) ( cd "${root}" && rt_lando_cli logs -s appserver ) | tail -n "${LOG_LINES:-200}" ;;
     version|--version|-v) echo "the Webship Workspace's lando runtime (no DDEV), lando $(rt_lando_cli version 2>/dev/null)" ;;
     *) echo "The lando runtime cannot run 'ddev ${verb}' (webship/workspace#729)." >&2 ; return 1 ;;
+  esac
+}
+
+# --- Docksal (#730) ---------------------------------------------------------------------------------------------
+# The same stack in .docksal/: docksal.env picks Docksal's default stack (Apache in web, PHP in cli, MariaDB in db)
+# with the docroot, PHP and MariaDB a build asks for and the database db/db/db; docksal.yml carries the x-webship block
+# and adds Docksal's mail service (Mailpit). The site answers at http://<name>.docksal.site through Docksal's own
+# proxy, its mailbox at http://mail.<name>.docksal.site. Starting, stopping and removing go through `fin`; a command
+# in a container goes through `docker exec -i` on the project's container, because `fin exec` hands a command no
+# stdin (an import, `mysql < file`). Nothing in ~/.docksal is changed.
+
+function rt_fin() { "${WORKSPACE_FIN_BIN:-fin}" "$@" ; }
+
+# Docksal's name of a project (its compose project): the Workspace sets it in docksal.env, else Docksal's own rule.
+function rt_docksal_project() {
+  local n ; n="$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' "$1/.docksal/docksal.env" 2> /dev/null | head -1 | tr -d "\"'")" ;
+  [ -n "${n}" ] || { n="$(basename "$1")" ; n="${n,,}" ; } ;
+  echo "${n//[^-_a-z0-9]/}" ;
+}
+
+# The project's host name: VIRTUAL_HOST of docksal.env, else Docksal's own (<name>.docksal.site).
+function rt_docksal_host() {
+  local h ; h="$(sed -n 's/^VIRTUAL_HOST=//p' "$1/.docksal/docksal.env" 2> /dev/null | head -1 | tr -d "\"'")" ;
+  [ -n "${h}" ] || { h="$(rt_docksal_project "$1")" ; h="${h//_/-}.docksal.site" ; } ;
+  echo "${h}" ;
+}
+
+# Writes .docksal/docksal.env and .docksal/docksal.yml for a project.
+function rt_docksal_write() {
+  local root="$1" name="$2" type="$3" docroot="$4" php="$5" db="$6" platform="${7:-}" ;
+  local safe="${name,,}" ; safe="${safe//_/-}" ; safe="${safe//[^-a-z0-9]/}" ;
+  mkdir -p "${root}/.docksal" ;
+  cat > "${root}/.docksal/docksal.env" <<ENV
+# Written by the Webship Workspace (its docksal runtime, webship/workspace#730). Run it with: fin project start
+DOCKSAL_STACK=default
+COMPOSE_PROJECT_NAME=${safe}
+VIRTUAL_HOST=${safe}.docksal.site
+DOCROOT=${docroot:-.}
+CLI_IMAGE=docksal/cli:php${php}-3.10
+DB_IMAGE=docksal/mariadb:${db}-1.4
+MYSQL_ROOT_PASSWORD=root
+MYSQL_USER=db
+MYSQL_PASSWORD=db
+MYSQL_DATABASE=db
+ENV
+  cat > "${root}/.docksal/docksal.yml" <<YAML
+# Written by the Webship Workspace (its docksal runtime, webship/workspace#730), beside docksal.env.
+x-webship:${platform:+
+  platform: ${platform}}
+  runtime: docksal
+  name: ${name}
+  stack: php
+  type: ${type}
+  docroot: "${docroot}"
+  php: "${php}"
+  database: "${db}"
+  host: ${safe}.docksal.site
+services:
+  cli:
+    environment:
+      - WEBSHIP_RUNTIME=docksal
+  # Mailpit: PHP's mail goes there from cli, and its page is http://mail.${safe}.docksal.site (MAIL_URL).
+  mail:
+    extends:
+      file: \${HOME}/.docksal/stacks/services.yml
+      service: mail
+YAML
+}
+
+# The container of a service of the project, by the labels compose gives it (fin runs compose in .docksal/).
+function rt_docksal_cid() {
+  docker ps -q --filter "label=com.docker.compose.project.working_dir=$1/.docksal" --filter "label=com.docker.compose.service=$2" 2> /dev/null | head -1 ;
+}
+
+# A command in a service of the project: cli as Docksal's own user (yours), the others as their image has it.
+function rt_docksal_x() {
+  local root="$1" svc="$2" cid user=() ; shift 2 ;
+  cid="$(rt_docksal_cid "${root}" "${svc}")" ;
+  [ -n "${cid}" ] || { echo "The ${svc} container of $(rt_docksal_project "${root}") is not running: ddev start (fin project start) first." >&2 ; return 1 ; } ;
+  [ "${svc}" = cli ] && user=(-u docker) ;
+  docker exec -i "${user[@]}" "${cid}" "$@" ;
+}
+
+function rt_docksal() {
+  local verb="${1:-}" ; shift || true ;
+  local found root="" rel="" ;
+  found="$(rt_find_project)" && [ "${found%% *}" = docksal ] && root="${found#* }" ;
+  [ -n "${root}" ] && rel="${PWD#${root}}" ;
+  local workdir="/var/www${rel}" ;
+  command -v "${WORKSPACE_FIN_BIN:-fin}" > /dev/null 2>&1 || { echo "The docksal runtime needs Docksal (https://docs.docksal.io/getting-started/setup/): no fin on PATH." >&2 ; return 1 ; } ;
+  local dbcmd='mysql -u"${MYSQL_USER:-user}" -p"${MYSQL_PASSWORD:-user}" "${MYSQL_DATABASE:-default}"' ;
+  local dumpcmd='mysqldump -u"${MYSQL_USER:-user}" -p"${MYSQL_PASSWORD:-user}" "${MYSQL_DATABASE:-default}"' ;
+  case "${verb}" in
+    config)
+      [ "${1:-}" = global ] && return 0 ;
+      root="${root:-$PWD}" ;
+      if [ -d "${root}/.docksal" ] && ! grep -q '^x-webship:' "${root}/.docksal/docksal.yml" 2> /dev/null ; then
+        echo "${root}/.docksal/ is the project's own: the Workspace leaves it as it is." ; return 0 ;
+      fi
+      local name type docroot php db platform a ;
+      if [ -f "${root}/.docksal/docksal.yml" ] ; then
+        name="$(rt_name "${root}")" ; type="$(rt_meta type "${root}")" ; docroot="$(rt_meta docroot "${root}")" ;
+        php="$(rt_meta php "${root}")" ; db="$(rt_meta database "${root}")" ; platform="$(rt_meta platform "${root}")" ;
+      fi
+      for a in "$@" ; do
+        case "${a}" in
+          --project-name=*) name="${a#*=}" ;; --project-type=*) type="${a#*=}" ;; --docroot=*) docroot="${a#*=}" ;;
+          --php-version=*) php="${a#*=}" ;; --database=*) db="${a#*=}" ; db="${db#*:}" ;;
+        esac
+      done
+      rt_docksal_write "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${platform}" ;
+      echo "Wrote .docksal/ for docksal (${type:-php}, PHP ${php:-8.3}, MariaDB ${db:-10.11}): $(rt_url "${root}")" ;;
+    start|restart)
+      [ -n "${root}" ] || { echo "No docksal project here." >&2 ; return 1 ; } ;
+      # `fin project start` brings up what docksal.env and docksal.yml say now, so a project written again is
+      # applied by a start; a restart stops first.
+      [ "${verb}" = restart ] && { ( cd "${root}" && rt_fin project stop ) || return 1 ; } ;
+      ( cd "${root}" && rt_fin project start ) || return 1 ;
+      case "$(rt_meta type "${root}")" in drupal*) rt_drupal_settings "${root}" db ;; esac ;
+      echo "Running on docksal: $(rt_url "${root}")" ;;
+    stop) ( cd "${root}" && rt_fin project stop ) ;;
+    poweroff|list|add-on|get|snapshot|xdebug|mutagen|auth|share|hostname|debug|self-upgrade) echo "(docksal: 'ddev ${verb}' has nothing to do here)" ;;
+    describe)
+      if [ -n "${1:-}" ] && [ -z "${root}" ] ; then
+        local n="${1,,}" ; n="${n//[^-_a-z0-9]/}" ;
+        docker ps -a --filter "label=com.docker.compose.project=${n}" --format '{{.Label "com.docker.compose.project.working_dir"}}' 2>/dev/null | grep -q '/\.docksal$' ; return $? ;
+      fi
+      [ -n "${root}" ] || return 1 ;
+      case "${1:-}" in -j|--json-output)
+        local up=stopped ; [ -n "$(rt_docksal_cid "${root}" web)" ] && [ -n "$(rt_docksal_cid "${root}" cli)" ] && up=running ;
+        rt_describe_json "$(rt_name "${root}")" "${up}" "$(rt_url "${root}")" docksal ; return 0 ;;
+      esac
+      echo "$(rt_name "${root}") on docksal: $(rt_url "${root}")" ; ( cd "${root}" && rt_fin project status ) ;;
+    delete)
+      if [ -n "${root}" ] ; then ( cd "${root}" && rt_fin project remove -f ) ;
+      else
+        # A project whose folder is gone (a rebuild of the same name): its containers and volumes, by its name.
+        local n p ids ; for n in "$@" ; do case "${n}" in -*) ;; *)
+          p="${n,,}" ; p="${p//[^-_a-z0-9]/}" ;
+          docker ps -a --filter "label=com.docker.compose.project=${p}" --format '{{.Label "com.docker.compose.project.working_dir"}}' 2>/dev/null | grep -q '/\.docksal$' || continue ;
+          docker ps -a -q --filter "label=com.docker.compose.project=${p}" | xargs -r docker rm -f > /dev/null 2>&1 ;
+          docker volume ls -q --filter "label=com.docker.compose.project=${p}" 2>/dev/null | xargs -r docker volume rm -f > /dev/null 2>&1 ;;
+        esac ; done
+      fi ;;
+    composer)
+      if [ "${1:-}" = create-project ] ; then rt_docksal_x "${root}" cli bash -c "cd '${workdir}' && $(rt_create_project_cmd "$@")" ;
+      else rt_docksal_x "${root}" cli bash -c "cd '${workdir}' && composer $(printf '%q ' "$@")" ; fi ;;
+    drush) rt_docksal_x "${root}" cli bash -c "cd /var/www && $(rt_bin_dir "${root}")/drush $(printf '%q ' "$@")" ;;
+    php|wp) rt_docksal_x "${root}" cli bash -c "cd '${workdir}' && ${verb} $(printf '%q ' "$@")" ;;
+    npm|npx|node|yarn) rt_tests_run docksal "${root}" "${PWD}" "${verb} $(printf '%q ' "$@")" ;;
+    exec)
+      local svc=web ; while [ $# -gt 0 ] ; do case "$1" in -s|--service) svc="$2" ; shift 2 ;; -d|--dir) workdir="$2" ; shift 2 ;; --raw) shift ;; --) shift ; break ;; *) break ;; esac ; done
+      local line ; line="$(rt_exec_line "$@")" ;
+      if [ "${svc}" = tests ] ; then rt_tests_run docksal "${root}" "${PWD}" "${line}" ; return $? ; fi
+      # DDEV's web is where PHP runs: Docksal's cli (its web is Apache alone).
+      [ "${svc}" = web ] && svc=cli ;
+      if [ "${svc}" = cli ] ; then rt_docksal_x "${root}" cli bash -c "cd '${workdir}' && ${line}" ;
+      else rt_docksal_x "${root}" "${svc}" bash -c "${line}" ; fi ;;
+    ssh)
+      if [ -t 0 ] ; then ( cd "${root}" && rt_fin bash ) ;
+      else rt_docksal_x "${root}" cli bash ; fi ;;
+    mysql) rt_docksal_x "${root}" db bash -c "${dbcmd} $(printf '%q ' "$@")" ;;
+    export-db)
+      local file ; file="$(rt_file_arg "$@")" ;
+      if [ -n "${file}" ] ; then rt_docksal_x "${root}" db bash -c "${dumpcmd}" | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
+      else rt_docksal_x "${root}" db bash -c "${dumpcmd}" | gzip ; fi ;;
+    import-db)
+      local file ; file="$(rt_file_arg "$@")" ;
+      [ -f "${file}" ] || { echo "No such file: ${file}" >&2 ; return 1 ; } ;
+      case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | rt_docksal_x "${root}" db bash -c "${dbcmd}" ;;
+    launch) echo "$(rt_url "${root}")${1:-}" ;;
+    logs) local cid ; cid="$(rt_docksal_cid "${root}" web)" ; [ -n "${cid}" ] && docker logs --tail "${LOG_LINES:-200}" "${cid}" 2>&1 ;;
+    version|--version|-v) echo "the Webship Workspace's docksal runtime (no DDEV), $(rt_fin version 2>/dev/null | tr '\n' ' ')" ;;
+    *) echo "The docksal runtime cannot run 'ddev ${verb}' (webship/workspace#730)." >&2 ; return 1 ;;
   esac
 }

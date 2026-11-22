@@ -1,24 +1,22 @@
-# Runtimes: DDEV, Docker, Podman, Kubernetes and Lando
+# Runtimes: DDEV, Docker, Podman, Kubernetes, Lando and Docksal
 
-The Webship Workspace is container-based. A site you build runs on a container runtime, and DDEV is the default. A builder can also build on Docker Compose, on Podman, on a Kubernetes cluster or on Lando.
+The Webship Workspace is container-based. A site you build runs on a container runtime, and DDEV is the default. A builder can also build on Docker Compose, on Podman, on a Kubernetes cluster, on Lando or on Docksal.
 
 This page says what works today. It is updated as each part is proven on a real build.
 
 ## What works where
 
-| | DDEV | Docker Compose | Kubernetes | Podman | Lando |
-|---|---|---|---|---|---|
-| Build and install a Drupal site (the core's Drupal-family builders) | Yes | Yes | Yes | Yes | Yes |
-| Composer, Drush and commands in the site | Yes | Yes | Yes | Yes | Yes |
-| Export and import the database | Yes | Yes | Yes | Yes | Yes |
-| The site's row in the dashboard: state, link, menus | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes |
-| The Tests menu, test users, backup, restore and remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes |
-| Clone, import a database from the menu, snapshots, add-ons, extra domains, captured mail | Yes | On the way | On the way | On the way | On the way |
-| A WordPress site (the WordPress plugin): build and install, WP-CLI, test users, the tests, the database, the row, remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes |
-| The other platform plugins' builders (Laravel, Joomla, …) | Yes | On the way | On the way | On the way | On the way |
-| The dashboard itself | Yes | Yes | Yes, with limits (below) | On the way | No: it runs on DDEV, Docker Compose or Kubernetes, and builds Lando sites from there |
-
-Docksal is planned next. Today its plugin adds a menu to a project that already has a `.docksal/` folder.
+| | DDEV | Docker Compose | Kubernetes | Podman | Lando | Docksal |
+|---|---|---|---|---|---|---|
+| Build and install a Drupal site (the core's Drupal-family builders) | Yes | Yes | Yes | Yes | Yes | Yes |
+| Composer, Drush and commands in the site | Yes | Yes | Yes | Yes | Yes | Yes |
+| Export and import the database | Yes | Yes | Yes | Yes | Yes | Yes |
+| The site's row in the dashboard: state, link, menus | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
+| The Tests menu, test users, backup, restore and remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
+| Clone, import a database from the menu, snapshots, add-ons, extra domains, captured mail | Yes | On the way | On the way | On the way | On the way | On the way |
+| A WordPress site (the WordPress plugin): build and install, WP-CLI, test users, the tests, the database, the row, remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
+| The other platform plugins' builders (Laravel, Joomla, …) | Yes | On the way | On the way | On the way | On the way | On the way |
+| The dashboard itself | Yes | Yes | Yes, with limits (below) | On the way | No: it runs on DDEV, Docker Compose or Kubernetes, and builds Lando sites from there | No: it builds Docksal sites from DDEV, Docker Compose or Kubernetes |
 
 "Yes" means it was run on a real build: Drupal 11 built and installed, its front and login pages answering, `drush status` bootstrapping, and the database exported and imported back. For the dashboard rows it means a real site driven in a browser: the row, the menu, stop and start, the tests set up and run, the test users added and cancelled, a backup, a remove and a restore. For WordPress it means the plugin's builder with `--install --add-users`, the front page and a login to the administration, `cmd-tools-wordpress-cli.sh`, the test users added and cancelled, the suite of `cmd-tools-testing.sh` green in the tests container, a mail caught by Mailpit, the database exported and imported back, the row in the dashboard and a remove.
 
@@ -30,6 +28,7 @@ bash dev/cmd-drupal11-recommended-project.sh mysite --install --runtime docker  
 bash dev/cmd-drupal11-recommended-project.sh mysite --install --runtime kubernetes  # a Kubernetes cluster
 bash dev/cmd-drupal11-recommended-project.sh mysite --install --runtime podman      # Podman
 bash dev/cmd-drupal11-recommended-project.sh mysite --install --runtime lando       # Lando
+bash dev/cmd-drupal11-recommended-project.sh mysite --install --runtime docksal     # Docksal
 ```
 
 Without `--runtime`, a build takes `WORKSPACE_RUNTIME` from the environment, then `container.runtime` in `core/config/settings.yml`, then DDEV.
@@ -41,6 +40,7 @@ The build ends with the site's address:
 | DDEV | `https://<name>.ddev.site` |
 | Docker Compose, Podman | `http://127.0.0.1:<port>`, a free port chosen at the build and kept in `compose.yaml` |
 | Lando | `http://127.0.0.1:<port>`, a free port chosen at the build and kept in `.lando.yml` |
+| Docksal | `http://<name>.docksal.site`, through Docksal's own proxy |
 | Kubernetes | `http://<node address>:<port>`, a NodePort of the cluster |
 
 ## What a project carries
@@ -50,6 +50,7 @@ A project's runtime is what its folder holds:
 - **DDEV:** `.ddev/config.yaml`.
 - **Docker Compose and Podman:** `compose.yaml`, with an `x-webship:` block (the runtime, the project type, the PHP and database versions, the port, and `platform:` when a plugin claims the project), and `.webship/runtime/Dockerfile`, the image of its web service. You can run it without the Workspace: `docker compose up -d`.
 - **Lando:** `.lando.yml`, with the same `x-webship:` block, and `.webship/runtime/` (two small files the app is built with). You can run it without the Workspace: `lando start`.
+- **Docksal:** `.docksal/docksal.env` (the stack, the docroot, the images, the database) and `.docksal/docksal.yml`, with the same `x-webship:` block. You can run it without the Workspace: `fin project start`.
 - **Kubernetes:** the same `compose.yaml`, plus `k8s/` (a `kustomization.yaml` and the manifests: a namespace `ws-<name>`, Deployments and Services for the web, the database and the mail catcher, a volume claim for the database). You can apply it yourself: `kubectl apply -k k8s`.
 
 Each has a web service (Apache and PHP with Composer and WP-CLI), a MariaDB database and a Mailpit mail catcher.
@@ -80,12 +81,12 @@ The `php` stack is the only one so far: Apache, PHP and MariaDB. A platform on N
 
 ## In the dashboard
 
-A site on Docker Compose, Podman, Kubernetes or Lando has the row a DDEV project has. Its card shows **Running** or **Stopped** (the chip is the switch), links to the site's own address, and carries a **DOCKER**, **PODMAN**, **K8S** or **LANDO** menu where the DDEV menu sits: start, stop, restart, describe, the web logs, a shell in the web container, export the database, back up, delete the containers (or the namespace) and remove the project. Each entry runs as a screen session, like the DDEV menu's.
+A site on Docker Compose, Podman, Kubernetes, Lando or Docksal has the row a DDEV project has. Its card shows **Running** or **Stopped** (the chip is the switch), links to the site's own address, and carries a **DOCKER**, **PODMAN**, **K8S**, **LANDO** or **DOCKSAL** menu where the DDEV menu sits: start, stop, restart, describe, the web logs, a shell in the web container, export the database, back up, delete the containers (or the namespace) and remove the project. Each entry runs as a screen session, like the DDEV menu's.
 
 - **Composer** runs in the site's own web container.
 - **Tests** sets up and runs the site's webship-js suite. The web image has no Node.js, so the suite runs in a tests container beside the site: one image the Workspace builds once (Node.js 26 and the libraries Playwright's browsers need), on the host's network, against the site's address. The browsers are kept in one volume every project shares, `webship-workspace-tests`. **Node** runs there too.
 - **Test users**, **backup**, **restore** from the Backups page and **remove** work as on DDEV. Remove takes the runtime's side down first (the containers and the database volume, or the namespace), then the image built for the site, then the folder.
-- The state is read from `docker compose ls`, `podman ps`, `kubectl get deploy` and, for Lando, the containers it labels with the folder (`docker ps`), each with a timeout. A runtime that does not answer shows **unknown**, and the page does not wait for it.
+- The state is read from `docker compose ls`, `podman ps`, `kubectl get deploy` and, for Lando and Docksal, their containers by the labels that name the folder (`docker ps`), each with a timeout. A runtime that does not answer shows **unknown**, and the page does not wait for it.
 
 What is not there yet is said in the menu instead of offered: clone, importing a database, snapshots, add-ons, extra domains and captured mail.
 
@@ -107,6 +108,17 @@ A Lando site is a `.lando.yml` the Workspace writes: Lando's `lamp` recipe (Apac
 - **A `.lando.yml` of your own** (one the Workspace did not write) is a Lando project too: `ddev drush`, `ddev composer`, `ddev export-db` and the rest run in it through Lando, and `ddev config` leaves the file as it is. Its row keeps the LANDO menu of the Lando plugin.
 
 Proven on Lando v3.26.9: Drupal 11 built and installed, its pages and a login to the administration, Drush, the test users added and cancelled, the webship-js suite in the tests container, a mail caught by Mailpit, the database exported and imported back, the row in the dashboard (state, link, menus, stop and start, the Tests menu, a backup), a remove and a restore from the Backups page; and the same for a WordPress site of the WordPress plugin.
+
+## Docksal
+
+A Docksal site is a `.docksal/` folder the Workspace writes: Docksal's default stack (Apache in `web`, PHP with Composer and WP-CLI in `cli`, MariaDB in `db`), with the docroot, PHP (`docksal/cli:php<version>-3.10`, 8.1 to 8.4) and MariaDB the build asks for, the database `db`, user `db`, password `db` on the host `db`, and Docksal's mail service (Mailpit). Nothing in `~/.docksal` is changed. What is its own:
+
+- **The address is a host name:** `http://<name>.docksal.site`, answered by Docksal's proxy (on its own address, `192.168.64.100`, not DDEV's `127.0.0.1`). The mailbox is `http://mail.<name>.docksal.site`, and the tests container reaches both.
+- **PHP runs in `cli`.** DDEV's `web` is Docksal's `cli`: `ddev exec`, `ddev composer`, `ddev drush` and `ddev wp` run there, as Docksal's user (yours); `ddev exec -s db` runs in `db`.
+- **Commands go through `docker exec -i`** on the project's container: `fin exec` gives a command no stdin, and an import is a dump piped in. Starting, stopping, `ssh` (`fin bash`) and removing go through `fin`.
+- **A `.docksal/` of your own** (one the Workspace did not write) is a Docksal project too, after `.ddev/` and a `.lando.yml`; `ddev config` leaves it as it is, and its row keeps the DOCKSAL menu of the Docksal plugin. The home folder is never one: `~/.docksal` is Docksal's own settings.
+
+Proven on Docksal 1.19.0 (fin 1.118.0): the same list as Lando's above, for a Drupal 11 site and a WordPress site.
 
 ## Which cluster
 
@@ -174,6 +186,6 @@ On a server the sites the dashboard builds answer on the server's own `127.0.0.1
 
 ## How it works
 
-The builders and the tools keep calling DDEV's commands (`ddev config`, `ddev start`, `ddev composer`, `ddev drush`, `ddev exec`, `ddev export-db`). On a DDEV project those are DDEV itself. On another runtime, `core/scripts/functions/fun-runtime.sh` gives each command its meaning there: `docker compose`, `podman compose`, `kubectl` or `lando`. So a builder written for DDEV works on the others without a change, as long as it uses those commands.
+The builders and the tools keep calling DDEV's commands (`ddev config`, `ddev start`, `ddev composer`, `ddev drush`, `ddev exec`, `ddev export-db`). On a DDEV project those are DDEV itself. On another runtime, `core/scripts/functions/fun-runtime.sh` gives each command its meaning there: `docker compose`, `podman compose`, `kubectl`, `lando` or `fin`. So a builder written for DDEV works on the others without a change, as long as it uses those commands.
 
 The work is tracked in [webship/workspace#694](https://github.com/webship/workspace/issues/694).
