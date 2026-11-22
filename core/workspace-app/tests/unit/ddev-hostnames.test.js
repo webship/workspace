@@ -77,9 +77,9 @@ test('the workspace hostname is <project>-<workspace>, with no trailing junk', (
 
 test('the dashboard reads hostnames the same way the shell does', () => {
   // This used to match patterns in server.js, because server.js cannot be required without starting
-  // the server. The parsing now lives in ddev-domains.js, so the behaviour is asserted by CALLING it
+  // the server. The parsing now lives in ddev-domains.mts, so the behaviour is asserted by CALLING it
   // — which is how a missing `additional_fqdns` would have been caught the first time.
-  const { ddevHostnames } = require('../../ddev-domains');
+  const { ddevHostnames } = require('../../ddev-domains.mts');
   const os = require('os');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ddev-hostnames-'));
   fs.mkdirSync(path.join(dir, '.ddev'), { recursive: true });
@@ -96,7 +96,7 @@ additional_fqdns:
 
   // The important one: no second writer. DDEV owns config.yaml, and the dashboard shells out to
   // cmd-tools-hostnames.sh so the button and the CLI cannot disagree about the collision check.
-  const mod = fs.readFileSync(path.join(__dirname, '..', '..', 'ddev-domains.js'), 'utf8');
+  const mod = fs.readFileSync(path.join(__dirname, '..', '..', 'ddev-domains.mts'), 'utf8');
   assert.ok(!/writeFileSync/.test(mod), 'the dashboard must not write config.yaml itself');
   const src = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
   assert.match(src, /cmd-tools-hostnames\.sh/);

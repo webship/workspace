@@ -16,7 +16,7 @@ const dns = require('dns').promises;
 const fs = require('fs');
 const https = require('https');
 const path = require('path');
-const { ddevHostnames } = require('./ddev-domains');
+const { ddevHostnames } = require('./ddev-domains.mts');
 
 const HOST_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
 const MAX_BYTES = 1500000;

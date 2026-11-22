@@ -32,7 +32,7 @@ const { commandBlock } = require('../command-block');
 const { wsUrl } = require('../urls');
 const { findGraphifyScript, findRagifyScript } = require('../workspaces');
 const { DDEV_ACTIONS, projectDdevCommands, serialiseRouter, touchesRouter } = require('../ddev');
-const snapshots = require('../ddev-snapshots');
+const snapshots = require('../ddev-snapshots.mts');
 const ddevImport = require('../ddev-import');
 
 async function ddev_start({ form, res, send, workspace, pathname }) {

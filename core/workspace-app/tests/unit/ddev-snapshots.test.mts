@@ -11,15 +11,15 @@
  *   - restoring REPLACES the database — no merge, no undo.
  */
 
-const { test } = require('node:test');
-const assert = require('node:assert');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+import { test } from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
-const snaps = require('../../ddev-snapshots');
+import * as snaps from '../../ddev-snapshots.mts';
 
-const APP = path.join(__dirname, '../..');
+const APP = path.join(import.meta.dirname, '../..');
 const server = fs.readFileSync(path.join(APP, 'server.js'), 'utf8');
 const actions = fs.readFileSync(path.join(APP, 'actions/ddev.js'), 'utf8');
 const ddev = fs.readFileSync(path.join(APP, 'ddev.js'), 'utf8');
@@ -32,7 +32,7 @@ function project({ dbType = 'mariadb', dbVersion = '11.8' } = {}) {
     `name: demo\ntype: drupal\ndatabase:\n  type: ${dbType}\n  version: "${dbVersion}"\nwebserver_type: nginx-fpm\n`);
   return dir;
 }
-const put = (dir, file, bytes = 10) =>
+const put = (dir: string, file: string, bytes = 10): void =>
   fs.writeFileSync(path.join(dir, '.ddev', 'db_snapshots', file), Buffer.alloc(bytes));
 
 test('a snapshot is read off disk, engine and version and all', () => {

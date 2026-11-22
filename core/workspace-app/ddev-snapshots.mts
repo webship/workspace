@@ -19,19 +19,35 @@
  * answer, and a project row must not cost a subprocess to draw.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+
+/** One snapshot of a project's database, as listSnapshots reads it off disk. */
+export interface Snapshot {
+  name: string;
+  file: string;
+  engine: string;
+  version: string;
+  /** `<engine>_<version>`, what a project's config is compared with. */
+  dbVersion: string;
+  compression: string;
+  size: number;
+  mtime: Date;
+}
+
+/** Whether a snapshot restores into a project, and why not. */
+export interface Restorable { ok: boolean; why: string }
 
 // `<name>-<engine>_<version>` plus the compression's extension, which is how DDEV writes them. The
 // engine and version are part of the FILE name rather than metadata beside it, which is what makes
 // listing them a readdir.
-const SNAPSHOT_FILE_RE = /^(.+)-([a-z]+)_([0-9.]+)(\.zst|\.gz|\.tgz)?$/i;
+export const SNAPSHOT_FILE_RE = /^(.+)-([a-z]+)_([0-9.]+)(\.zst|\.gz|\.tgz)?$/i;
 
 // What may be typed into the name box. DDEV puts the name straight into a filename, so a path
 // separator or a leading dot in it is a file somewhere else.
-const SNAPSHOT_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,60}$/;
+export const SNAPSHOT_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,60}$/;
 
-const snapshotDir = (projectDir) => path.join(projectDir, '.ddev', 'db_snapshots');
+export const snapshotDir = (projectDir: string): string => path.join(projectDir, '.ddev', 'db_snapshots');
 
 /**
  * Every snapshot this project holds, newest first.
@@ -39,21 +55,21 @@ const snapshotDir = (projectDir) => path.join(projectDir, '.ddev', 'db_snapshots
  * An uncompressed snapshot is a DIRECTORY of the same name shape, so both are listed — the entry
  * type is what says whether it was compressed, since that is exactly what the extension encodes.
  */
-function listSnapshots(projectDir) {
+export function listSnapshots(projectDir: string): Snapshot[] {
   const dir = snapshotDir(projectDir);
-  let entries = [];
+  let entries: fs.Dirent[] = [];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch (_) {
     return [];
   }
-  const out = [];
+  const out: Snapshot[] = [];
   for (const e of entries) {
     if (e.name.startsWith('.')) continue;
     const m = SNAPSHOT_FILE_RE.exec(e.name);
     if (!m) continue;
     const full = path.join(dir, e.name);
-    let st;
+    let st: fs.Stats;
     try { st = fs.statSync(full); } catch (_) { continue; }
     out.push({
       name: m[1],
@@ -66,12 +82,12 @@ function listSnapshots(projectDir) {
       mtime: st.mtime,
     });
   }
-  return out.sort((a, b) => b.mtime - a.mtime);
+  return out.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
 }
 
 /** An uncompressed snapshot is a folder, and its size is what is in it. One level is enough: that is
  *  how the backup tools write them. */
-function dirSize(dir) {
+function dirSize(dir: string): number {
   let n = 0;
   try {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -89,7 +105,7 @@ function dirSize(dir) {
  * pasted into a command line — a snapshot that is not there is refused here rather than by ddev,
  * three seconds later, in a screen session somebody has to open to read.
  */
-const findSnapshot = (projectDir, name) => listSnapshots(projectDir).find((s) => s.name === name) || null;
+export const findSnapshot = (projectDir: string, name: string): Snapshot | null => listSnapshots(projectDir).find((s) => s.name === name) || null;
 
 /**
  * Can this snapshot restore into this project as it stands?
@@ -98,7 +114,7 @@ const findSnapshot = (projectDir, name) => listSnapshots(projectDir).find((s) =>
  * one it runs. When they differ DDEV refuses the restore, so the row says so first — with both
  * versions, because "it did not work" is not the useful half of that sentence.
  */
-function restorable(snapshot, projectDbVersion) {
+export function restorable(snapshot: Snapshot | null | undefined, projectDbVersion: string): Restorable {
   if (!snapshot) return { ok: false, why: 'No such snapshot.' };
   if (!projectDbVersion) return { ok: true, why: '' };          // unknown: let DDEV be the judge
   if (snapshot.dbVersion === projectDbVersion) return { ok: true, why: '' };
@@ -108,7 +124,7 @@ function restorable(snapshot, projectDbVersion) {
 }
 
 /** What the project's `.ddev/config.yaml` says it runs, as `<engine>_<version>`, or ''. */
-function projectDbVersion(projectDir) {
+export function projectDbVersion(projectDir: string): string {
   let raw = '';
   try { raw = fs.readFileSync(path.join(projectDir, '.ddev', 'config.yaml'), 'utf8'); } catch (_) { return ''; }
   // database:
@@ -120,7 +136,3 @@ function projectDbVersion(projectDir) {
   const version = block[1].match(/^\s+version:\s*["']?([0-9.]+)["']?\s*$/m);
   return type && version ? `${type[1].toLowerCase()}_${version[1]}` : '';
 }
-
-module.exports = {
-  SNAPSHOT_NAME_RE, SNAPSHOT_FILE_RE, snapshotDir, listSnapshots, findSnapshot, restorable, projectDbVersion,
-};
