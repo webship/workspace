@@ -539,7 +539,7 @@ async function itemRowsHtml(key, state, sub) {
   // What each installed plugin placed, read once for the page: an item's row says which plugin it came with.
   const placedRecord = require('./plugin-install').readRecord();
   // How each installed plugin writes its own name (its label), read once for the page as well.
-  const { installedPlugins, nameCasing } = require('./plugin-manifest');
+  const { installedPlugins, nameCasing } = require('./plugin-manifest.mts');
   const casings = new Map(installedPlugins().map((p) => [p.name, nameCasing(p.name, (p.manifest || {}).label)]));
   const installable = !!INSTALL_TARGETS[key];
   const syncable = installable && !NO_CLAUDE_SYNC.has(key);
@@ -1501,7 +1501,7 @@ function settingsFileOwner(file) {
   const named = (String(file || '').match(/^plugin\.(.+)\.settings\.yml$/) || [])[1] || '';
   if (!named) return '';
   try {
-    const { installedPlugins } = require('./plugin-manifest');
+    const { installedPlugins } = require('./plugin-manifest.mts');
     const p = installedPlugins().find((x) => x.manifest && x.manifest.settingsFile === file);
     if (p) return p.name;
   } catch (_) { /* no manifests to read: the file's own name says it */ }
@@ -2233,7 +2233,7 @@ function settingsPluginsBlockHtml(pluginRows) {
     if (!byName.has(name)) byName.set(name, {});
     byName.get(name)[key] = String(r.display == null ? r.value : r.display).trim();
   }
-  const { pluginByName } = require('./plugin-manifest');
+  const { pluginByName } = require('./plugin-manifest.mts');
   const lines = [...byName.entries()].map(([name, v]) => {
     const p = pluginByName(name);
     const label = (p && p.manifest && p.manifest.label) || name;
@@ -2262,7 +2262,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
   // Only a workspace's file is "for a workspace": a plugin's file and a style's file say what they are.
   const ws = (file.match(/^workspace\.(.+)\.settings\.yml$/) || [])[1] || null;
   const ownerPlugin = (file.match(/^plugin\.(.+)\.settings\.yml$/) || [])[1] || '';
-  const ownerLabel = ownerPlugin ? ((require('./plugin-manifest').pluginByName(ownerPlugin) || { manifest: {} }).manifest.label || ownerPlugin) : '';
+  const ownerLabel = ownerPlugin ? ((require('./plugin-manifest.mts').pluginByName(ownerPlugin) || { manifest: {} }).manifest.label || ownerPlugin) : '';
 
   // A plugin may offer live options for a field of its settings file (what a CLI can see, rather than a
   // hand-typed key). Asked here because the field renderer is synchronous; null means a plain input.
@@ -2466,7 +2466,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
       <p class="uk-text-meta">${ws
         ? `Settings for the <strong>${esc(ws)}</strong> workspace.`
         : file === 'settings.yml' ? 'The workspace name, the account installs use, who contributions are credited to, git forges and AI keys.'
-          : `${esc(require('./settings-model').fileHint(file, { pluginLabel: ownerLabel }))}.`}
+          : `${esc(require('./settings-model.mts').fileHint(file, { pluginLabel: ownerLabel }))}.`}
         Secrets are never sent to this page — a blank secret field keeps the value already on disk.
         Comments and formatting in the file are preserved; only the lines you change are rewritten.</p>
       ${message || ''}
@@ -2790,7 +2790,7 @@ const isFragment = (req) => new URL(req.url, 'http://localhost').searchParams.ge
 
 /** What the Settings home draws from: the files, the plugins by family with their states, the folders' cards, the styles. */
 function settingsHomeData() {
-  const settingsModel = require('./settings-model');
+  const settingsModel = require('./settings-model.mts');
   const plugins = require('./plugins-page').rows();
   // A newer version on npm is shown when it is already known; asking is a fragment's job, never a page's.
   const updates = require('./plugin-updates.mts');
@@ -2804,7 +2804,7 @@ function settingsHomeData() {
  * no such plugin is added here.
  */
 async function settingsPluginData(name, want = '', { form = true } = {}) {
-  const settingsModel = require('./settings-model');
+  const settingsModel = require('./settings-model.mts');
   const home = settingsHomeData();
   const all = home.groups.flatMap((g) => g.plugins);
   const plugin = all.find((p) => p.name === name);
@@ -2825,7 +2825,7 @@ async function settingsPluginData(name, want = '', { form = true } = {}) {
  * folder's file) still opens, as one more tab, so an address kept from before is not a dead one.
  */
 function settingsTabGroups(wanted = '') {
-  const settingsModel = require('./settings-model');
+  const settingsModel = require('./settings-model.mts');
   const data = settingsHomeData();
   const sorted = settingsModel.sortFiles(data.files, data.plugins);
   const url = (x) => `/settings/${encodeURIComponent(x)}?fragment=1`;
@@ -2895,8 +2895,8 @@ async function settingsPage(section, state, options = {}) {
       : current === 'settings.yml' ? 'General'
       : current ? (meta[workspaceKey(current)] || {}).label || current : '';
   // A settings file that is a plugin's own says so, and leads to the page that has the rest of it.
-  const owner = current ? require('./settings-model').sortFiles([current], require('./plugin-manifest').installedPlugins()).owned.get(current) : null;
-  const ownerLabel = owner ? ((require('./plugin-manifest').pluginByName(owner.plugin) || { manifest: {} }).manifest.label || owner.plugin) : '';
+  const owner = current ? require('./settings-model.mts').sortFiles([current], require('./plugin-manifest.mts').installedPlugins()).owned.get(current) : null;
+  const ownerLabel = owner ? ((require('./plugin-manifest.mts').pluginByName(owner.plugin) || { manifest: {} }).manifest.label || owner.plugin) : '';
   const back = `<p class="settings-back">
       <a class="uk-button uk-button-default uk-button-small" href="/settings">
         <span uk-icon="icon: arrow-left; ratio: .8"></span> All settings</a>
@@ -6336,7 +6336,7 @@ async function onRequest(req, res) {
         const list = pp.rows();
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         const up = require('./plugin-updates.mts');
-        const grouped = require('./settings-model').groupByFamily(list, { latest: up.peek().latest, isNewer: up.isNewer }).flatMap((g) => g.plugins);
+        const grouped = require('./settings-model.mts').groupByFamily(list, { latest: up.peek().latest, isNewer: up.isNewer }).flatMap((g) => g.plugins);
         return res.end(pp.catalogHtml(new Map(grouped.map((p) => [p.module, p]))));
       }
       // The plugins of the Settings home, drawn again when a step has run (a job that finished).

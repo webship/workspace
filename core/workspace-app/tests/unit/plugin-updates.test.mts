@@ -7,7 +7,7 @@ import { test } from 'node:test';
 
 import * as updates from '../../plugin-updates.mts';
 import $settings_home from '../../settings-home.js';
-import $settings_model from '../../settings-model.js';
+import * as $settings_model from '../../settings-model.mts';
 import $settings_plugin_page from '../../settings-plugin-page.js';
 
 /** What this test uses of the Settings modules, which are not TypeScript yet. */
@@ -16,10 +16,9 @@ interface SettingsHomeView {
   homeHtml(data: { files: string[]; plugins: object[]; groups: object[]; styles: { count: number; wearing: string } }): string;
 }
 interface PluginView { state: { update?: string } }
-interface SettingsModelView { groupByFamily(rows: object[], opts?: { latest: Record<string, string>; isNewer: (a: unknown, b: unknown) => boolean }): { plugins: PluginView[] }[] }
 interface SettingsPluginPageView { statusHtml(p: PluginView): string }
 const home = $settings_home as unknown as SettingsHomeView;
-const model = $settings_model as unknown as SettingsModelView;
+const model = $settings_model;
 const page = $settings_plugin_page as unknown as SettingsPluginPageView;
 
 const rows = [

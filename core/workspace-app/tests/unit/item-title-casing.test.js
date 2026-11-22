@@ -8,7 +8,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { nameCasing } = require('../../plugin-manifest');
+const { nameCasing } = require('../../plugin-manifest.mts');
 
 // humanItemName lives in server.js beside the words it knows; it is evaluated here from its source.
 const src = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');

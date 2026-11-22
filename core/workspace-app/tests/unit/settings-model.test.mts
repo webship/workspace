@@ -2,12 +2,12 @@
  * The model behind Settings: which family a plugin is in, the one state it is in with the one
  * action that comes next, which files are its own, and a hint that is true for each file.
  */
-const assert = require('node:assert');
-const { test } = require('node:test');
+import assert from 'node:assert';
+import { test } from 'node:test';
 
-const model = require('../../settings-model');
+import * as model from '../../settings-model.mts';
 
-const plugin = (name, manifest = {}, more = {}) => ({ name, module: `@webship.co/workspace-${name}`, version: '1.0.0', manifest: { name, ...manifest }, ...more });
+const plugin = (name: string, manifest: Record<string, unknown> = {}, more: Record<string, unknown> = {}): model.PluginRow => ({ name, module: `@webship.co/workspace-${name}`, version: '1.0.0', manifest: { name, ...manifest }, ...more });
 
 test('a plugin is placed by what it says, then by what it is, then by the catalogue, then among the features', () => {
   assert.strictEqual(model.familyOf(plugin('anything', { family: 'hosting' })), 'hosting', 'the manifest wins');
@@ -61,7 +61,7 @@ test('a need that cannot be met, files that are gone and a newer version are sai
   assert.deepStrictEqual([cycle.id, cycle.tone, cycle.action.kind], ['problem', 'danger', 'link']);
   const gone = model.stateOf({ ...plugin('a'), step: 3, wants: { unmet: [], problems: [] }, placed: { missing: ['dev/cmd-a.sh'] } });
   assert.deepStrictEqual([gone.id, gone.action.label, gone.note], ['files-missing', 'Reinstall', '1 placed file is gone']);
-  const isNewer = (a, b) => a === '1.0.1' && b === '1.0.0';
+  const isNewer = (a: unknown, b: unknown): boolean => a === '1.0.1' && b === '1.0.0';
   const old = model.stateOf({ ...plugin('a'), step: 3, wants: { unmet: [], problems: [] } }, { latest: '1.0.1', isNewer });
   assert.deepStrictEqual([old.id, old.update, old.attention], ['ready', '1.0.1', false], 'a newer version is not a blocker');
   const same = model.stateOf({ ...plugin('a'), step: 3, wants: { unmet: [], problems: [] } }, { latest: '1.0.0', isNewer });

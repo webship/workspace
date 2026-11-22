@@ -2,7 +2,7 @@
  * Dashboard plugins: optional features turned on from settings.yml.
  *
  * A plugin is a node package with a `workspacePlugin` manifest in its package.json (see
- * plugin-manifest.js) and an `index.js` exporting `register(api)` — or a folder under plugins/
+ * plugin-manifest.mts) and an `index.js` exporting `register(api)` — or a folder under plugins/
  * with the same shape. It is REQUIRED with npm, ACTIVATED by a `plugins.<name>` entry in
  * settings.yml, INSTALLED by core/scripts/plugins.sh (which places what the manifest names in the
  * workspace), and CONFIGURED in its own core/config/plugin.<name>.settings.yml.
@@ -34,7 +34,7 @@ const { iconHtml } = require('./icons.mts');
 const { commandBlock } = require('./command-block.mts');
 const { tabModalHtml } = require('./tab-modal');
 const claudeSessions = require('./claude-sessions');
-const { installedPlugins } = require('./plugin-manifest');
+const { installedPlugins } = require('./plugin-manifest.mts');
 
 // What register(api) hands every plugin. Shared helpers rather than reaching into server.js: the
 // same set the extracted actions/ modules already build on.
@@ -351,7 +351,7 @@ function loadPlugins() {
     // with a `file:` dependency in package.json), which is how a plugin is shared between machines.
     // A folder under plugins/<name>/ is the fallback, and the whole mechanism for a plugin that
     // needs no package.
-    const local = path.join(require('./plugin-manifest').PLUGINS_DIR, name, 'index.js');
+    const local = path.join(require('./plugin-manifest.mts').PLUGINS_DIR, name, 'index.js');
     let source = '';
     if (config.module) {
       try { require.resolve(String(config.module)); source = String(config.module); } catch (_) { /* not installed: say so below */ }

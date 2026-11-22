@@ -19,7 +19,7 @@ const { CONFIG_DIR, loadSettings } = require('./workspaces');
 const LEGACY_KEYS = {};
 // A plugin package says in its manifest which settings.yml block its file replaces.
 try {
-  for (const p of require('./plugin-manifest').installedPlugins()) {
+  for (const p of require('./plugin-manifest.mts').installedPlugins()) {
     if (p.manifest && p.manifest.legacySettingsKey) LEGACY_KEYS[p.name] = p.manifest.legacySettingsKey;
   }
 } catch (_) { /* no manifests: the static map is the whole story */ }

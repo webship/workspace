@@ -27,7 +27,7 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 
-const { installedPlugins, placesSomething, APP_DIR } = require('./plugin-manifest');
+const { installedPlugins, placesSomething, APP_DIR } = require('./plugin-manifest.mts');
 const { ROOT, CONFIG_DIR, loadSettings } = require('./workspaces');
 const { SCOPE } = require('./plugin-catalog.mts');
 const { split, commandEntries } = require('./command-check');

@@ -121,8 +121,9 @@ set_plugin_setting() {
   ' "${name}" "${key}" "${value}" ) ;
 }
 
-plugin_module() { ( cd "${APP}" && node plugin-manifest.js --json "$1" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s||"null");process.stdout.write(p&&p.module?p.module:"")})' ) ; }
-plugin_known()  { ( cd "${APP}" && node plugin-manifest.js "$1" > /dev/null 2>&1 ) ; }
+# What a plugin is, asked of core/workspace-app/plugin-manifest.mts as a command (its subcommands are listed at its top).
+plugin_module() { ( cd "${APP}" && node plugin-manifest.mts module "$1" 2>/dev/null ) ; }
+plugin_known()  { ( cd "${APP}" && node plugin-manifest.mts "$1" > /dev/null 2>&1 ) ; }
 # A name this workspace has something of: a plugin the dashboard can see, or one whose package is gone
 # while settings.yml or the install record still name it (that one can still be turned off and taken out).
 plugin_here() {
@@ -138,21 +139,11 @@ plugin_here() {
 # The settings files a plugin has, one per line: its own (the manifest's settingsFile, or
 # plugin.<name>.settings.yml when it only names a template) and, for a plugin that is a workspace folder,
 # the folder's (workspace.<key>.settings.yml).
-settings_files_of() {
-  ( cd "${APP}" && node -e '
-    const p = require("./plugin-manifest").pluginByName(process.argv[1]);
-    const m = (p && p.manifest) || {};
-    const out = [];
-    if (m.settingsFile || m.settingsTemplate) out.push(m.settingsFile || `plugin.${p.name}.settings.yml`);
-    const ws = m.workspace || {};
-    if (ws.key && ws.settingsTemplate && /^[a-z0-9_-]+$/.test(String(ws.key))) out.push(`workspace.${ws.key}.settings.yml`);
-    process.stdout.write(out.join("\n"));
-  ' "$1" 2>/dev/null ) ;
-}
+settings_files_of() { ( cd "${APP}" && node plugin-manifest.mts settings-files "$1" 2>/dev/null ) ; }
 no_such_plugin() { echo "No plugin named '$1' is here: nothing was changed. --list shows the plugins of this workspace." ; }
 # A plugin that IS a workspace folder names it in its manifest (workspace.key); activating it puts the
 # key on settings.yml's workspaces list (the dashboard's order), deactivating takes it off.
-plugin_workspace_key() { ( cd "${APP}" && node plugin-manifest.js --json "$1" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s||"null");const w=p&&p.manifest&&p.manifest.workspace;process.stdout.write(w&&w.key?String(w.key):"")})' ) ; }
+plugin_workspace_key() { ( cd "${APP}" && node plugin-manifest.mts workspace-key "$1" 2>/dev/null ) ; }
 set_workspaces_list() {
   local verb="$1" key="$2" ;
   [ -n "${key}" ] || return 0 ;
@@ -172,7 +163,7 @@ SELF="${BASH_SOURCE[0]}";
 needs_lines()   { ( cd "${APP}" && node plugin-needs.js lines "$1" 2>/dev/null ) ; }
 needs_say()     { ( cd "${APP}" && node plugin-needs.js say "$1" 2>/dev/null ) ; }
 needed_by()     { ( cd "${APP}" && node plugin-needs.js dependents "$1" 2>/dev/null ) ; }
-plugin_names()  { ( cd "${APP}" && node plugin-manifest.js 2>/dev/null | cut -f1 | sort ) ; }
+plugin_names()  { ( cd "${APP}" && node plugin-manifest.mts 2>/dev/null | cut -f1 | sort ) ; }
 # Is the plugin turned on here: plugins.<name>.enabled is true in settings.yml (plugin-needs.js state().active)?
 plugin_active() { ( cd "${APP}" && node -e 'process.exit(require("./plugin-needs").state().active.has(process.argv[1]) ? 0 : 1)' "$1" 2>/dev/null ) ; }
 
@@ -268,13 +259,7 @@ done
 # A plugin is named by its manifest, and that is not always the last word of its package
 # (@webship.co/workspace-google-drive is the plugin google-drive-sync). The catalogue and --require speak
 # of packages, so every other step takes the package's short name too and says which plugin it is.
-plugin_of_package() {
-  ( cd "${APP}" && node -e '
-    const want = process.argv[1].replace(/@[^@/]*$/, "");
-    const p = require("./plugin-manifest").installedPlugins().find((x) => x.module && (x.module === want || x.module.replace(/^@[^/]+\//, "") === `workspace-${want}`));
-    process.stdout.write(p ? p.name : "");
-  ' "$1" 2>/dev/null ) ;
-}
+plugin_of_package() { ( cd "${APP}" && node plugin-manifest.mts of-package "$1" 2>/dev/null ) ; }
 case "${verb}" in
   --activate|--install|--configure|--deactivate|--uninstall|--remove|--check)
     if [ -n "${name}" ] && ! plugin_known "${name}" ; then
@@ -459,13 +444,7 @@ case "${verb}" in
     refuse_if_needed removed || exit 1 ;
     # Read before the package goes: where it comes from (an npm package, or a folder in plugins/) and the
     # settings files it named.
-    where="$( cd "${APP}" && node -e '
-      const p = require("./plugin-manifest").pluginByName(process.argv[1]);
-      const own = require("./package.json");
-      const deps = { ...(own.dependencies || {}), ...(own.devDependencies || {}) };
-      if (p && p.module && deps[p.module]) process.stdout.write(`npm\t${p.module}`);
-      else if (p) process.stdout.write(`folder\t${p.dir}`);
-    ' "${name}" 2>/dev/null )" ;
+    where="$( cd "${APP}" && node plugin-manifest.mts source "${name}" 2>/dev/null )" ;
     kept="$(settings_files_of "${name}")" ;
     module="" ;
     case "${where}" in

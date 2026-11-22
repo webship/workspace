@@ -42,7 +42,7 @@ const path = require('path');
 const crypto = require('crypto');
 const yaml = require('js-yaml');
 
-const { pluginByName, installedPlugins } = require('./plugin-manifest');
+const { pluginByName, installedPlugins } = require('./plugin-manifest.mts');
 const needs = require('./plugin-needs');
 // The workspace root as the dashboard knows it — NOT __dirname's parents: inside the container the
 // app runs at /var/www/html while the tree is bind-mounted at its own absolute path, and the record

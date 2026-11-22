@@ -5,7 +5,7 @@
  * for its settings file and another for its folder: the state it is in, the four steps as one list
  * with the step that is next carrying its button and the same command for a terminal, what it needs
  * (met by which plugin, or not met with the fix), its settings form, what it ships and where that
- * was placed, and how to remove it. The rules are settings-model.js's; the buttons run
+ * was placed, and how to remove it. The rules are settings-model.mts's; the buttons run
  * core/scripts/plugins.sh exactly as the Plugins page did.
  */
 
@@ -13,8 +13,8 @@ const path = require('path');
 
 const { esc } = require('./html.mts');
 const { iconHtml } = require('./icons.mts');
-const { needsInstall } = require('./plugin-manifest');
-const model = require('./settings-model');
+const { needsInstall } = require('./plugin-manifest.mts');
+const model = require('./settings-model.mts');
 const { stateHtml, actionHtml, pluginHref } = require('./settings-home');
 
 const command = (verb, name, withNeeds = false) => `bash core/scripts/plugins.sh --${verb} ${name}${withNeeds ? ' --with-needs' : ''}`;

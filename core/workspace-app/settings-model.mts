@@ -7,10 +7,60 @@
  * tested without a workspace, and so the home page, a plugin's page and the modal cannot disagree.
  */
 
-const { FAMILIES: CATALOG, SCOPE } = require('./plugin-catalog.mts');
+import { FAMILIES as CATALOG, SCOPE } from './plugin-catalog.mts';
+import type { Manifest } from './plugin-manifest.mts';
+
+/** A family of Settings. */
+export interface Family { id: string; label: string; icon: string; about: string }
+
+/** What a manifest may say for Settings, besides what plugin-manifest.mts reads. */
+type SettingsManifest = Partial<Manifest> & { family?: string; summary?: string };
+
+/** What a need of a plugin that is not met says: the plugin to pick for it. */
+interface Unmet { pick: string; [field: string]: unknown }
+
+/** A command a plugin needs or suggests, and whether it was found here. */
+interface CommandCheck { kind: string; name: string; state: string }
+
+/** A plugin, as far as its name, family and line are read. */
+export interface PluginLike {
+  name: string;
+  module?: string;
+  version?: string;
+  description?: string;
+  manifest?: SettingsManifest | null;
+  [field: string]: unknown;
+}
+
+/** A plugin as the Plugins page knows it (plugins-page.js rows()), as far as Settings reads it. */
+export interface PluginRow extends PluginLike {
+  /** 0 required, 1 activated, 2 installed, 3 configured; a row without one is in none of them. */
+  step?: number;
+  wants?: { unmet?: Unmet[]; problems?: string[] } | null;
+  placed?: { missing?: string[] } | null;
+  commands?: CommandCheck[];
+  todo?: string[];
+  [field: string]: unknown;
+}
+
+/** The next thing to do with a plugin: a step the script runs, or a page to open. */
+export interface Action { kind: 'post' | 'link'; label: string; verb?: string; withNeeds?: boolean; href?: string }
+
+/** The one state a plugin is in. */
+export interface PluginState {
+  id: string; label: string; tone: string; icon: string; attention: boolean; active: boolean; note: string; action: Action;
+  /** The newer version on npm, or ''. */
+  update: string;
+}
+
+/** A plugin row with what Settings adds to it. */
+export type GroupedPlugin = PluginRow & { family: string; label: string; summary: string; state: PluginState };
+
+/** A catalogue entry, as Settings reads it. */
+interface Listed { family: string; label: string; summary: string }
 
 /** The families Settings groups plugins by, in the order they are shown. */
-const FAMILIES = [
+export const FAMILIES: Family[] = [
   { id: 'platforms', label: 'Platforms', icon: 'tabler:stack-2', about: 'Builders and tools for one platform.' },
   { id: 'folders', label: 'Workspace folders', icon: 'tabler:folders', about: 'A folder of projects or items, with its settings file and its commands.' },
   { id: 'ai', label: 'AI', icon: 'tabler:sparkles', about: 'Agents, skills, commands and prompts, kept as files and installed into an AI CLI.' },
@@ -20,12 +70,12 @@ const FAMILIES = [
   { id: 'features', label: 'Features', icon: 'tabler:puzzle', about: 'A menu, a page or a service the base does not carry.' },
 ];
 const FAMILY_IDS = new Set(FAMILIES.map((f) => f.id));
-const familyById = (id) => FAMILIES.find((f) => f.id === id) || FAMILIES[FAMILIES.length - 1];
+export const familyById = (id: string): Family => FAMILIES.find((f) => f.id === id) || (FAMILIES[FAMILIES.length - 1] as Family);
 
 // The catalogue's own family ids, as Settings names them.
-const FROM_CATALOG = { workspaces: 'folders', drives: 'features' };
-const catalogIndex = () => {
-  const map = new Map();
+const FROM_CATALOG: Record<string, string> = { workspaces: 'folders', drives: 'features' };
+export const catalogIndex = (): Map<string, Listed> => {
+  const map = new Map<string, Listed>();
   for (const f of CATALOG) {
     for (const [name, label, summary] of f.plugins) {
       const entry = { family: FROM_CATALOG[f.id] || f.id, label, summary };
@@ -38,18 +88,18 @@ const catalogIndex = () => {
   return map;
 };
 /** A plugin's catalogue entry: by its name, else by its package. */
-const listedIn = (index, plugin, name) => index.get(name) || (plugin && plugin.module ? index.get(`module:${plugin.module}`) : undefined);
+const listedIn = (index: Map<string, Listed>, plugin: PluginLike | null | undefined, name: string): Listed | undefined => index.get(name) || (plugin && plugin.module ? index.get(`module:${plugin.module}`) : undefined);
 
-const isAiFolder = (name) => /^ai-[a-z0-9-]+$/.test(String(name || ''));
-const shipsBuilder = (m = {}) => ((m.commands || {}).files || []).some((f) => /cmd-[a-z0-9.-]+-project\.sh$/.test(String(f)));
+const isAiFolder = (name: unknown): boolean => /^ai-[a-z0-9-]+$/.test(String(name || ''));
+const shipsBuilder = (m: SettingsManifest = {}): boolean => ((m.commands || {}).files || []).some((f) => /cmd-[a-z0-9.-]+-project\.sh$/.test(String(f)));
 
 /**
  * The family of a plugin. What the plugin says wins (`manifest.family`, behind the `settings-family`
  * capability); then what it is: an `ai-*` folder, a folder, a platform (it ships a builder and is not
  * a folder); then where the catalogue lists it; then Features.
  */
-function familyOf(plugin, index = catalogIndex()) {
-  const m = (plugin && plugin.manifest) || {};
+export function familyOf(plugin: PluginLike | null | undefined, index: Map<string, Listed> = catalogIndex()): string {
+  const m: SettingsManifest = (plugin && plugin.manifest) || {};
   const name = (plugin && plugin.name) || m.name || '';
   if (m.family && FAMILY_IDS.has(String(m.family))) return String(m.family);
   if (isAiFolder(name)) return 'ai';
@@ -60,10 +110,10 @@ function familyOf(plugin, index = catalogIndex()) {
   return 'features';
 }
 
-const firstSentence = (text) => {
+const firstSentence = (text: unknown): string => {
   const t = String(text || '').replace(/\s+/g, ' ').trim();
   const m = t.match(/^(.{20,140}?[.:])(\s|$)/);
-  if (m) return m[1].replace(/[.:]$/, '').trim();
+  if (m) return (m[1] ?? '').replace(/[.:]$/, '').trim();
   if (t.length <= 140) return t.replace(/[.:]$/, '').trim();
   // Longer than a line: cut at a word, and say it goes on.
   return `${t.slice(0, 140).replace(/[\s,;:]+\S*$/, '')}…`;
@@ -74,8 +124,8 @@ const firstSentence = (text) => {
  * start of its description. Never its package name, and never its own name said again: '' when nothing
  * says what it is (the row then says "No description").
  */
-function summaryOf(plugin, index = catalogIndex()) {
-  const m = (plugin && plugin.manifest) || {};
+export function summaryOf(plugin: PluginLike | null | undefined, index: Map<string, Listed> = catalogIndex()): string {
+  const m: SettingsManifest = (plugin && plugin.manifest) || {};
   if (m.summary) return String(m.summary).replace(/\s+/g, ' ').trim().slice(0, 160);
   const listed = listedIn(index, plugin, (plugin && plugin.name) || '');
   if (listed && listed.summary) return listed.summary;
@@ -83,31 +133,31 @@ function summaryOf(plugin, index = catalogIndex()) {
   // A description that opens "<Name> for Webship Workspace: …" says it after the colon (#435).
   const text = String((plugin && plugin.description) || '').replace(/`/g, '').replace(/\s+/g, ' ').trim();
   const lead = text.match(/^[^:.]{1,60}?\s+for (the )?Webship Workspace:\s*(.+)$/i);
-  const said = lead ? firstSentence(lead[2]).replace(/^./, (c) => c.toUpperCase())
+  const said = lead ? firstSentence(lead[2] ?? '').replace(/^./, (c) => c.toUpperCase())
     : firstSentence(text).replace(/\s+for (the )?Webship Workspace$/i, '');
   return said.toLowerCase() === nameOf(plugin, index).toLowerCase() ? '' : said;
 }
 
 /** The name Settings shows for a plugin, the same everywhere: its manifest's label, else the catalogue's name, else its id with capitals. */
-function nameOf(plugin, index = catalogIndex()) {
-  const m = (plugin && plugin.manifest) || {};
+export function nameOf(plugin: PluginLike | null | undefined, index: Map<string, Listed> = catalogIndex()): string {
+  const m: SettingsManifest = (plugin && plugin.manifest) || {};
   const id = (plugin && plugin.name) || m.name || '';
   if (m.label) return String(m.label);
   const listed = listedIn(index, plugin, id);
   if (listed && listed.label) return listed.label;
-  return id.split('-').filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+  return id.split('-').filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
 /** The settings files that are a plugin's own: its settings file, and its folder's when it is a folder. */
-function filesOf(plugin) {
-  const m = (plugin && plugin.manifest) || {};
-  const out = [];
+export function filesOf(plugin: PluginLike | null | undefined): { file: string; kind: 'plugin' | 'folder' }[] {
+  const m: SettingsManifest = (plugin && plugin.manifest) || {};
+  const out: { file: string; kind: 'plugin' | 'folder' }[] = [];
   if (m.settingsFile) out.push({ file: String(m.settingsFile), kind: 'plugin' });
   if (m.workspace && m.workspace.key) out.push({ file: `workspace.${m.workspace.key}.settings.yml`, kind: 'folder' });
   return out;
 }
 
-const picksText = (unmet) => unmet.map((n) => n.pick).join(' and ');
+const picksText = (unmet: readonly Unmet[]): string => unmet.map((n) => n.pick).join(' and ');
 
 /**
  * The one state a plugin is in, and the one action that comes next.
@@ -117,8 +167,10 @@ const picksText = (unmet) => unmet.map((n) => n.pick).join(' and ');
  * when that is known. Answers `{ id, label, tone, icon, attention, active, action, note }`; `action`
  * is `{ kind: 'post', verb, label, withNeeds }` for a step the script runs, or `{ kind: 'link', href, label }`.
  */
-function stateOf(row, { latest = '', isNewer = () => false } = {}) {
+export function stateOf(row: PluginRow, { latest = '', isNewer = () => false }: { latest?: string; isNewer?: (a: unknown, b: unknown) => boolean } = {}): PluginState {
   const name = row.name;
+  // A row without a step is in none of the steps below, as `undefined` compared never is.
+  const step = row.step ?? Number.NaN;
   const page = `/settings/plugin/${encodeURIComponent(name)}`;
   const wants = row.wants || { unmet: [], problems: [] };
   const unmet = wants.problems && wants.problems.length ? [] : (wants.unmet || []);
@@ -126,17 +178,17 @@ function stateOf(row, { latest = '', isNewer = () => false } = {}) {
   const added = withNeeds ? ` with ${picksText(unmet)}` : '';
   const update = latest && isNewer(latest, row.version) ? latest : '';
   // `attention` is a blocker: the plugin will not work until something is done. A newer version is not one.
-  const base = { update, active: row.step >= 1 };
+  const base = { update, active: step >= 1 };
   if (wants.problems && wants.problems.length) {
     return { ...base, id: 'problem', label: 'Needs cannot be met', tone: 'danger', icon: 'tabler:alert-triangle', attention: true,
       note: wants.problems.join('; '), action: { kind: 'link', href: `${page}#needs`, label: 'See why' } };
   }
-  if (row.step <= 0) {
+  if (step <= 0) {
     return { ...base, id: 'not-active', label: 'Not active', tone: 'muted', icon: 'tabler:circle-dashed', attention: false,
       note: withNeeds ? `Needs ${picksText(unmet)}, which is not here yet` : '',
       action: { kind: 'post', verb: 'activate', label: `Activate${added}`, withNeeds } };
   }
-  if (row.step === 1) {
+  if (step === 1) {
     return { ...base, id: 'not-installed', label: 'Not installed', tone: 'warning', icon: 'tabler:package-import', attention: true,
       note: withNeeds ? `Needs ${picksText(unmet)}, which is not here yet` : 'Activated; its files are not placed yet',
       action: { kind: 'post', verb: 'install', label: `Install${added}`, withNeeds } };
@@ -156,7 +208,7 @@ function stateOf(row, { latest = '', isNewer = () => false } = {}) {
       note: `${missing.length} placed file${missing.length === 1 ? ' is' : 's are'} gone`,
       action: { kind: 'post', verb: 'install', label: 'Reinstall', withNeeds: false } };
   }
-  if (row.step === 2) {
+  if (step === 2) {
     const todo = row.todo || [];
     const said = todo.length ? `Still the placeholder: ${todo.join(', ')}` : 'Its settings are not filled in yet';
     return { ...base, id: 'needs-settings', label: 'Needs settings', tone: 'warning', icon: 'tabler:adjustments-alt', attention: true,
@@ -172,22 +224,22 @@ function stateOf(row, { latest = '', isNewer = () => false } = {}) {
 }
 
 /** The plugins of a workspace by family, in the family order, each with its family, summary and state; empty families are left out. */
-function groupByFamily(rows, options = {}) {
+export function groupByFamily(rows: readonly PluginRow[], options: { latest?: Record<string, string>; isNewer?: (a: unknown, b: unknown) => boolean } = {}): (Family & { plugins: GroupedPlugin[] })[] {
   const index = catalogIndex();
   const latest = options.latest || {};
-  const byId = new Map(FAMILIES.map((f) => [f.id, { ...f, plugins: [] }]));
+  const byId = new Map(FAMILIES.map((f) => [f.id, { ...f, plugins: [] as GroupedPlugin[] }]));
   for (const row of rows) {
     const family = familyOf(row, index);
-    byId.get(family).plugins.push({ ...row, family, label: nameOf(row, index), summary: summaryOf(row, index),
-      state: stateOf(row, { latest: latest[row.module] || '', isNewer: options.isNewer }) });
+    byId.get(family)?.plugins.push({ ...row, family, label: nameOf(row, index), summary: summaryOf(row, index),
+      state: stateOf(row, { latest: (row.module && latest[row.module]) || '', isNewer: options.isNewer }) });
   }
-  const label = (p) => String(p.label || p.name).toLowerCase();
+  const label = (p: GroupedPlugin): string => String(p.label || p.name).toLowerCase();
   for (const f of byId.values()) f.plugins.sort((a, b) => label(a).localeCompare(label(b)));
   return [...byId.values()].filter((f) => f.plugins.length);
 }
 
 /** How many plugins are in each bucket the filter offers. */
-function counts(groups) {
+export function counts(groups: readonly { plugins: GroupedPlugin[] }[]): Record<'all' | 'attention' | 'active' | 'inactive' | 'ready' | 'updates', number> {
   const all = groups.flatMap((g) => g.plugins);
   return { all: all.length, attention: all.filter((p) => p.state.attention).length,
     active: all.filter((p) => p.state.active).length, inactive: all.filter((p) => !p.state.active).length,
@@ -205,10 +257,11 @@ const PLUGIN_RE = /^plugin\.(.+)\.settings\.yml$/;
  * styles (`style.yml` and each `theme.*.yml`), a plugin (its own file, its folder's file), a folder
  * no plugin here made, or nothing known.
  */
-function sortFiles(files, plugins) {
-  const owner = new Map();
+export function sortFiles(files: readonly string[], plugins: readonly PluginLike[]):
+  { general: string[]; styles: string[]; owned: Map<string, { plugin: string; kind: string }>; folders: string[]; other: string[] } {
+  const owner = new Map<string, { plugin: string; kind: string }>();
   for (const p of plugins) for (const f of filesOf(p)) owner.set(f.file, { plugin: p.name, kind: f.kind });
-  const out = { general: [], styles: [], owned: owner, folders: [], other: [] };
+  const out = { general: [] as string[], styles: [] as string[], owned: owner, folders: [] as string[], other: [] as string[] };
   for (const f of files) {
     if (f === 'settings.yml') out.general.push(f);
     else if (f === 'style.yml' || THEME_RE.test(f)) out.styles.push(f);
@@ -220,7 +273,7 @@ function sortFiles(files, plugins) {
 }
 
 /** What one settings file is for, in a line: never the same sentence for every file. */
-function fileHint(file, { folderSubtitle = '', pluginLabel = '' } = {}) {
+export function fileHint(file: string, { folderSubtitle = '', pluginLabel = '' }: { folderSubtitle?: string; pluginLabel?: string } = {}): string {
   if (file === 'settings.yml') return 'The workspace name, the install account, who contributions are credited to, git forges and AI keys';
   if (file === 'style.yml') return 'Which style the dashboard wears';
   if (file === 'ai.settings.yml') return 'The AI CLIs and models this workspace uses';
@@ -232,5 +285,3 @@ function fileHint(file, { folderSubtitle = '', pluginLabel = '' } = {}) {
   if (plugin) return `Settings of the ${pluginLabel || plugin[1]} plugin`;
   return 'A settings file under core/config';
 }
-
-module.exports = { FAMILIES, familyById, familyOf, nameOf, summaryOf, filesOf, stateOf, groupByFamily, counts, sortFiles, fileHint, catalogIndex };

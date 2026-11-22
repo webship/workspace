@@ -61,7 +61,7 @@ function droppedKeys(rows, templateText) {
 }
 
 /** For a plugin's own settings file: the keys its installed template no longer has, or none when there is no template. */
-function droppedSettingsOf(pluginName, rows, lookup = require('./plugin-manifest').pluginByName) {
+function droppedSettingsOf(pluginName, rows, lookup = require('./plugin-manifest.mts').pluginByName) {
   const plugin = pluginName ? lookup(pluginName) : null;
   const rel = plugin && plugin.manifest && plugin.manifest.settingsTemplate;
   if (!rel) return new Set();

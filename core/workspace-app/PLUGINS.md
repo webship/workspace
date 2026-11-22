@@ -524,7 +524,7 @@ assistant has an avatar:
 ## Where Settings lists a plugin
 
 Settings groups plugins by family and shows, for each, one state and the one action that comes next
-(`settings-model.js`). A plugin may say where it belongs and what it is in a line:
+(`settings-model.mts`). A plugin may say where it belongs and what it is in a line:
 
 | Manifest key | What it is |
 | --- | --- |

@@ -184,9 +184,9 @@ test('a dotted legacy key names a nested settings.yml block, for the reader and 
 
 test('the manifest reader sees a plugin folder and answers the command line', () => {
   const t = tree();
-  const out = node(`const m = require('./plugin-manifest'); console.log(JSON.stringify(m.installedPlugins().map((p) => [p.name, p.module, p.spec])));`, env(t));
+  const out = node(`const m = require('./plugin-manifest.mts'); console.log(JSON.stringify(m.installedPlugins().map((p) => [p.name, p.module, p.spec])));`, env(t));
   assert.deepStrictEqual(JSON.parse(out).filter((x) => x[0] === 'x-cloud'), [['x-cloud', '@webship.co/workspace-x-cloud', 'plugins/x-cloud']]);
-  const r = spawnSync(process.execPath, ['plugin-manifest.js', 'nope'], { cwd: APP, env: { ...process.env, ...env(t) }, encoding: 'utf8' });
+  const r = spawnSync(process.execPath, ['plugin-manifest.mts', 'nope'], { cwd: APP, env: { ...process.env, ...env(t) }, encoding: 'utf8' });
   assert.strictEqual(r.status, 1, 'an unknown name is a non-zero exit, for the shell');
 });
 

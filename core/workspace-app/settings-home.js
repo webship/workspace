@@ -4,13 +4,13 @@
  * The page answers "what is on here and what does it want from me" before any file is opened. The
  * base is five entries (the styles are one of them, not a tile per theme file); a plugin is one row
  * that says its state in words and offers the one step that comes next; a filter narrows both. The
- * rules are settings-model.js's, so this file only draws. It works with no script: every row is a
+ * rules are settings-model.mts's, so this file only draws. It works with no script: every row is a
  * link, the state is in the HTML, and the filter (ui.js) is shown only when it can run.
  */
 
 const { esc } = require('./html.mts');
 const { iconHtml } = require('./icons.mts');
-const model = require('./settings-model');
+const model = require('./settings-model.mts');
 
 const pluginHref = (name) => `/settings/plugin/${encodeURIComponent(name)}`;
 
