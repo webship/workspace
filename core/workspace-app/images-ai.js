@@ -14,7 +14,7 @@ const { execFile } = require('child_process');
 const { esc } = require('./html.mts');
 const { workspaceDir } = require('./workspaces');
 const images = require('./images');
-const { writeRecords, recordPath } = require('./images-records');
+const { writeRecords, recordPath } = require('./images-records.mts');
 
 const providers = require('./images-providers');
 const openai = require('./images-providers/openai');

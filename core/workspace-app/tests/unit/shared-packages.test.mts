@@ -7,20 +7,20 @@
  * `npm update` those shared packages.
  */
 
-const test = require('node:test');
-const assert = require('node:assert');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { spawnSync } = require('child_process');
+import test from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
-const APP = path.join(__dirname, '..', '..');
+const APP = path.join(import.meta.dirname, '..', '..');
 const BIN = path.join(APP, '..', 'bin', 'workspace.js');
-const { sharedPackages } = require('../../shared-packages');
+import { sharedPackages } from '../../shared-packages.mts';
 
-const put = (file, json) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(json)); };
+const put = (file: string, json: unknown): void => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(json)); };
 /** node_modules/@webship.co/<name>/package.json for each entry: name → dependencies. */
-function modules(app, packages) {
+function modules(app: string, packages: Record<string, Record<string, string>>): void {
   for (const [name, deps] of Object.entries(packages)) put(path.join(app, 'node_modules', '@webship.co', name, 'package.json'), { name: `@webship.co/${name}`, version: '1.0.2', dependencies: deps });
 }
 
@@ -37,7 +37,7 @@ test('the shared packages: a base an installed plugin needs, placed at the top, 
   // workspace-jira is one the app asks for itself, and workspace-gone is not placed at the top: neither is shared.
   assert.deepStrictEqual(sharedPackages(app), ['@webship.co/workspace-forge', '@webship.co/workspace-hosting']);
   // The command line prints them on one line.
-  const r = spawnSync(process.execPath, [path.join(APP, 'shared-packages.js'), app], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [path.join(APP, 'shared-packages.mts'), app], { encoding: 'utf8' });
   assert.strictEqual(r.stdout.trim(), '@webship.co/workspace-forge @webship.co/workspace-hosting');
   // No plugins, or no app: nothing.
   const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-shared-'));
@@ -60,7 +60,7 @@ test('webship-workspace update runs npm install, then npm update of the shared p
   const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-shared-bin-'));
   const log = path.join(bin, 'npm.log');
   fs.writeFileSync(path.join(bin, 'npm'), `#!/bin/sh\necho "$*" >> ${JSON.stringify(log)}\nexit 0\n`, { mode: 0o755 });
-  const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, WEBSHIP_WORKSPACE_SKIP_DDEV: '1', WORKSPACE_PLUGINS_NO_RESTART: '1' };
+  const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, WEBSHIP_WORKSPACE_SKIP_DDEV: '1', WORKSPACE_PLUGINS_NO_RESTART: '1' };
   delete env.WEBSHIP_WORKSPACE_SKIP_NPM;
   const u = spawnSync(process.execPath, [BIN, 'update', dir], { encoding: 'utf8', env });
   assert.strictEqual(u.status, 0, u.stderr);
@@ -80,5 +80,5 @@ test('plugins.sh --require updates the shared packages once npm has installed th
   const update = step.indexOf('npm update --no-audit --no-fund ${shared}');
   const needs = step.indexOf('What this package brought');
   assert.ok(install > 0 && update > install && needs > update, 'install, then the shared packages, then the needs');
-  assert.match(step, /shared="\$\( cd "\$\{APP\}" && node shared-packages\.js 2> \/dev\/null \)"/);
+  assert.match(step, /shared="\$\( cd "\$\{APP\}" && node shared-packages\.mts 2> \/dev\/null \)"/);
 });

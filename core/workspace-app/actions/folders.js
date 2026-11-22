@@ -7,7 +7,7 @@ const path = require('path');
 
 const { esc } = require('../html.mts');
 const { isValidWorkspace, loadWorkspaces, loadSettings, workspaceDir } = require('../workspaces');
-const folders = require('../folders');
+const folders = require('../folders.mts');
 const notes = require('../notes.mts');
 const { startInScreen, screenStartedHtml } = require('../jobs');
 const { pluginFolderSetups } = require('../plugin-loader');

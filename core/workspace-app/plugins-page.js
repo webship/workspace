@@ -178,7 +178,7 @@ function commandsSectionHtml() {
  * state, or just a Set of module names).
  */
 function catalogHtml(added = new Set()) {
-  const { iconHtml } = require('./icons');
+  const { iconHtml } = require('./icons.mts');
   const model = require('./settings-model');
   const home = require('./settings-home');
   const families = FAMILIES.map((f) => {

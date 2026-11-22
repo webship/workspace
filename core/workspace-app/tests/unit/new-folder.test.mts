@@ -1,13 +1,18 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
-const folders = require('../../folders');
-const { typeActions } = require('../../workspace-types.mts');
+import * as folders from '../../folders.mts';
+import type { FolderResult } from '../../folders.mts';
+import { typeActions } from '../../workspace-types.mts';
+import $folders from '../../actions/folders.js';
 
-const root = path.join(__dirname, '..', '..');
+/** The status a refused folder answers with (0 when it was made). */
+const statusOf = (r: FolderResult): number => (r.ok ? 0 : r.status);
+
+const root = path.join(import.meta.dirname, '..', '..');
 const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
 
 test('a folder name is lowercase letters, digits, - and _', () => {
@@ -24,9 +29,9 @@ test('createFolder makes the folder once, inside the workspace, and refuses the 
     const made = folders.createFolder(ws, 'demo1');
     assert.equal(made.ok, true);
     assert.ok(fs.statSync(path.join(ws, 'demo1')).isDirectory());
-    assert.equal(folders.createFolder(ws, 'demo1').status, 409);
-    assert.equal(folders.createFolder(ws, '../out').status, 400);
-    assert.equal(folders.createFolder(path.join(ws, 'missing'), 'x').status, 404);
+    assert.equal(statusOf(folders.createFolder(ws, 'demo1')), 409);
+    assert.equal(statusOf(folders.createFolder(ws, '../out')), 400);
+    assert.equal(statusOf(folders.createFolder(path.join(ws, 'missing'), 'x')), 404);
     assert.equal(folders.suggestName(ws, 'demo'), 'demo2');
   } finally {
     fs.rmSync(ws, { recursive: true, force: true });
@@ -59,7 +64,7 @@ test('a files workspace makes the folder inside the one being viewed, with reada
   const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-'));
   try {
     assert.equal(folders.createFolder(ws, 'My Guide', { files: true }).ok, true);
-    assert.equal(folders.createFolder(ws, 'My Guide').status, 400);
+    assert.equal(statusOf(folders.createFolder(ws, 'My Guide')), 400);
   } finally { fs.rmSync(ws, { recursive: true, force: true }); }
 });
 
@@ -77,12 +82,12 @@ test('the Create group, the form route and the action are wired in', () => {
   assert.match(server, /btn\('default', 'tabler:folder-plus', 'New folder'/);
   assert.match(server, /\\\/fragments\\\/\(\[a-z0-9_-\]\+\)\\\/folder-new\$/);
   assert.match(server, /\.\.\.require\('\.\/actions\/folders'\)/);
-  const action = require('../../actions/folders');
+  const action = $folders;
   assert.equal(typeof action['/actions/folder-new'], 'function');
 });
 
 test('the form offers Configure DDEV, and webship-js only where the workspace can test', () => {
-  const types = require('../../actions/folders').projectTypes();
+  const types = $folders.projectTypes();
   assert.ok(types.includes('php') && types.includes('drupal11'));
   const withTests = folders.folderFormHtml('dev', { projectTypes: types, canTest: true });
   assert.match(withTests, /name="ddev" value="1"/);
@@ -94,7 +99,7 @@ test('the form offers Configure DDEV, and webship-js only where the workspace ca
 });
 
 test('the setup line chains DDEV, the webship-js setup and what the plugins add, in that order', () => {
-  const fa = require('../../actions/folders');
+  const fa = $folders;
   const line = fa.setupLine('dev', 'demo1', { ddev: '1', e2e: '1', project_type: 'php' });
   assert.ok(line.startsWith("( cd 'demo1' && ddev 'config' '--auto=false' '--project-name=demo1' '--project-type=php' '--docroot=' )"), line);
   assert.ok(line.indexOf("bash cmd-tools-testing.sh 'demo1'") > line.indexOf("'config'"));
@@ -104,7 +109,7 @@ test('the setup line chains DDEV, the webship-js setup and what the plugins add,
 });
 
 test('the AI tasks go to one Claude Code prompt, and the form is checked before anything is made', () => {
-  const fa = require('../../actions/folders');
+  const fa = $folders;
   const p = fa.claudePrompt('dev', 'demo1', { note: 'Try search', prompt: 'Then say hello' });
   assert.ok(p.endsWith('Then say hello'));
   assert.equal(fa.claudePrompt('dev', 'demo1', {}), '');

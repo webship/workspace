@@ -5,16 +5,16 @@
  * bare UIKit name, and an unknown one falls back rather than rendering an empty box.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
 
-const PUBLIC_DIR = path.join(__dirname, 'public');
+import { esc } from './html.mts';
 
-const { esc } = require('./html.mts');
+const PUBLIC_DIR = path.join(import.meta.dirname, 'public');
 
 // Read once: the Tabler sprite is 4,736 icons, and a workspace page renders twenty of them.
-let _tablerCache = null;
-let _iconCache = null;
+let _tablerCache: string[] | null = null;
+let _iconCache: string[] | null = null;
 // Icon and description for a workspace, stored in its own settings file so a
 // workspace added from the dashboard is not stuck with the default folder icon.
 //
@@ -35,12 +35,12 @@ const BRAND_ICONS = new Set([
   'youtube',
 ]);
 
-function uikitIcons() {
+export function uikitIcons(): string[] {
   if (_iconCache) return _iconCache;
   try {
     const src = fs.readFileSync(path.join(PUBLIC_DIR, 'vendor', 'uikit-icons.min.js'), 'utf8');
     const names = [...src.matchAll(/(?:"([a-zA-Z0-9-]+)"|([a-zA-Z0-9-]+))\s*:\s*'<svg/g)]
-      .map((m) => m[1] || m[2]);
+      .map((m) => m[1] || m[2] || '');
     _iconCache = [...new Set(names)].filter((n) => !BRAND_ICONS.has(n)).sort();
   } catch (_) {
     _iconCache = ['folder'];
@@ -48,11 +48,11 @@ function uikitIcons() {
   return _iconCache;
 }
 
-function tablerIcons() {
+export function tablerIcons(): string[] {
   if (_tablerCache) return _tablerCache;
   try {
     const src = fs.readFileSync(path.join(PUBLIC_DIR, 'vendor', 'tabler-sprite.svg'), 'utf8');
-    _tablerCache = [...new Set([...src.matchAll(/<symbol id="([a-z0-9-]+)"/g)].map((m) => m[1]))]
+    _tablerCache = [...new Set([...src.matchAll(/<symbol id="([a-z0-9-]+)"/g)].map((m) => m[1] ?? ''))]
       .filter((n) => !BRAND_ICONS.has(n))
       .sort();
   } catch (_) {
@@ -63,7 +63,7 @@ function tablerIcons() {
 
 // One icon, from either set. A bare name is UIKit, so every icon stored before
 // Tabler existed keeps working; `tabler:<name>` comes from the sprite.
-function iconHtml(name, ratio = 1) {
+export function iconHtml(name: unknown, ratio: number = 1): string {
   const n = String(name || 'folder');
   if (n.startsWith('tabler:')) {
     const id = n.slice(7);
@@ -75,9 +75,7 @@ function iconHtml(name, ratio = 1) {
   return `<span uk-icon="icon: ${esc(n)}; ratio: ${ratio}"></span>`;
 }
 
-function isKnownIcon(name) {
+export function isKnownIcon(name: unknown): boolean {
   const n = String(name || '');
   return n.startsWith('tabler:') ? tablerIcons().includes(n.slice(7)) : uikitIcons().includes(n);
 }
-
-module.exports = { uikitIcons, tablerIcons, iconHtml, isKnownIcon };

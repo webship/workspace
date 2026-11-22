@@ -12,7 +12,7 @@
 const path = require('path');
 
 const { esc } = require('./html.mts');
-const { iconHtml } = require('./icons');
+const { iconHtml } = require('./icons.mts');
 const { needsInstall } = require('./plugin-manifest');
 const model = require('./settings-model');
 const { stateHtml, actionHtml, pluginHref } = require('./settings-home');

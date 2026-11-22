@@ -16,7 +16,7 @@ const path = require('path');
 
 const { esc } = require('./html.mts');
 const { humanTime } = require('./format.mts');
-const { iconHtml } = require('./icons');
+const { iconHtml } = require('./icons.mts');
 const { ROOT } = require('./workspaces');
 
 const stepPacks = require(path.join(ROOT, 'core', 'scripts', 'libs', 'step_packs'));
