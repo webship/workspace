@@ -45,6 +45,41 @@ usage() { awk 'NR > 1 && !/^##/ { exit } NR > 1 { sub(/^## ?/, ""); print }' "${
 restart_app() {
   # A test drives these verbs against a temporary tree; it must never restart the dashboard that serves.
   [ -n "${WORKSPACE_PLUGINS_NO_RESTART:-}" ] && return 0 ;
+  # A dashboard on Docker Compose or Kubernetes (core/docker, core/k8s: webship/workspace#694) runs from the
+  # Workspace's own image, whose entrypoint keeps `node server.js` running: ending that one process restarts the
+  # dashboard, and the container, with the screen sessions in it, stays.
+  if [ -n "${WEBSHIP_DASHBOARD_PIDFILE:-}" ] && [ -f "${WEBSHIP_DASHBOARD_PIDFILE}" ] ; then
+    # Inside that container: only when it serves this workspace, as below.
+    if [ "${WORKSPACE_ROOT}" -ef "${WEBSHIP_DASHBOARD_ROOT:-/nonexistent}" ] ; then
+      kill -TERM "$(cat "${WEBSHIP_DASHBOARD_PIDFILE}")" 2> /dev/null && echo "workspace-app: stopped" && echo "workspace-app: started" ;
+    else
+      echo "The dashboard that is running serves another workspace, so it was not restarted; this one loads the change when its own dashboard starts." ;
+    fi
+    return 0 ;
+  fi
+  local end_it='kill -TERM "$(cat "${WEBSHIP_DASHBOARD_PIDFILE:-/tmp/webship-dashboard.pid}")"' ;
+  if [ -f "${WORKSPACE_ROOT}/core/docker/.env" ] ; then
+    # From the host, a dashboard on Docker Compose: the container of this workspace's own compose project.
+    local cid ;
+    cid="$(cd "${WORKSPACE_ROOT}/core/docker" && docker compose ps -q --status running dashboard 2> /dev/null | head -1)" ;
+    if [ -z "${cid}" ] ; then
+      echo "The dashboard is not running; it will load the change when it starts." ;
+    else
+      docker exec "${cid}" sh -c "${end_it}" 2> /dev/null && echo "workspace-app: stopped" && echo "workspace-app: started" \
+        || echo "The dashboard is not running; it will load the change when it starts." ;
+    fi
+    return 0 ;
+  fi
+  if [ -f "${WORKSPACE_ROOT}/core/k8s/values.local.yaml" ] ; then
+    # From the host, a dashboard on Kubernetes: the pod of the release the init recorded.
+    local values="${WORKSPACE_ROOT}/core/k8s/values.local.yaml" kctx kns krel ;
+    kctx="$(sed -n 's/^  context: *"\{0,1\}\([^"]*\)"\{0,1\} *$/\1/p' "${values}" | head -1)" ;
+    kns="$(sed -n 's/^  namespace: *"\{0,1\}\([^"]*\)"\{0,1\} *$/\1/p' "${values}" | head -1)" ;
+    krel="$(sed -n 's/^  release: *"\{0,1\}\([^"]*\)"\{0,1\} *$/\1/p' "${values}" | head -1)" ;
+    kubectl --context "${kctx}" -n "${kns}" exec "deploy/${krel}" -- sh -c "${end_it}" > /dev/null 2>&1 && echo "workspace-app: stopped" && echo "workspace-app: started" \
+      || echo "The dashboard is not running; it will load the change when it starts." ;
+    return 0 ;
+  fi
   if command -v supervisorctl > /dev/null 2>&1 && supervisorctl status webextradaemons:workspace-app > /dev/null 2>&1 ; then
     # Inside a dashboard's container. It mounts the whole workspace tree, so a step can be run here for
     # another tree under it (a throwaway one in test/ or sandboxes/): restart only when this workspace's

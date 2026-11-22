@@ -37,4 +37,19 @@ function absolute() {
 const HOME_URL = () => (absolute() ? `https://${hubDomain()}` : '/');
 const wsUrl = (key, sub = '') => (absolute() ? `https://${key}.${hubDomain()}${sub}` : `/${key}${sub}`);
 
-module.exports = { HOME_URL, wsUrl, withRequest, onHub };
+/**
+ * The name this dashboard is shown under: the hub's on the hub, else the address the page was asked on (a
+ * dashboard on Docker Compose or Kubernetes has no workspace.ddev.site: 127.0.0.1:3000, a node's address, a domain).
+ */
+const hereName = () => {
+  const store = requests.getStore();
+  return absolute() ? hubDomain() : String(store.host).replace(/[^A-Za-z0-9.:[\]-]/g, '');
+};
+
+/**
+ * The Domain attribute of a preference cookie: the hub's, so its workspace subdomains share it. On any other
+ * address there are no subdomains and a browser refuses a cookie for a domain the page is not on: none.
+ */
+const cookieDomain = () => (absolute() ? `; Domain=.${hubDomain()}` : '');
+
+module.exports = { HOME_URL, wsUrl, withRequest, onHub, hereName, cookieDomain };

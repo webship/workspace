@@ -1,0 +1,12 @@
+The Webship Workspace's dashboard is installed as {{ include "ws.name" . }} in the namespace {{ .Release.Namespace }}.
+
+{{- if .Values.ingress.enabled }}
+It answers at http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}
+{{- else if eq .Values.service.type "NodePort" }}
+It answers on a node's address, at the port of:
+  kubectl -n {{ .Release.Namespace }} get svc {{ include "ws.name" . }} -o jsonpath='{.spec.ports[0].nodePort}'
+{{- else }}
+Reach it from your machine:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "ws.name" . }} 3000:{{ .Values.service.port }}
+then open http://127.0.0.1:3000
+{{- end }}

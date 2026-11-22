@@ -160,3 +160,141 @@ jobs:
             core/workspace-app/dashboard.log
           retention-days: 14
           if-no-files-found: ignore
+
+  dashboard-on-docker:
+    # The dashboard itself on Docker Compose, without DDEV (webship/workspace#694): the image is built from
+    # core/docker, a workspace is made by the command line with --runtime docker, and the dashboard answers on
+    # 127.0.0.1. Then what a plugin step and a person do to it: a restart of its process (the container stays),
+    # status and stop, and the browser suite's own feature for a dashboard on a plain address.
+    name: the dashboard on Docker Compose (the image, init --runtime docker, the home page)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml
+      - name: init --runtime docker builds the image and starts the compose file
+        run: |
+          node core/bin/workspace.js init "$HOME/ws-docker" --runtime docker --port 3100 --no-claude
+          cat "$HOME/ws-docker/core/docker/.env"
+          grep -A1 '^container:' "$HOME/ws-docker/core/config/settings.yml" | grep -q 'runtime: docker'
+      - name: the home page answers, on this address and under its own name only
+        run: |
+          curl -fsS http://127.0.0.1:3100/ -o home.html
+          grep -q '<title>Webship Workspace</title>' home.html
+          grep -q 'container-based tooling · <a href="/">127.0.0.1:3100</a>' home.html
+          curl -fsS -o /dev/null http://127.0.0.1:3100/settings
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: rebound.example.org' http://127.0.0.1:3100/)" = 403
+          # On 127.0.0.1 only: not on the runner's other addresses.
+          ! curl -s -m 5 -o /dev/null "http://$(hostname -I | awk '{print $1}'):3100/"
+      - name: it runs as this user, with the host's Docker, git, screen, kubectl and pandoc
+        run: |
+          cd "$HOME/ws-docker/core/docker"
+          test "$(docker compose exec -T dashboard id -u)" = "$(id -u)"
+          docker compose exec -T dashboard sh -c 'docker ps -q > /dev/null && git --version && screen --version && kubectl version --client && pandoc --version | head -1 && python -c "import yaml"'
+          docker compose exec -T dashboard sh -c 'touch "$WORKSPACE_ROOT/written-by-the-dashboard"'
+          test "$(stat -c %u "$HOME/ws-docker/written-by-the-dashboard")" = "$(id -u)"
+      - name: a restart ends the dashboard's process, not its container
+        run: |
+          cd "$HOME/ws-docker/core/docker"
+          before="$(docker compose ps -q dashboard)"
+          pid="$(docker compose exec -T dashboard cat /tmp/webship-dashboard.pid)"
+          WORKSPACE_ROOT="$HOME/ws-docker" bash "$HOME/ws-docker/core/scripts/plugins.sh" --restart | tee restart.log
+          grep -q 'workspace-app: started' restart.log
+          for i in $(seq 1 60); do curl -fsS -o /dev/null http://127.0.0.1:3100/ && break; sleep 1; done
+          curl -fsS -o /dev/null http://127.0.0.1:3100/
+          test "$(docker compose ps -q dashboard)" = "$before"
+          test "$(docker compose exec -T dashboard cat /tmp/webship-dashboard.pid)" != "$pid"
+      - name: the browser (Chromium)
+        working-directory: core/workspace-app
+        run: npm ci --no-audit --no-fund && npx playwright install --with-deps chromium
+      - name: the browser suite's feature for a dashboard on a plain address
+        working-directory: core/workspace-app
+        env:
+          LAUNCH_URL: http://127.0.0.1:3100
+          FEATURES: tests/features/runtimes/dashboard.feature
+        run: npx cucumber-js --config cucumber.js
+      - name: status, stop and start
+        run: |
+          node core/bin/workspace.js status "$HOME/ws-docker"
+          node core/bin/workspace.js stop "$HOME/ws-docker"
+          ! curl -s -m 5 -o /dev/null http://127.0.0.1:3100/
+          ! node core/bin/workspace.js status "$HOME/ws-docker"
+          node core/bin/workspace.js start "$HOME/ws-docker"
+          curl -fsS -o /dev/null http://127.0.0.1:3100/
+      - name: the container's log
+        if: always()
+        run: cd "$HOME/ws-docker/core/docker" && docker compose logs --tail 200 || true
+
+  dashboard-on-kubernetes:
+    # The dashboard itself on Kubernetes (webship/workspace#694), on a kind cluster made in the job with the home
+    # folder mounted into its node: the chart in core/k8s is linted and installed by the command line with
+    # --runtime kubernetes, the pod comes up, the home page answers on the node's address, and the dashboard's
+    # ServiceAccount may change the namespaces of its sites (ws-*) and no other.
+    name: the dashboard on Kubernetes (the chart, init --runtime kubernetes on kind, the home page)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml
+      - name: the chart lints and renders, with a folder of the node and with a volume claim
+        run: |
+          helm lint core/k8s
+          helm template t core/k8s --set workspace.hostPath=/home/x/ws --set workspace.path=/home/x/ws | grep -q 'hostPath: {path: "/home/x/ws"'
+          helm template t core/k8s | grep -q 'kind: PersistentVolumeClaim'
+          helm template t core/k8s --set ingress.enabled=true --set ingress.host=ws.example.org | grep -q 'WORKSPACE_ALLOWED_HOSTS, value: "ws.example.org"'
+      - name: a kind cluster with the home folder mounted into its node
+        run: |
+          printf 'kind: Cluster\napiVersion: kind.x-k8s.io/v1alpha4\nnodes:\n- role: control-plane\n  extraMounts:\n  - hostPath: %s\n    containerPath: %s\n' "$HOME" "$HOME" > kind.yaml
+          kind create cluster --name ws --config kind.yaml --wait 180s
+      - name: init --runtime kubernetes builds the image, loads it and installs the chart
+        run: |
+          node core/bin/workspace.js init "$HOME/ws-kube" --runtime kubernetes --context kind-ws --namespace webship-workspace --no-sites-image
+          cat "$HOME/ws-kube/core/k8s/values.local.yaml"
+          kubectl --context kind-ws -n webship-workspace get deploy,pods,svc
+      - name: the home page answers on the node's address
+        run: |
+          node core/bin/workspace.js status "$HOME/ws-kube" | tee status.log
+          url="$(grep -o 'http://[0-9.]*:[0-9]*' status.log | head -1)"
+          echo "LAUNCH_URL=$url" >> "$GITHUB_ENV"
+          curl -fsS "$url/" -o home.html
+          grep -q '<title>Webship Workspace</title>' home.html
+          curl -fsS -o /dev/null "$url/settings"
+      - name: the dashboard's ServiceAccount changes the namespaces of its sites, and no other
+        run: |
+          pod="$(kubectl --context kind-ws -n webship-workspace get pods -o name | head -1)"
+          in_pod() { kubectl --context kind-ws -n webship-workspace exec "$pod" -- "$@" ; }
+          in_pod kubectl --context in-cluster get nodes
+          in_pod kubectl --context in-cluster create namespace ws-ci
+          in_pod kubectl --context in-cluster -n ws-ci create deployment web --image=nginx:alpine
+          in_pod kubectl --context in-cluster delete namespace ws-ci --wait=false
+          ! in_pod kubectl --context in-cluster create namespace not-a-site
+          ! in_pod kubectl --context in-cluster -n default create deployment web --image=nginx:alpine
+          ! in_pod kubectl --context in-cluster -n kube-system create configmap not-a-site
+      - name: the browser (Chromium)
+        working-directory: core/workspace-app
+        run: npm ci --no-audit --no-fund && npx playwright install --with-deps chromium
+      - name: the browser suite's feature for a dashboard on a plain address
+        working-directory: core/workspace-app
+        env:
+          FEATURES: tests/features/runtimes/dashboard.feature
+        run: npx cucumber-js --config cucumber.js
+      - name: stop is no pod, start brings it back
+        run: |
+          node core/bin/workspace.js stop "$HOME/ws-kube"
+          ! node core/bin/workspace.js status "$HOME/ws-kube"
+          node core/bin/workspace.js start "$HOME/ws-kube" --no-sites-image
+          curl -fsS -o /dev/null "$LAUNCH_URL/"
+      - name: the pod's log
+        if: always()
+        run: kubectl --context kind-ws -n webship-workspace logs -l app.kubernetes.io/name=webship-workspace --all-containers --tail 200 || true
+

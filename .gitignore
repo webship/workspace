@@ -99,3 +99,8 @@ core/workspace-app/.ddev/docker-compose.second-storage.yaml
 /sandboxes/cmd-tools-upsun.sh
 /test/cmd-tools-upsun.sh
 # end plugins
+
+# This machine's values for the dashboard on Docker Compose and on Kubernetes (webship-workspace init --runtime):
+# the workspace's path, the user's numbers, the port. Never committed.
+core/docker/.env
+core/k8s/values.local.yaml

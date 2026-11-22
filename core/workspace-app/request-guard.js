@@ -21,9 +21,9 @@
 const fs = require('fs');
 const net = require('net');
 
-/** Inside a container: DDEV's web container, or any Docker or Podman one. */
+/** Inside a container: DDEV's web container, any Docker or Podman one, or a pod of a Kubernetes cluster. */
 function inContainer({ env = process.env, exists = fs.existsSync } = {}) {
-  return env.IS_DDEV_PROJECT === 'true' || exists('/.dockerenv') || exists('/run/.containerenv');
+  return env.IS_DDEV_PROJECT === 'true' || exists('/.dockerenv') || exists('/run/.containerenv') || !!env.KUBERNETES_SERVICE_HOST;
 }
 
 /** The address to listen on: WORKSPACE_LISTEN when it is set, every interface in a container (undefined), else 127.0.0.1. */

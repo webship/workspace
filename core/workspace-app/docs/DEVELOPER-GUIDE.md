@@ -191,6 +191,14 @@ Server-rendered HTML fragments, swapped by HTMX.
   `core/scripts/runtime-verb.sh <verb>` in the project, which calls `ddev <verb>`: the runtime layer
   (`core/scripts/functions/fun-runtime.sh`) is the one place that knows docker, podman and kubectl. A DDEV
   project's paths are the ones they were.
+- **The dashboard itself runs in DDEV, on Docker Compose or on Kubernetes** (`core/bin/dashboard-runtime.js`,
+  `core/docker`, `core/k8s`). Which one is what the workspace carries: `core/docker/.env`, `core/k8s/values.local.yaml`,
+  or neither (DDEV). Outside DDEV there is no supervisor and no hub: the image's entrypoint (`core/docker/dashboard.sh`)
+  keeps `node server.js` running, and `plugins.sh --restart` ends that one process (its id is in
+  `WEBSHIP_DASHBOARD_PIDFILE`), never the container, so running sessions go on. A page is asked on a plain address
+  there: build a link with `HOME_URL()` and `wsUrl()`, name the address with `hereName()`, and scope a cookie with
+  `cookieDomain()` (`urls.js`), never with `hubDomain()` directly. The workspace is mounted at the path it has on the
+  host: the dashboard hands that path to the host's Docker.
 - **The stylesheet is assembled** from `public/css/base.css` + `public/css/components/*.css` + a theme.
   `public/style.css` is not the source; editing it changes nothing. `cssVersion()` stamps the URL from
   the parts' mtimes, so a cached browser picks changes up.
@@ -223,6 +231,9 @@ The smoke test's exit code is the number of failures, and it needs no environmen
 The features under `tests/features/runtimes/` drive a real site on Docker Compose or Kubernetes
 (`@needs-runtime-docker`, `@needs-runtime-kubernetes`: the first running one the workspace holds, skipped with
 the reason where there is none). CI runs the Docker ones against a small compose project it starts in the job.
+`tests/features/runtimes/dashboard.feature` is about the dashboard itself on a plain address
+(`@needs-plain-address`: skipped on the hub). CI runs it three times: against node on a port, against the
+dashboard's image on Docker Compose, and against its pod on a kind cluster.
 
 **A test that needs machine state skips with the reason**, at run time, rather than failing or being
 excluded — see `tests/step-definitions/preconditions.steps.js`. A suite with permanent red in it stops

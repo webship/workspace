@@ -13,7 +13,16 @@ npm install -g @webship.co/workspace
 webship-workspace init ~/workspace       # the core, an empty settings file, the dashboard started
 ```
 
-Open https://workspace.ddev.site. It is empty: no workspace folders, no plugins. Add what you need, one package at a time, from **Settings → Add a plugin** (the catalogue) or the command line:
+Open https://workspace.ddev.site. DDEV is one way to run the dashboard, and the default. The others need no DDEV:
+
+```bash
+webship-workspace init ~/workspace --runtime docker       # Docker Compose: http://127.0.0.1:3000
+webship-workspace init ~/workspace --runtime kubernetes   # a Helm chart on your Kubernetes context (kubectl, helm)
+```
+
+Sites are then built on that runtime by default. For a server on a cloud there is a cloud-init file, `core/docker/cloud-init.yaml`. [Runtimes](core/docs/runtimes.md#the-dashboard-itself) says what each one needs and what is not there yet.
+
+The dashboard is empty: no workspace folders, no plugins. Add what you need, one package at a time, from **Settings → Add a plugin** (the catalogue) or the command line:
 
 ```bash
 webship-workspace plugin require dev     # npm install @webship.co/workspace-dev into the dashboard
@@ -37,7 +46,7 @@ bash dev/cmd-drupal11-recommended-project.sh mysite --install --runtime docker  
 | Build and install a Drupal site | Yes | Yes | Yes | Yes, not yet run on a real Podman |
 | The dashboard's row, the Tests menu, backups | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman |
 | The platform plugins' builders | Yes | On the way | On the way | On the way |
-| The dashboard itself | Yes | On the way | On the way | On the way |
+| The dashboard itself | Yes | Yes | Yes, with limits | On the way |
 
 [Runtimes](core/docs/runtimes.md) has the whole table, what a project carries on each runtime, and how to choose a cluster. Lando and Docksal are planned next.
 

@@ -1,0 +1,2 @@
+# This machine's values (webship-workspace init --runtime kubernetes) are passed with -f, never packaged.
+values.local.yaml

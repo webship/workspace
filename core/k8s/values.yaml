@@ -1,0 +1,87 @@
+# The Webship Workspace's dashboard on Kubernetes (webship/workspace#694).
+#
+#   webship-workspace init ~/workspace --runtime kubernetes     writes values.local.yaml beside this file and installs
+#   helm upgrade --install webship-workspace core/k8s -n webship-workspace --create-namespace -f my-values.yaml
+
+# The dashboard's image (core/docker/Dockerfile). The app is not in it: the workspace is the volume below.
+image:
+  repository: webship-workspace
+  tag: local
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# One pod: the dashboard keeps its jobs and screen sessions in it.
+replicas: 1
+
+workspace:
+  # Where the workspace is in the pod (WORKSPACE_ROOT).
+  path: /workspace
+  # A folder of the NODE that holds the workspace, mounted at `path`. Give it the same value as `path`: the
+  # dashboard then builds sites on this cluster, whose pods mount their code from the node at that path. This is
+  # a local cluster (kind, with your home folder mounted into its node) or a single-node one.
+  hostPath: ""
+  # Without hostPath the workspace is a volume claim: any cluster, any cloud's storage class. The dashboard runs,
+  # with its pages, settings and plugins; it does not build sites on this cluster from a claim yet (see
+  # core/docs/runtimes.md).
+  persistence:
+    size: 20Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    # A claim that exists already, instead of making one.
+    existingClaim: ""
+  # An empty claim is given the workspace's core first, from the npm package: webship-workspace init.
+  seed:
+    enabled: true
+    package: "@webship.co/workspace"
+
+# The user and group the dashboard runs as. With hostPath: the owner of the folder on the node.
+runAs:
+  user: 1000
+  group: 1000
+
+# The port the dashboard listens on in the pod.
+port: 3000
+
+service:
+  # ClusterIP (reach it with kubectl port-forward, or the Ingress below), NodePort or LoadBalancer.
+  type: ClusterIP
+  port: 3000
+  # With NodePort: a port of your own, or empty for one the cluster chooses.
+  nodePort: ""
+
+# The dashboard has no login of its own (until Sign in with Google is turned on in its settings) and it runs
+# commands: put it behind an Ingress only with authentication in front of it.
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  annotations: {}
+  tls:
+    enabled: false
+    secretName: ""
+
+# More names the dashboard answers to, comma separated (the Ingress host is added by itself).
+allowedHosts: ""
+
+# The sites the dashboard builds on this cluster: one namespace each, <namespacePrefix><name>.
+sites:
+  # A ClusterRole for the dashboard's ServiceAccount: namespaces, and in them deployments, services, volume
+  # claims, pods, pods/exec and pods/log. false: the dashboard builds no sites here.
+  rbac: true
+  namespacePrefix: ws-
+  # Kubernetes' roles cannot be limited to namespaces by a prefix of their name, so the ClusterRole alone reaches
+  # every namespace. With this, a ValidatingAdmissionPolicy refuses every change the dashboard asks for outside
+  # the namespaces whose name starts with namespacePrefix (Kubernetes 1.30 or newer).
+  limitToPrefix: true
+  # The image of a site's web container. A pod has no Docker to build one with, so in a pod the sites take this
+  # image as it is: `{php}` becomes the site's PHP version. Build it from core/config/runtimes/php and put it
+  # where the cluster finds it (kind load docker-image, or a registry).
+  webImage: "webship-workspace-php:{php}"
+
+# Annotations of the pod. The init of a local image writes the image's id here, so the pod is made new when the
+# image was built again under the same tag.
+podAnnotations: {}
+
+resources: {}
+nodeSelector: {}
+tolerations: []

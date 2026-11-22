@@ -26,8 +26,10 @@ test('the preference helpers are in the head, so the first paint can read them',
 });
 
 test('a preference is written to a cookie on the HUB domain', () => {
-  assert.match(head, /document\.cookie=name\+'='\+encodeURIComponent\(value\)\+'; Path=\/; Domain=\.\$\{hubDomain\(\)\}/,
+  // cookieDomain() (urls.js) is the hub's domain on the hub, and none on an address that has no subdomains.
+  assert.match(head, /document\.cookie=name\+'='\+encodeURIComponent\(value\)\+'; Path=\/\$\{cookieDomain\(\)\}/,
     'not the page host: a cookie on dev.workspace… would be the same bug in another form');
+  assert.match(require('../../urls').cookieDomain(), /^; Domain=\./, 'on the hub the cookie is the hub domain\'s');
   assert.match(head, /Max-Age=31536000/, 'a preference outlives the tab');
   assert.match(head, /SameSite=Lax/);
 });

@@ -4,6 +4,9 @@
  *
  *   webship-workspace init [dir]              make a workspace at dir (default ~/workspace): the core, an
  *                                             empty settings file, the dashboard installed and started
+ *                                             --runtime ddev|docker|kubernetes: where the dashboard runs (ddev by
+ *                                             default; docker is Docker Compose, kubernetes a Helm chart), and what
+ *                                             sites are built on by default. --port <n> for docker
  *   webship-workspace plugin <verb> <name>    require | activate | install | configure | deactivate | uninstall | remove | list | check
  *                                             add --with-needs to require, activate or install and the plugins
  *                                             it needs are added first, in the same run
@@ -11,6 +14,7 @@
  *   webship-workspace doctor [dir]            the commands the core and the plugins need on this machine: found,
  *                                             with the version, or missing, with how to install it (it installs nothing)
  *   webship-workspace update [dir]            refresh the core of an existing workspace from this package
+ *   webship-workspace start|stop|status [dir] the dashboard of a workspace, on the runtime it was made for
  *
  * plugin, doctor and update are about the workspace you are standing in (or WORKSPACE_ROOT, or the dir
  * you name); ~/workspace when you are in none.
@@ -21,7 +25,7 @@
  *
  * Plain Node, no dependencies: this runs before anything is installed. Env for tests:
  *   WEBSHIP_WORKSPACE_SKIP_NPM=1   do not run npm install in the dashboard
- *   WEBSHIP_WORKSPACE_SKIP_DDEV=1  do not start the dashboard
+ *   WEBSHIP_WORKSPACE_SKIP_DDEV=1  do not start the dashboard (on any runtime; WEBSHIP_WORKSPACE_SKIP_START=1 is the same)
  */
 
 const crypto = require('crypto');
@@ -29,6 +33,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+
+const dashboardRuntime = require('./dashboard-runtime');
 
 const PKG_ROOT = path.resolve(__dirname, '..', '..');   // the package: core/, README.md, LICENSE
 const CORE_SRC = path.join(PKG_ROOT, 'core');
@@ -211,7 +217,7 @@ function copyCore(dest) {
   const SKIP = new Set(['node_modules', 'actions.log', 'package-lock.json']);
   // This machine's own files are never copied from the package: settings.yml comes from the lean
   // template (once), workspace and plugin settings come with their plugins, the install record is local.
-  const NEVER = /^core\/config\/(settings\.yml|workspace\..*\.settings\.yml|plugin\..*\.settings\.yml|plugins\.installed\.yml)$|^core\/workspace-app\/\.ddev\/config\.local\.yaml$/;
+  const NEVER = /^core\/config\/(settings\.yml|workspace\..*\.settings\.yml|plugin\..*\.settings\.yml|plugins\.installed\.yml)$|^core\/workspace-app\/\.ddev\/config\.local\.yaml$|^core\/docker\/\.env$|^core\/k8s\/values\.local\.yaml$/;
   const KEEP_IF_PRESENT = /^core\/config\/style\.yml$/;
   // shipped: what follows the package and was copied as it is (the record); packaged: every file the package
   // has, whatever this copy did with it (kept, merged, never copied) — nothing in it is ever removed.
@@ -293,10 +299,14 @@ function catalogText() {
  * The commands the core needs on this machine (core/scripts/needs.json), and those of the plugins of the
  * workspace at `root` when its dashboard is installed. Reports; installs nothing. True when nothing needed is missing.
  */
-function doctor(root, { only = 'all', quiet = false } = {}) {
+function doctor(root, { only = 'all', quiet = false, runtime = '' } = {}) {
   const here = root && fs.existsSync(path.join(root, 'core', 'workspace-app', 'command-check.js'));
   const check = require(here ? path.join(root, 'core', 'workspace-app', 'command-check.js') : path.join(CORE_SRC, 'workspace-app', 'command-check.js'));
-  const reports = [check.checkCore()];
+  // A dashboard on Docker Compose or Kubernetes does not need DDEV: it is asked for only where the dashboard runs in it.
+  const on = runtime || (here ? dashboardRuntime.runtimeOf(root) : 'ddev');
+  const core = check.checkCore();
+  if (on !== 'ddev') core.rows = core.rows.filter((r) => !r.anyOf.includes('ddev'));
+  const reports = [core];
   if (only === 'all' && !here && !quiet) say(`No workspace at ${root}: the commands the core needs are listed, no plugin was looked at. Name the folder (webship-workspace doctor <dir>) or run it from inside the workspace.\n`);
   if (only === 'all' && here) { try { reports.push(...check.checkPlugins()); } catch (_) { /* the dashboard is not installed yet: the core alone */ } }
   if (quiet) {
@@ -308,14 +318,27 @@ function doctor(root, { only = 'all', quiet = false } = {}) {
   return check.missingNeeded(reports).length === 0;
 }
 
-function init(dirArg, { update = false } = {}) {
+function init(dirArg, { update = false, flags = {} } = {}) {
   // init makes the folder it is given (or ~/workspace); update is about a workspace that exists.
   const dest = update ? workspaceRoot(dirArg) : path.resolve(dirArg || process.env.WEBSHIP_WORKSPACE_DIR || path.join(os.homedir(), 'workspace'));
   if (update && !isWorkspace(dest)) fail(`No workspace at ${dest}: nothing to update. Make one with:  webship-workspace init ${dirArg || ''}`.trimEnd());
+  // Where the dashboard runs: what --runtime names, else what this workspace was made for, else DDEV.
+  const asked = dashboardRuntime.askedRuntime(flags);
+  if (asked.error) fail(asked.error);
+  const made = fs.existsSync(path.join(dest, 'core')) ? dashboardRuntime.runtimeOf(dest) : 'ddev';
+  if (update && asked.runtime && asked.runtime !== made) fail(`The dashboard of ${dest} runs on ${dashboardRuntime.TITLES[made]}: update keeps it there. To move it, run:  webship-workspace init ${dest} --runtime ${asked.runtime}`);
+  const runtime = asked.runtime || made;
+  // An init that names another runtime than the one the workspace was made for moves the dashboard: the old
+  // one is stopped and its values go, so the workspace carries one runtime. DDEV's project is left to its owner.
+  const moved = !update && asked.runtime && asked.runtime !== made && isWorkspace(dest) ? made : '';
   fs.mkdirSync(dest, { recursive: true });
-  say(`${update ? 'Updating' : 'Making'} the Webship Workspace at ${dest}`);
+  say(`${update ? 'Updating' : 'Making'} the Webship Workspace at ${dest}${runtime === 'ddev' ? '' : ` (the dashboard on ${dashboardRuntime.TITLES[runtime]})`}`);
   // Said before anything starts: what the core calls and this machine does not have.
-  doctor(null, { only: 'core', quiet: true });
+  doctor(null, { only: 'core', quiet: true, runtime });
+  if (moved) {
+    say(`  the dashboard moves from ${dashboardRuntime.TITLES[moved]} to ${dashboardRuntime.TITLES[runtime]}`);
+    dashboardRuntime.leave(dest, moved, say, { stop: !(process.env.WEBSHIP_WORKSPACE_SKIP_DDEV || process.env.WEBSHIP_WORKSPACE_SKIP_START) });
+  }
   const machine = update ? readMachineDashboard(dest) : null;
   const shippedBefore = update ? readShipped(dest) : null;
   const { shipped, packaged } = copyCore(dest);
@@ -323,7 +346,8 @@ function init(dirArg, { update = false } = {}) {
     const kept = keepMachineDashboard(dest, machine);
     if (kept.length) say(`  kept this machine's dashboard: ${kept.join(', ')}`);
     // Whether that GID is still this host's: said only when it is not.
-    if (fs.existsSync(path.join(dest, 'core', 'scripts', 'docker-gid.sh'))) {
+    // (Asked only of a dashboard in DDEV: on Docker Compose the group is read from the socket at every start.)
+    if (runtime === 'ddev' && fs.existsSync(path.join(dest, 'core', 'scripts', 'docker-gid.sh'))) {
       const gid = spawnSync('bash', [path.join(dest, 'core', 'scripts', 'docker-gid.sh'), '--check', '--quiet'], { encoding: 'utf8' });
       if (gid.status === 1 && /dashboard docker GID is/.test(gid.stdout || '')) say(String(gid.stdout).replace(/\n$/, ''));
     }
@@ -332,6 +356,11 @@ function init(dirArg, { update = false } = {}) {
   writeShipped(dest, shipped);
   const wroteSettings = writeSettings(dest);
   say(wroteSettings ? '  core/config/settings.yml written (empty: no workspaces, no plugins yet)' : '  core/config/settings.yml kept as it is');
+  // The builders build sites where the dashboard runs, unless settings.yml says otherwise later. Written when a
+  // runtime was asked for (an init), never by an update, and never for DDEV on a file that does not name one.
+  if (!update && asked.runtime && (asked.runtime !== 'ddev' || /^container:/m.test(fs.readFileSync(path.join(dest, 'core', 'config', 'settings.yml'), 'utf8')))) {
+    if (dashboardRuntime.recordRuntime(dest, asked.runtime)) say(`  container.runtime: ${asked.runtime} written to settings.yml (sites are built on ${dashboardRuntime.TITLES[asked.runtime]} by default)`);
+  }
   const app = path.join(dest, 'core', 'workspace-app');
   if (!process.env.WEBSHIP_WORKSPACE_SKIP_NPM) {
     say('  installing the dashboard (npm install in core/workspace-app)…');
@@ -362,7 +391,15 @@ function init(dirArg, { update = false } = {}) {
   }
   // What the last line may say: the address only when the dashboard was really started.
   let dashboard = 'skipped';
-  if (!process.env.WEBSHIP_WORKSPACE_SKIP_DDEV) {
+  const skipStart = process.env.WEBSHIP_WORKSPACE_SKIP_DDEV || process.env.WEBSHIP_WORKSPACE_SKIP_START;
+  if (runtime !== 'ddev') {
+    // This machine's values are written also when the dashboard is not started, so `start` finds them.
+    if (runtime === 'docker') dashboardRuntime.writeDockerEnv(dest, flags); else dashboardRuntime.writeKubeValues(dest, flags);
+    // An update leaves a running dashboard running (its process is restarted below); it starts one that is not.
+    const running = update && !skipStart && (runtime === 'docker' ? dashboardRuntime.dockerRunning(dest) : dashboardRuntime.kubeRunning(dest));
+    if (!skipStart && !running) dashboard = runtime === 'docker' ? dashboardRuntime.dockerStart(dest, say, flags) : dashboardRuntime.kubeStart(dest, say, flags);
+    else if (running) dashboard = 'running';
+  } else if (!skipStart) {
     const ddev = spawnSync('ddev', ['--version'], { encoding: 'utf8' });
     if (ddev.error || ddev.status !== 0) {
       dashboard = 'no-ddev';
@@ -397,12 +434,40 @@ function init(dirArg, { update = false } = {}) {
   // one. And not with `ddev restart`: a container made from an older release's config shares the machine's process
   // space, and DDEV ends it with `kill -- -1`, which from there reaches the other containers' processes (#564).
   let ddevNote = '';
-  if (update && (!shippedBefore || [...shipped.keys()].some((p) => p.startsWith('core/workspace-app/.ddev/') && shippedBefore[p] !== shipped.get(p)))) {
+  if (update && runtime === 'ddev' && (!shippedBefore || [...shipped.keys()].some((p) => p.startsWith('core/workspace-app/.ddev/') && shippedBefore[p] !== shipped.get(p)))) {
     let name = 'workspace';
     try { name = (fs.readFileSync(path.join(app, '.ddev', 'config.yaml'), 'utf8').match(/^name:\s*(\S+)/m) || [])[1] || name; } catch (_) { /* the default */ }
     ddevNote = `.ddev/ changed in this release. If the dashboard was running, restart it this way to take it (not ddev restart):  docker kill ddev-${name}-web && cd ${app} && ddev start`;
   }
+  // The same for the image and the compose file, or the chart, of a dashboard that runs outside DDEV.
+  if (update && runtime !== 'ddev' && dashboard === 'running' && shippedBefore) {
+    const dir = runtime === 'docker' ? 'core/docker/' : 'core/k8s/';
+    if ([...shipped.keys()].some((p) => (p.startsWith(dir) || p.startsWith('core/docker/')) && shippedBefore[p] !== shipped.get(p))) {
+      ddevNote = `${dir} changed in this release. The running dashboard keeps its container until you take it:  webship-workspace start ${dest}   (the screen sessions running in it end)`;
+    }
+  }
   say('');
+  if (runtime !== 'ddev') {
+    const address = runtime === 'docker' ? dashboardRuntime.dockerAddress(dest) : (dashboard === 'started' ? dashboardRuntime.kubeAddress(dashboardRuntime.readKube(dest)) : '');
+    const again = `webship-workspace start ${dest}`;
+    const version = require(path.join(PKG_ROOT, 'package.json')).version;
+    if (update) {
+      say(`Updated the workspace at ${dest} to ${version}.`);
+      if (dashboard === 'failed') say(`The dashboard did not start: read what was said above, then:  ${again}`);
+      else if (process.env.WORKSPACE_PLUGINS_NO_RESTART) say(`The dashboard was not restarted (WORKSPACE_PLUGINS_NO_RESTART is set). It runs ${version} once it is restarted:  ${again}`);
+      else if (/\bstarted\b/.test(restart) && !/not running|another workspace/.test(restart)) say(`The dashboard was restarted: it runs ${version} now.`);
+      else if (dashboard === 'started') say(`The dashboard was started: ${address}`);
+      else if (restart) say(restart);
+      if (ddevNote) say(ddevNote);
+    } else if (dashboard === 'started') say(`Done. The dashboard: ${address}   (the tooling: ${dest}/core/scripts)`);
+    else if (dashboard === 'failed') say(`The workspace is at ${dest}, but the dashboard did not start: read what was said above, then:  ${again}`);
+    else if (dashboard === 'skipped') say(`Done. The workspace is at ${dest}. The dashboard was not started (WEBSHIP_WORKSPACE_SKIP_DDEV is set); start it with:  ${again}`);
+    else say(`The workspace is at ${dest}. The dashboard is not started: ${runtime === 'docker' ? 'Docker' : 'kubectl, helm or the cluster'} is missing. Once it is there:  ${again}`);
+    say('');
+    say(catalogText());
+    if (dashboard === 'failed') process.exitCode = 1;
+    return;
+  }
   const start = `cd ${app} && ddev start`;
   if (update) {
     const version = require(path.join(PKG_ROOT, 'package.json')).version;
@@ -443,13 +508,42 @@ function plugin(verb, name, flags = []) {
 
 /** The usage text: the header of this file, so the two never drift apart. */
 function helpText() {
-  return fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 21).map((l) => l.replace(/^ \* ?/, '')).join('\n');
+  const lines = fs.readFileSync(__filename, 'utf8').split('\n');
+  return lines.slice(2, lines.findIndex((l) => /^ \* Plain Node, no dependencies/.test(l)) - 1).map((l) => l.replace(/^ \* ?/, '')).join('\n');
 }
 
-const [cmd, ...rest] = process.argv.slice(2);
+/** start, stop, status: the dashboard of a workspace, on the runtime it was made for. True when it did what was asked. */
+function dashboard(verb, dirArg, flags = {}) {
+  const dest = workspaceRoot(dirArg);
+  if (!isWorkspace(dest)) fail(`No workspace at ${dest}. Make one with:  webship-workspace init ${dirArg || ''}`.trimEnd());
+  const runtime = dashboardRuntime.runtimeOf(dest);
+  const app = path.join(dest, 'core', 'workspace-app');
+  if (runtime === 'docker') {
+    if (verb === 'stop') return dashboardRuntime.dockerStop(dest, say);
+    if (verb === 'status') return dashboardRuntime.dockerStatus(dest, say);
+    const r = dashboardRuntime.dockerStart(dest, say, flags);
+    say(r === 'started' ? `The dashboard: ${dashboardRuntime.dockerAddress(dest)}` : 'The dashboard did not start.');
+    return r === 'started';
+  }
+  if (runtime === 'kubernetes') {
+    if (verb === 'stop') return dashboardRuntime.kubeStop(dest, say);
+    if (verb === 'status') return dashboardRuntime.kubeStatus(dest, say);
+    const r = dashboardRuntime.kubeStart(dest, say, flags);
+    say(r === 'started' ? `The dashboard: ${dashboardRuntime.kubeAddress(dashboardRuntime.readKube(dest))}` : 'The dashboard did not start.');
+    return r === 'started';
+  }
+  // DDEV: its own commands, in the dashboard's project. `ddev start` takes -y; `ddev stop` does not.
+  const ddev = spawnSync('ddev', ['--version'], { encoding: 'utf8' });
+  if (ddev.error || ddev.status !== 0) fail('DDEV is not installed: the dashboard of this workspace runs in a DDEV project (https://ddev.readthedocs.io).');
+  return run('ddev', verb === 'start' ? ['start', '-y'] : verb === 'stop' ? ['stop'] : ['describe'], app);
+}
+
+const [cmd, ...words] = process.argv.slice(2);
+const { positional: rest, flags } = cmd === 'plugin' ? { positional: words, flags: {} } : dashboardRuntime.parseArgs(words);
 switch (cmd) {
-  case 'init': init(rest[0]); break;
-  case 'update': init(rest[0], { update: true }); break;
+  case 'init': init(rest[0], { flags }); break;
+  case 'update': init(rest[0], { update: true, flags }); break;
+  case 'start': case 'stop': case 'status': process.exit(dashboard(cmd, rest[0], flags) ? 0 : 1); break;
   case 'plugin': plugin(rest[0], rest.slice(1).find((a) => !a.startsWith('--')), rest.slice(1).filter((a) => a.startsWith('--'))); break;
   case 'catalog': say(catalogText()); break;
   case 'doctor': process.exit(doctor(workspaceRoot(rest[0])) ? 0 : 1); break;

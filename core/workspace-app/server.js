@@ -110,7 +110,7 @@ const buildOrderPage = require('./build-order-page');
 const { uikitIcons, tablerIcons, iconHtml, isKnownIcon } = require('./icons');
 const { PAGE_SIZES, defaultPageSize, PROJECT_FILTERS, SORTS, defaultSort, readPageState, setPageCookie, paginate, listControlsHtml, listPagerHtml } = require('./lists');
 const { commandBlock } = require('./command-block');
-const { HOME_URL, wsUrl, withRequest } = require('./urls');
+const { HOME_URL, wsUrl, withRequest, hereName, cookieDomain } = require('./urls');
 const { VIDEO_RE, AUDIO_RE, DOC_ARTIFACT_RE, humanTime, humanSize, tildePath } = require('./format');
 const audioVoice = require('./audio-voice');
 const videoEdit = require('./video-edit');
@@ -1177,7 +1177,7 @@ window.wsPref=function(name,fallback){try{
   if(ls!==null)return ls;
 }catch(e){}return fallback;};
 window.wsPrefSet=function(name,value){
-  try{document.cookie=name+'='+encodeURIComponent(value)+'; Path=/; Domain=.${hubDomain()}; Max-Age=31536000; SameSite=Lax';}catch(e){}
+  try{document.cookie=name+'='+encodeURIComponent(value)+'; Path=/${cookieDomain()}; Max-Age=31536000; SameSite=Lax';}catch(e){}
   try{localStorage.setItem(name,value);}catch(e){}
 };
 // The configured default, before first paint. A stored choice always wins: style.mode
@@ -1360,7 +1360,7 @@ ${(() => {
 })()}
 ${body}
 <footer class="uk-section uk-section-xsmall uk-text-center uk-text-meta">
-  webship/workspace · container-based tooling · <a href="/">workspace.ddev.site</a>
+  webship/workspace · container-based tooling · <a href="/">${esc(hereName())}</a>
 </footer>
 </div>
 </body>
