@@ -80,7 +80,7 @@ The `php` stack is the only one so far: Apache, PHP and MariaDB. A platform on N
 A site on Docker Compose, Podman or Kubernetes has the row a DDEV project has. Its card shows **Running** or **Stopped** (the chip is the switch), links to the site's own address, and carries a **DOCKER**, **PODMAN** or **K8S** menu where the DDEV menu sits: start, stop, restart, describe, the web logs, a shell in the web container, export the database, back up, delete the containers (or the namespace) and remove the project. Each entry runs as a screen session, like the DDEV menu's.
 
 - **Composer** runs in the site's own web container.
-- **Tests** sets up and runs the site's webship-js suite. The web image has no Node.js, so the suite runs in a tests container beside the site: one image the Workspace builds once (Node.js 24 and the libraries Playwright's browsers need), on the host's network, against the site's address. The browsers are kept in one volume every project shares, `webship-workspace-tests`. **Node** runs there too.
+- **Tests** sets up and runs the site's webship-js suite. The web image has no Node.js, so the suite runs in a tests container beside the site: one image the Workspace builds once (Node.js 26 and the libraries Playwright's browsers need), on the host's network, against the site's address. The browsers are kept in one volume every project shares, `webship-workspace-tests`. **Node** runs there too.
 - **Test users**, **backup**, **restore** from the Backups page and **remove** work as on DDEV. Remove takes the runtime's side down first (the containers and the database volume, or the namespace), then the image built for the site, then the folder.
 - The state is read from `docker compose ls`, `podman ps` and `kubectl get deploy`, each with a timeout. A runtime that does not answer shows **unknown**, and the page does not wait for it.
 
@@ -118,7 +118,7 @@ webship-workspace start ~/workspace                       # and stop, status, up
 
 To move the dashboard of a workspace to another runtime, run `init` on it again with the other `--runtime`. The old container or pod is stopped; a DDEV project is left for you to stop.
 
-Both use one image, `core/docker/Dockerfile`: Node.js 24, git, screen, Python, pandoc, the Docker client with the compose plugin, kubectl, kind and the Claude Code CLI. The app is not in the image. The workspace is mounted at the same path it has on the host, because the dashboard builds sites through the host's Docker, and the Docker daemon reads a site's folder on the host.
+Both use one image, `core/docker/Dockerfile`: Node.js 26, git, screen, Python, pandoc, the Docker client with the compose plugin, kubectl, kind and the Claude Code CLI. The app is not in the image. The workspace is mounted at the same path it has on the host, because the dashboard builds sites through the host's Docker, and the Docker daemon reads a site's folder on the host.
 
 Outside DDEV the dashboard has no `workspace.ddev.site`. It answers on a plain address, and its pages are paths on it: `/dev`, `/settings`, `/screens`.
 

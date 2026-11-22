@@ -116,7 +116,7 @@ ddev composer create-project ${distribution_project_template}:${site_version} --
 # webimage packages after our initial ddev config. Re-align exactly as
 # build_distribution does: keep the database we already provisioned and drop the
 # optional apt extras, whose third-party repo keys break apt in the container.
-# Keep our Node.js while doing it (ddev_nodejs_version: 24, like Drupal core): the
+# Keep our Node.js while doing it (ddev_nodejs_version: 26, the latest LTS): the
 # template's own .ddev config may pin an older one.
 ddev config --database=mariadb:10.11 --webimage-extra-packages="" --nodejs-version=$(ddev_nodejs_version) ;
 ddev restart ;

@@ -26,7 +26,7 @@ jobs:
       # 24: the Node.js the dashboard runs on.
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26'
           cache: npm
           cache-dependency-path: core/workspace-app/package-lock.json
       # ffmpeg and ffprobe: the media tests (video editing, voiceover, audio) skip themselves without them.
@@ -51,9 +51,9 @@ jobs:
       - name: every cmd-*.sh parses and answers --help
         run: bash core/scripts/tests/cmd-smoke-test.sh
 
-  node-20:
-    # 20: the lowest Node.js the engines field accepts (">=20"), which the README and getting-started promise.
-    name: the command line and the unit tests on Node.js 20
+  node-22:
+    # 22: the lowest Node.js line the engines field accepts (">=22.18"), which the README and getting-started promise.
+    name: the command line and the unit tests on Node.js 22
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -62,7 +62,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: core/workspace-app/package-lock.json
       # ffmpeg and ffprobe: the media tests (video editing, voiceover, audio) skip themselves without them.
@@ -90,7 +90,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26'
           cache: npm
           cache-dependency-path: core/workspace-app/package-lock.json
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml screen
@@ -175,7 +175,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26'
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml
       - name: init --runtime docker builds the image and starts the compose file
         run: |
@@ -244,7 +244,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26'
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml
       - name: the chart lints and renders, with a folder of the node and with a volume claim
         run: |

@@ -218,7 +218,7 @@ function rt_create_project_cmd() {
 # --- The tests container ---------------------------------------------------------------------------------------
 # Node.js and Playwright's browsers are not in a project's web image (the php stack is Apache and PHP). The JS side
 # of a project (npm, npx, node, yarn: its webship-js suite) runs in a container of its own, from one image the
-# Workspace builds once (core/config/runtimes/tests: Node.js 24 and the libraries the browsers link against), with
+# Workspace builds once (core/config/runtimes/tests: Node.js 26 and the libraries the browsers link against), with
 # the browsers and npm's cache in one named volume every project shares, as DDEV's global cache does. It runs on
 # the host's network, so the site is reached at its own address (rt_url) on Docker, Podman and Kubernetes alike,
 # and the project is mounted at its own path, so what a run writes is where the dashboard reads it.
@@ -234,7 +234,7 @@ function rt_engine() { if [ "$1" = podman ] ; then echo podman ; else echo docke
 function rt_tests_image() {
   local engine="$1" ;
   "${engine}" image inspect "${RT_TESTS_IMAGE}" > /dev/null 2>&1 && return 0 ;
-  echo "Building the tests image ${RT_TESTS_IMAGE} (once): Node.js 24 and the libraries Playwright's browsers need." ;
+  echo "Building the tests image ${RT_TESTS_IMAGE} (once): Node.js 26 and the libraries Playwright's browsers need." ;
   "${engine}" build -t "${RT_TESTS_IMAGE}" "${RT_STACKS}/tests" ;
 }
 

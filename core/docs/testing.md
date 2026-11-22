@@ -16,7 +16,7 @@ webship-js stack up on a project that is already there, and `--run` runs it, in 
 (`testing_configure_<name>`, in [the plugin contract](../workspace-app/PLUGINS.md#a-platform-as-a-plugin)).
 On a project built on another runtime (`--runtime docker`, `podman` or `kubernetes`) the same command sets the
 same stack up without the DDEV add-on: webship-js is installed and scaffolds itself (`init-webship-js`), and the
-suite runs in a tests container of the Workspace's own image (`core/config/runtimes/tests`: Node.js 24 and the
+suite runs in a tests container of the Workspace's own image (`core/config/runtimes/tests`: Node.js 26 and the
 libraries Playwright's browsers need), on the host's network, against the site's own address. The browsers and
 npm's cache live in one volume every project shares (`webship-workspace-tests`).
 

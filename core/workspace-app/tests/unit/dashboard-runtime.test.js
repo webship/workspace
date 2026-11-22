@@ -362,7 +362,7 @@ test('the entrypoint refuses to start without a workspace at WORKSPACE_ROOT', ()
 test('the image, the compose file and the chart say what the dashboard needs', () => {
   const dockerfile = read(CORE, 'docker/Dockerfile');
   assert.match(dockerfile, /^FROM node:\$\{NODE_VERSION\}-bookworm-slim$/m);
-  assert.match(dockerfile, /^ARG NODE_VERSION=24$/m, 'Node.js 24');
+  assert.match(dockerfile, /^ARG NODE_VERSION=26$/m, 'Node.js 26');
   for (const pkg of ['tini', 'git', 'screen', 'python3-yaml', 'pandoc', 'docker-ce-cli', 'docker-compose-plugin']) assert.match(dockerfile, new RegExp(`\\b${pkg}\\b`), pkg);
   assert.match(dockerfile, /dl\.k8s\.io\/release\/\$\{KUBECTL_VERSION\}/, 'kubectl');
   assert.match(dockerfile, /^ENTRYPOINT \["tini", "--", "\/usr\/local\/bin\/webship-dashboard"\]$/m);

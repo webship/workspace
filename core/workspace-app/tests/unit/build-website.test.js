@@ -79,7 +79,7 @@ test('the Node.js and PHP of the build are set again after create-project, where
   const configs = calls.map((c, i) => [c, i]).filter(([c]) => c.startsWith('config '));
   assert.strictEqual(configs.length, 2, configs.map(([c]) => c).join('\n'));
   assert.ok(configs[0][1] < create && configs[1][1] > create, 'one before create-project, one after');
-  for (const [c] of configs) assert.ok(c.includes('--nodejs-version=24') && c.includes('--php-version=8.5'), c);
+  for (const [c] of configs) assert.ok(c.includes('--nodejs-version=26') && c.includes('--php-version=8.5'), c);
   assert.ok(index(calls, 'restart') > configs[1][1], 'and the project restarts on them');
   assert.ok(index(calls, 'restart') < index(calls, 'drush site:install'));
 

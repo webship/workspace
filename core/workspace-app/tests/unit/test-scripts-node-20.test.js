@@ -1,7 +1,7 @@
 /**
  * The dashboard's own test scripts run on every Node.js the base says it supports.
  *
- * The base promises Node.js 20 or newer (`engines` in the root package.json, the README, getting-started), and the
+ * The base promised Node.js 20 or newer at the time, 22.18 or newer since #709 (`engines` in the root package.json, the README, getting-started), and the
  * unit suite passes there. `npm run test:unit` did not: it handed `node --test` quoted globs, which Node.js 21 and
  * later expand and Node.js 20 reads as file names ("Could not find …/tests/unit/*.test.js", exit 1). The shell
  * expands the list now; a pattern that may match nothing (the bundled plugins have no tests today) is passed only
@@ -18,8 +18,8 @@ const APP = path.join(__dirname, '..', '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(APP, 'package.json'), 'utf8'));
 const root = JSON.parse(fs.readFileSync(path.join(APP, '..', '..', 'package.json'), 'utf8'));
 
-test('the base promises Node.js 20 or newer', () => {
-  assert.strictEqual(root.engines.node, '>=20');
+test('the base promises Node.js 22.18 or newer', () => {
+  assert.strictEqual(root.engines.node, '>=22.18');
 });
 
 test('test:unit gives node --test no quoted glob, which Node.js 20 reads as a file name', () => {

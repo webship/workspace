@@ -22,7 +22,7 @@ const DATABASES = [
 
 const WEBSERVERS = ['nginx-fpm', 'apache-fpm', 'generic'];
 // "" uses the version already in the image; auto and engine read it from the project's own files.
-const NODE_VERSIONS = ['24', '22', '20', '18', 'auto', 'engine', ''];
+const NODE_VERSIONS = ['26', '24', '22', '20', '18', 'auto', 'engine', ''];
 const COMPOSER_VERSIONS = ['2', '2.2', 'stable', 'preview', 'snapshot', ''];
 // The packages DDEV's own Python quickstart (Wagtail) adds; the version is the one Debian ships in the web image.
 const PYTHON_PACKAGES = 'python3-pip,python3-venv';

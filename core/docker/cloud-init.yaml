@@ -75,10 +75,10 @@ write_files:
       fi
       if has_systemd ; then systemctl enable --now docker > /dev/null 2>&1 || true ; fi
 
-      # Node.js 24, for the webship-workspace command (the dashboard itself runs on the Node.js of its image).
+      # Node.js 26, for the webship-workspace command (the dashboard itself runs on the Node.js of its image).
       if ! command -v node > /dev/null 2>&1 || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 20 ] ; then
-        say "Node.js 24"
-        curl -fsSL https://deb.nodesource.com/setup_24.x | bash - > /dev/null
+        say "Node.js 26"
+        curl -fsSL https://deb.nodesource.com/setup_26.x | bash - > /dev/null
         apt-get install -y -qq nodejs > /dev/null
       fi
 

@@ -56,7 +56,7 @@ function webships_create_project() {
   # the installer finds them in recipes/ without Composer unpacking them.
   ddev composer config --json --merge extra.drupal-recipe-unpack.ignore '["drupal/webships_starter", "drupal/webapi_starter"]' ;
   # The project template ships its own .ddev/config.yaml, which pins an older Node.js:
-  # re-align to the workspace's Node.js (24, like Drupal core) and to the PHP this build asked
+  # re-align to the workspace's Node.js (26, the latest LTS) and to the PHP this build asked
   # for, and restart on them.
   ddev config --php-version=${PHP_VERSION:-${webships_php_version}} --nodejs-version=$(ddev_nodejs_version) --webimage-extra-packages="" ;
   ddev restart ;

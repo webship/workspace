@@ -201,7 +201,7 @@ test('the JS side runs in the tests container: npm, npx, node, yarn and `exec -s
   assert.match(kube[1], /^docker run --rm --network host .* -e LAUNCH_URL=http:\/\/172\.18\.0\.2:\d+ webship-workspace-tests bash -c node -v ?$/, "on the host's network, against the node's address");
 });
 
-test('the tests image is built once, from core/config/runtimes/tests: Node.js 24 and the browsers\' libraries', () => {
+test('the tests image is built once, from core/config/runtimes/tests: Node.js 26 and the browsers\' libraries', () => {
   const dir = sandbox();
   const d = path.join(dir, 'ti'); fs.mkdirSync(d);
   run(dir, d, 'ddev config --project-type=drupal --docroot=web --project-name=ti', { WORKSPACE_RUNTIME: 'docker' });
@@ -211,7 +211,7 @@ test('the tests image is built once, from core/config/runtimes/tests: Node.js 24
   assert.strictEqual(r.calls[1], `docker build -t webship-workspace-tests ${STACKS}/tests`);
   assert.match(r.out, /Building the tests image webship-workspace-tests \(once\)/);
   const dockerfile = fs.readFileSync(path.join(STACKS, 'tests', 'Dockerfile'), 'utf8');
-  assert.match(dockerfile, /^FROM node:24-/m, 'every build runs Node.js 24');
+  assert.match(dockerfile, /^FROM node:26-/m, 'every build runs Node.js 26');
   assert.match(dockerfile, /playwright@[\d.]+ install-deps chromium/);
   assert.match(dockerfile, /PLAYWRIGHT_BROWSERS_PATH=\/cache\/ms-playwright/);
   assert.match(dockerfile, /PLAYWRIGHT_SKIP_BROWSER_GC=1/, "one project's Playwright never removes another's browser");

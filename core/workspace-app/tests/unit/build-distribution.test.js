@@ -48,12 +48,12 @@ test('a builder that declares nothing creates the project in one step, as before
   assert.ok(index(calls, 'composer require') < 0 && index(calls, 'composer install') < 0 && index(calls, 'patches-ignore') < 0);
 });
 
-test('every ddev config of a build pins Node.js 24, and the first one still gets its PHP version and --auto', () => {
+test('every ddev config of a build pins Node.js 26, and the first one still gets its PHP version and --auto', () => {
   const { calls, code } = build({ declare: 'site_php_version=8.5' });
   assert.strictEqual(code, 0);
   const configs = calls.filter((c) => c.startsWith('config '));
   assert.strictEqual(configs.length, 2, configs.join('\n'));
-  for (const c of configs) assert.ok(c.includes('--nodejs-version=24'), c);
+  for (const c of configs) assert.ok(c.includes('--nodejs-version=26'), c);
   // #767 put ddev_telemetry_off inside this call's line continuation, so --php-version and --auto ran as a command.
   assert.ok(configs[0].includes('--php-version=8.5') && configs[0].endsWith('--auto'), configs[0]);
   assert.ok(!configs[0].includes('ddev_telemetry_off'), configs[0]);
@@ -69,7 +69,7 @@ test('the PHP version of the build is set again after create-project, where the 
     assert.strictEqual(configs.length, 2, configs.join('\n'));
     for (const c of configs) assert.ok(c.includes('--php-version=8.4'), `${declare}: ${c}`);
     assert.ok(index(calls, 'composer create-project') < calls.indexOf(configs[1]), 'the second one follows create-project');
-    assert.ok(configs[1].includes('--database=mariadb:11.8') && configs[1].includes('--nodejs-version=24'), configs[1]);
+    assert.ok(configs[1].includes('--database=mariadb:11.8') && configs[1].includes('--nodejs-version=26'), configs[1]);
   }
   // Nobody asked for a version: DDEV's default before, the template's own after, as it was.
   const plain = build();
@@ -98,7 +98,7 @@ webships_create_project drupal/stub:1.0.x-dev; echo "exit=$?"
     const calls = run(declare);
     const configs = calls.filter((c) => c.startsWith('config '));
     assert.strictEqual(configs.length, 2, configs.join('\n'));
-    for (const c of configs) assert.ok(c.includes(`--php-version=${version}`) && c.includes('--nodejs-version=24'), c);
+    for (const c of configs) assert.ok(c.includes(`--php-version=${version}`) && c.includes('--nodejs-version=26'), c);
     assert.ok(index(calls, 'composer create-project') < calls.indexOf(configs[1]));
   }
 });
@@ -106,7 +106,7 @@ webships_create_project drupal/stub:1.0.x-dev; echo "exit=$?"
 test('a builder that declares site_nodejs_version gets that version instead', () => {
   const { calls } = build({ declare: 'site_nodejs_version=22' });
   const configs = calls.filter((c) => c.startsWith('config '));
-  for (const c of configs) assert.ok(c.includes('--nodejs-version=22') && !c.includes('--nodejs-version=24'), c);
+  for (const c of configs) assert.ok(c.includes('--nodejs-version=22') && !c.includes('--nodejs-version=26'), c);
 });
 
 test('declared requirements and patches to ignore are applied between create-project and the first install', () => {
