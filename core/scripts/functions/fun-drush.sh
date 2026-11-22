@@ -15,19 +15,14 @@ function add_drush() {
 
   # DDEV rewrites its shared command directory whenever ANY project on this machine starts, and `ddev drush`
   # is missing from it for a moment. Wait for it, instead of failing the install on its very first line.
-  # A project on another runtime (Docker Compose, Podman, Kubernetes) is asked in its own folder: the runtime layer
-  # finds the runtime from where it is called, and a tool run from the workspace folder (cmd-tools-add-users.sh)
-  # is not in it. DDEV is asked from where the caller stands, as before.
-  local attempt ask_in="${PWD}" project_dir="${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}" ;
-  if [ ! -f "${project_dir}/.ddev/config.yaml" ] && declare -f rt_find_project > /dev/null && rt_find_project "${project_dir}" > /dev/null 2>&1 ; then
-    ask_in="${project_dir}" ;
-  fi
+  # It is asked in the project's own folder, on every runtime: a tool run from the workspace folder
+  # (cmd-tools-add-users.sh) stands in no project, so DDEV answered "not a project" ten times, a minute of waiting,
+  # before the tool went on (#702); the runtime layer finds a Docker or Kubernetes project from its folder too.
+  local attempt answered here="${PWD}" project_dir="${WORKSPACE_ROOT}/${doc_name}/${PROJECT_NAME}" ;
+  [ -d "${project_dir}" ] || project_dir="${PWD}" ;
   for attempt in 1 2 3 4 5 6 7 8 9 10 ; do
-    if [ "${ask_in}" == "${PWD}" ] ; then
-      ddev drush --version > /dev/null 2>&1 && return 0 ;
-    else
-      ( cd "${ask_in}" && ddev drush --version ) > /dev/null 2>&1 && return 0 ;
-    fi
+    cd "${project_dir}" && ddev drush --version > /dev/null 2>&1 ; answered=$? ; cd "${here}" ;
+    [ ${answered} -eq 0 ] && return 0 ;
     echo "ddev drush is not available yet (attempt ${attempt} of 10), waiting." ;
     sleep 6 ;
   done
