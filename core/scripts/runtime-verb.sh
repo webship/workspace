@@ -23,7 +23,7 @@ fi
 case ":${PATH}:" in *":${HOME}/.local/bin:"*) ;; *) [ -d "${HOME}/.local/bin" ] && PATH="${PATH}:${HOME}/.local/bin" ;; esac
 
 if ! rt_find_project > /dev/null ; then
-  echo "No project in $(pwd): no .ddev/config.yaml, no .lando.yml, and no compose.yaml written by the Webship Workspace." ;
+  echo "No project in $(pwd): no .ddev/config.yaml, no .lando.yml, no .docksal/, and no compose.yaml written by the Webship Workspace." ;
   exit 1 ;
 fi
 

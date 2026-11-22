@@ -1,6 +1,6 @@
 # A platform plugin on Docker Compose and Kubernetes, not only DDEV
 
-The Webship Workspace is container-based (DDEV by default). A site can also be built on Docker Compose, on Podman, on a Kubernetes cluster or on Lando: `--runtime docker|podman|kubernetes|lando` on its builder. This page says what a platform plugin (`@webship.co/workspace-<p>`) changes to build there, and how to prove it. It is written from the reference plugin, `@webship.co/workspace-wordpress`, where every line below was run on real sites. `<p>` is the plugin's name, `<P>` the platform's written name.
+The Webship Workspace is container-based (DDEV by default). A site can also be built on Docker Compose, on Podman, on a Kubernetes cluster, on Lando or on Docksal: `--runtime docker|podman|kubernetes|lando|docksal` on its builder. This page says what a platform plugin (`@webship.co/workspace-<p>`) changes to build there, and how to prove it. It is written from the reference plugin, `@webship.co/workspace-wordpress`, where every line below was run on real sites. `<p>` is the plugin's name, `<P>` the platform's written name.
 
 It fits a platform that runs on **PHP, Apache and MariaDB** as it is. A platform on Node.js, Python, Java, .NET or Ruby, or one that needs PostgreSQL, MySQL, a search engine or a service of its own, needs a stack the core does not have yet: see "What does not fit yet".
 
@@ -38,6 +38,8 @@ The stack a project gets (the `php` stack, `core/config/runtimes/php/Dockerfile`
 
 On Lando the same values hold in its own containers (Lando's `lamp` recipe): the database `db`/`db`/`db` on the host `db` (Lando's `database` service, with `db` as a second name), Mailpit (Lando's `mailpit` service: read its address with `rt_mail_url`, not `http://mail:8025`), the project at `/app` instead of `/var/www/html`, and the address `http://127.0.0.1:<port>` kept in `.lando.yml`.
 
+On Docksal: PHP runs in the `cli` container (DDEV's `web`), the project is at `/var/www`, the database `db`/`db`/`db` on the host `db`, Mailpit on the host `mail`, and the address is `http://<name>.docksal.site` (read it with `rt_url`, the mailbox with `rt_mail_url`).
+
 ## What to change
 
 1. **`--runtime` in the builder's arguments** (`scripts/args/arg-<p>.sh`), exactly as the core's builders have it:
@@ -46,8 +48,8 @@ On Lando the same values hold in its own containers (Lando's `lamp` recipe): the
    parser.add_argument('--runtime',
                        dest='RUNTIME',
                        default="_none_",
-                       choices=['ddev', 'docker', 'podman', 'kubernetes', 'lando'],
-                       help='The container runtime to build on: ddev (the default, or container.runtime of settings.yml), docker (Docker Compose), podman, kubernetes or lando.')
+                       choices=['ddev', 'docker', 'podman', 'kubernetes', 'lando', 'docksal'],
+                       help='The container runtime to build on: ddev (the default, or container.runtime of settings.yml), docker (Docker Compose), podman, kubernetes, lando or docksal.')
    ```
 
 2. **Three small functions** in `scripts/functions/fun-<p>.sh`. Each works on a core that has no runtime layer yet, where the answer is DDEV:

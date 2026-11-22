@@ -274,3 +274,31 @@ test('lando: one `docker ps` answers for every Lando project, matched by the fol
   assert.strictEqual(rt.landoState('running\t/w/a\n', { root: '/w/a' }), 'running');
   assert.strictEqual(rt.landoState('running\t/w/ab\n', { root: '/w/a' }), 'stopped', 'another folder');
 });
+
+test('docksal: a .docksal/ the Workspace wrote is a Docksal project, at its host name on Docksal\'s proxy', () => {
+  const box = sandbox();
+  const yml = (name, host) => `x-webship:\n  runtime: docksal\n  name: ${name}\n  stack: php\n  type: drupal\n  docroot: "web"\n  php: "8.3"\n  database: "10.11"\n  host: ${host}\nservices:\n  cli:\n    environment:\n      - WEBSHIP_RUNTIME=docksal\n`;
+  const ds = box.site('ds', { '.docksal/docksal.yml': yml('Ds_1', 'ds-1.docksal.site'), '.docksal/docksal.env': 'DOCKSAL_STACK=default\n' });
+  const own = box.site('own', { '.docksal/docksal.env': 'DOCKSAL_STACK=default\n' });
+  const bad = box.site('bad', { '.docksal/docksal.yml': yml('b', 'x"; rm -rf /') });
+  const shipped = box.site('s', { '.docksal/docksal.yml': yml('s', 's.docksal.site'), '.ddev/config.yaml': 'name: s\n' });
+  assert.deepStrictEqual(rt.readProject(ds), { runtime: 'docksal', name: 'Ds_1', root: ds, port: '', type: 'drupal', docroot: 'web', platform: '', namespace: '', host: 'ds-1.docksal.site' });
+  assert.strictEqual(rt.urlOf(rt.readProject(ds)), 'http://ds-1.docksal.site');
+  assert.strictEqual(rt.readProject(own).runtime, 'none', "one of the project's own keeps the Docksal plugin's menu");
+  assert.strictEqual(rt.urlOf(rt.readProject(bad)), '', 'a host name that is not one: no link');
+  assert.strictEqual(rt.readProject(shipped).runtime, 'docksal');
+  assert.deepStrictEqual([rt.LABELS.docksal, rt.TITLES.docksal, rt.ICONS.docksal], ['DOCKSAL', 'Docksal', 'tabler:anchor']);
+  assert.ok(rt.RUNTIMES.includes('docksal') && rt.BUILDS_NO_IMAGE.includes('docksal'));
+});
+
+test('docksal: one `docker ps` answers for every Docksal project, by the .docksal/ folder its compose runs in', () => {
+  const box = sandbox();
+  const yml = (name) => `x-webship:\n  runtime: docksal\n  name: ${name}\n  host: ${name}.docksal.site\n`;
+  const up = box.site('up', { '.docksal/docksal.yml': yml('up') });
+  const half = box.site('half', { '.docksal/docksal.yml': yml('half') });
+  const never = box.site('never', { '.docksal/docksal.yml': yml('never') });
+  box.cli('docker', `printf 'running\\t${up}/.docksal\\nrunning\\t${up}/.docksal\\nrunning\\t${half}/.docksal\\nexited\\t${half}/.docksal\\nrunning\\t${never}\\n'`);
+  const r = child(box, `const m = await rt.statesFor(${JSON.stringify([up, half, never])}.map(rt.readProject)); return [...m.values()];`);
+  assert.deepStrictEqual(r.value, ['running', 'stopped', 'stopped']);
+  assert.deepStrictEqual(r.calls, ['docker ps -a --filter label=com.docker.compose.project.working_dir --format {{.State}}\t{{.Label "com.docker.compose.project.working_dir"}}']);
+});
