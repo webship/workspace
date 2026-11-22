@@ -290,6 +290,13 @@ function rt_tests_run() {
     -e "LAUNCH_URL=$(rt_url "${root}")" "${RT_TESTS_IMAGE}" bash -c "$*" ;
 }
 
+# The command line of `ddev exec`, as DDEV reads it: one argument is a line for bash ("cd x && y"); several are a
+# command and its arguments, each kept whole ("php run.php edit --summary=\"Two words\"" keeps its two words),
+# as DDEV runs them (its --raw, the default with several).
+function rt_exec_line() {
+  if [ $# -le 1 ] ; then printf '%s' "${1:-}" ; else printf '%q ' "$@" ; fi
+}
+
 # `--file=<path>` or `--file <path>` (and --src) among a verb's arguments.
 function rt_file_arg() {
   local file="" ;
@@ -369,9 +376,10 @@ function rt_compose() {
     php|wp) rt_dc "${rt}" "${root}" exec -T -u www-data -w "${workdir}" web "${verb}" "$@" ;;
     npm|npx|node|yarn) rt_tests_run "${rt}" "${root}" "${PWD}" "${verb} $(printf '%q ' "$@")" ;;
     exec)
-      local svc=web ; while [ $# -gt 0 ] ; do case "$1" in -s|--service) svc="$2" ; shift 2 ;; -d|--dir) workdir="$2" ; shift 2 ;; --raw) shift ;; *) break ;; esac ; done
-      if [ "${svc}" = tests ] ; then rt_tests_run "${rt}" "${root}" "${PWD}" "$*" ; return $? ; fi
-      rt_dc "${rt}" "${root}" exec -T -u "$( [ "${svc}" = web ] && echo www-data || echo root )" -w "${workdir}" "${svc}" bash -c "$*" ;;
+      local svc=web ; while [ $# -gt 0 ] ; do case "$1" in -s|--service) svc="$2" ; shift 2 ;; -d|--dir) workdir="$2" ; shift 2 ;; --raw) shift ;; --) shift ; break ;; *) break ;; esac ; done
+      local line ; line="$(rt_exec_line "$@")" ;
+      if [ "${svc}" = tests ] ; then rt_tests_run "${rt}" "${root}" "${PWD}" "${line}" ; return $? ; fi
+      rt_dc "${rt}" "${root}" exec -T -u "$( [ "${svc}" = web ] && echo www-data || echo root )" -w "${workdir}" "${svc}" bash -c "${line}" ;;
     ssh)
       # At a terminal (a screen session of the dashboard, whose output is also logged through a pipe) the shell gets
       # a terminal of its own, so it shows its prompt: compose leaves it out when its output is not one.
@@ -625,9 +633,10 @@ function rt_k8s() {
     php|wp) kx web runuser -u www-data -- bash -c "cd '${workdir}' && ${verb} $(printf '%q ' "$@")" ;;
     npm|npx|node|yarn) rt_tests_run kubernetes "${root}" "${PWD}" "${verb} $(printf '%q ' "$@")" ;;
     exec)
-      local svc=web ; while [ $# -gt 0 ] ; do case "$1" in -s|--service) svc="$2" ; shift 2 ;; -d|--dir) workdir="$2" ; shift 2 ;; --raw) shift ;; *) break ;; esac ; done
-      if [ "${svc}" = tests ] ; then rt_tests_run kubernetes "${root}" "${PWD}" "$*" ; return $? ; fi
-      if [ "${svc}" = web ] ; then kx web runuser -u www-data -- bash -c "cd '${workdir}' && $*" ; else kx "${svc}" bash -c "$*" ; fi ;;
+      local svc=web ; while [ $# -gt 0 ] ; do case "$1" in -s|--service) svc="$2" ; shift 2 ;; -d|--dir) workdir="$2" ; shift 2 ;; --raw) shift ;; --) shift ; break ;; *) break ;; esac ; done
+      local line ; line="$(rt_exec_line "$@")" ;
+      if [ "${svc}" = tests ] ; then rt_tests_run kubernetes "${root}" "${PWD}" "${line}" ; return $? ; fi
+      if [ "${svc}" = web ] ; then kx web runuser -u www-data -- bash -c "cd '${workdir}' && ${line}" ; else kx "${svc}" bash -c "${line}" ; fi ;;
     ssh) rt_kubectl -n "${ns}" exec -it deploy/web -c web -- runuser -u www-data -- bash ;;
     mysql) kx db mariadb -udb -pdb db "$@" ;;
     export-db)

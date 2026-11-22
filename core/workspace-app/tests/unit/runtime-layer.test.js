@@ -317,3 +317,22 @@ test('the npm package ships the stacks the runtimes build from: a workspace made
   assert.ok(files.includes('core/config/runtimes'), 'core/config/runtimes is in package.json files');
   for (const stack of ['php', 'tests']) assert.ok(fs.existsSync(path.join(STACKS, stack, 'Dockerfile')), `the ${stack} stack`);
 });
+
+test('`ddev exec` with several arguments keeps each one whole, as DDEV does; one argument is a line for bash', () => {
+  const dir = sandbox();
+  const d = path.join(dir, 'dx'); fs.mkdirSync(d);
+  run(dir, d, 'ddev config --project-type=php --docroot= --project-name=dx', { WORKSPACE_RUNTIME: 'docker' });
+  // A recorder that shows the line bash is given, one argument per line.
+  fs.writeFileSync(path.join(dir, 'bin', 'docker'), `#!/usr/bin/env bash\nfor a in "$@" ; do echo "arg[$a]" >> "${dir}/calls.log" ; done\n`, { mode: 0o755 });
+  const lineOf = (script) => run(dir, d, script).calls.filter((c) => c.startsWith('arg[')).pop();
+  assert.strictEqual(lineOf('ddev exec "cd x && ls -la"'), 'arg[cd x && ls -la]', 'one argument: a line for bash, as before');
+  assert.strictEqual(lineOf('ddev exec php run.php install --pass=a "dev site1" webmaster'), 'arg[php run.php install --pass=a dev\\ site1 webmaster ]', 'several: each kept whole');
+  assert.strictEqual(lineOf('ddev exec php run.php --reason="Two words"'), 'arg[php run.php --reason=Two\\ words ]');
+  assert.strictEqual(lineOf('ddev exec -s db -- mariadb --version'), 'arg[mariadb --version ]', '-- ends the options of exec');
+  assert.strictEqual(lineOf("ddev exec sudo sh -c 'mkdir -p /a && touch /a/b'"), "arg[sudo sh -c mkdir\\ -p\\ /a\\ \\&\\&\\ touch\\ /a/b ]");
+  // The same line on Kubernetes, after the change of folder.
+  const k = path.join(dir, 'kx'); fs.mkdirSync(k);
+  fs.writeFileSync(path.join(dir, 'bin', 'kubectl'), `#!/usr/bin/env bash\nfor a in "$@" ; do echo "arg[$a]" >> "${dir}/calls.log" ; done\ncase "$*" in *"get nodes"*) printf 172.18.0.2 ;; esac\n`, { mode: 0o755 });
+  run(dir, k, 'ddev config --project-type=php --docroot= --project-name=kx', { WORKSPACE_RUNTIME: 'kubernetes' });
+  assert.strictEqual(lineOf.call(null, 'cd ' + k + ' && ddev exec php run.php "dev site1"').replace(k, 'K'), "arg[cd '/var/www/html' && php run.php dev\\ site1 ]");
+});
