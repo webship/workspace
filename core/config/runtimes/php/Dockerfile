@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git unzip curl 
   && docker-php-ext-install -j"$(nproc)" gd pdo_mysql mysqli zip intl opcache bcmath exif \
   && a2enmod rewrite headers expires \
   && mkdir -p /etc/mysql/conf.d && printf '[client]\nskip-ssl\n' > /etc/mysql/conf.d/webship.cnf \
+  && for b in mysql mariadb mysqldump mariadb-dump ; do printf '#!/bin/sh\nexec /usr/bin/%s "$@" --skip-ssl\n' "$b" > /usr/local/bin/$b && chmod 755 /usr/local/bin/$b ; done \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # WP-CLI, at a release that is named: a platform's builder calls it as `ddev wp`. `less` is the pager its help asks for.
@@ -27,5 +28,5 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-av
   && printf 'Listen ${WEBSHIP_PORT}\n' >> /etc/apache2/ports.conf \
   && sed -ri -e 's!AllowOverride None!AllowOverride All!g' /etc/apache2/apache2.conf \
   && printf 'memory_limit=1G\nupload_max_filesize=64M\npost_max_size=64M\nsendmail_path="/usr/bin/msmtp -t --host=mail --port=1025 --from=noreply@example.com"\n' > /usr/local/etc/php/conf.d/webship.ini
-ENV APACHE_DOCUMENT_ROOT=/var/www/html WEBSHIP_PORT=8080 COMPOSER_HOME=/tmp/composer PATH=/var/www/html/vendor/bin:$PATH
+ENV APACHE_DOCUMENT_ROOT=/var/www/html WEBSHIP_PORT=8080 COMPOSER_HOME=/tmp/composer PATH=/var/www/html/vendor/bin:/var/www/html/bin:$PATH
 WORKDIR /var/www/html
