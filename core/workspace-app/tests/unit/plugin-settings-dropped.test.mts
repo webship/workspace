@@ -5,18 +5,18 @@
  * it, and Settings showed it as a live field with its old description. The form now compares the file with the template
  * the installed version ships and says which keys it no longer has; the file is left as it is.
  */
-const { test, before, after } = require('node:test');
-const assert = require('node:assert');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const net = require('net');
-const { spawn } = require('child_process');
+import { test, before, after } from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import net from 'node:net';
+import { spawn, type ChildProcess } from 'node:child_process';
 
-const APP = path.join(__dirname, '../..');
+const APP = path.join(import.meta.dirname, '../..');
 const REPO = path.join(APP, '../..');
-const { templateShape, droppedKeys } = require('../../plugin-settings-dropped');
-const { rowsFromText } = require('../../settings-file');
+import { templateShape, droppedKeys } from '../../plugin-settings-dropped.mts';
+import { rowsFromText } from '../../settings-file.js';
 
 const TEMPLATE = `# Runs
 runs:
@@ -63,11 +63,11 @@ test('a key the template no longer has is dropped; one under a map the template 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-dropped-settings-'));
 const config = path.join(root, 'core', 'config');
 const userFile = path.join(config, 'plugin.x-old.settings.yml');
-let proc;
-let base;
-const free = () => new Promise((resolve) => {
+let proc: ChildProcess | undefined;
+let base = '';
+const free = (): Promise<number> => new Promise((resolve) => {
   const s = net.createServer();
-  s.listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => resolve(port)); });
+  s.listen(0, '127.0.0.1', () => { const { port } = s.address() as net.AddressInfo; s.close(() => resolve(port)); });
 });
 
 before(async () => {
@@ -85,12 +85,13 @@ before(async () => {
   fs.writeFileSync(userFile, FILE);
   const port = await free();
   base = `http://127.0.0.1:${port}`;
-  proc = spawn(process.execPath, ['server.js'], { cwd: APP, stdio: ['ignore', 'pipe', 'pipe'],
+  const server = spawn(process.execPath, ['server.js'], { cwd: APP, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, PORT: String(port), WORKSPACE_ROOT: root, WORKSPACE_CONFIG: config, WORKSPACE_PLUGINS_DIR: path.join(root, 'plugins'), WORKSPACE_PLUGINS_NO_RESTART: '1' } });
-  await new Promise((resolve, reject) => {
+  proc = server;
+  await new Promise<void>((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('server did not start')), 20000);
-    proc.stdout.on('data', (d) => { if (/listening/.test(String(d))) { clearTimeout(t); resolve(); } });
-    proc.on('exit', (c) => { clearTimeout(t); reject(new Error(`server exited ${c}`)); });
+    server.stdout.on('data', (d: Buffer) => { if (/listening/.test(String(d))) { clearTimeout(t); resolve(); } });
+    server.on('exit', (c) => { clearTimeout(t); reject(new Error(`server exited ${c}`)); });
   });
 });
 
@@ -104,7 +105,7 @@ const NOTE = 'This plugin no longer has this setting: it does nothing now. Delet
 test('the form says which settings the plugin no longer has, tied to the field, and changes nothing', async () => {
   const html = await (await fetch(`${base}/settings/plugin.x-old.settings.yml`)).text();
   /** The row of a field by its label: from the label to the end of its key block. */
-  const row = (label) => { const at = html.indexOf(`>${label}</label>`); assert.ok(at > 0, label); return html.slice(at, html.indexOf('</div>', at)); };
+  const row = (label: string): string => { const at = html.indexOf(`>${label}</label>`); assert.ok(at > 0, label); return html.slice(at, html.indexOf('</div>', at)); };
   for (const label of ['default_mode', 'gone']) {
     const r = row(label);
     assert.ok(r.includes(NOTE), `${label}: said to do nothing`);

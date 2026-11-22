@@ -38,7 +38,7 @@ const {
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const { esc } = require('./html.mts');
-const tabModal = require('./tab-modal');
+const tabModal = require('./tab-modal.mts');
 const eventLog = require('./event-log');
 const { sourceOf, commandFlags } = require('./workspaces');
 const { ghCliAuth } = require('./github-auth');
@@ -2284,7 +2284,7 @@ async function settingsFormHtml(file, message, { heading = 'h3' } = {}) {
   // 190-character paragraph as the name of a field, every time focus landed on it.
   const isTodo = (r) => !r.list && /CHANGE_ME/.test(String(r.value || ''));
   // A key the plugin's installed version no longer has: it does nothing now, whatever its old comment says (#424).
-  const dropped = ownerPlugin ? require('./plugin-settings-dropped').droppedSettingsOf(ownerPlugin, rows) : new Set();
+  const dropped = ownerPlugin ? require('./plugin-settings-dropped.mts').droppedSettingsOf(ownerPlugin, rows) : new Set();
   const droppedNote = (r) => (dropped.has(r.dotted)
     ? `<span class="settings-dropped">${iconHtml('tabler:info-circle', 0.7)} This plugin no longer has this setting: it does nothing now. Delete the line in the Raw YAML tab to tidy the file.</span>` : '');
   const explained = (r) => `${droppedNote(r)}${fieldHint(r.dotted, meta)}${described(r)}`;
@@ -2882,9 +2882,9 @@ async function settingsPage(section, state, options = {}) {
 
   const workspaceKey = (f) => (f.match(/^workspace\.(.+)\.settings\.yml$/) || [])[1] || '';
   const meta = loadWorkspaces();
-  // The home: the base, then every plugin by family with its state and one action (settings-home.js).
+  // The home: the base, then every plugin by family with its state and one action (settings-home.mts).
   // In a pane of the settings modal the home is the overview: what is waiting, not the list a second time.
-  const index = isIndex ? require('./settings-home').homeHtml({ ...settingsHomeData(), compact: !!options.fragment }) : '';
+  const index = isIndex ? require('./settings-home.mts').homeHtml({ ...settingsHomeData(), compact: !!options.fragment }) : '';
 
   // A chosen one gets the width to itself: the way back is a line, not the whole list again.
   const chosenName = isPlugin ? options.pluginName : isPlugins ? 'Plugins' : isStyles ? 'Styles'
@@ -3118,7 +3118,7 @@ function homeCardsHtml(message) {
           <p class="uk-text-meta uk-margin-remove">${esc(w.subtitle)}</p>
           <span class="uk-label ${hasBuilders ? 'uk-label-success' : ''} uk-margin-small-top">${projectCount} ${projectCount === 1 ? w.noun : w.nounPlural}${hasBuilders ? ' · buildable' : ''}</span>
         </a>
-        ${require('./workspace-card-tools').cornerHtml(w, { backupCount, backupsUrl: wsUrl(w.key, '/backups') })}
+        ${require('./workspace-card-tools.mts').cornerHtml(w, { backupCount, backupsUrl: wsUrl(w.key, '/backups') })}
       </div>`;
   }).join('');
 
@@ -6328,7 +6328,7 @@ async function onRequest(req, res) {
         const outdated = updates.outdated(list, got.latest).filter((u) => !only || u.name === only);
         if (cold && outdated.length) res.setHeader('HX-Trigger', 'refresh-projects');
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(only ? '' : require('./settings-home').updatesLineHtml(outdated, got.error));
+        return res.end(only ? '' : require('./settings-home.mts').updatesLineHtml(outdated, got.error));
       }
       // The catalogue of the Plugins page, drawn again when a package has been required.
       if (pathname === '/fragments/settings/catalog') {
@@ -6343,7 +6343,7 @@ async function onRequest(req, res) {
       if (pathname === '/fragments/settings/plugins') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         const only = new URL(req.url, 'http://localhost').searchParams.get('only') === 'attention' ? 'attention' : '';
-        return res.end(require('./settings-home').pluginsSectionHtml(settingsHomeData().groups, { only }));
+        return res.end(require('./settings-home.mts').pluginsSectionHtml(settingsHomeData().groups, { only }));
       }
       // A plugin's own page: its state, the four steps, its needs, its settings form, what it ships.
       { const pm = pathname.match(/^\/settings\/plugin\/([a-z0-9-]+)$/);
@@ -6395,7 +6395,7 @@ async function onRequest(req, res) {
       }
       const wsEdit = pathname.match(/^\/fragments\/workspace-edit\/([a-z0-9_-]+)$/);
       if (wsEdit && isValidWorkspace(wsEdit[1])) {
-        const cardTools = require('./workspace-card-tools');
+        const cardTools = require('./workspace-card-tools.mts');
         const file = cardTools.settingsFile(wsEdit[1]);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(fs.existsSync(path.join(CONFIG_DIR, file))

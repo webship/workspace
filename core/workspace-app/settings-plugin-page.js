@@ -15,7 +15,7 @@ const { esc } = require('./html.mts');
 const { iconHtml } = require('./icons.mts');
 const { needsInstall } = require('./plugin-manifest.mts');
 const model = require('./settings-model.mts');
-const { stateHtml, actionHtml, pluginHref } = require('./settings-home');
+const { stateHtml, actionHtml, pluginHref } = require('./settings-home.mts');
 
 const command = (verb, name, withNeeds = false) => `bash core/scripts/plugins.sh --${verb} ${name}${withNeeds ? ' --with-needs' : ''}`;
 const anyOfText = (anyOf) => (anyOf.length > 1 ? `${anyOf.slice(0, -1).join(', ')} or ${anyOf[anyOf.length - 1]}` : anyOf[0]);

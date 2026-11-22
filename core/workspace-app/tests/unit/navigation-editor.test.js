@@ -26,7 +26,7 @@ const page = read('navigation-page.js');
 const actions = read('actions/navigation.js');
 const ui = read('public/ui.js');
 const server = read('server.js');
-const home = read('settings-home.js');
+const home = read('settings-home.mts');
 const tabs = read('commands-page.js');
 
 test('the Add form shares no field name with the arrangement it posts with it', () => {
@@ -181,7 +181,7 @@ test("a plugin's group is given ids, so what a plugin adds can be arranged like 
 test('Settings is grouped and shown as a grid, not 26 identical pills', () => {
   // The hub's own settings, an editor that is not a file at all, and twenty-four workspaces were all
   // weighted the same and wrapped onto three lines.
-  // The base first, then the plugins by family: the home is settings-home.js's now.
+  // The base first, then the plugins by family: the home is settings-home.mts's now.
   assert.match(home, /<h2 class="settings-group-head" id="settings-base-head">Workspace base<\/h2>/);
   assert.match(home, /class="settings-group-head" id="settings-plugins-head">\$\{only === 'attention' \? 'Plugins that need attention' : 'Plugins'\}</);
   // Every editor that is not a settings FILE has to be excluded here, or choosing it would fall

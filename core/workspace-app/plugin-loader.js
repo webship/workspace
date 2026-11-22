@@ -32,7 +32,7 @@ const { fileFor, readPluginSettings, ensurePluginSettingsFile } = require('./plu
 const googleAuth = require('./auth-google');
 const { iconHtml } = require('./icons.mts');
 const { commandBlock } = require('./command-block.mts');
-const { tabModalHtml } = require('./tab-modal');
+const { tabModalHtml } = require('./tab-modal.mts');
 const claudeSessions = require('./claude-sessions');
 const { installedPlugins } = require('./plugin-manifest.mts');
 

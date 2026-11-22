@@ -8,37 +8,47 @@
  * link, the state is in the HTML, and the filter (ui.js) is shown only when it can run.
  */
 
-const { esc } = require('./html.mts');
-const { iconHtml } = require('./icons.mts');
-const model = require('./settings-model.mts');
+import { esc } from './html.mts';
+import { iconHtml } from './icons.mts';
+import * as model from './settings-model.mts';
+import type { Family, GroupedPlugin, PluginLike, PluginState, Action } from './settings-model.mts';
 
-const pluginHref = (name) => `/settings/plugin/${encodeURIComponent(name)}`;
+/** A plugin with a newer version on npm (plugin-updates.mts outdated). */
+export interface OutdatedLine { name: string; label: string; version?: string; latest: string }
+
+/** A family with its plugins, as groupByFamily answers. */
+type Group = Family & { plugins: GroupedPlugin[] };
+
+/** A plugin with its state, as the page draws it. */
+type Drawn = Pick<GroupedPlugin, 'name' | 'manifest'> & { label?: string; state: PluginState };
+
+export const pluginHref = (name: string): string => `/settings/plugin/${encodeURIComponent(name)}`;
 
 /**
  * A plugin's state: one pill, in words with an icon, never colour alone. The reason for it (its note)
  * is the pill's title; the plugin's page says it in full. `withUpdate` adds the newer version as a
  * second pill, which only the plugin's own page does: on a row it is quiet text beside the name.
  */
-function stateHtml(state, { withUpdate = true } = {}) {
+export function stateHtml(state: PluginState, { withUpdate = true }: { withUpdate?: boolean } = {}): string {
   return `<span class="plugin-state is-${esc(state.tone)}"${state.note ? ` title="${esc(state.note)}"` : ''}>${iconHtml(state.icon, 0.8)}<span>${esc(state.label)}</span></span>${
     withUpdate && state.update ? `<span class="plugin-state is-info">${iconHtml('tabler:arrow-up-circle', 0.8)}<span>Update ${esc(state.update)}</span></span>` : ''}`;
 }
 
-const nameOf = (p) => p.label || (p.manifest && p.manifest.label) || p.name;
-const commandOf = (p, a) => `bash core/scripts/plugins.sh --${a.verb} ${p.name}${a.withNeeds ? ' --with-needs' : ''}`;
+export const nameOf = (p: Pick<Drawn, 'name' | 'manifest' | 'label'>): string => p.label || (p.manifest && p.manifest.label) || p.name;
+const commandOf = (p: { name: string }, a: Action): string => `bash core/scripts/plugins.sh --${a.verb} ${p.name}${a.withNeeds ? ' --with-needs' : ''}`;
 
 /** The one action of a state, in full: a step the script runs (a button), or a place to go (a link). Used on a plugin's page. */
-function actionHtml(plugin, { primary = false, target = '#webship-workspace-output' } = {}) {
+export function actionHtml(plugin: Drawn, { primary = false, target = '#webship-workspace-output' }: { primary?: boolean; target?: string } = {}): string {
   const a = plugin.state.action;
   const label = nameOf(plugin);
   const cls = `uk-button uk-button-${primary ? 'primary' : 'default'} uk-button-small plugin-action`;
-  if (a.kind === 'link') return `<a class="${cls}" href="${esc(a.href)}" aria-label="${esc(`${a.label} ${label}`)}">${esc(a.label)}</a>`;
+  if (a.kind === 'link') return `<a class="${cls}" href="${esc(a.href ?? '')}" aria-label="${esc(`${a.label} ${label}`)}">${esc(a.label)}</a>`;
   return `<button type="button" class="${cls}" hx-post="/actions/plugins"
       hx-vals='${esc(JSON.stringify({ verb: a.verb, name: plugin.name, ...(a.withNeeds ? { withNeeds: '1' } : {}) }))}'
       hx-target="${esc(target)}" hx-swap="innerHTML" title="${esc(commandOf(plugin, a))}" aria-label="${esc(`${a.label}: ${label}`)}">${esc(a.label)}</button>`;
 }
 
-const SHORT = { activate: 'Activate', install: 'Install' };
+const SHORT: Record<string, string> = { activate: 'Activate', install: 'Install' };
 
 /**
  * The action of a row. Only a row with work to do carries a button: a step the script runs (the short
@@ -47,15 +57,15 @@ const SHORT = { activate: 'Activate', install: 'Install' };
  * the whole row is already the link to the plugin's page, and a second link to the same place on 18
  * rows was 18 extra stops for a keyboard.
  */
-function rowActionHtml(p, { quiet = false } = {}) {
+export function rowActionHtml(p: Drawn, { quiet = false }: { quiet?: boolean } = {}): string {
   const a = p.state.action;
   const label = nameOf(p);
   // Prominent where it tells this row from the ready ones around it; in a list where every row waits on
   // something (the settings modal's overview), seven filled buttons say nothing more than the pills do.
   const tone = p.state.attention && !quiet ? 'primary' : 'default';
   if (a.kind === 'link' && p.state.id === 'ready') return `<span class="plugin-row-chevron" aria-hidden="true">${iconHtml('tabler:chevron-right', 0.9)}</span>`;
-  if (a.kind === 'link') return `<a class="uk-button uk-button-${tone} uk-button-small plugin-action" href="${esc(a.href)}" aria-label="${esc(`${a.label} ${label}`)}">${esc(a.label)}</a>`;
-  const short = a.label.startsWith('Add ') || a.label === 'Reinstall' ? a.label : (SHORT[a.verb] || a.label);
+  if (a.kind === 'link') return `<a class="uk-button uk-button-${tone} uk-button-small plugin-action" href="${esc(a.href ?? '')}" aria-label="${esc(`${a.label} ${label}`)}">${esc(a.label)}</a>`;
+  const short = a.label.startsWith('Add ') || a.label === 'Reinstall' ? a.label : ((a.verb && SHORT[a.verb]) || a.label);
   return `<button type="button" class="uk-button uk-button-${tone} uk-button-small plugin-action" data-refocus-item="action" hx-post="/actions/plugins"
       hx-vals='${esc(JSON.stringify({ verb: a.verb, name: p.name, ...(a.withNeeds ? { withNeeds: '1' } : {}) }))}'
       hx-target="#webship-workspace-output" hx-swap="innerHTML" title="${esc(commandOf(p, a))}" aria-label="${esc(`${a.label}: ${label}`)}">${esc(short)}</button>`;
@@ -67,7 +77,7 @@ function rowActionHtml(p, { quiet = false } = {}) {
  * always what the plugin is, so it can be read down the list; why it is in its state is on the pill's
  * title and on its page.
  */
-function pluginRowHtml(p, { quiet = false } = {}) {
+export function pluginRowHtml(p: GroupedPlugin, { quiet = false }: { quiet?: boolean } = {}): string {
   const label = nameOf(p);
   const find = [label, p.name, p.module, p.summary, p.state.label, p.state.update ? 'update' : '', model.familyById(p.family).label].join(' ').toLowerCase();
   const withNeeds = p.state.action.kind === 'post' && p.state.action.withNeeds;
@@ -86,7 +96,7 @@ function pluginRowHtml(p, { quiet = false } = {}) {
       </li>`;
 }
 
-function familyHtml(f, { quiet = false } = {}) {
+function familyHtml(f: Group, { quiet = false }: { quiet?: boolean } = {}): string {
   return `
     <section class="settings-family" data-family="${esc(f.id)}">
       <h3 class="settings-family-head" id="settings-family-${esc(f.id)}">${iconHtml(f.icon, 0.9)}<span>${esc(f.label)}</span>
@@ -97,7 +107,7 @@ function familyHtml(f, { quiet = false } = {}) {
 }
 
 /** What npm says about newer versions, in a line: which plugins, or that it could not be asked. Nothing when there is nothing to say. */
-function updatesLineHtml(outdated = [], error = '') {
+export function updatesLineHtml(outdated: readonly OutdatedLine[] = [], error = ''): string {
   if (error) return `<p class="settings-updates-line is-unknown">${iconHtml('tabler:cloud-off', 0.9)}<span>npm could not be asked for newer versions (${esc(error)}). The versions shown are the ones installed here.</span></p>`;
   if (!outdated.length) return '';
   return `<p class="settings-updates-line">${iconHtml('tabler:arrow-up-circle', 0.9)}<span>${outdated.length === 1 ? 'A newer version is' : `${outdated.length} newer versions are`} on npm: ${
@@ -105,7 +115,7 @@ function updatesLineHtml(outdated = [], error = '') {
 }
 
 /** The plugins of this workspace by family: the part of the page that is drawn again when a step has run. */
-function pluginsSectionHtml(groups, { only = '' } = {}) {
+export function pluginsSectionHtml(groups: readonly Group[], { only = '' }: { only?: string } = {}): string {
   const n = model.counts(groups);
   // The one number that says whether anything is waiting is a way to those plugins, not a grey sentence.
   // In the settings modal's overview the plugins that wait are all there is under it, and there is no chip
@@ -141,7 +151,7 @@ function pluginsSectionHtml(groups, { only = '' } = {}) {
     </section>`;
 }
 
-function tileHtml({ href, icon, title, hint, find = '' }) {
+function tileHtml({ href, icon, title, hint, find = '' }: { href: string; icon: string; title: string; hint: string; find?: string }): string {
   return `
     <a class="settings-tile" href="${esc(href)}" data-find="${esc(`${title} ${hint} ${find}`.toLowerCase())}">
       <span class="settings-tile-icon">${iconHtml(icon, 1)}</span>
@@ -155,7 +165,10 @@ function tileHtml({ href, icon, title, hint, find = '' }) {
  * `files` are the settings files under core/config, `groups` the plugins by family (model.groupByFamily),
  * `folders` the workspaces' presentation by key, `styles` `{ count, wearing }`.
  */
-function homeHtml({ files = [], plugins = [], groups = [], folders = {}, styles = { count: 0, wearing: '' }, compact = false } = {}) {
+export function homeHtml({ files = [], plugins = [], groups = [], folders = {}, styles = { count: 0, wearing: '' }, compact = false }: {
+  files?: readonly string[]; plugins?: readonly PluginLike[]; groups?: readonly Group[];
+  folders?: Record<string, { icon?: string; label?: string; subtitle?: string }>; styles?: { count: number; wearing: string }; compact?: boolean;
+} = {}): string {
   const sorted = model.sortFiles(files, plugins);
   const n = model.counts(groups);
   // In the settings modal the list of everything is the modal's own sidebar, with its own filter: the
@@ -184,7 +197,7 @@ function homeHtml({ files = [], plugins = [], groups = [], folders = {}, styles 
     }),
     ...sorted.other.map((f) => ({ href: `/settings/${encodeURIComponent(f)}`, icon: 'tabler:file-settings', title: f, hint: model.fileHint(f), find: f })),
   ];
-  const chip = (show, label, count, { pressed = false, hidden = false } = {}) => `<button type="button" class="settings-chip" data-show="${show}" aria-pressed="${pressed ? 'true' : 'false'}"${hidden ? ' hidden' : ''}>${esc(label)} <span class="settings-chip-count" data-count="${show}">${count}</span></button>`;
+  const chip = (show: string, label: string, count: number, { pressed = false, hidden = false }: { pressed?: boolean; hidden?: boolean } = {}): string => `<button type="button" class="settings-chip" data-show="${show}" aria-pressed="${pressed ? 'true' : 'false'}"${hidden ? ' hidden' : ''}>${esc(label)} <span class="settings-chip-count" data-count="${show}">${count}</span></button>`;
   return `
   <div class="settings-home">
     <div class="settings-search" hidden>
@@ -214,5 +227,3 @@ function homeHtml({ files = [], plugins = [], groups = [], folders = {}, styles 
     </div>
   </div>`;
 }
-
-module.exports = { homeHtml, updatesLineHtml, pluginsSectionHtml, pluginRowHtml, rowActionHtml, stateHtml, actionHtml, pluginHref, nameOf };

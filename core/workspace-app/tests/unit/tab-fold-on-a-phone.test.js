@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const APP = path.join(__dirname, '..', '..');
-const { tabModalHtml } = require('../../tab-modal');
+const { tabModalHtml } = require('../../tab-modal.mts');
 const css = fs.readFileSync(path.join(APP, 'public', 'css', 'components', 'tab-modal.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 const ui = fs.readFileSync(path.join(APP, 'public', 'ui.js'), 'utf8');
 

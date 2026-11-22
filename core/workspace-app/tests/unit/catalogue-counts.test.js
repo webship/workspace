@@ -21,7 +21,7 @@ test('the catalogue\'s sentence counts what its "Added" chip counts', () => {
 });
 
 test('nothing says the base ships empty: it ships the notes plugin', () => {
-  for (const f of ['plugins-page.js', 'settings-home.js']) {
+  for (const f of ['plugins-page.js', 'settings-home.mts']) {
     assert.doesNotMatch(fs.readFileSync(path.join(APP, f), 'utf8'), /The base ships empty/, f);
   }
   assert.match(src, /only Workspace notes ships with the base/);

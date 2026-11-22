@@ -2,10 +2,10 @@
  * The tools on a home page workspace card: Edit opens the card editor, Settings opens the workspace's own file.
  */
 
-const { test } = require('node:test');
-const assert = require('node:assert');
+import { test } from 'node:test';
+import assert from 'node:assert';
 
-const tools = require('../../workspace-card-tools');
+import * as tools from '../../workspace-card-tools.mts';
 
 const w = { key: 'dev', label: 'Dev', icon: 'tabler:code' };
 

@@ -6,7 +6,7 @@ import assert from 'node:assert';
 import { test } from 'node:test';
 
 import * as updates from '../../plugin-updates.mts';
-import $settings_home from '../../settings-home.js';
+import * as $settings_home from '../../settings-home.mts';
 import * as $settings_model from '../../settings-model.mts';
 import $settings_plugin_page from '../../settings-plugin-page.js';
 

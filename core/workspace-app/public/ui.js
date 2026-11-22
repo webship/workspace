@@ -804,7 +804,7 @@ document.addEventListener('keydown', (e) => {
   fade();
 })();
 
-// Tabbed modals (tab-modal.js renders the markup). A tab is a button that loads its fragment into the
+// Tabbed modals (tab-modal.mts renders the markup). A tab is a button that loads its fragment into the
 // pane; this keeps the one you are on marked, moves between tabs with the arrow keys, filters a long
 // list, keeps #<modal>/<tab> in the address for a modal that asks for it, and sends the links inside a
 // pane back into the pane rather than away from the page.
@@ -863,7 +863,7 @@ document.addEventListener('keydown', (e) => {
     }
   };
   // The answer of a tab that is no longer the chosen one never lands under the chosen one's name. The tabs
-  // share one queue (hx-sync on the tablist, tab-modal.js), so a new choice replaces the request in flight;
+  // share one queue (hx-sync on the tablist, tab-modal.mts), so a new choice replaces the request in flight;
   // and an answer that still arrives for a tab left behind is refused here. A command a plugin page looks
   // for can take three seconds while the next tab answers in a fraction of one: that slow answer replaced
   // the tab chosen after it. The modal's first load gives way to a tab chosen before it answered.

@@ -20,7 +20,7 @@ test('the long paragraphs of Settings are about 75 characters a line, measured i
 });
 
 test('an example in a Settings field says it is one', () => {
-  assert.match(read('settings-home.js'), /placeholder="e\.g\. jira, hosting, not installed"/);
+  assert.match(read('settings-home.mts'), /placeholder="e\.g\. jira, hosting, not installed"/);
   const page = read('plugins-page.js');
   assert.match(page, /placeholder="e\.g\. hosting, wordpress, jira"/);
   assert.match(page, /placeholder="e\.g\. \$\{SCOPE\}\/workspace-jira" required/);

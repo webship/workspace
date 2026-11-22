@@ -5,13 +5,16 @@
  * a card is one <a>, and a button inside a link is not a button.
  */
 
-const { esc } = require('./html.mts');
-const { iconHtml } = require('./icons.mts');
+import { esc } from './html.mts';
+import { iconHtml } from './icons.mts';
 
-const settingsFile = (key) => `workspace.${key}.settings.yml`;
+/** A workspace, as far as its card's tools read it. */
+export interface CardWorkspace { key: string; label: string; icon?: string }
+
+export const settingsFile = (key: string): string => `workspace.${key}.settings.yml`;
 
 /** The corner of one card: its backups count, Edit (the card's icon and description) and Settings (its own file). */
-function cornerHtml(w, { backupCount = 0, backupsUrl = '' } = {}) {
+export function cornerHtml(w: CardWorkspace, { backupCount = 0, backupsUrl = '' }: { backupCount?: number; backupsUrl?: string } = {}): string {
   const file = settingsFile(w.key);
   const backups = backupCount
     ? `<a class="ws-backups" href="${esc(backupsUrl)}" title="View the ${backupCount} backup${backupCount === 1 ? '' : 's'} for ${esc(w.label)}"><span uk-icon="icon: album; ratio: .65"></span> ${backupCount}</a>`
@@ -28,7 +31,7 @@ function cornerHtml(w, { backupCount = 0, backupsUrl = '' } = {}) {
 }
 
 /** The Edit modal: the same presentation editor the workspace's settings tab shows, on its own. */
-function editModalHtml(w, presentationHtml) {
+export function editModalHtml(w: CardWorkspace, presentationHtml: string): string {
   return `<div class="editor-card ws-card-edit">
       <h3 class="uk-h4 uk-margin-small-bottom">${iconHtml(w.icon, 1)} Edit the ${esc(w.label)} card</h3>
       <p class="uk-text-meta uk-margin-remove-top">The icon and description on its card and in the rail.
@@ -37,5 +40,3 @@ function editModalHtml(w, presentationHtml) {
       ${presentationHtml}
     </div>`;
 }
-
-module.exports = { cornerHtml, editModalHtml, settingsFile };
