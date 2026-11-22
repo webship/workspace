@@ -381,3 +381,27 @@ test('`ddev exec` with several arguments keeps each one whole, as DDEV does; one
   run(dir, k, 'ddev config --project-type=php --docroot= --project-name=kx', { WORKSPACE_RUNTIME: 'kubernetes' });
   assert.strictEqual(lineOf.call(null, 'cd ' + k + ' && ddev exec php run.php "dev site1"').replace(k, 'K'), "arg[cd '/var/www/html' && php run.php dev\\ site1 ]");
 });
+
+test('composer create-project with no folder makes the project in the project root, as DDEV does', () => {
+  const dir = sandbox();
+  const cmd = (args) => run(dir, dir, `rt_create_project_cmd ${args}`).out.replace(/^rm -rf \/tmp\/webship-create && /, '').replace(/ && cp -a .*$/, '');
+  assert.strictEqual(cmd('create-project codeigniter4/appstarter --no-interaction'), 'composer create-project codeigniter4/appstarter /tmp/webship-create --no-interaction ');
+  assert.strictEqual(cmd('create-project symfony/skeleton:7.4.\\* --no-interaction'), 'composer create-project symfony/skeleton:7.4.\\* /tmp/webship-create --no-interaction ');
+  // Options that take the next argument as their value are no folder.
+  assert.strictEqual(cmd('create-project --stability dev a/b'), 'composer create-project --stability dev a/b /tmp/webship-create ');
+  assert.strictEqual(cmd('create-project -s dev a/b --no-interaction'), 'composer create-project -s dev a/b /tmp/webship-create --no-interaction ');
+  // "." is the project root, as before; a version after it stays where it is.
+  assert.strictEqual(cmd('create-project drupal/recommended-project:^11 .'), 'composer create-project drupal/recommended-project:\\^11 /tmp/webship-create ');
+  assert.strictEqual(cmd('create-project a/b . 1.0 --no-install'), 'composer create-project a/b /tmp/webship-create 1.0 --no-install ');
+  // Another folder is Composer's, as it is given.
+  assert.strictEqual(cmd('create-project a/b sub'), 'composer create-project a/b sub ');
+});
+
+test('ddev composer create-project with no folder on Docker Compose runs in the scratch folder of the web container', () => {
+  const dir = sandbox();
+  const p = path.join(dir, 'ci1'); fs.mkdirSync(p);
+  run(dir, p, 'RUNTIME=docker ddev config --project-type=php --docroot=public --project-name=ci1 --auto');
+  const r = run(dir, p, 'ddev composer create-project codeigniter4/appstarter --no-interaction');
+  const exec = r.calls.find((c) => c.includes('create-project'));
+  assert.match(exec, /composer create-project codeigniter4\/appstarter \/tmp\/webship-create --no-interaction +&& cp -a \/tmp\/webship-create\/\. "\$PWD"\//);
+});
