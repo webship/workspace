@@ -200,6 +200,12 @@ function rt_tests_image() {
 function rt_tests_run() {
   local rt="$1" root="$2" dir="$3" ; shift 3 ;
   local engine userns=() ; engine="$(rt_engine "${rt}")" ;
+  # In a pod (the dashboard on Kubernetes) there is no Docker to run the tests container with: said, not left to
+  # the engine's own words.
+  if [ -n "${KUBERNETES_SERVICE_HOST:-}" ] && ! "${engine}" info > /dev/null 2>&1 ; then
+    echo "The tests container needs ${engine} where the dashboard runs, and a dashboard in a pod has none yet (webship/workspace#694). The site's tests are set up and run from a machine with ${engine} that has this workspace: bash cmd-tools-testing.sh <project> in the site's folder of the workspace." >&2 ;
+    return 1 ;
+  fi
   rt_tests_image "${engine}" || return 1 ;
   [ "${engine}" = podman ] && userns=(--userns=keep-id) ;
   "${engine}" run --rm --network host "${userns[@]}" --user "$(id -u):$(id -g)" \
@@ -342,10 +348,21 @@ function rt_k8s_free_nodeport() {
   for p in $(seq 30080 32767) ; do case " ${used} " in *" ${p} "*) ;; *) echo "${p}" ; return 0 ;; esac ; done ;
 }
 
+# The image of a site's web container. By default it is built for the site from its .webship/runtime (and loaded into
+# a kind cluster). Where nothing can build one (the dashboard in a pod has no Docker), WORKSPACE_KUBE_WEB_IMAGE names
+# an image the cluster already has or can pull, built from core/config/runtimes/php: `{php}` in it is the site's PHP
+# version (webship-workspace-php:{php}).
+function rt_k8s_web_image() {
+  local root="$1" name ; name="$(sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1)" ;
+  if [ -n "${WORKSPACE_KUBE_WEB_IMAGE:-}" ] ; then echo "${WORKSPACE_KUBE_WEB_IMAGE//\{php\}/$(rt_meta php "${root}")}" ;
+  else echo "webship-${name}-web" ; fi
+}
+
 function rt_k8s_write() {
-  local root="$1" name type docroot php db port ns ;
+  local root="$1" name type docroot php db port ns image pull=Never ;
   name="$(sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1)" ; docroot="$(rt_meta docroot "${root}")" ;
   db="$(rt_meta database "${root}")" ; port="$(rt_meta port "${root}")" ; ns="ws-${name}" ;
+  image="$(rt_k8s_web_image "${root}")" ; [ "${image}" = "webship-${name}-web" ] || pull=IfNotPresent ;
   mkdir -p "${root}/k8s" ;
   cat > "${root}/k8s/kustomization.yaml" <<YAML
 # Written by the Webship Workspace's kubernetes runtime (webship/workspace#694) from compose.yaml.
@@ -447,8 +464,8 @@ spec:
     spec:
       containers:
         - name: web
-          image: webship-${name}-web
-          imagePullPolicy: Never
+          image: ${image}
+          imagePullPolicy: ${pull}
           env:
             - {name: APACHE_DOCUMENT_ROOT, value: /var/www/html${docroot:+/${docroot}}}
             - {name: WEBSHIP_RUNTIME, value: kubernetes}
@@ -495,8 +512,12 @@ function rt_k8s() {
       [ -n "${root}" ] || { echo "No kubernetes project here." >&2 ; return 1 ; } ;
       rt_k8s_cluster || return 1 ;
       local name ; name="$(sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1)" ;
-      docker build -q -t "webship-${name}-web" --build-arg PHP_VERSION="$(rt_meta php "${root}")" --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" "${root}/.webship/runtime" > /dev/null || return 1 ;
-      case "$(rt_kctx)" in kind-*) kind load docker-image "webship-${name}-web" --name "${RT_KIND_CLUSTER}" > /dev/null || return 1 ;; esac ;
+      # The site's own image is built and loaded; an image the manifests name instead (WORKSPACE_KUBE_WEB_IMAGE when
+      # they were written) is the cluster's to find.
+      if grep -q "^ *image: webship-${name}-web\$" "${root}/k8s/stack.yaml" 2> /dev/null ; then
+        docker build -q -t "webship-${name}-web" --build-arg PHP_VERSION="$(rt_meta php "${root}")" --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" "${root}/.webship/runtime" > /dev/null || return 1 ;
+        case "$(rt_kctx)" in kind-*) kind load docker-image "webship-${name}-web" --name "${RT_KIND_CLUSTER}" > /dev/null || return 1 ;; esac ;
+      fi
       rt_kubectl apply -k "${root}/k8s" > /dev/null || return 1 ;
       [ "${verb}" = restart ] && rt_kubectl -n "${ns}" rollout restart deploy/web > /dev/null ;
       rt_kubectl -n "${ns}" scale deploy --all --replicas=1 > /dev/null ;

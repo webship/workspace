@@ -1,0 +1,76 @@
+{{- if .Values.sites.rbac }}
+# What the dashboard does with kubectl from its pod, through the runtime layer (core/scripts/functions/fun-runtime.sh):
+# a namespace per site, and in it the site's deployments, services and volume claim, a command in a pod, its logs.
+# It reads the nodes (a site's address is a node's and a NodePort) and every Service (to choose a free NodePort).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "ws.name" . }}-{{ .Release.Namespace }}-sites
+  labels: {{- include "ws.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["services", "persistentvolumeclaims", "pods", "configmaps", "events"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["get", "create"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "ws.name" . }}-{{ .Release.Namespace }}-sites
+  labels: {{- include "ws.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "ws.name" . }}-{{ .Release.Namespace }}-sites
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "ws.name" . }}
+    namespace: {{ .Release.Namespace }}
+{{- if .Values.sites.limitToPrefix }}
+---
+# The ClusterRole reaches every namespace: a role cannot name namespaces by a prefix. This refuses what the
+# dashboard's ServiceAccount asks to create, change, delete or run outside the sites' namespaces.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ include "ws.name" . }}-{{ .Release.Namespace }}-sites
+  labels: {{- include "ws.labels" . | nindent 4 }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["", "apps"]
+        apiVersions: ["*"]
+        operations: ["CREATE", "UPDATE", "DELETE", "CONNECT"]
+        resources: ["*/*"]
+  matchConditions:
+    - name: asked-by-the-dashboard
+      expression: 'request.userInfo.username == "system:serviceaccount:{{ .Release.Namespace }}:{{ include "ws.name" . }}"'
+  validations:
+    - expression: '(request.namespace != "" ? request.namespace : request.name).startsWith("{{ .Values.sites.namespacePrefix }}")'
+      message: 'The Webship Workspace dashboard changes only the namespaces of its sites ({{ .Values.sites.namespacePrefix }}*).'
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ include "ws.name" . }}-{{ .Release.Namespace }}-sites
+  labels: {{- include "ws.labels" . | nindent 4 }}
+spec:
+  policyName: {{ include "ws.name" . }}-{{ .Release.Namespace }}-sites
+  validationActions: ["Deny"]
+{{- end }}
+{{- end }}

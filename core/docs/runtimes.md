@@ -15,7 +15,7 @@ This page says what works today. It is updated as each part is proven on a real 
 | The Tests menu, test users, backup, restore and remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman |
 | Clone, import a database from the menu, snapshots, add-ons, extra domains, captured mail | Yes | On the way | On the way | On the way |
 | The platform plugins' builders (WordPress, Laravel, …) | Yes | On the way | On the way | On the way |
-| The dashboard itself | Yes | On the way | On the way | On the way |
+| The dashboard itself | Yes | Yes | Yes, with limits (below) | On the way |
 
 Lando and Docksal are planned next. Today their plugins add a menu to a project that already has a `.lando.yml` or a `.docksal/` folder.
 
@@ -68,6 +68,60 @@ A Kubernetes build goes to the context named in `WORKSPACE_KUBE_CONTEXT`.
 With none set, the Workspace uses a local [kind](https://kind.sigs.k8s.io/) cluster named `webship`, and creates it on the first build, with your home folder mounted into its node so the pods see the code where it is. This needs `kind` and `kubectl` installed. A project must live under your home folder for that.
 
 On a cluster of your own, the web image must be one the cluster can pull, and the code must be reachable by its nodes: the manifests mount the project folder from the node.
+
+## The dashboard itself
+
+The dashboard runs in a DDEV project by default. It also runs on Docker Compose and on Kubernetes, without DDEV on the machine:
+
+```bash
+webship-workspace init ~/workspace                        # DDEV, the default: https://workspace.ddev.site
+webship-workspace init ~/workspace --runtime docker       # Docker Compose: http://127.0.0.1:3000
+webship-workspace init ~/workspace --runtime kubernetes   # a Helm chart, on your current Kubernetes context
+webship-workspace start ~/workspace                       # and stop, status, update: on the runtime it was made for
+```
+
+`init --runtime` also writes `container.runtime` to `settings.yml`, so the builders build sites on the same runtime by default. You can change that line later without moving the dashboard.
+
+Both use one image, `core/docker/Dockerfile`: Node.js 24, git, screen, Python, pandoc, the Docker client with the compose plugin, kubectl, kind and the Claude Code CLI. The app is not in the image. The workspace is mounted at the same path it has on the host, because the dashboard builds sites through the host's Docker, and the Docker daemon reads a site's folder on the host.
+
+Outside DDEV the dashboard has no `workspace.ddev.site`. It answers on a plain address, and its pages are paths on it: `/dev`, `/settings`, `/screens`.
+
+### On Docker Compose
+
+`init --runtime docker` writes `core/docker/.env` (the workspace's path, your user and group numbers, the group of the Docker socket, the port) and runs `docker compose up` in `core/docker`.
+
+- **The address** is `http://127.0.0.1:<port>`, on this machine only. `--port` chooses the port: 3000, or the next free one.
+- **The container** runs as your user, on the host's network, with the host's Docker socket. The sites it builds are containers beside it, and answer on `127.0.0.1:<port>` as they do without it.
+- **Another name:** to put a domain in front of it, add the name to `WORKSPACE_ALLOWED_HOSTS` in `core/docker/.env`. The dashboard refuses names it does not know.
+- **The AI Assistant** uses your Claude Code login when `~/.claude` and `~/.claude.json` exist (`compose.claude.yaml`). `--no-claude` leaves it out.
+- **A restart** of the dashboard (a plugin step, an update) restarts its process, not its container, so the screen sessions running in it go on.
+- **DDEV sites are not built from it.** The image has no `ddev`. Sites are built on Docker Compose and on Kubernetes. `docker build --build-arg DDEV_VERSION=<version>` adds the binary, and this has not been proven.
+
+### On Kubernetes
+
+`core/k8s` is a Helm chart. Helm, because a cloud's cluster needs values the chart already has a place for: a storage class, an Ingress, an image from a registry. It needs `kubectl` and `helm` on your machine.
+
+`init --runtime kubernetes` builds the image, loads it into a kind cluster, writes `core/k8s/values.local.yaml` and installs the chart: a Deployment, a Service, a ServiceAccount and its role. `--context`, `--namespace` and `--image` choose the cluster, the namespace and an image the cluster can pull.
+
+- **The workspace** is a folder of the node, mounted at the same path (`workspace.hostPath`). That is a local cluster (kind, with your home folder mounted into its node) or a single-node one. Without `hostPath` the chart makes a volume claim and fills it from the npm package.
+- **The address** is the node's address and a NodePort, or `kubectl port-forward`. The chart also has an Ingress, off by default.
+- **Its rights:** the dashboard runs `kubectl` from its pod to build sites, each in a namespace `ws-<name>`. Its role covers namespaces, deployments, services, volume claims, pods, `pods/exec` and `pods/log`. A Kubernetes role cannot be limited to namespaces by a prefix, so a ValidatingAdmissionPolicy refuses every change the dashboard asks for outside `ws-*` (Kubernetes 1.30 or newer).
+- **Sites built from the pod** take a web image the cluster already has, `webship-workspace-php:<php version>`, because a pod has no Docker to build one with. On a kind cluster `init` builds and loads it for PHP 8.3 (`--php` for another version).
+
+Not there yet on Kubernetes:
+
+- The **Tests** menu and **Node** of a site, from a dashboard in a pod: they run in a container started with Docker, and a pod has none. The menu says so. From a machine with Docker and the same workspace they work: `bash cmd-tools-testing.sh <site>` in the site's folder.
+- Sites from a dashboard whose workspace is a volume claim: a site's pod mounts its code from the node. That dashboard runs, with its pages, settings and plugins.
+- An image in a registry: none is published yet, so a cluster that is not kind needs `--image` with one you pushed.
+- A cluster of a cloud: the chart was run on a local kind cluster only.
+
+### On a server of a cloud
+
+`core/docker/cloud-init.yaml` is the user data of a fresh Ubuntu 24.04 server. It installs Docker and Node.js, makes a `webship` user, runs `webship-workspace init … --runtime docker`, and, when you give it a domain, puts Caddy in front: a certificate for the domain, and a password before anything reaches the dashboard. Without a domain nothing is opened to the internet, and you reach the dashboard through an SSH tunnel.
+
+It is the same file on every cloud. Its install script was run by hand in a fresh Ubuntu 24.04 container, and the Caddy part with a local certificate. It has not been run by cloud-init on a real server yet: the guides for each cloud, and the first installs there, are still to come.
+
+On a server the sites the dashboard builds answer on the server's own `127.0.0.1:<port>`. Reaching them from your machine needs an SSH tunnel for now.
 
 ## How it works
 

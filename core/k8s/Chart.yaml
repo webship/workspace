@@ -1,0 +1,9 @@
+apiVersion: v2
+name: webship-workspace
+description: The Webship Workspace's dashboard on Kubernetes (webship/workspace#694). The workspace is a volume; the image holds what the dashboard needs, not the app.
+type: application
+version: 1.0.29
+appVersion: "1.0.29"
+home: https://github.com/webship/workspace
+sources:
+  - https://github.com/webship/workspace

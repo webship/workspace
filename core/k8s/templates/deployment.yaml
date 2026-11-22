@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ws.name" . }}
+  labels: {{- include "ws.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  # One pod holds the workspace and its sessions: the old one ends before the new one starts.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {{- include "ws.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "ws.labels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "ws.name" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsUser: {{ .Values.runAs.user }}
+        runAsGroup: {{ .Values.runAs.group }}
+        {{- if not .Values.workspace.hostPath }}
+        fsGroup: {{ .Values.runAs.group }}
+        {{- end }}
+      {{- if and (not .Values.workspace.hostPath) .Values.workspace.seed.enabled }}
+      initContainers:
+        # An empty claim gets the workspace's core from the npm package, once.
+        - name: seed
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["bash", "-c"]
+          args:
+            - |
+              if [ -f "${WORKSPACE_ROOT}/core/workspace-app/server.js" ] ; then echo "The workspace is there." ; exit 0 ; fi
+              echo "Making the workspace at ${WORKSPACE_ROOT} from ${SEED_PACKAGE}." ;
+              npx --yes "${SEED_PACKAGE}" init "${WORKSPACE_ROOT}" --runtime kubernetes
+          env:
+            - {name: WORKSPACE_ROOT, value: {{ .Values.workspace.path | quote }}}
+            - {name: SEED_PACKAGE, value: {{ .Values.workspace.seed.package | quote }}}
+            - {name: HOME, value: /home/webship}
+            # The dashboard is this pod's next container: the init starts nothing.
+            - {name: WEBSHIP_WORKSPACE_SKIP_DDEV, value: "1"}
+          volumeMounts:
+            - {name: workspace, mountPath: {{ .Values.workspace.path | quote }}}
+      {{- end }}
+      containers:
+        - name: dashboard
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - {name: WORKSPACE_ROOT, value: {{ .Values.workspace.path | quote }}}
+            - {name: PORT, value: {{ .Values.port | quote }}}
+            # Every interface of the pod: the Service in front of it decides what reaches it.
+            - {name: WORKSPACE_LISTEN, value: "0.0.0.0"}
+            - {name: HOME, value: /home/webship}
+            # The cluster this pod runs in, for the sites it builds (the entrypoint writes the kubeconfig).
+            - {name: WORKSPACE_KUBE_CONTEXT, value: in-cluster}
+            {{- if .Values.sites.webImage }}
+            - {name: WORKSPACE_KUBE_WEB_IMAGE, value: {{ .Values.sites.webImage | quote }}}
+            {{- end }}
+            {{- with (include "ws.allowedHosts" .) }}
+            - {name: WORKSPACE_ALLOWED_HOSTS, value: {{ . | quote }}}
+            {{- end }}
+          ports:
+            - {name: http, containerPort: {{ .Values.port }}}
+          # The first start may install the dashboard's dependencies: up to ten minutes.
+          startupProbe:
+            httpGet: {path: /, port: http}
+            periodSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet: {path: /, port: http}
+            periodSeconds: 10
+          {{- with .Values.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - {name: workspace, mountPath: {{ .Values.workspace.path | quote }}}
+      volumes:
+        - name: workspace
+          {{- if .Values.workspace.hostPath }}
+          hostPath: {path: {{ .Values.workspace.hostPath | quote }}, type: Directory}
+          {{- else }}
+          persistentVolumeClaim: {claimName: {{ include "ws.claim" . }}}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -11,7 +11,9 @@ const { esc } = require('./html');
 // preference set on workspace.ddev.site is still in force on dev.workspace.ddev.site. It was used
 // there without being imported, which made every list 500 the moment `auto` appeared in the query —
 // that is, on the first click of the auto-search checkbox, on every list in the app.
-const { styleSettings, hubDomain } = require('./workspaces');
+const { styleSettings } = require('./workspaces');
+// The hub domain's cookie on the hub; the page's own on any other address (urls.js).
+const { cookieDomain } = require('./urls');
 
 // ---------------------------------------------------------------------------
 // Paging, shared by every list in the dashboard.
@@ -167,13 +169,13 @@ function nextViews(views, list, state) {
 function setPageCookie(res, state) {
   const cookies = [];
   if (state.fromQuery) {
-    cookies.push(`ws-per=${state.per}; Path=/; Domain=.${hubDomain()}; Max-Age=31536000; SameSite=Lax`);
+    cookies.push(`ws-per=${state.per}; Path=/${cookieDomain()}; Max-Age=31536000; SameSite=Lax`);
   }
   if (state.autoFromQuery) {
-    cookies.push(`ws-autosearch=${state.auto ? '1' : '0'}; Path=/; Domain=.${hubDomain()}; Max-Age=31536000; SameSite=Lax`);
+    cookies.push(`ws-autosearch=${state.auto ? '1' : '0'}; Path=/${cookieDomain()}; Max-Age=31536000; SameSite=Lax`);
   }
   if (state.view) {
-    const domain = `Path=/; Domain=.${hubDomain()}; SameSite=Lax`;
+    const domain = `Path=/${cookieDomain()}; SameSite=Lax`;
     cookies.push(Object.keys(state.view.map).length
       ? `${VIEW_COOKIE}=${encodeURIComponent(JSON.stringify(state.view.map))}; ${domain}; Max-Age=31536000`
       : `${VIEW_COOKIE}=; ${domain}; Max-Age=0`);

@@ -149,3 +149,68 @@ When('I choose {string} in the open menu', async function (words) {
 });
 
 module.exports = { sitesOf, runningSite };
+
+// ---------------------------------------------------------------------------------------------------------------
+// The dashboard itself on a plain address (tests/features/runtimes/dashboard.feature): node on a port, the
+// Workspace's image on Docker Compose (core/docker) or on Kubernetes (core/k8s).
+//
+// `@needs-plain-address`: the dashboard is asked on an address that is not the hub or one of its subdomains. On
+// the hub the links are the hub's own, so the scenario is skipped with the reason.
+const hubName = () => require(path.join(APP, 'workspaces')).hubDomain();
+const hereHost = () => new URL(BASE()).host;
+Before({ tags: '@needs-plain-address' }, function () {
+  const { onHub } = require(path.join(APP, 'urls'));
+  if (onHub(hereHost())) {
+    this.attach(`SKIPPED: the suite runs against the hub (${hereHost()}), whose links are its own. Against a dashboard on `
+      + 'a port, on Docker Compose or on Kubernetes (LAUNCH_URL) this is a real test.');
+    return 'skipped';
+  }
+  return undefined;
+});
+
+Then('the footer should name the address of this dashboard', async function () {
+  const footer = this.page.locator('footer').first();
+  await footer.waitFor({ state: 'visible', timeout: 15000 });
+  const text = await footer.innerText();
+  assert.ok(text.includes(hereHost()), `the footer says "${text.trim()}", not ${hereHost()}`);
+  assert.ok(!text.includes(hubName()), `the footer names the hub ${hubName()}`);
+});
+
+Then('no link of the page should lead to the hub', async function () {
+  const hub = hubName();
+  const leaving = await this.page.locator(`a[href*="//${hub}"], a[href*=".${hub}"], form[action*="${hub}"]`).evaluateAll((els) => els.map((e) => e.getAttribute('href') || e.getAttribute('action')));
+  assert.deepStrictEqual(leaving, [], `links that leave ${hereHost()} for the hub`);
+});
+
+When('I ask the dashboard under the name {string}', async function (name) {
+  // A raw request: a browser cannot send another Host, which is the point of the guard.
+  const http = require('http');
+  const url = new URL(BASE());
+  this.refusal = await new Promise((resolve, reject) => {
+    const req = http.request({ host: url.hostname, port: url.port || 80, path: '/', headers: { Host: name } }, (res) => {
+      let body = '';
+      res.on('data', (d) => { body += d; });
+      res.on('end', () => resolve({ status: res.statusCode, body }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+});
+
+Then('it should refuse with {int}', function (status) {
+  assert.strictEqual(this.refusal.status, status, this.refusal.body.slice(0, 200));
+  assert.match(this.refusal.body, /does not answer to the name/);
+});
+
+When('I keep the preference {string} as {string}', async function (name, value) {
+  await this.page.evaluate(([n, v]) => window.wsPrefSet(n, v), [name, value]);
+});
+
+Then('the preference {string} should be {string} in the cookies of this address', async function (name, value) {
+  const cookies = await this.page.context().cookies(BASE());
+  const cookie = cookies.find((c) => c.name === name);
+  assert.ok(cookie, `no ${name} cookie on ${hereHost()}: ${cookies.map((c) => c.name).join(', ') || 'none'}`);
+  assert.strictEqual(cookie.value, value);
+  assert.strictEqual(cookie.domain, new URL(BASE()).hostname, 'the cookie is this address\'s own');
+  assert.strictEqual(await this.page.evaluate((n) => window.wsPref(n, ''), name), value);
+});

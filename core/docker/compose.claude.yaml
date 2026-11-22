@@ -1,0 +1,10 @@
+# Optional: the AI Assistant uses this machine's Claude Code login (webship/workspace#694).
+#
+# Added to the dashboard's compose files by COMPOSE_FILE in core/docker/.env (webship-workspace init --runtime docker
+# does that when ~/.claude and ~/.claude.json exist; --no-claude leaves it out). Without it the dashboard runs, and
+# the Assistant says it is not signed in.
+services:
+  dashboard:
+    volumes:
+      - "${HOST_HOME:?Set HOST_HOME to your home folder}/.claude:/home/webship/.claude"
+      - "${HOST_HOME}/.claude.json:/home/webship/.claude.json"

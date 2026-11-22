@@ -1,0 +1,137 @@
+#cloud-config
+# The Webship Workspace on a fresh Ubuntu 24.04 server (webship/workspace#694): Docker, the Workspace, its dashboard
+# on Docker Compose, and Caddy in front for TLS when you give a domain. Paste it as the "user data" of a new
+# virtual machine: it is the same file on every cloud.
+#
+# Set the values in /etc/webship-workspace.env below before you launch:
+#
+#   WORKSPACE_DOMAIN   a name that points at this server (an A record). Caddy then gets a certificate for it and
+#                      serves the dashboard at https://<domain>, behind a password. Ports 80 and 443 must be open
+#                      in the cloud's firewall. Empty: nothing is opened to the internet; reach the dashboard
+#                      through SSH:
+#                        ssh -L 3000:127.0.0.1:3000 <user>@<server>     then http://127.0.0.1:3000
+#   WORKSPACE_PASSWORD the password of the user "webship" on that address. Empty: one is made, and kept in
+#                      /root/webship-workspace-password.
+#
+# The dashboard has no login of its own and it runs commands as the Workspace's user: never open its port to the
+# internet without the password in front of it.
+#
+# What it did is in /var/log/webship-workspace-install.log. Run it again at any time: it changes only what is missing.
+
+package_update: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - openssl
+
+write_files:
+  - path: /etc/webship-workspace.env
+    permissions: "0600"
+    content: |
+      WORKSPACE_DOMAIN=
+      WORKSPACE_PASSWORD=
+      # The Linux user the Workspace belongs to, and its folder.
+      WORKSPACE_USER=webship
+      WORKSPACE_DIR=/home/webship/workspace
+      # The dashboard's port on 127.0.0.1.
+      WORKSPACE_PORT=3000
+      # What npm installs: the package, or a tarball or a repository (github:webship/workspace#1.0.x).
+      WORKSPACE_PACKAGE=@webship.co/workspace
+  - path: /usr/local/sbin/webship-workspace-install
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      # Installs the Webship Workspace on Ubuntu 24.04, with its dashboard on Docker Compose (core/docker/cloud-init.yaml).
+      set -euo pipefail
+      exec > >(tee -a /var/log/webship-workspace-install.log) 2>&1
+      export DEBIAN_FRONTEND=noninteractive
+
+      [ -f /etc/webship-workspace.env ] && . /etc/webship-workspace.env
+      WORKSPACE_DOMAIN="${WORKSPACE_DOMAIN:-}"
+      WORKSPACE_PASSWORD="${WORKSPACE_PASSWORD:-}"
+      WORKSPACE_USER="${WORKSPACE_USER:-webship}"
+      WORKSPACE_DIR="${WORKSPACE_DIR:-/home/${WORKSPACE_USER}/workspace}"
+      WORKSPACE_PORT="${WORKSPACE_PORT:-3000}"
+      WORKSPACE_PACKAGE="${WORKSPACE_PACKAGE:-@webship.co/workspace}"
+
+      say() { echo "[webship-workspace] $*" ; }
+      has_systemd() { command -v systemctl > /dev/null 2>&1 && [ -d /run/systemd/system ] ; }
+
+      say "packages"
+      apt-get update -qq
+      apt-get install -y -qq ca-certificates curl git openssl gnupg > /dev/null
+
+      # Docker, from Docker's own repository: the engine, and the compose and buildx plugins.
+      if ! docker compose version > /dev/null 2>&1 ; then
+        say "Docker"
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+        chmod a+r /etc/apt/keyrings/docker.asc
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${VERSION_CODENAME}") stable" \
+          > /etc/apt/sources.list.d/docker.list
+        apt-get update -qq
+        apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin > /dev/null
+      fi
+      if has_systemd ; then systemctl enable --now docker > /dev/null 2>&1 || true ; fi
+
+      # Node.js 24, for the webship-workspace command (the dashboard itself runs on the Node.js of its image).
+      if ! command -v node > /dev/null 2>&1 || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 20 ] ; then
+        say "Node.js 24"
+        curl -fsSL https://deb.nodesource.com/setup_24.x | bash - > /dev/null
+        apt-get install -y -qq nodejs > /dev/null
+      fi
+
+      # The Workspace's own user, in the docker group.
+      if ! id "${WORKSPACE_USER}" > /dev/null 2>&1 ; then
+        say "the user ${WORKSPACE_USER}"
+        useradd --create-home --shell /bin/bash "${WORKSPACE_USER}"
+      fi
+      getent group docker > /dev/null || groupadd docker
+      usermod -aG docker "${WORKSPACE_USER}"
+      install -d -o "${WORKSPACE_USER}" -g "$(id -gn "${WORKSPACE_USER}")" "$(dirname "${WORKSPACE_DIR}")"
+
+      say "the Workspace (${WORKSPACE_PACKAGE})"
+      npm install -g --no-audit --no-fund "${WORKSPACE_PACKAGE}" > /dev/null
+
+      # With a domain the dashboard answers to that name too (its request guard refuses names it does not know).
+      as_user() { runuser -u "${WORKSPACE_USER}" -- env HOME="$(getent passwd "${WORKSPACE_USER}" | cut -d: -f6)" "$@" ; }
+      say "init ${WORKSPACE_DIR} --runtime docker"
+      as_user env WEBSHIP_WORKSPACE_SKIP_START=1 webship-workspace init "${WORKSPACE_DIR}" --runtime docker --port "${WORKSPACE_PORT}" > /dev/null
+      if [ -n "${WORKSPACE_DOMAIN}" ] ; then
+        env_file="${WORKSPACE_DIR}/core/docker/.env"
+        sed -i '/^WORKSPACE_ALLOWED_HOSTS=/d' "${env_file}"
+        echo "WORKSPACE_ALLOWED_HOSTS=${WORKSPACE_DOMAIN%%:*}" >> "${env_file}"
+      fi
+      as_user webship-workspace start "${WORKSPACE_DIR}"
+
+      if [ -n "${WORKSPACE_DOMAIN}" ] ; then
+        say "Caddy, for https://${WORKSPACE_DOMAIN}"
+        command -v caddy > /dev/null 2>&1 || apt-get install -y -qq caddy > /dev/null
+        if [ -z "${WORKSPACE_PASSWORD}" ] ; then
+          if [ -s /root/webship-workspace-password ] ; then WORKSPACE_PASSWORD="$(cat /root/webship-workspace-password)" ;
+          else WORKSPACE_PASSWORD="$(openssl rand -base64 18)" ; fi
+        fi
+        ( umask 077 ; printf '%s\n' "${WORKSPACE_PASSWORD}" > /root/webship-workspace-password )
+        hash="$(caddy hash-password --plaintext "${WORKSPACE_PASSWORD}")"
+        mkdir -p /etc/caddy
+        # Caddy gets and renews the certificate itself. The password is asked before anything reaches the dashboard,
+        # its terminals (websockets) included.
+        cat > /etc/caddy/Caddyfile <<CADDY
+      ${WORKSPACE_DOMAIN} {
+      	basicauth {
+      		webship ${hash}
+      	}
+      	reverse_proxy 127.0.0.1:${WORKSPACE_PORT}
+      }
+      CADDY
+        caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile > /dev/null
+        if has_systemd ; then systemctl enable caddy > /dev/null 2>&1 || true ; systemctl restart caddy ; fi
+        if command -v ufw > /dev/null 2>&1 && ufw status | grep -q "Status: active" ; then ufw allow 80/tcp > /dev/null ; ufw allow 443/tcp > /dev/null ; fi
+        say "The dashboard: https://${WORKSPACE_DOMAIN}   user webship, password in /root/webship-workspace-password"
+      else
+        say "The dashboard: http://127.0.0.1:${WORKSPACE_PORT} on this server. From your machine: ssh -L ${WORKSPACE_PORT}:127.0.0.1:${WORKSPACE_PORT} <user>@<server>"
+      fi
+
+runcmd:
+  - [bash, /usr/local/sbin/webship-workspace-install]

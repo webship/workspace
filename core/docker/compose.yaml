@@ -1,0 +1,53 @@
+# The Webship Workspace's dashboard on Docker Compose, without DDEV (webship/workspace#694).
+#
+#   webship-workspace init ~/workspace --runtime docker
+#
+# writes the .env beside this file (the workspace's path, your user and group numbers, the Docker socket's group,
+# the port) and starts it. By hand, with that .env in place:
+#
+#   docker compose --project-directory core/docker up -d --build --wait
+#
+# The dashboard then answers at http://127.0.0.1:<PORT>, on this machine only.
+services:
+  dashboard:
+    build:
+      context: .
+      args:
+        DDEV_VERSION: "${DDEV_VERSION:-}"
+        CLAUDE_CODE: "${CLAUDE_CODE:-true}"
+    image: "${WORKSPACE_IMAGE:-webship-workspace:local}"
+    # The host's user, by number: what the dashboard writes in the workspace is yours.
+    user: "${WORKSPACE_UID:-1000}:${WORKSPACE_GID:-1000}"
+    # The group of the host's /var/run/docker.sock (stat -c %g /var/run/docker.sock), so that user may use it.
+    group_add:
+      - "${DOCKER_GID:-999}"
+    # The host's network. The sites the dashboard builds answer on the host's 127.0.0.1:<port>: it chooses each
+    # free port there, opens them, runs their tests against them, and reaches a local cluster's API there too.
+    # So the dashboard listens on the host directly: WORKSPACE_LISTEN keeps it on 127.0.0.1 unless you say otherwise.
+    network_mode: host
+    environment:
+      WORKSPACE_ROOT: "${WORKSPACE_ROOT:?Set WORKSPACE_ROOT to the workspace folder (webship-workspace init <dir> --runtime docker writes core/docker/.env)}"
+      PORT: "${PORT:-3000}"
+      WORKSPACE_LISTEN: "${WORKSPACE_LISTEN:-127.0.0.1}"
+      # More names the dashboard answers to (a domain in front of it), comma separated: request-guard.js.
+      WORKSPACE_ALLOWED_HOSTS: "${WORKSPACE_ALLOWED_HOSTS:-}"
+      HOME: /home/webship
+    volumes:
+      # The host's Docker: the sites are its containers, beside this one.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # The workspace at the SAME path as on the host, because the Docker daemon reads the paths of a site's
+      # mounts and build context on the host (see the Dockerfile).
+      - "${WORKSPACE_ROOT}:${WORKSPACE_ROOT}"
+      # The dashboard user's home: git's settings, npm's cache, the screen sessions' sockets.
+      - home:/home/webship
+    working_dir: "${WORKSPACE_ROOT}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      # The first start may install the dashboard's dependencies.
+      start_period: 300s
+volumes:
+  home:

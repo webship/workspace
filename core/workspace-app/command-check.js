@@ -89,7 +89,17 @@ function commandEntries(list) {
 
 /** Whether this process is inside a container (the dashboard's, when the dashboard asks). */
 function inContainer() {
-  return !!process.env.IS_DDEV_PROJECT || fs.existsSync('/.dockerenv');
+  return !!process.env.IS_DDEV_PROJECT || fs.existsSync('/.dockerenv') || !!process.env.KUBERNETES_SERVICE_HOST;
+}
+
+/**
+ * Does this workspace's dashboard run outside DDEV: from the Workspace's own image, on Docker Compose or Kubernetes
+ * (webship/workspace#694)? Inside that container the entrypoint says so; from the host the workspace carries the
+ * file the init wrote. There DDEV is not what the dashboard needs: it is what a DDEV site would.
+ */
+function dashboardOutsideDdev() {
+  if (process.env.WEBSHIP_DASHBOARD_ROOT) return true;
+  return fs.existsSync(path.join(WORKSPACE_ROOT, 'core', 'docker', '.env')) || fs.existsSync(path.join(WORKSPACE_ROOT, 'core', 'k8s', 'values.local.yaml'));
 }
 
 /** The full path of a command on PATH, or ''. No shell: the name is looked for, never run. */
@@ -229,6 +239,13 @@ function checkOwner(owner, source = {}) {
 function checkCore(file = CORE_NEEDS) {
   let source = {};
   try { source = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return { owner: 'core', rows: [], problems: [`${file} cannot be read`] }; }
+  // A dashboard on Docker Compose or Kubernetes builds its sites there: ddev is then used by a part only (DDEV sites).
+  if (dashboardOutsideDdev() && source.needs && Array.isArray(source.needs.commands)) {
+    const isDdev = (c) => /^(container:)?ddev$/.test(String(c && c.command));
+    const moved = source.needs.commands.filter(isDdev).map((c) => ({ ...c, for: 'DDEV sites: this dashboard builds on Docker Compose and Kubernetes without it' }));
+    source = { ...source, needs: { ...source.needs, commands: source.needs.commands.filter((c) => !isDdev(c)) },
+      suggests: { ...(source.suggests || {}), commands: [...(((source.suggests || {}).commands) || []), ...moved] } };
+  }
   return checkOwner('core', source);
 }
 
@@ -289,7 +306,7 @@ function missingText(reports) {
   return lines.join('\n');
 }
 
-module.exports = { split, commandEntries, findOnPath, versionOf, hintFor, inContainer, checkOwner, checkCore, checkPlugin, checkPlugins,
+module.exports = { split, commandEntries, findOnPath, versionOf, hintFor, inContainer, dashboardOutsideDdev, checkOwner, checkCore, checkPlugin, checkPlugins,
   missingNeeded, missingSuggested, reportText, missingText, rowText, CORE_NEEDS, clearCache: () => { cache.clear(); chosen = null; }, setLocalOnly: (on = true) => { localOnly = !!on; cache.clear(); chosen = null; } };
 
 if (require.main === module) {

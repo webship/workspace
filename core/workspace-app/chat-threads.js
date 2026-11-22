@@ -25,7 +25,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const { hubDomain } = require('./workspaces');
+// On the hub the cookie is the hub domain's; on any other address (a port, an IP, a domain in front) it is that page's own.
+const { cookieDomain } = require('./urls');
 
 const DIR = path.join(__dirname, '.chats');
 
@@ -54,7 +55,7 @@ function threadIdFrom(req) {
  * surprise, not a feature. The store prunes the file either way.
  */
 function threadCookie(id) {
-  return `ws-chat=${id}; Path=/; Domain=.${hubDomain()}; SameSite=Lax`;
+  return `ws-chat=${id}; Path=/${cookieDomain()}; SameSite=Lax`;
 }
 
 function readThread(id) {

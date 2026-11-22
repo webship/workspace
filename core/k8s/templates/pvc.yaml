@@ -1,0 +1,18 @@
+{{- if and (not .Values.workspace.hostPath) (not .Values.workspace.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ws.claim" . }}
+  labels: {{- include "ws.labels" . | nindent 4 }}
+  annotations:
+    # The workspace outlives the release: helm uninstall leaves the claim.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [{{ .Values.workspace.persistence.accessMode | quote }}]
+  {{- if .Values.workspace.persistence.storageClass }}
+  storageClassName: {{ .Values.workspace.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.workspace.persistence.size | quote }}
+{{- end }}
