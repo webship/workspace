@@ -237,3 +237,40 @@ test('a verb runs through core/scripts/runtime-verb.sh, in a line with no $ in i
   assert.match(script, /source \$\{WORKSPACE_SCRIPTS\}\/bootstrap\.sh/, 'it loads the workspace');
   assert.match(script, /^ddev "\$@" ;$/m, 'and calls ddev <verb>: the layer does the mapping');
 });
+
+test('lando: a .lando.yml the Workspace wrote is a Lando project; one of the project\'s own keeps its plugin\'s menu', () => {
+  const box = sandbox();
+  const landofile = (name, port) => `# Written by the Webship Workspace.\nname: ${name}\nx-webship:\n  platform: wordpress\n  runtime: lando\n  stack: php\n  type: wordpress\n  docroot: ""\n  php: "8.3"\n  database: "10.11"\n  port: ${port}\n  mail_port: 41902\nrecipe: lamp\n`;
+  const lando = box.site('l', { '.lando.yml': landofile('wp-l1', 41901) });
+  const own = box.site('own', { '.lando.yml': 'name: own\nrecipe: drupal11\n' });
+  // A template that ships .ddev/ after the Workspace wrote .lando.yml: the block decides, as rt_find_project does.
+  const shipped = box.site('s', { '.lando.yml': landofile('s1', 41903), '.ddev/config.yaml': 'name: s1\ntype: drupal11\n' });
+  // A compose.yaml block still comes first.
+  const both = box.site('b', { 'compose.yaml': COMPOSE('b1', 'docker', 41904), '.lando.yml': landofile('b1', 41905) });
+  // The block of a runtime in the file of another is none.
+  const wrong = box.site('w', { '.lando.yml': landofile('w1', 41906).replace('runtime: lando', 'runtime: docker') });
+  assert.deepStrictEqual(rt.readProject(lando), { runtime: 'lando', name: 'wp-l1', root: lando, port: '41901', type: 'wordpress', docroot: '', platform: 'wordpress', namespace: '' });
+  assert.strictEqual(rt.readProject(own).runtime, 'none');
+  assert.strictEqual(rt.readProject(shipped).runtime, 'lando');
+  assert.strictEqual(rt.readProject(both).runtime, 'docker');
+  assert.strictEqual(rt.readProject(wrong).runtime, 'none');
+  assert.strictEqual(rt.urlOf(rt.readProject(lando)), 'http://127.0.0.1:41901');
+  assert.deepStrictEqual([rt.LABELS.lando, rt.TITLES.lando, rt.ICONS.lando], ['LANDO', 'Lando', 'tabler:chef-hat']);
+  assert.ok(rt.RUNTIMES.includes('lando'), "the core's menu replaces the plugin's on the row");
+  assert.ok(rt.BUILDS_NO_IMAGE.includes('lando'), 'its remove form names no image of the Workspace');
+});
+
+test('lando: one `docker ps` answers for every Lando project, matched by the folder Lando labels its containers with', () => {
+  const box = sandbox();
+  const lf = (name, port) => `name: ${name}\nx-webship:\n  runtime: lando\n  port: ${port}\n`;
+  const up = box.site('up', { '.lando.yml': lf('up', 41001) });
+  const half = box.site('half', { '.lando.yml': lf('half', 41002) });
+  const never = box.site('never', { '.lando.yml': lf('never', 41003) });
+  box.cli('docker', `printf 'running\\t${up}\\nrunning\\t${up}\\nrunning\\t${half}\\nexited\\t${half}\\nrunning\\t/elsewhere/up\\n'`);
+  const r = child(box, `const m = await rt.statesFor(${JSON.stringify([up, half, never])}.map(rt.readProject)); return [...m.values()];`);
+  assert.deepStrictEqual(r.value, ['running', 'stopped', 'stopped']);
+  assert.deepStrictEqual(r.calls, ['docker ps -a --filter label=io.lando.container=TRUE --format {{.State}}\t{{.Label "io.lando.root"}}']);
+  assert.strictEqual(rt.landoState('', { root: '/w/a' }), 'stopped');
+  assert.strictEqual(rt.landoState('running\t/w/a\n', { root: '/w/a' }), 'running');
+  assert.strictEqual(rt.landoState('running\t/w/ab\n', { root: '/w/a' }), 'stopped', 'another folder');
+});

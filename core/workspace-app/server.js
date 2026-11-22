@@ -5261,10 +5261,10 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
     // `ddev import-db` ends the restore with "failed to extract provided file: EOF" on it.
     const { file: dbFile, empty: emptyDump } = require('./restore-dump.mts').dumpBeside(meta.backupsDir, file);
     let shellLine = `set -e; echo "Extracting ${file}…"; tar -xzf '${archive}'`;
-    // A project on Docker Compose, Podman or Kubernetes carries a compose.yaml with an x-webship block: it is
+    // A project on another runtime carries an x-webship block (in compose.yaml, .lando.yml, …: META_FILES): it is
     // started, and its dump imported, through the runtime layer (core/scripts/runtime-verb.sh).
     const viaRuntime = projectRuntime.verbLine([]);
-    const onRuntime = `[ ! -f '${targetDir}/.ddev/config.yaml' ] && grep -q '^x-webship:' '${targetDir}/compose.yaml' 2>/dev/null`;
+    const onRuntime = `[ ! -f '${targetDir}/.ddev/config.yaml' ] && grep -qs '^x-webship:' ${projectRuntime.META_FILES.map((f) => `'${targetDir}/${f}'`).join(' ')}`;
     if (dbFile) {
       const viaLayer = viaRuntime ? `if ${onRuntime}; then cd '${targetDir}' && ${viaRuntime} start -y && echo "Importing database…" && ${viaRuntime} import-db --file='${dbFile}'; el` : '';
       shellLine += ` && ${viaLayer}if [ -f '${targetDir}/.ddev/config.yaml' ]; then cd '${targetDir}' && ddev start -y && echo "Importing database…" && ddev import-db --file='${dbFile}'; else echo "Not a DDEV project — import the DB dump manually: ${path.basename(dbFile)}"; fi`;
@@ -7524,8 +7524,10 @@ async function onRequest(req, res) {
               <ol class="uk-margin-small">
                 ${rDdev ? `<li><code>ddev delete -y -O</code> on <strong>${esc(rDdev)}</strong> — its containers, database volume, snapshots and registry entry go.</li>` : ''}
                 ${rRuntime ? `<li>On ${esc(projectRuntime.TITLES[rRuntime.runtime])}, <strong>${esc(rRuntime.name)}</strong>: ${rRuntime.runtime === 'kubernetes'
-    ? `its namespace <code>${esc(rRuntime.namespace)}</code> goes, with its pods and its database`
-    : 'its containers and its database volume go'}, and the image built for it.</li>` : ''}
+    ? `its namespace <code>${esc(rRuntime.namespace)}</code> goes, with its pods and its database, and the image built for it`
+    // Lando and Docksal build no image of the Workspace's: the runtime's own images stay for its other projects.
+    : projectRuntime.BUILDS_NO_IMAGE.includes(rRuntime.runtime) ? 'its containers and its volumes (the database\'s too) go'
+      : 'its containers and its database volume go, and the image built for it'}.</li>` : ''}
                 <li>The folder <code>${esc(tildePath(rDir))}</code> is deleted.</li>
               </ol>
               ${(() => {

@@ -6,8 +6,8 @@ parser.add_argument('PROJECT_NAME',
 parser.add_argument('--runtime',
                     dest='RUNTIME',
                     default="_none_",
-                    choices=['ddev', 'docker', 'podman', 'kubernetes'],
-                    help='The container runtime to build on: ddev (the default, or container.runtime of settings.yml), docker (Docker Compose), podman or kubernetes.')
+                    choices=['ddev', 'docker', 'podman', 'kubernetes', 'lando'],
+                    help='The container runtime to build on: ddev (the default, or container.runtime of settings.yml), docker (Docker Compose), podman, kubernetes or lando.')
 parser.add_argument('-i', '--install',
                     action='store_true',
                     default=False,
