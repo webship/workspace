@@ -14,12 +14,13 @@ This page says what works today. It is updated as each part is proven on a real 
 | The site's row in the dashboard: state, link, menus | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman |
 | The Tests menu, test users, backup, restore and remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman |
 | Clone, import a database from the menu, snapshots, add-ons, extra domains, captured mail | Yes | On the way | On the way | On the way |
-| The platform plugins' builders (WordPress, Laravel, …) | Yes | On the way | On the way | On the way |
+| A WordPress site (the WordPress plugin): build and install, WP-CLI, test users, the tests, the database, the row, remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman |
+| The other platform plugins' builders (Laravel, Joomla, …) | Yes | On the way | On the way | On the way |
 | The dashboard itself | Yes | Yes | Yes, with limits (below) | On the way |
 
 Lando and Docksal are planned next. Today their plugins add a menu to a project that already has a `.lando.yml` or a `.docksal/` folder.
 
-"Yes" means it was run on a real build: Drupal 11 built and installed, its front and login pages answering, `drush status` bootstrapping, and the database exported and imported back. For the dashboard rows it means a real site driven in a browser: the row, the menu, stop and start, the tests set up and run, the test users added and cancelled, a backup, a remove and a restore.
+"Yes" means it was run on a real build: Drupal 11 built and installed, its front and login pages answering, `drush status` bootstrapping, and the database exported and imported back. For the dashboard rows it means a real site driven in a browser: the row, the menu, stop and start, the tests set up and run, the test users added and cancelled, a backup, a remove and a restore. For WordPress it means the plugin's builder with `--install --add-users`, the front page and a login to the administration, `cmd-tools-wordpress-cli.sh`, the test users added and cancelled, the suite of `cmd-tools-testing.sh` green in the tests container, a mail caught by Mailpit, the database exported and imported back, the row in the dashboard and a remove.
 
 ## Build on a runtime
 
@@ -45,10 +46,34 @@ The build ends with the site's address:
 A project's runtime is what its folder holds:
 
 - **DDEV:** `.ddev/config.yaml`.
-- **Docker Compose and Podman:** `compose.yaml`, with an `x-webship:` block (the runtime, the PHP and database versions, the port), and `.webship/runtime/Dockerfile`, the image of its web service. You can run it without the Workspace: `docker compose up -d`.
+- **Docker Compose and Podman:** `compose.yaml`, with an `x-webship:` block (the runtime, the project type, the PHP and database versions, the port, and `platform:` when a plugin claims the project), and `.webship/runtime/Dockerfile`, the image of its web service. You can run it without the Workspace: `docker compose up -d`.
 - **Kubernetes:** the same `compose.yaml`, plus `k8s/` (a `kustomization.yaml` and the manifests: a namespace `ws-<name>`, Deployments and Services for the web, the database and the mail catcher, a volume claim for the database). You can apply it yourself: `kubectl apply -k k8s`.
 
-Each has a web service (Apache and PHP with Composer), a MariaDB database and a Mailpit mail catcher.
+Each has a web service (Apache and PHP with Composer and WP-CLI), a MariaDB database and a Mailpit mail catcher.
+
+## Platform plugins
+
+A platform plugin's builder takes `--runtime` like the core's:
+
+```bash
+bash dev/cmd-wordpress-project.sh mysite --install --add-users --runtime docker
+bash dev/cmd-wordpress-project.sh mysite --install --add-users --runtime kubernetes
+```
+
+WordPress is the first, and the reference: `@webship.co/workspace-wordpress`. The other platform plugins follow it one by one, and each says in its README what was run.
+
+What the layer gives a plugin:
+
+- **`ddev wp`:** WP-CLI is in the web image, as it is in DDEV's.
+- **The project type** a builder gives `ddev config --project-type=` is kept in `compose.yaml`. The dashboard reads it as it reads DDEV's: a `wordpress` project gets the WordPress plugin's test users.
+- **The claim:** a plugin that builds on a type of no platform (`php`, `generic`) calls `rt_claim <plugin>` after `ddev config`. It writes `platform: <plugin>` in the `x-webship:` block. That is on a runtime what the plugin's own `.ddev/config.<plugin>.yaml` is on DDEV.
+- **`rt_is_platform <folder> <name>`:** is this project that platform's, on any runtime.
+- **`rt_url`:** the address of the site, on any runtime.
+- **The site reaches itself at its own address.** On Docker Compose and Podman the web container also answers on the site's port (`WEBSHIP_PORT` in `compose.yaml`), so `http://127.0.0.1:<port>` is the site from inside it too. On Kubernetes a pod reaches the node's address. A platform's scheduled tasks and its own checks need that: WordPress's WP-Cron and Site Health.
+
+What a plugin changes, what it must never do and the checklist to prove it are in [plugins-on-runtimes.md](plugins-on-runtimes.md).
+
+The `php` stack is the only one so far: Apache, PHP and MariaDB. A platform on Node.js, Python, Java or .NET, or one that needs PostgreSQL or a service of its own, still builds on DDEV only.
 
 ## In the dashboard
 

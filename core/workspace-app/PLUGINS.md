@@ -52,6 +52,7 @@ the same shape, which is how one is developed before it gets a repository.
   "css": ["public/upsun.css"],
   "js": ["public/upsun.js"],                          // browser scripts, loaded on every page after the dashboard's own
   "features": ["features/upsun.feature"],             // webship-js scenarios, run by the dashboard's own suite
+  "featuresSite": "cmd-<name>-project.sh ci-site --install --runtime docker",   // a platform plugin: the one site its CI builds for its features
   "ai": { "agents": ["agents/upsun-deployer.md"] },   // AI items: agents, skills, commands, prompts
   "needs": [["dev", "test", "demos", "sandboxes", "projects"], "ai-agents"],   // other plugins it cannot work without
   "suggests": ["github"],                             // other plugins that go well with it: said, never added
@@ -89,6 +90,16 @@ so in a tag: `@needs-setting-<plugin>-<key>` skips it, with the reason, while
 `core/config/plugin.<plugin>.settings.yml` has no value for `<key>` (the Jira feature tags its menu
 scenario `@needs-setting-jira-default_project`). A plugin ships no step definitions: webship-js's
 own steps and the core's are what a feature can use.
+
+A plugin that builds sites (a platform plugin) also proves a site on a container runtime. A scenario
+tagged `@needs-runtime-docker` (or `-podman`, `-kubernetes`) drives the first running site of that
+runtime in the workspace, and is skipped with the reason where there is none. `@needs-platform-<name>`
+beside it narrows that to a site of the plugin's own platform (its project type or its claim). The core's steps for it
+are in `tests/step-definitions/runtimes.steps.js`: the row, its state, its link, its menu, and
+`When I open "/a-path" on the "docker" site` for a page of the site itself. In the plugin's CI the
+site comes from `featuresSite` in the manifest: one builder of the plugin and plain arguments, which
+the reusable workflow (`plugin-browser-suite.yml`) runs on Docker Compose before the features. What
+a platform plugin changes to build on the runtimes is in `core/docs/plugins-on-runtimes.md`.
 
 ## What a plugin needs from another plugin
 

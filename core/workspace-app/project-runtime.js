@@ -5,7 +5,8 @@
  * `.ddev/config.yaml` is DDEV; a `compose.yaml` with an `x-webship:` block is the runtime that block names
  * (docker, podman, kubernetes), written by a builder run with `--runtime`. Anything else has none.
  *
- *   readProject(dir)        { runtime, name, root, port, type, docroot, namespace }: files only, no process.
+ *   readProject(dir)        { runtime, name, root, port, type, docroot, platform, namespace }: files only, no process.
+ *                           `platform` is the plugin that claims the project (rt_claim), '' when none does.
  *   urlOf(project)          the site's address: https://<name>.ddev.site, http://127.0.0.1:<port>, or the
  *                           cluster node's address and the NodePort ('' until the node's address is known).
  *   statesFor(projects)     Map(root -> 'running' | 'stopped' | 'unknown'), from one `docker compose ls`, one
@@ -43,7 +44,7 @@ function kubeContext() {
   return process.env.WORKSPACE_KUBE_CONTEXT || `kind-${process.env.WORKSPACE_KIND_CLUSTER || 'webship'}`;
 }
 
-const NONE = Object.freeze({ runtime: 'none', name: '', root: '', port: '', type: '', docroot: '', namespace: '' });
+const NONE = Object.freeze({ runtime: 'none', name: '', root: '', port: '', type: '', docroot: '', platform: '', namespace: '' });
 
 /** The values of compose.yaml's `x-webship:` block (two-space keys under it), or null when it has none. */
 function webshipBlock(text) {
@@ -74,7 +75,7 @@ function readProject(projectDir) {
   if (!block || !RUNTIMES.includes(block.runtime)) return NONE;
   const name = (text.match(/^name:\s*["']?([\w.-]+)/m) || [])[1] || path.basename(root);
   return { runtime: block.runtime, name, root, port: /^\d+$/.test(block.port || '') ? block.port : '',
-    type: block.type || '', docroot: block.docroot || '', namespace: block.runtime === 'kubernetes' ? `ws-${name}` : '' };
+    type: block.type || '', docroot: block.docroot || '', platform: block.platform || '', namespace: block.runtime === 'kubernetes' ? `ws-${name}` : '' };
 }
 
 /** Is this one of the runtimes the layer runs besides DDEV? */

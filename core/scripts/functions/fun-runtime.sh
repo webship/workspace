@@ -38,6 +38,40 @@ function runtime_of() {
 # A value of the project's x-webship block.
 function rt_meta() { sed -n '/^x-webship:/,/^[^ x]/s/^  '"$1"': *//p' "$2/compose.yaml" | head -1 | tr -d '"' ; }
 
+# A platform plugin claims a project of a runtime: `platform: <plugin>` in the x-webship block, which is on these
+# runtimes what the plugin's own `.ddev/config.<plugin>.yaml` is on DDEV (#490). A plugin whose platform is the
+# project type itself (`ddev config --project-type=wordpress`) needs no claim: the type says it. One that builds on
+# a type of no platform (php, generic) or on another platform's (a shop on wordpress) calls this after `ddev config`.
+# On a DDEV project it changes nothing: there the plugin writes its own file, as before.
+function rt_claim() {
+  local plugin="$1" found root ;
+  [[ "${plugin}" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "rt_claim: a plugin's name, please (lower case, digits, - and _)." >&2 ; return 1 ; } ;
+  found="$(rt_find_project "${2:-$PWD}")" || { echo "rt_claim: no project in ${2:-$PWD} (run it after 'ddev config')." >&2 ; return 1 ; } ;
+  [ "${found%% *}" = ddev ] && return 0 ;
+  root="${found#* }" ;
+  if [ -n "$(rt_meta platform "${root}")" ] ; then sed -i "/^x-webship:/,/^[^ x]/s/^  platform: .*/  platform: ${plugin}/" "${root}/compose.yaml" ;
+  else sed -i "/^x-webship:\$/a\\  platform: ${plugin}" "${root}/compose.yaml" ; fi
+}
+
+# Is the project of a folder this platform's? On DDEV its project type, or the plugin's `.ddev/config.<name>.yaml`;
+# on another runtime the type or the claim (rt_claim) of its x-webship block. A plugin's `<name>_is_project` asks
+# this instead of reading .ddev/config.yaml, so it answers on every runtime. `-` and `_` in a name are one.
+function rt_is_platform() {
+  local dir="$1" name="${2//-/_}" found rt root type claim ;
+  found="$(rt_find_project "${dir}")" || return 1 ;
+  rt="${found%% *}" ; root="${found#* }" ;
+  # The project is the folder itself, not one above it.
+  [ "${root}" = "$(cd "${dir}" && pwd)" ] || return 1 ;
+  if [ "${rt}" = ddev ] ; then
+    type="$(sed -nE 's/^type:[[:space:]]*"?([A-Za-z0-9_-]+)"?[[:space:]]*$/\1/p' "${root}/.ddev/config.yaml" | head -1)" ;
+    [ "${type//-/_}" = "${name}" ] && return 0 ;
+    [ -f "${root}/.ddev/config.${2}.yaml" ] || [ -f "${root}/.ddev/config.${2}.yml" ] || [ -f "${root}/.ddev/config.${name//_/-}.yaml" ] || [ -f "${root}/.ddev/config.${name//_/-}.yml" ] ;
+    return $? ;
+  fi
+  type="$(rt_meta type "${root}")" ; claim="$(rt_meta platform "${root}")" ;
+  [ "${type//-/_}" = "${name}" ] || [ "${claim//-/_}" = "${name}" ] ;
+}
+
 # The address of the project's site.
 function rt_url() {
   local found rt root ;
@@ -72,13 +106,14 @@ function rt_dc() {
 
 # Writes compose.yaml and the stack's build folder for a project: what `ddev config` does for DDEV.
 function rt_compose_write() {
-  local rt="$1" root="$2" name="$3" type="$4" docroot="$5" php="$6" db="$7" port="$8" ;
+  local rt="$1" root="$2" name="$3" type="$4" docroot="$5" php="$6" db="$7" port="$8" platform="${9:-}" ;
   mkdir -p "${root}/.webship/runtime" ;
   cp "${RT_STACKS}/php/Dockerfile" "${root}/.webship/runtime/Dockerfile" ;
   cat > "${root}/compose.yaml" <<YAML
 # Written by the Webship Workspace (its ${rt} runtime, webship/workspace#694). Run it with: ${rt} compose up -d
 name: ${name}
-x-webship:
+x-webship:${platform:+
+  platform: ${platform}}
   runtime: ${rt}
   stack: php
   type: ${type}
@@ -98,6 +133,8 @@ services:
     environment:
       APACHE_DOCUMENT_ROOT: /var/www/html${docroot:+/${docroot}}
       WEBSHIP_RUNTIME: ${rt}
+      # The site's own port, also inside the container: it reaches itself at its address (the stack's Dockerfile).
+      WEBSHIP_PORT: "${port}"
     volumes:
       - .:/var/www/html
     ports:
@@ -248,18 +285,20 @@ function rt_compose() {
     config)
       [ "${1:-}" = global ] && return 0 ;
       root="${root:-$PWD}" ;
-      local name type docroot php db port a ;
+      local name type docroot php db port platform a ;
       name="$( [ -f "${root}/compose.yaml" ] && sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1 )" ;
       type="$( [ -f "${root}/compose.yaml" ] && rt_meta type "${root}" )" ; docroot="$( [ -f "${root}/compose.yaml" ] && rt_meta docroot "${root}" )" ;
       php="$( [ -f "${root}/compose.yaml" ] && rt_meta php "${root}" )" ; db="$( [ -f "${root}/compose.yaml" ] && rt_meta database "${root}" )" ;
       port="$( [ -f "${root}/compose.yaml" ] && rt_meta port "${root}" )" ;
+      # A plugin's claim (rt_claim) stays when the file is written again.
+      platform="$( [ -f "${root}/compose.yaml" ] && rt_meta platform "${root}" )" ;
       for a in "$@" ; do
         case "${a}" in
           --project-name=*) name="${a#*=}" ;; --project-type=*) type="${a#*=}" ;; --docroot=*) docroot="${a#*=}" ;;
           --php-version=*) php="${a#*=}" ;; --database=*) db="${a#*=}" ; db="${db#*:}" ;;
         esac
       done
-      rt_compose_write "${rt}" "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" ;
+      rt_compose_write "${rt}" "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" ;
       echo "Wrote compose.yaml for ${rt} (${type:-php}, PHP ${php:-8.3}, MariaDB ${db:-10.11}): $(rt_url "${root}")" ;;
     start|restart)
       [ -n "${root}" ] || { echo "No ${rt} project here." >&2 ; return 1 ; } ;
@@ -506,6 +545,8 @@ function rt_k8s() {
       rt_compose kubernetes config "$@" > /dev/null || return 1 ;
       [ -n "${port}" ] || sed -i "s/^  port: .*/  port: $(rt_k8s_free_nodeport)/" "${root}/compose.yaml" ;
       sed -i '/^    ports:$/,/^      - "127.0.0.1:/d' "${root}/compose.yaml" ;
+      # No port of this machine on Kubernetes: the address is the node's, which a pod reaches as it is.
+      sed -i '/^      # The site.s own port, also inside the container/,/^      WEBSHIP_PORT: /d' "${root}/compose.yaml" ;
       rt_k8s_write "${root}" ;
       echo "Wrote compose.yaml and k8s/ for kubernetes ($(rt_kctx)): $(rt_url "${root}")" ;;
     start|restart)
