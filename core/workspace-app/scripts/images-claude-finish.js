@@ -9,8 +9,8 @@ const fs = require('fs');
 const path = require('path');
 
 const { sanitizeSvg, removedSummary } = require('../images-svg-sanitize');
-const { writeRecords } = require('../images-records');
-const { renderPng } = require('../images-render');
+const { writeRecords } = require('../images-records.mts');
+const { renderPng } = require('../images-render.mts');
 
 /** The summary and alt text Claude wrote, or empty ones. The file is removed either way. */
 function words(file) {

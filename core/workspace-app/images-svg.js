@@ -14,7 +14,7 @@ const { CONFIG_DIR, workspaceDir } = require('./workspaces');
 const images = require('./images');
 const providers = require('./images-providers');
 const core = require('./images-svg-core');
-const { writeRecords } = require('./images-records');
+const { writeRecords } = require('./images-records.mts');
 
 const PALETTE_KEYS = ['primary', 'secondary', 'accent', 'dark', 'light'];
 const HEX = /^#[0-9a-f]{3}([0-9a-f]{3})?$/i;
@@ -86,7 +86,7 @@ function save(dir, p, done, extra) {
   let png = '';
   if (p.png) {
     const pngPath = abs.replace(/\.svg$/, '.png');
-    if (require('./images-render').renderPng(abs, pngPath, core.SHAPES[p.shape])) png = path.basename(pngPath);
+    if (require('./images-render.mts').renderPng(abs, pngPath, core.SHAPES[p.shape])) png = path.basename(pngPath);
   }
   writeRecords(abs, { prompt: p.prompt, style: core.STYLES[p.style], palette: core.paletteLine(p.palette), size: core.SHAPES[p.shape].join('x'),
     created: new Date().toISOString(), png: png || undefined, motion: p.style === 'draw' ? p.cfg.motion : undefined,

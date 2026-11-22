@@ -10,7 +10,7 @@ const { execFile } = require('child_process');
 
 const { esc } = require('./html.mts');
 const { humanSize, humanTime, tildePath } = require('./format.mts');
-const { iconHtml } = require('./icons');
+const { iconHtml } = require('./icons.mts');
 const { ROOT, hubDomain, workspaceDir } = require('./workspaces');
 const lists = require('./lists');
 const images = require('./images');

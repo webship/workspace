@@ -6,7 +6,7 @@
  */
 
 const { esc } = require('./html.mts');
-const { iconHtml } = require('./icons');
+const { iconHtml } = require('./icons.mts');
 
 const settingsFile = (key) => `workspace.${key}.settings.yml`;
 

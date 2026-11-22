@@ -9,7 +9,7 @@
  */
 
 const { esc } = require('./html.mts');
-const { iconHtml } = require('./icons');
+const { iconHtml } = require('./icons.mts');
 const model = require('./settings-model');
 
 const pluginHref = (name) => `/settings/plugin/${encodeURIComponent(name)}`;

@@ -16,7 +16,7 @@
  */
 
 const { esc } = require('./html.mts');
-const { iconHtml } = require('./icons');
+const { iconHtml } = require('./icons.mts');
 
 /**
  * @param {object} o

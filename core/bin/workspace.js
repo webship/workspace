@@ -369,7 +369,7 @@ function init(dirArg, { update = false, flags = {} } = {}) {
     // fits, so an update brings them to the newest version that fits (#650).
     if (update) {
       let shared = [];
-      try { shared = require(path.join(app, 'shared-packages.js')).sharedPackages(app); } catch (_) { shared = []; }
+      try { shared = require(path.join(app, 'shared-packages.mts')).sharedPackages(app); } catch (_) { shared = []; }
       if (shared.length) {
         say(`  updating what the plugins share: ${shared.join(' ')}`);
         if (!run('npm', ['update', '--no-audit', '--no-fund', ...shared], app)) say('  npm could not update them; the plugins keep the versions they have.');

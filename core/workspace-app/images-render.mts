@@ -4,13 +4,13 @@
  * finish step of a Claude Code drawing uses it, and so does the dashboard container.
  */
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { execFileSync } = require('child_process');
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 /** The first Chrome on PATH, or null. */
-function chrome() {
+export function chrome(): string | null {
   for (const bin of ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']) {
     for (const dir of String(process.env.PATH || '').split(':')) {
       const p = path.join(dir, bin);
@@ -21,7 +21,7 @@ function chrome() {
 }
 
 /** Render an SVG to a PNG of the given size. Returns true when the PNG exists. */
-function renderPng(svg, png, [w, h]) {
+export function renderPng(svg: string, png: string, [w, h]: readonly [number, number]): boolean {
   const bin = chrome();
   if (!bin) return false;
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'images-chrome-'));
@@ -32,5 +32,3 @@ function renderPng(svg, png, [w, h]) {
   fs.rmSync(profile, { recursive: true, force: true });
   return fs.existsSync(png);
 }
-
-module.exports = { chrome, renderPng };
