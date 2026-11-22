@@ -559,6 +559,9 @@ spec:
     metadata:
       labels: {app: db}
     spec:
+      # No service links: Kubernetes would hand every container DB_PORT=tcp://<address>:3306, MAIL_PORT=… for the
+      # services db and mail, which an app reads before its own .env (a Laravel app's mail failed on them).
+      enableServiceLinks: false
       containers:
         - name: db
           image: mariadb:${db}
@@ -596,6 +599,9 @@ spec:
     metadata:
       labels: {app: mail}
     spec:
+      # No service links: Kubernetes would hand every container DB_PORT=tcp://<address>:3306, MAIL_PORT=… for the
+      # services db and mail, which an app reads before its own .env (a Laravel app's mail failed on them).
+      enableServiceLinks: false
       containers:
         - name: mail
           image: axllent/mailpit
@@ -621,6 +627,9 @@ spec:
     metadata:
       labels: {app: web}
     spec:
+      # No service links: Kubernetes would hand every container DB_PORT=tcp://<address>:3306, MAIL_PORT=… for the
+      # services db and mail, which an app reads before its own .env (a Laravel app's mail failed on them).
+      enableServiceLinks: false
       containers:
         - name: web
           image: ${image}
