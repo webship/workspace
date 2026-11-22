@@ -84,10 +84,32 @@ function rt_url() {
   esac
 }
 
+# `ddev config --nodejs-version=<25 or later>` on DDEV: Node.js from 25 on links against libatomic, which DDEV's web
+# image does not carry (DDEV 1.24.7: "node: error while loading shared libraries: libatomic.so.1"). The package goes
+# on that `ddev config`, added to the packages the caller asked for, so every builder, a plugin's too, gets a Node.js
+# that starts. Sets RT_DDEV_ARGS.
+function rt_ddev_config_args() {
+  RT_DDEV_ARGS=("$@") ;
+  [ "${1:-}" = config ] || return 0 ;
+  local a node="" i pkgs_at=-1 pkgs="" ;
+  for i in "${!RT_DDEV_ARGS[@]}" ; do
+    a="${RT_DDEV_ARGS[$i]}" ;
+    case "${a}" in
+      --nodejs-version=*) node="${a#--nodejs-version=}" ;;
+      --webimage-extra-packages=*) pkgs_at="${i}" ; pkgs="${a#--webimage-extra-packages=}" ;;
+    esac
+  done
+  [[ "${node}" =~ ^[0-9]+ ]] && [ "${BASH_REMATCH[0]}" -ge 25 ] || return 0 ;
+  case ",${pkgs}," in *,libatomic1,*) return 0 ;; esac
+  pkgs="${pkgs:+${pkgs},}libatomic1" ;
+  if [ "${pkgs_at}" -ge 0 ] ; then RT_DDEV_ARGS[${pkgs_at}]="--webimage-extra-packages=${pkgs}" ;
+  else RT_DDEV_ARGS+=("--webimage-extra-packages=${pkgs}") ; fi
+}
+
 function ddev() {
   local rt ; rt="$(runtime_of)" ;
   case "${rt}" in
-    ''|ddev) command ddev "$@" ;;
+    ''|ddev) rt_ddev_config_args "$@" ; command ddev "${RT_DDEV_ARGS[@]}" ;;
     docker|podman) rt_compose "${rt}" "$@" ;;
     kubernetes) rt_k8s "$@" ;;
     *) echo "The ${rt} runtime cannot run 'ddev $1' yet (webship/workspace#694)." >&2 ; return 1 ;;

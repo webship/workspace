@@ -45,6 +45,23 @@ test('a DDEV project: every verb is DDEV itself, unchanged', () => {
   assert.match(r.out, /https:\/\/site\.ddev\.site/);
 });
 
+test('ddev config with Node.js 25 or later on DDEV: libatomic1 goes with it, beside the packages asked for', () => {
+  const dir = sandbox();
+  const p = path.join(dir, 'new'); fs.mkdirSync(p);
+  const calls = (script) => run(dir, p, script).calls;
+  assert.deepStrictEqual(calls('ddev config --project-type=drupal --nodejs-version=26 --auto'),
+    ['ddev config --project-type=drupal --nodejs-version=26 --auto --webimage-extra-packages=libatomic1']);
+  assert.deepStrictEqual(calls('ddev config --webimage-extra-packages="" --nodejs-version=26'),
+    ['ddev config --webimage-extra-packages=libatomic1 --nodejs-version=26'], 'an emptied list');
+  assert.deepStrictEqual(calls('ddev config --nodejs-version=26 --webimage-extra-packages=python3-pip,python3-venv'),
+    ['ddev config --nodejs-version=26 --webimage-extra-packages=python3-pip,python3-venv,libatomic1']);
+  assert.deepStrictEqual(calls('ddev config --nodejs-version=26 --webimage-extra-packages=libatomic1'),
+    ['ddev config --nodejs-version=26 --webimage-extra-packages=libatomic1'], 'not twice');
+  // An older Node.js, a config without a Node.js, and every other verb: as written.
+  assert.deepStrictEqual(calls('ddev config --nodejs-version=24 --auto; ddev config --php-version=8.4; ddev start -y; ddev exec "node -v"'),
+    ['ddev config --nodejs-version=24 --auto', 'ddev config --php-version=8.4', 'ddev start -y', 'ddev exec node -v']);
+});
+
 test('a new build takes --runtime (WORKSPACE_RUNTIME), else settings, else DDEV', () => {
   const dir = sandbox();
   const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-runtime-new-'));

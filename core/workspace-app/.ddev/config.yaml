@@ -86,7 +86,8 @@ web_environment: []
 corepack_enable: true
 omit_containers: [db]
 nodejs_version: "26"
-webimage_extra_packages: [screen]
+# libatomic1: Node.js from 25 on links against it, and the web image does not carry it.
+webimage_extra_packages: [screen, libatomic1]
 web_extra_daemons:
 - name: "workspace-app"
   # `sg docker` runs the app with the container's "docker" group (GID matched
