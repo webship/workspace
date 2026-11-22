@@ -23,10 +23,11 @@
 
   // Resolved server-side by speech.js. Absent only if the page failed to render its head, in which
   // case the browser's own defaults are the right fallback rather than refusing to work.
-  const cfg = (window.WS_SPEECH && window.WS_SPEECH.fieldMic) || null;
-  // `|| null` turns `fieldMic: false` (voice input off) into null, so the microphones stay on then: kept as it was in
-  // this conversion, and fixed on its own (webship/workspace#741).
-  const enabled = (): boolean => !!SpeechRecognition;
+  // `fieldMic: false` is the setting turned off (voice input: false); absent (null) means the page's head did not say.
+  const given = window.WS_SPEECH ? window.WS_SPEECH.fieldMic : null;
+  const cfg = given || null;
+  // Off when voice input is switched off (#741): the `false` is read before `|| null` could turn it into "not said".
+  const enabled = (): boolean => !!SpeechRecognition && given !== false;
 
   document.addEventListener('DOMContentLoaded', () => {
     if (!SpeechRecognition) {
