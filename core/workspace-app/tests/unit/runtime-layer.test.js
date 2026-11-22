@@ -189,6 +189,10 @@ test('kubernetes: config writes compose.yaml and k8s/ manifests, and each verb b
   assert.match(stack, /image: webship-k1-web\n\s+imagePullPolicy: Never/);
   assert.match(stack, new RegExp(`hostPath: \\{path: ${p}, type: Directory\\}`));
   assert.match(stack, /type: NodePort/);
+  // No service links: DB_PORT=tcp://… and MAIL_PORT=tcp://… would override an app's own settings.
+  const pods = stack.split('\n---\n').filter((d) => /^kind: Deployment$/m.test(d));
+  assert.strictEqual(pods.length, 3);
+  for (const d of pods) assert.match(d, /^ {6}enableServiceLinks: false\n {6}containers:$/m, d.match(/name: (\w+)/)[1]);
   const r = run(dir, p, 'ddev drush cr; ddev mysql -e "select 1"; ddev stop; ddev logs');
   assert.deepStrictEqual(r.calls, [
     'kubectl --context kind-webship -n ws-k1 exec -i deploy/web -c web -- runuser -u www-data -- bash -c cd /var/www/html && vendor/bin/drush cr ',
