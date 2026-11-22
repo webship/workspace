@@ -45,7 +45,7 @@ async function runtime_verb({ form, send, workspace, pathname }) {
   const projectDir = path.join(workspaceDir(workspace), projectName);
   const project = projectRuntime.readProject(projectDir);
   if (!projectRuntime.isRuntimeProject(project)) {
-    return send('<div class="msg error">Not a project on Docker Compose, Podman or Kubernetes: it has no compose.yaml written by the Webship Workspace.</div>', 400);
+    return send('<div class="msg error">Not a project on another runtime than DDEV: it has no file of the runtime layer of the Webship Workspace (an x-webship block in compose.yaml or .lando.yml).</div>', 400);
   }
   const label = `${project.runtime} ${act.verb}`;
   if (act.destructive && form.confirm !== 'yes') {

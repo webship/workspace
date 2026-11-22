@@ -238,7 +238,7 @@ function testing_require_project() {
   fi
   if [ ! -f "${project_path}/.ddev/config.yaml" ] && ! { declare -f rt_find_project > /dev/null && rt_find_project "${project_path}" > /dev/null ; } ; then
     echo "${doc_name}/${PROJECT_NAME} is not a DDEV project — the testing stack runs inside DDEV.";
-    echo "  (A site built with --runtime docker, podman or kubernetes runs it in that runtime's tests container.)";
+    echo "  (A site built with --runtime docker, podman, kubernetes or lando runs it in that runtime's tests container.)";
     return 1 ;
   fi
   return 0 ;

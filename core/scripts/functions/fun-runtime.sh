@@ -1,34 +1,51 @@
 #!/usr/bin/env bash
-# The container runtimes of the Webship Workspace (webship/workspace#694): DDEV by default, and Docker Compose and
-# Podman for a project built with --runtime docker|podman (Kubernetes, Lando and Docksal follow on this layer).
+# The container runtimes of the Webship Workspace (webship/workspace#694): DDEV by default, and Docker Compose,
+# Podman, Kubernetes and Lando (#729) for a project built with --runtime docker|podman|kubernetes|lando.
 #
 # Every builder, tool and menu speaks DDEV's verbs (`ddev config`, `ddev start`, `ddev composer`, `ddev drush`,
 # `ddev exec`, `ddev export-db` ...). On a DDEV project those are DDEV itself, exactly as before. On another runtime
 # the `ddev` function below gives each verb its meaning there, so the same builders and plugins work unchanged.
 #
-# A project's runtime is what it carries: .ddev/config.yaml (DDEV), or a compose.yaml with an `x-webship:` block
-# (Docker, Podman, or Kubernetes, whose manifests are written from it into k8s/). A new build takes WORKSPACE_RUNTIME (a builder's --runtime), else settings.yml's
-# container.runtime, else DDEV.
+# A project's runtime is what it carries: an `x-webship:` block, written by the Workspace (in compose.yaml for Docker,
+# Podman, or Kubernetes, whose manifests are written from it into k8s/; in .lando.yml for Lando), else .ddev/config.yaml
+# (DDEV), else a .lando.yml of the project's own (Lando). A new build takes WORKSPACE_RUNTIME (a builder's --runtime),
+# else settings.yml's container.runtime, else DDEV.
 
 RT_STACKS="${WORKSPACE_ROOT:-}/core/config/runtimes"
 
+# The files that can carry the x-webship block, in the order they are read.
+RT_META_FILES=(compose.yaml .lando.yml)
+
+# The file of a project that carries its x-webship block, relative to its root (compose.yaml when none does).
+function rt_meta_file() {
+  local f ;
+  for f in "${RT_META_FILES[@]}" ; do
+    [ -f "$1/${f}" ] && grep -q '^x-webship:' "$1/${f}" && { echo "${f}" ; return 0 ; } ;
+  done
+  echo compose.yaml ;
+}
+
 # The project's root and runtime, looking up from a folder: "<runtime> <root>", or nothing.
 function rt_find_project() {
-  local d="${1:-$PWD}" ;
+  local d="${1:-$PWD}" f ;
   d="$(cd "${d}" 2>/dev/null && pwd)" || return 1 ;
   while [ -n "${d}" ] && [ "${d}" != "/" ] ; do
     # The x-webship block first: only the Workspace writes it, on a build that is not DDEV's, and a project template
     # may ship a .ddev/ of its own (drupal/webship_project does), which must not turn that build into a DDEV one.
-    if [ -f "${d}/compose.yaml" ] && grep -q '^x-webship:' "${d}/compose.yaml" ; then
-      echo "$(sed -n '/^x-webship:/,/^[^ ]/s/^  runtime: *//p' "${d}/compose.yaml" | head -1 | tr -d '"') ${d}" ; return 0 ;
-    fi
+    for f in "${RT_META_FILES[@]}" ; do
+      if [ -f "${d}/${f}" ] && grep -q '^x-webship:' "${d}/${f}" ; then
+        echo "$(sed -n '/^x-webship:/,/^[^ ]/s/^  runtime: *//p' "${d}/${f}" | head -1 | tr -d '"') ${d}" ; return 0 ;
+      fi
+    done
     if [ -f "${d}/.ddev/config.yaml" ] ; then echo "ddev ${d}" ; return 0 ; fi
+    # A Landofile of the project's own, which the Workspace did not write: Lando's (#729).
+    if [ -f "${d}/.lando.yml" ] || [ -f "${d}/.lando.yaml" ] ; then echo "lando ${d}" ; return 0 ; fi
     d="$(dirname "${d}")" ;
   done
   return 1 ;
 }
 
-# The runtime of a folder's project, or of a new build: ddev, docker or podman.
+# The runtime of a folder's project, or of a new build: ddev, docker, podman, kubernetes or lando.
 function runtime_of() {
   local found ;
   found="$(rt_find_project "${1:-$PWD}")" && { echo "${found%% *}" ; return 0 ; } ;
@@ -49,7 +66,22 @@ except Exception: pass' "$1/composer.json" 2>/dev/null)" ;
 }
 
 # A value of the project's x-webship block.
-function rt_meta() { sed -n '/^x-webship:/,/^[^ x]/s/^  '"$1"': *//p' "$2/compose.yaml" | head -1 | tr -d '"' ; }
+function rt_meta() {
+  local f ; f="$2/$(rt_meta_file "$2")" ; [ -f "${f}" ] || return 0 ;
+  sed -n '/^x-webship:/,/^[^ x]/s/^  '"$1"': *//p' "${f}" | head -1 | tr -d '"' ;
+}
+
+# The project's name: its x-webship block's, else the top-level `name:` of its file (compose.yaml, .lando.yml), else
+# its folder's.
+function rt_name() {
+  local n f ; n="$(rt_meta name "$1")" ;
+  if [ -z "${n}" ] ; then
+    for f in "$(rt_meta_file "$1")" .lando.yml .lando.yaml ; do
+      [ -f "$1/${f}" ] && n="$(sed -n 's/^name: *//p' "$1/${f}" | head -1 | tr -d "\"'")" ; [ -n "${n}" ] && break ;
+    done
+  fi
+  echo "${n:-$(basename "$1")}" ;
+}
 
 # A platform plugin claims a project of a runtime: `platform: <plugin>` in the x-webship block, which is on these
 # runtimes what the plugin's own `.ddev/config.<plugin>.yaml` is on DDEV (#490). A plugin whose platform is the
@@ -62,8 +94,10 @@ function rt_claim() {
   found="$(rt_find_project "${2:-$PWD}")" || { echo "rt_claim: no project in ${2:-$PWD} (run it after 'ddev config')." >&2 ; return 1 ; } ;
   [ "${found%% *}" = ddev ] && return 0 ;
   root="${found#* }" ;
-  if [ -n "$(rt_meta platform "${root}")" ] ; then sed -i "/^x-webship:/,/^[^ x]/s/^  platform: .*/  platform: ${plugin}/" "${root}/compose.yaml" ;
-  else sed -i "/^x-webship:\$/a\\  platform: ${plugin}" "${root}/compose.yaml" ; fi
+  local file ; file="${root}/$(rt_meta_file "${root}")" ;
+  grep -q '^x-webship:' "${file}" 2>/dev/null || { echo "rt_claim: ${root} was not built by the Workspace (no x-webship block)." >&2 ; return 1 ; } ;
+  if [ -n "$(rt_meta platform "${root}")" ] ; then sed -i "/^x-webship:/,/^[^ x]/s/^  platform: .*/  platform: ${plugin}/" "${file}" ;
+  else sed -i "/^x-webship:\$/a\\  platform: ${plugin}" "${file}" ; fi
 }
 
 # Is the project of a folder this platform's? On DDEV its project type, or the plugin's `.ddev/config.<name>.yaml`;
@@ -93,6 +127,8 @@ function rt_url() {
   case "${rt}" in
     ddev) echo "https://$(sed -n 's/^name: *//p' "${root}/.ddev/config.yaml" | head -1).ddev.site" ;;
     kubernetes) echo "http://$(rt_k8s_node_ip):$(rt_meta port "${root}")" ;;
+    # A Landofile of the project's own has no port of the Workspace: Lando's proxy address.
+    lando) if [ -n "$(rt_meta port "${root}")" ] ; then echo "http://127.0.0.1:$(rt_meta port "${root}")" ; else echo "https://$(rt_lando_app "${root}").lndo.site" ; fi ;;
     *) echo "http://127.0.0.1:$(rt_meta port "${root}")" ;;
   esac
 }
@@ -129,6 +165,7 @@ function rt_mail_url() {
   rt="${found%% *}" ; root="${found#* }" ;
   if [ "${rt}" = ddev ] ; then echo "https://$(sed -n 's/^name: *//p' "${root}/.ddev/config.yaml" | head -1).ddev.site:8026" ; return 0 ; fi
   port="$(rt_meta mail_port "${root}")" ; [ -n "${port}" ] || return 0 ;
+  # Lando: a port of this machine, as on Docker Compose.
   if [ "${rt}" = kubernetes ] ; then echo "http://$(rt_k8s_node_ip):${port}" ; else echo "http://127.0.0.1:${port}" ; fi
 }
 
@@ -138,6 +175,7 @@ function ddev() {
     ''|ddev) rt_ddev_config_args "$@" ; command ddev "${RT_DDEV_ARGS[@]}" ;;
     docker|podman) rt_compose "${rt}" "$@" ;;
     kubernetes) rt_k8s "$@" ;;
+    lando) rt_lando "$@" ;;
     *) echo "The ${rt} runtime cannot run 'ddev $1' yet (webship/workspace#694)." >&2 ; return 1 ;;
   esac
 }
@@ -223,7 +261,9 @@ YAML
 # What DDEV does on start for a Drupal project: settings.php from default.settings.php, and the database settings in
 # a file of the runtime's own, included from settings.php (never a $databases block in settings.php itself).
 function rt_drupal_settings() {
-  local root="$1" docroot ; docroot="$(rt_meta docroot "${root}")" ;
+  # The database's host: db on Docker Compose, Podman and Kubernetes, Lando's database service on Lando.
+  local root="$1" host="${2:-db}" docroot ; docroot="$(rt_meta docroot "${root}")" ;
+  [[ "${host}" =~ ^[a-z0-9.-]+$ ]] || host=db ;
   local dir="${root}${docroot:+/${docroot}}/sites/default" ;
   [ -f "${dir}/default.settings.php" ] || return 0 ;
   [ -f "${dir}/settings.php" ] || { cp "${dir}/default.settings.php" "${dir}/settings.php" && chmod u+w "${dir}/settings.php" ; } ;
@@ -250,9 +290,10 @@ if (empty($settings['hash_salt'])) {
   $settings['hash_salt'] = hash('sha256', __DIR__);
 }
 PHP
+  sed -i "s/'host' => 'db',/'host' => '${host}',/" "${dir}/settings.webship-runtime.php" ;
   grep -q 'settings.webship-runtime.php' "${dir}/settings.php" || cat >> "${dir}/settings.php" <<'PHP'
 
-// The Webship Workspace's container runtime (Docker, Podman, Kubernetes): its database settings.
+// The Webship Workspace's container runtime (Docker, Podman, Kubernetes, Lando): its database settings.
 if (getenv('WEBSHIP_RUNTIME') && file_exists($app_root . '/' . $site_path . '/settings.webship-runtime.php')) {
   include $app_root . '/' . $site_path . '/settings.webship-runtime.php';
 }
@@ -686,5 +727,237 @@ function rt_k8s() {
     logs) rt_kubectl -n "${ns}" logs deploy/web --tail "${LOG_LINES:-200}" ;;
     version|--version|-v) echo "the Webship Workspace's kubernetes runtime (no DDEV), context $(rt_kctx)" ;;
     *) echo "The kubernetes runtime cannot run 'ddev ${verb}' (webship/workspace#694)." >&2 ; return 1 ;;
+  esac
+}
+
+# --- Lando (#729) -----------------------------------------------------------------------------------------------
+# The same stack in a .lando.yml: Lando's lamp recipe (Apache, PHP, MariaDB) with the docroot, PHP and MariaDB a build
+# asks for, Mailpit, and the x-webship block. The site answers on a port of this machine (127.0.0.1), as on Docker
+# Compose, and so does its mailbox. Every call the Workspace makes runs with LANDO_PROXY=OFF: Lando's proxy would ask
+# for ports 80 and 443, which DDEV's router holds, and the site needs none of it. LANDO_CHANNEL=none keeps Lando's
+# update notices out of what a build reads. Nothing in ~/.lando is changed.
+#
+# A Landofile of the project's own (one the Workspace did not write) runs too, through Lando's own commands: its
+# services are found by their names (appserver, database), its database credentials from the service itself.
+
+function rt_lando_cli() { LANDO_PROXY=OFF LANDO_CHANNEL=none LANDO_NO_UPDATE_NOTIFY=1 "${WORKSPACE_LANDO_BIN:-lando}" "$@" ; }
+function rt_lando_bin() { command -v "${WORKSPACE_LANDO_BIN:-lando}" > /dev/null 2>&1 || [ -x "${HOME}/.local/bin/lando" ] ; }
+
+# Lando's name of an app: lower case, without - _ and . (Lando's own rule), as its containers are named.
+function rt_lando_app() { local n ; n="$(rt_name "$1")" ; n="${n,,}" ; echo "${n//[^a-z0-9]/}" ; }
+
+# Writes .lando.yml (and the Apache file that lets the site reach itself at its own address) for a project.
+function rt_lando_write() {
+  local root="$1" name="$2" type="$3" docroot="$4" php="$5" db="$6" port="$7" platform="${8:-}" mail_port="${9:-}" ;
+  local webroot="/app${docroot:+/${docroot}}" mail_ports="" ;
+  # The mailbox, on this machine only: the tests of the site read the mail it sent there (MAIL_URL).
+  [ -n "${mail_port}" ] && mail_ports=$'\n    # The mailbox, on this machine only (MAIL_URL).\n    overrides:\n      ports:\n        - "127.0.0.1:'"${mail_port}"$':80"' ;
+  mkdir -p "${root}/.webship/runtime" ;
+  # Apache also answers on the site's own port inside the container, so http://127.0.0.1:<port> is the site from
+  # there too (a platform's scheduled tasks and its own checks call it): as the php stack's Dockerfile does.
+  cat > "${root}/.webship/runtime/lando-port.conf" <<APACHE
+# Written by the Webship Workspace's lando runtime (webship/workspace#729): the site on its own port inside the container.
+Listen ${port}
+<VirtualHost *:${port}>
+  DocumentRoot ${webroot}
+  <Directory ${webroot}>
+    Options FollowSymLinks
+    AllowOverride All
+    Require all granted
+  </Directory>
+</VirtualHost>
+APACHE
+  # The database clients of the web container skip TLS: in /usr/local/sbin, before Lando's own in /usr/local/bin.
+  cat > "${root}/.webship/runtime/lando-clients.sh" <<'SH'
+# Written by the Webship Workspace's lando runtime (webship/workspace#729), run as root when the app is built.
+for b in mysql mariadb mysqldump mariadb-dump ; do
+  case "${b}" in *dump) t=/usr/bin/mariadb-dump ;; *) t=/usr/bin/mariadb ;; esac
+  [ -x "${t}" ] || continue
+  printf '#!/bin/sh\nexec %s "$@" --skip-ssl\n' "${t}" > "/usr/local/sbin/${b}"
+  chmod +x "/usr/local/sbin/${b}"
+done
+SH
+  cat > "${root}/.lando.yml" <<YAML
+# Written by the Webship Workspace (its lando runtime, webship/workspace#729). Run it with: lando start
+name: ${name}
+x-webship:${platform:+
+  platform: ${platform}}
+  runtime: lando
+  stack: php
+  type: ${type}
+  docroot: "${docroot}"
+  php: "${php}"
+  database: "${db}"
+  port: ${port}${mail_port:+
+  mail_port: ${mail_port}}
+recipe: lamp
+config:
+  webroot: "${docroot:-.}"
+  php: "${php}"
+  database: mariadb:${db}
+  via: apache
+  xdebug: false
+services:
+  appserver:
+    build_as_root:
+      # WP-CLI, as the php stack has it.
+      - command -v wp > /dev/null || { curl -fsSL -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && chmod +x /usr/local/bin/wp ; }
+      # The image's MariaDB 11 client asks for TLS, which the database does not have (Drush: "ERROR 2026: SSL is
+      # required"): the clients skip it, as in the php stack (.webship/runtime/lando-clients.sh).
+      - bash /app/.webship/runtime/lando-clients.sh
+    overrides:
+      environment:
+        WEBSHIP_RUNTIME: lando
+        WEBSHIP_PORT: "${port}"
+      volumes:
+        - ./.webship/runtime/lando-port.conf:/etc/apache2/conf-enabled/webship-port.conf
+      ports:
+        - "127.0.0.1:${port}:80"
+  database:
+    creds:
+      user: db
+      password: db
+      database: db
+    # Also on the host db, as on the other runtimes: a platform plugin writes its config with db/db/db on db.
+    overrides:
+      networks:
+        default:
+          aliases:
+            - db
+  mailpit:
+    type: mailpit
+    mailFrom:
+      - appserver${mail_ports}
+YAML
+}
+
+# The containers of a Lando app, by the label Lando gives them: its folder.
+function rt_lando_containers() { docker ps ${2:+-a} -q --filter "label=io.lando.root=$1" 2> /dev/null ; }
+
+# A command in a service of the app. -i keeps what is piped in.
+function rt_lando_x() {
+  local root="$1" svc="$2" ; shift 2 ;
+  ( cd "${root}" && rt_lando_cli exec "${svc}" -- "$@" ) ;
+}
+
+# Waits for the app's containers to run and its database to answer, up to WORKSPACE_LANDO_WAIT seconds (180).
+function rt_lando_wait_db() {
+  local root="$1" i ;
+  for (( i = 0 ; i < ${WORKSPACE_LANDO_WAIT:-180} ; i += 5 )) ; do
+    if [ -n "$(rt_lando_containers "${root}")" ] && [ -z "$(docker ps -a -q --filter "label=io.lando.root=${root}" --filter status=exited 2> /dev/null)" ] \
+       && rt_lando_x "${root}" database bash -c 'mysql -u"${MARIADB_USER:-db}" -p"${MARIADB_PASSWORD:-db}" -e "SELECT 1"' > /dev/null 2>&1 ; then
+      return 0 ;
+    fi
+    sleep 5 ;
+  done
+  return 1 ;
+}
+
+function rt_lando() {
+  local verb="${1:-}" ; shift || true ;
+  local found root="" rel="" ;
+  found="$(rt_find_project)" && [ "${found%% *}" = lando ] && root="${found#* }" ;
+  [ -n "${root}" ] && rel="${PWD#${root}}" ;
+  local workdir="/app${rel}" ;
+  rt_lando_bin || { echo "The lando runtime needs Lando (https://docs.lando.dev/install/): no lando on PATH or in ~/.local/bin." >&2 ; return 1 ; } ;
+  case ":${PATH}:" in *":${HOME}/.local/bin:"*) ;; *) [ -d "${HOME}/.local/bin" ] && PATH="${PATH}:${HOME}/.local/bin" ;; esac
+  # The database of the app: the Workspace's (db), or a Landofile's own, read from the service.
+  local dbcmd='mysql -u"${MARIADB_USER:-${MYSQL_USER:-db}}" -p"${MARIADB_PASSWORD:-${MYSQL_PASSWORD:-db}}" "${MARIADB_DATABASE:-${MYSQL_DATABASE:-db}}"' ;
+  local dumpcmd='mysqldump -u"${MARIADB_USER:-${MYSQL_USER:-db}}" -p"${MARIADB_PASSWORD:-${MYSQL_PASSWORD:-db}}" "${MARIADB_DATABASE:-${MYSQL_DATABASE:-db}}"' ;
+  case "${verb}" in
+    config)
+      [ "${1:-}" = global ] && return 0 ;
+      root="${root:-$PWD}" ;
+      if [ -f "${root}/.lando.yml" ] && ! grep -q '^x-webship:' "${root}/.lando.yml" ; then
+        echo "${root}/.lando.yml is the project's own: the Workspace leaves it as it is." ; return 0 ;
+      fi
+      local name type docroot php db port platform mail_port a ;
+      if [ -f "${root}/.lando.yml" ] ; then
+        name="$(rt_name "${root}")" ; type="$(rt_meta type "${root}")" ; docroot="$(rt_meta docroot "${root}")" ;
+        php="$(rt_meta php "${root}")" ; db="$(rt_meta database "${root}")" ; port="$(rt_meta port "${root}")" ;
+        platform="$(rt_meta platform "${root}")" ; mail_port="$(rt_meta mail_port "${root}")" ;
+      fi
+      for a in "$@" ; do
+        case "${a}" in
+          --project-name=*) name="${a#*=}" ;; --project-type=*) type="${a#*=}" ;; --docroot=*) docroot="${a#*=}" ;;
+          --php-version=*) php="${a#*=}" ;; --database=*) db="${a#*=}" ; db="${db#*:}" ;;
+        esac
+      done
+      rt_lando_write "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" ;
+      echo "Wrote .lando.yml for lando (${type:-php}, PHP ${php:-8.3}, MariaDB ${db:-10.11}): $(rt_url "${root}")" ;;
+    start|restart)
+      [ -n "${root}" ] || { echo "No lando project here." >&2 ; return 1 ; } ;
+      # A Landofile the Workspace wrote again (a new docroot, PHP or database) is applied with a rebuild: Lando's
+      # start keeps the containers as they were made.
+      local landofile_sum ; landofile_sum="$(cat "${root}/.lando.yml" "${root}/.webship/runtime/lando-port.conf" "${root}/.webship/runtime/lando-clients.sh" 2> /dev/null | md5sum | cut -c1-32)" ;
+      local rc=0 ;
+      if [ -n "$(rt_lando_containers "${root}" all)" ] && [ "$(cat "${root}/.webship/runtime/lando.sum" 2> /dev/null)" != "${landofile_sum}" ] && grep -q '^x-webship:' "${root}/.lando.yml" ; then
+        ( cd "${root}" && rt_lando_cli rebuild -y ) || rc=$? ;
+      elif [ "${verb}" = restart ] ; then ( cd "${root}" && rt_lando_cli restart ) || rc=$? ;
+      else ( cd "${root}" && rt_lando_cli start ) || rc=$? ; fi
+      # A database made for the first time can take longer than Lando's healthcheck waits for (found on a real
+      # build: "The service database failed its healthcheck" with everything up a minute later). Lando then
+      # answers 1 though the app runs: the database is asked itself, for up to three minutes, before that counts.
+      if [ "${rc}" -ne 0 ] ; then
+        rt_lando_wait_db "${root}" || return "${rc}" ;
+        echo "(lando said ${rc}, and the app is up: its database answers now)" ;
+      fi
+      [ -d "${root}/.webship/runtime" ] && echo "${landofile_sum}" > "${root}/.webship/runtime/lando.sum" ;
+      case "$(rt_meta type "${root}")" in drupal*) rt_drupal_settings "${root}" database ;; esac ;
+      echo "Running on lando: $(rt_url "${root}")" ;;
+    stop) ( cd "${root}" && rt_lando_cli stop ) ;;
+    poweroff|list|add-on|get|snapshot|xdebug|mutagen|auth|share|hostname|debug|self-upgrade) echo "(lando: 'ddev ${verb}' has nothing to do here)" ;;
+    describe)
+      if [ -n "${1:-}" ] && [ -z "${root}" ] ; then
+        [ -n "$(docker ps -a -q --filter "label=com.docker.compose.project=$(n="${1,,}" ; echo "${n//[^a-z0-9]/}")" --filter label=io.lando.container=TRUE 2>/dev/null)" ] ; return $? ;
+      fi
+      [ -n "${root}" ] || return 1 ;
+      case "${1:-}" in -j|--json-output)
+        local up=stopped ; [ -n "$(rt_lando_containers "${root}")" ] && up=running ;
+        rt_describe_json "$(rt_name "${root}")" "${up}" "$(rt_url "${root}")" lando ; return 0 ;;
+      esac
+      echo "$(rt_name "${root}") on lando: $(rt_url "${root}")" ; ( cd "${root}" && rt_lando_cli info ) ;;
+    delete)
+      if [ -n "${root}" ] ; then ( cd "${root}" && rt_lando_cli destroy -y ) ;
+      else
+        # An app whose folder is gone (a rebuild of the same name): its containers and volumes, by Lando's name.
+        local n app ids ; for n in "$@" ; do case "${n}" in -*) ;; *)
+          app="${n,,}" ; app="${app//[^a-z0-9]/}" ;
+          ids="$(docker ps -a -q --filter "label=com.docker.compose.project=${app}" --filter label=io.lando.container=TRUE 2>/dev/null)" ;
+          [ -n "${ids}" ] || continue ;
+          echo "${ids}" | xargs -r docker rm -f > /dev/null 2>&1 ;
+          docker volume ls -q --filter "label=com.docker.compose.project=${app}" 2>/dev/null | xargs -r docker volume rm -f > /dev/null 2>&1 ;;
+        esac ; done
+      fi ;;
+    composer)
+      if [ "${1:-}" = create-project ] ; then rt_lando_x "${root}" appserver bash -c "cd '${workdir}' && $(rt_create_project_cmd "$@")" ;
+      else rt_lando_x "${root}" appserver bash -c "cd '${workdir}' && composer $(printf '%q ' "$@")" ; fi ;;
+    drush) rt_lando_x "${root}" appserver bash -c "cd /app && $(rt_bin_dir "${root}")/drush $(printf '%q ' "$@")" ;;
+    php|wp) rt_lando_x "${root}" appserver bash -c "cd '${workdir}' && ${verb} $(printf '%q ' "$@")" ;;
+    npm|npx|node|yarn) rt_tests_run lando "${root}" "${PWD}" "${verb} $(printf '%q ' "$@")" ;;
+    exec)
+      local svc=web ; while [ $# -gt 0 ] ; do case "$1" in -s|--service) svc="$2" ; shift 2 ;; -d|--dir) workdir="$2" ; shift 2 ;; --raw) shift ;; --) shift ; break ;; *) break ;; esac ; done
+      local line ; line="$(rt_exec_line "$@")" ;
+      if [ "${svc}" = tests ] ; then rt_tests_run lando "${root}" "${PWD}" "${line}" ; return $? ; fi
+      # DDEV's service names are Lando's appserver and database.
+      case "${svc}" in web) svc=appserver ;; db) svc=database ;; mail) svc=mailpit ;; esac ;
+      if [ "${svc}" = appserver ] ; then rt_lando_x "${root}" appserver bash -c "cd '${workdir}' && ${line}" ;
+      else rt_lando_x "${root}" "${svc}" bash -c "${line}" ; fi ;;
+    ssh)
+      if [ -t 0 ] ; then ( cd "${root}" && rt_lando_cli ssh ) ;
+      else rt_lando_x "${root}" appserver bash ; fi ;;
+    mysql) rt_lando_x "${root}" database bash -c "${dbcmd} $(printf '%q ' "$@")" ;;
+    export-db)
+      local file ; file="$(rt_file_arg "$@")" ;
+      if [ -n "${file}" ] ; then rt_lando_x "${root}" database bash -c "${dumpcmd}" | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
+      else rt_lando_x "${root}" database bash -c "${dumpcmd}" | gzip ; fi ;;
+    import-db)
+      local file ; file="$(rt_file_arg "$@")" ;
+      [ -f "${file}" ] || { echo "No such file: ${file}" >&2 ; return 1 ; } ;
+      case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | rt_lando_x "${root}" database bash -c "${dbcmd}" ;;
+    launch) echo "$(rt_url "${root}")${1:-}" ;;
+    logs) ( cd "${root}" && rt_lando_cli logs -s appserver ) | tail -n "${LOG_LINES:-200}" ;;
+    version|--version|-v) echo "the Webship Workspace's lando runtime (no DDEV), lando $(rt_lando_cli version 2>/dev/null)" ;;
+    *) echo "The lando runtime cannot run 'ddev ${verb}' (webship/workspace#729)." >&2 ; return 1 ;;
   esac
 }

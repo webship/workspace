@@ -35,21 +35,21 @@ Nothing is added to `package.json` until you ask for it. The skeleton and the ma
 
 ## Runtimes
 
-A site runs on a container runtime. DDEV is the default, and a builder can also build on Docker Compose, Podman or a Kubernetes cluster:
+A site runs on a container runtime. DDEV is the default, and a builder can also build on Docker Compose, Podman, a Kubernetes cluster or Lando:
 
 ```bash
-bash dev/cmd-drupal11-recommended-project.sh mysite --install --runtime docker      # or kubernetes, podman
+bash dev/cmd-drupal11-recommended-project.sh mysite --install --runtime docker      # or kubernetes, podman, lando
 ```
 
-| | DDEV | Docker Compose | Kubernetes | Podman |
-|---|---|---|---|---|
-| Build and install a Drupal site | Yes | Yes | Yes | Yes |
-| The dashboard's row, the Tests menu, backups | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman |
-| A WordPress site (the WordPress plugin's builder, tool and tests) | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman |
-| The other platform plugins' builders | Yes | On the way | On the way | On the way |
-| The dashboard itself | Yes | Yes | Yes, with limits | On the way |
+| | DDEV | Docker Compose | Kubernetes | Podman | Lando |
+|---|---|---|---|---|---|
+| Build and install a Drupal site | Yes | Yes | Yes | Yes | Yes |
+| The dashboard's row, the Tests menu, backups | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes |
+| A WordPress site (the WordPress plugin's builder, tool and tests) | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes |
+| The other platform plugins' builders | Yes | On the way | On the way | On the way | On the way |
+| The dashboard itself | Yes | Yes | Yes, with limits | On the way | No (it builds Lando sites from DDEV, Docker Compose or Kubernetes) |
 
-[Runtimes](core/docs/runtimes.md) has the whole table, what a project carries on each runtime, and how to choose a cluster. Lando and Docksal are planned next.
+[Runtimes](core/docs/runtimes.md) has the whole table, what a project carries on each runtime, and how to choose a cluster. Docksal is planned next.
 
 ## What a plugin is
 
@@ -63,7 +63,7 @@ An npm package `@webship.co/workspace-<name>` (repository `github.com/webship/wo
 - [Using plugins: a help guide](core/docs/plugins-guide.md) — find a plugin, add it, set it up, use it, keep it up to date, take it out.
 - [Plugins](core/docs/plugins.md) — the four steps, the families, writing one.
 - [Workspaces](core/docs/workspaces.md) — folders, types, builders and the `cmd-*.sh` commands.
-- [Runtimes](core/docs/runtimes.md) — DDEV, Docker Compose, Podman and Kubernetes: what works on each today, and how to build on one.
+- [Runtimes](core/docs/runtimes.md) — DDEV, Docker Compose, Podman, Kubernetes and Lando: what works on each today, and how to build on one.
 - [Platform plugins on the runtimes](core/docs/plugins-on-runtimes.md) — what a platform plugin changes to build on Docker Compose and Kubernetes, and the checklist to prove it.
 - [Testing](core/docs/testing.md) — unit tests, the webship-js browser suite, and the webship-js step packs a project can add (`cmd-tools-testing.sh <project> --list-steps`).
 - [Releases](core/docs/releases.md) — versions, npm, and how changes land (issues and pull requests).

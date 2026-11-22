@@ -270,7 +270,7 @@ test('what must not run does not: delete without the confirm, a verb that needs 
   for (const name of ['ddev-site', 'plain-folder', 'hand-compose']) {
     const r = await post('/actions/runtime-start', { workspace: 'dev', projectName: name });
     assert.strictEqual(r.status, 400, name);
-    assert.match(r.html, /Not a project on Docker Compose, Podman or Kubernetes/);
+    assert.match(r.html, /Not a project on another runtime than DDEV/);
   }
   assert.strictEqual((await post('/actions/runtime-start', { workspace: 'dev', projectName: '../etc' })).status, 400);
   const ddevVerb = await post('/actions/ddev-start', { workspace: 'dev', projectName: 'dock-site' });
@@ -329,7 +329,7 @@ test('the source: a restored runtime project starts and imports through the laye
   const restore = server.slice(server.indexOf("pathname === '/actions/restore'"), server.indexOf("pathname === '/actions/backup-delete'"));
   assert.match(restore, /const viaRuntime = projectRuntime\.verbLine\(\[\]\);/);
   assert.match(restore, /\$\{viaRuntime\} start -y && echo "Importing database…" && \$\{viaRuntime\} import-db --file='\$\{dbFile\}'/);
-  assert.match(restore, /grep -q '\^x-webship:' '\$\{targetDir\}\/compose\.yaml'/);
+  assert.match(restore, /grep -qs '\^x-webship:' \$\{projectRuntime\.META_FILES\.map\(\(f\) => `'\$\{targetDir\}\/\$\{f\}'`\)\.join\(' '\)\}/, 'every file that carries the block');
   assert.match(server, /if \(isRuntime\) for \(const id of projectRuntime\.RUNTIMES\) if \(id in pluginMenus\) pluginMenus\[id\] = '';/);
   assert.match(server, /const siteButton = ddevButton \|\| runtimeButton;/);
 });

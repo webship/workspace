@@ -188,19 +188,26 @@ function runtime_leftovers() {
     rt_kubectl get ns "ws-${name}" -o name 2> /dev/null ;
     return 0 ;
   fi
+  # Lando names an app's containers and volumes its own way (rt_lando_app): by the folder's label and that name.
+  if [ "${rt}" == 'lando' ] ; then
+    local app="${name,,}" ; app="${app//[^a-z0-9]/}" ;
+    docker ps -a --filter "label=io.lando.root=${3:-}" --format '{{.Names}}' 2> /dev/null ;
+    docker volume ls --filter "label=com.docker.compose.project=${app}" --format '{{.Name}}' 2> /dev/null ;
+    return 0 ;
+  fi
   engine="$(rt_engine "${rt}")" ;
   "${engine}" ps -a --filter "label=com.docker.compose.project=${name}" --format '{{.Names}}' 2> /dev/null ;
   "${engine}" volume ls --filter "label=com.docker.compose.project=${name}" --format '{{.Name}}' 2> /dev/null ;
 }
 
-# Remove a project that runs on Docker Compose, Podman or Kubernetes: the runtime first (its containers and its
+# Remove a project that runs on Docker Compose, Podman, Kubernetes or Lando: the runtime first (its containers and its
 # database volume, or its namespace), then the image the project was built with, then the directory — and never the
 # directory while the runtime still holds something, as for DDEV.
 function remove_runtime_project() {
   local project="$1" rt="$2" wt_role="$3" wt_primary="$4" ;
   local workspace_dir="${WORKSPACE_ROOT}/${doc_name}" dir name engine ;
   dir="${workspace_dir}/${project}" ;
-  name="$(sed -n 's/^name: *//p' "${dir}/compose.yaml" | head -1 | tr -d '"')" ; name="${name:-${project}}" ;
+  name="$(rt_name "${dir}")" ; name="${name:-${project}}" ;
   engine="$(rt_engine "${rt}")" ;
 
   echo "*---------------------------------------------------------------------*";
@@ -226,13 +233,20 @@ function remove_runtime_project() {
   ( cd "${dir}" && ddev delete -y -O ) || echo "  delete on ${rt} failed: its words are above." ;
 
   local leftovers ;
-  leftovers="$(runtime_leftovers "${rt}" "${name}")" ;
-  if [ -n "${leftovers}" ] && [ "${rt}" != 'kubernetes' ] ; then
+  leftovers="$(runtime_leftovers "${rt}" "${name}" "${dir}")" ;
+  if [ -n "${leftovers}" ] && [ "${rt}" == 'lando' ] ; then
+    echo "  docker still holds:" ; echo "${leftovers}" | sed 's/^/    /' ;
+    echo "  Cleaning those up…" ;
+    local app="${name,,}" ; app="${app//[^a-z0-9]/}" ;
+    docker ps -a -q --filter "label=io.lando.root=${dir}" 2> /dev/null | xargs -r docker rm -f > /dev/null 2>&1 ;
+    docker volume ls -q --filter "label=com.docker.compose.project=${app}" 2> /dev/null | xargs -r docker volume rm -f > /dev/null 2>&1 ;
+    leftovers="$(runtime_leftovers "${rt}" "${name}" "${dir}")" ;
+  elif [ -n "${leftovers}" ] && [ "${rt}" != 'kubernetes' ] ; then
     echo "  ${engine} still holds:" ; echo "${leftovers}" | sed 's/^/    /' ;
     echo "  Cleaning those up…" ;
     "${engine}" ps -a --filter "label=com.docker.compose.project=${name}" -q 2> /dev/null | xargs -r "${engine}" rm -f > /dev/null 2>&1 ;
     "${engine}" volume ls --filter "label=com.docker.compose.project=${name}" -q 2> /dev/null | xargs -r "${engine}" volume rm -f > /dev/null 2>&1 ;
-    leftovers="$(runtime_leftovers "${rt}" "${name}")" ;
+    leftovers="$(runtime_leftovers "${rt}" "${name}" "${dir}")" ;
   fi
   if [ -n "${leftovers}" ] ; then
     echo "" ;
@@ -258,6 +272,7 @@ function remove_runtime_project() {
   remove_project_worktree_after "${wt_role}" "${wt_primary}" "${project}" ;
 
   if [ "${rt}" == 'kubernetes' ] ; then echo "  Removed ${dir}, its namespace ws-${name} and its image." ;
+  elif [ "${rt}" == 'lando' ] ; then echo "  Removed ${dir}, its Lando app (containers and volumes)." ;
   else echo "  Removed ${dir}, its containers, its database volume and its image." ; fi
 }
 
