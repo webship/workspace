@@ -49,6 +49,7 @@ const ddevSnapshots = require('./ddev-snapshots');
 const { addonsPanelHtml } = require('./ddev-addons-page');
 const ddevImport = require('./ddev-import');
 const ddevMail = require('./ddev-mail-page');
+const projectRuntime = require('./project-runtime');
 
 // The project rows render synchronously, so the SCREENS badge counts from the
 // .cwd notes against a short-lived snapshot of `screen -ls`; the dropdown asks
@@ -1013,7 +1014,10 @@ function composerMenuBody(key, p, projectPath, isDdev, mode = 'manifest') {
       <li class="uk-nav-header">Composer · ${esc((pkg && pkg.name) || p)}</li>
       <li data-entry="how it runs"><span class="uk-text-meta">${manifest
         ? 'This workspace only edits composer.json: require and remove add or drop the line with --no-update. Nothing is installed.'
-        : (isDdev ? 'Runs as ddev composer in this project.' : "Not a DDEV project — runs in the dashboard's DDEV container.")}${pkg ? '' : ' composer.json is not valid JSON — validate says where.'}</span></li>
+        : (isDdev ? 'Runs as ddev composer in this project.'
+          : (projectRuntime.isRuntimeProject(projectRuntime.readProject(projectPath))
+            ? `Runs as composer in this project's ${projectRuntime.TITLES[projectRuntime.readProject(projectPath).runtime]} web container.`
+            : "Not a DDEV project — runs in the dashboard's DDEV container."))}${pkg ? '' : ' composer.json is not valid JSON — validate says where.'}</span></li>
       ${manifest ? `<li><a href="vscode://file${esc(path.join(projectPath, 'composer.json'))}" title="Opens composer.json in the VS Code on YOUR machine"><span uk-icon="icon: file-edit; ratio: .7"></span> Edit composer.json in VS Code</a></li>
       ${pluginFolderLinks(projectPath).map((l) => `<li><a href="${esc(l.href)}" target="_blank" rel="noopener" title="${esc(l.title || l.label)}"><span uk-icon="icon: ${esc(l.icon || 'code')}; ratio: .7"></span> ${esc(l.label)}</a></li>`).join('')}` : ''}`;
   const packageBlock = `
@@ -1117,7 +1121,10 @@ function nodeMenuBody(key, p, projectPath, isDdev) {
   const tabs = MANAGERS.map((m) => `<li><a href="#">${m} <span class="uk-text-meta">· ${info.locks[m] ? 'lock ✓' : 'no lock'}</span></a></li>`).join('');
   return `<ul class="uk-nav uk-dropdown-nav">
         <li class="uk-nav-header">Node · ${esc((info.pkg && typeof info.pkg.name === 'string' && info.pkg.name) || p)}</li>
-        <li data-entry="how it runs"><span class="uk-text-meta">${isDdev ? 'Runs as ddev npm / ddev yarn in this project.' : "Not a DDEV project — runs in the dashboard's DDEV container."}${info.pinned ? ` packageManager: ${esc(info.pinned.spec)}.` : ''}${info.nodeModules ? ' node_modules is here.' : ' No node_modules yet.'}${info.valid ? '' : ' package.json is not valid JSON.'}</span></li>
+        <li data-entry="how it runs"><span class="uk-text-meta">${isDdev ? 'Runs as ddev npm / ddev yarn in this project.'
+          : (projectRuntime.isRuntimeProject(projectRuntime.readProject(projectPath))
+            ? `Runs as npm / yarn in the ${projectRuntime.TITLES[projectRuntime.readProject(projectPath).runtime]} tests container of this project (Node.js 24).`
+            : "Not a DDEV project — runs in the dashboard's DDEV container.")}${info.pinned ? ` packageManager: ${esc(info.pinned.spec)}.` : ''}${info.nodeModules ? ' node_modules is here.' : ' No node_modules yet.'}${info.valid ? '' : ' package.json is not valid JSON.'}</span></li>
       </ul>
       <ul class="uk-tab node-tabs" data-keep-open uk-tab="active: ${Math.max(0, MANAGERS.indexOf(info.preferred))}">${tabs}</ul>
       <div class="uk-switcher">${MANAGERS.map(panel).join('')}</div>`;
@@ -3234,6 +3241,62 @@ function ddevStateOf(dir, project, statuses) {
 
 
 /**
+ * A project on another runtime than DDEV (Docker Compose, Podman, Kubernetes: project-runtime.js): what it is, its
+ * address and its state. `states` is projectRuntime.statesFor()'s map. `isRuntime` is false for a DDEV project
+ * and for a plain folder, and the row then draws what it always drew.
+ */
+function runtimeStateOf(projectPath, states) {
+  const project = projectRuntime.readProject(projectPath);
+  const isRuntime = projectRuntime.isRuntimeProject(project);
+  const status = isRuntime ? ((states && states.get(project.root)) || 'unknown') : null;
+  return { project, isRuntime, runtime: isRuntime ? project.runtime : '', name: project.name, status,
+    running: status === 'running', url: isRuntime ? projectRuntime.urlOf(project) : '',
+    label: isRuntime ? projectRuntime.LABELS[project.runtime] : '', title: isRuntime ? projectRuntime.TITLES[project.runtime] : '' };
+}
+
+/**
+ * The runtime menu's items for one project on Docker Compose, Podman or Kubernetes: where the DDEV menu sits on
+ * a DDEV project, labelled with the runtime. Each verb posts to /actions/runtime-<verb> (actions/runtime.js) and
+ * runs as a screen session in the project. What the runtime layer does not do yet is said, not offered.
+ */
+function runtimeMenuItemsHtml({ key, p, meta, gates, rt }) {
+  const { canDrupal, canBackup, canRemove } = gates;
+  const { running, url, name, title, status } = rt;
+  const vals = (extra = '') => `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
+  const drupal = canDrupal && /^drupal/.test(rt.project.type || '');
+  return `
+          <li class="uk-nav-header" data-group="project">${esc(name)} · ${esc(title)}${rt.project.namespace ? ` · ${esc(rt.project.namespace)}` : ''}</li>
+          ${running
+    ? `<li data-entry="start-stop"><a href hx-post="/actions/runtime-stop" ${vals()}><span uk-icon="icon: ban; ratio: .7"></span> Stop</a></li>`
+    : `<li data-entry="start-stop"><a href hx-post="/actions/runtime-start" ${vals()}><span uk-icon="icon: play; ratio: .7"></span> Start</a></li>`}
+          <li><a href hx-post="/actions/runtime-restart" ${vals()}><span uk-icon="icon: refresh; ratio: .7"></span> Restart</a></li>
+          <li data-entry="describe"><a href hx-post="/actions/runtime-describe" ${vals()}><span uk-icon="icon: info; ratio: .7"></span> Describe (address, ${rt.runtime === 'kubernetes' ? 'pods' : 'containers'})</a></li>
+          <li data-entry="logs"><a href hx-post="/actions/runtime-logs" ${vals()}><span uk-icon="icon: file-text; ratio: .7"></span> Web logs (last 200)</a></li>
+          ${running ? `<li data-entry="shell"><a href hx-post="/actions/runtime-shell" ${vals()}
+                 title="A shell in the web container, in a screen session: open it in Screens and type"><span uk-icon="icon: code; ratio: .7"></span> Shell in the web container</a></li>` : ''}
+          ${url && running ? `<li data-entry="open the site"><a href="${esc(url)}" target="_blank" rel="noopener"><span uk-icon="icon: link-external; ratio: .7"></span> Open the site</a></li>` : ''}
+          ${drupal && running ? `<li class="uk-nav-divider"></li>
+          <li class="uk-nav-header">drupal</li>
+          <li><a href hx-post="/actions/runtime-drush-status" ${vals()}><span uk-icon="icon: info; ratio: .7"></span> Drush status</a></li>
+          <li><a href hx-post="/actions/runtime-drush-cr" ${vals()}><span uk-icon="icon: bolt; ratio: .7"></span> Rebuild the cache (cr)</a></li>
+          <li><a href hx-post="/actions/runtime-drush-uli" ${vals()}><span uk-icon="icon: unlock; ratio: .7"></span> One-time login link (uli)</a></li>` : ''}
+          <li class="uk-nav-divider"></li>
+          <li class="uk-nav-header">database</li>
+          ${running ? `<li><a href hx-post="/actions/runtime-export-db" ${vals()}><span uk-icon="icon: database; ratio: .7"></span> Export the database</a></li>` : ''}
+          ${canBackup ? `<li data-entry="back up"><a href hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Back up this ${esc(meta.noun)}</a></li>
+          <li><a href="${wsUrl(key, '/backups')}"><span uk-icon="icon: album; ratio: .7"></span> Backups for this workspace</a></li>` : ''}
+          <li class="uk-nav-divider"></li>
+          <li class="uk-nav-header">this project</li>
+          <li data-entry="delete"><a href class="uk-text-danger arm-step" hx-post="/actions/runtime-delete" ${vals(',"confirm":"yes"')} hx-trigger="confirmed-remove"
+                 title="Removes the ${rt.runtime === 'kubernetes' ? 'namespace' : 'containers and the database volume'} of this site. Its files stay, and Start builds it again with an empty database."><span uk-icon="icon: trash; ratio: .7"></span> Delete the ${rt.runtime === 'kubernetes' ? 'namespace' : 'containers'} (keeps the files)…</a></li>
+          ${canRemove ? `<li><a href class="uk-text-danger" hx-get="/fragments/projects/remove-form/${encodeURIComponent(key)}/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
+                 hx-on::after:request="UIkit.modal('#editor-modal').show()"
+                 title="Asks about a backup, then confirms, then removes"><span uk-icon="icon: trash; ratio: .7"></span> Remove the project…</a></li>` : ''}
+          <li class="uk-nav-divider"></li>
+          <li data-entry="not yet"><span class="uk-text-meta runtime-not-yet">Not on ${esc(title)} yet: clone, import a database, snapshots, add-ons, extra domains and captured mail. They are DDEV's for now (webship/workspace#694).${status === 'unknown' ? ` The state could not be read: is ${rt.runtime === 'kubernetes' ? 'the cluster' : rt.runtime} answering?` : ''}</span></li>`;
+}
+
+/**
  * The DDEV menu's items for one project — every <li> inside the dropdown, before the Buttons settings
  * arrange them. The row builds them to count what the caption says ("12 commands") and the fragment
  * /fragments/row-menu/ddev/<ws>/<project> builds them again, for one project, when the menu opens;
@@ -3579,7 +3642,7 @@ async function screensMenuBody(ws, project) {
 // The row menus the core draws itself whose bodies load when they open — the slots
 // /fragments/row-menu/<slot>/<ws>/<project> answers with no `body` parameter (coreRowMenuBody).
 // NODE and More joined in #111: a row carries their buttons and captions, not their dropdowns.
-const CORE_ROW_MENUS = new Set(['ddev', 'composer', 'tests', 'screens', 'node', 'more']);
+const CORE_ROW_MENUS = new Set(['ddev', 'runtime', 'composer', 'tests', 'screens', 'node', 'more']);
 
 /**
  * The body of one of the core's row menus for one project, as `{ status, html }`: the dropdown's inner
@@ -3602,6 +3665,14 @@ async function coreRowMenuBody(slot, key, project) {
     const ddev = ddevStateOf(dir, project, await ddevStatusMap());
     const items = ddevMenuItemsHtml({ key, p: project, meta, projectPath, gates, ddev });
     return { status: 200, html: `<ul class="uk-nav uk-dropdown-nav ddev-nav-columns">${items}\n        </ul>` };
+  }
+  if (slot === 'runtime') {
+    // The menu of a project on Docker Compose, Podman or Kubernetes: its state is read now, for this one project.
+    const onRuntime = projectRuntime.readProject(projectPath);
+    if (!gates.canDdev || isDdev || !projectRuntime.isRuntimeProject(onRuntime)) return none('Not a project on Docker Compose, Podman or Kubernetes.');
+    const rt = runtimeStateOf(projectPath, await projectRuntime.statesFor([onRuntime]));
+    const items = runtimeMenuItemsHtml({ key, p: project, meta, gates, rt });
+    return { status: 200, html: `<ul class="uk-nav uk-dropdown-nav">${items}\n        </ul>` };
   }
   if (slot === 'composer') {
     const body = composerMenuBody(key, project, projectPath, isDdev, meta.composerMode);
@@ -3668,6 +3739,9 @@ async function projectRowsHtml(key, dir, state) {
   const gates = rowGates(dir, meta);
   const { allowed, canBackup, canClone, canRemove, canRagify, canTest, canChecks, canUsers, canDdev } = gates;
   const statuses = await ddevStatusMap();
+  // The projects on another runtime (Docker Compose, Podman, Kubernetes), and their states: one question per
+  // runtime for the whole page, cached, and never one that can hang it (project-runtime.js).
+  const runtimeStates = await projectRuntime.statesFor(projects.map((p) => projectRuntime.readProject(path.join(dir, p))));
   // The RAG slot is a plugin's once one registered it (@webship.co/workspace-rag): the row draws that
   // plugin's menu, and the core neither draws its own below nor asks the Milvus servers for this page.
   const ragByPlugin = pluginRowMenuSlot('rag');
@@ -3701,9 +3775,11 @@ async function projectRowsHtml(key, dir, state) {
     if (wanted === 'screens') return it.screens > 0;
     if (wanted === 'agents') return it.agents > 0;
     const d = ddevStateOf(dir, it.name, statuses);
-    if (wanted === 'running') return d.running;
-    if (wanted === 'stopped') return d.isDdev && !d.running;
-    if (wanted === 'nodddev') return !d.isDdev;
+    // A project on Docker Compose, Podman or Kubernetes runs and stops too, and is not a folder without a runtime.
+    const r = d.isDdev ? null : runtimeStateOf(d.projectPath, runtimeStates);
+    if (wanted === 'running') return d.running || !!(r && r.running);
+    if (wanted === 'stopped') return (d.isDdev && !d.running) || !!(r && r.isRuntime && r.status === 'stopped');
+    if (wanted === 'nodddev') return !d.isDdev && !(r && r.isRuntime);
     if (wanted === 'tested') return !!testReportFor(dir, it.name);
     if (wanted === 'failing') { const t = testReportFor(dir, it.name); return !!(t && t.summary && t.summary.failed); }
     return true;
@@ -3714,7 +3790,13 @@ async function projectRowsHtml(key, dir, state) {
   const rows = pg.slice.map((it) => {
     const p = it.name;
     const ddev = ddevStateOf(dir, p, statuses);
-    const { projectPath, ddevName, isDdev, status, running } = ddev;
+    const { projectPath, ddevName, isDdev } = ddev;
+    // On another runtime than DDEV the row is the same row: the state chip, the address and the Launch link come
+    // from that runtime, and its menu sits where the DDEV menu does.
+    const rt = isDdev ? { isRuntime: false } : runtimeStateOf(projectPath, runtimeStates);
+    const isRuntime = rt.isRuntime;
+    const status = isRuntime ? rt.status : ddev.status;
+    const running = isRuntime ? rt.running : ddev.running;
     // The IDE menu is built at row scope even though it renders in the state strip, right after
     // JIRA. Defining it inside the strip's IIFE made it a ReferenceError at the point of use — and because a
     // row's markup is built defensively, that silently dropped the whole action group
@@ -3734,7 +3816,7 @@ async function projectRowsHtml(key, dir, state) {
     const vals = (extra = '') => `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
     // The state chip is also the switch: Stopped or Paused starts the project, Running stops it (asked first).
     // A project the registry has never heard of is simply stopped; any other DDEV state is shown as it is.
-    const statusBadge = !isDdev ? '' : (() => {
+    const stateChip = !(isDdev || isRuntime) ? '' : (() => {
       const st = running ? 'running' : (status === 'paused' ? 'paused' : (status === 'stopped' ? 'stopped' : ''));
       if (!st) return `<span class="uk-label state-chip state-chip-off"><span class="state-dot" aria-hidden="true"></span>${esc(status)}</span>`;
       const word = { running: 'Running', paused: 'Paused', stopped: 'Stopped' }[st];
@@ -3744,6 +3826,8 @@ async function projectRowsHtml(key, dir, state) {
         hx-post="/actions/ddev-${act.toLowerCase()}"${st === 'running' ? ' hx-trigger="confirmed-remove"' : ''} ${vals()}
         title="${act} ${esc(p)}" aria-label="${word}: ${act.toLowerCase()} ${esc(p)}"><span class="state-dot" aria-hidden="true"></span><span class="state-word">${word}</span><span class="state-act" aria-hidden="true">${act}</span></button>`;
     })();
+    // The same chip on another runtime posts to that runtime's start and stop (actions/runtime.js).
+    const statusBadge = isRuntime ? stateChip.replace('hx-post="/actions/ddev-', 'hx-post="/actions/runtime-') : stateChip;
     // Everything the row can show, each button under its id. row-layout.js decides the order, the line and
     // what is hidden (Commands → Buttons), and rearranges every menu inside the same way. With no
     // row-actions.yml that is exactly the row as it has always been.
@@ -3771,12 +3855,20 @@ async function projectRowsHtml(key, dir, state) {
     // Counted from the rendered menu below rather than hand-maintained: the
     // number a row shows is the number of things it can actually do.
     const ddevCaption = !canDdev ? '' : (isDdev ? '' : 'not configured');
+    // The runtime menu of a project on Docker Compose, Podman or Kubernetes, counted like the DDEV menu's.
+    const runtimeButton = !(canDdev && isRuntime) ? '' : (() => {
+      const n = (runtimeMenuItemsHtml({ key, p, meta, gates, rt }).match(/<a /g) || []).length;
+      return menuShellHtml('runtime', {
+        key, project: p, caption: `${n} command${n === 1 ? '' : 's'}`, classes: `act-menu-runtime-${rt.runtime}`,
+        html: `<button class="uk-button uk-button-default uk-button-small" type="button" title="Start, stop, back up and inspect this ${esc(rt.title)} project">${iconHtml(projectRuntime.ICONS[rt.runtime], 0.7)} ${esc(rt.label)} <span uk-icon="icon: chevron-down; ratio: .6"></span></button>`,
+      });
+    })();
     // The menu's own body, built first so the caption can count what is in it (ddevMenuItemsHtml).
     const ddevMenuItems = !(canDdev && isDdev) ? '' : ddevMenuItemsHtml({ key, p, meta, projectPath, gates, ddev });
     // Arranged before it is counted, so the caption counts what the menu really shows.
     const ddevItems = rowLayout.arrangeNavInner('ddev', ddevMenuItems, rowCtx);
     const ddevCount = (ddevItems.match(/<a /g) || []).length;
-    const ddevButton = `${canDdev && !isDdev ? `<span class="act-with-status"><button class="uk-button uk-button-default uk-button-small act-ddev-config"
+    const ddevButton = `${canDdev && !isDdev && !isRuntime ? `<span class="act-with-status"><button class="uk-button uk-button-default uk-button-small act-ddev-config"
         title="This folder has no .ddev/config.yaml — set one up so it can start"
         hx-get="/fragments/projects/ddev-config/${encodeURIComponent(key)}/${encodeURIComponent(p)}"
         hx-target="#editor-modal-body" hx-swap="innerHTML"
@@ -3818,8 +3910,8 @@ async function projectRowsHtml(key, dir, state) {
             });
           })();
     // A project with no DDEV config has no menu to hold it, so Backup stays a button there.
-    const backupButton = canBackup && !isDdev ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Backup</button>` : '';
-    const cloneButton = canClone && !isDdev ? `<button class="uk-button uk-button-default uk-button-small"
+    const backupButton = canBackup && !isDdev && !isRuntime ? `<button class="uk-button uk-button-default uk-button-small" hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Backup</button>` : '';
+    const cloneButton = canClone && !isDdev && !isRuntime ? `<button class="uk-button uk-button-default uk-button-small"
             hx-get="/fragments/projects/clone-form/${encodeURIComponent(key)}/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
             hx-on::after:request="UIkit.modal('#editor-modal').show()"
             title="Clone this ${esc(meta.noun)} — a copy, or a git worktree sharing its history"><span uk-icon="icon: copy; ratio: .7"></span> Clone</button>` : '';
@@ -3871,8 +3963,15 @@ async function projectRowsHtml(key, dir, state) {
     const screensOnTools = '';
     // The menus activated plugins bring, in the slots they registered (UPSUN, …).
     const pluginMenus = pluginRowMenus({ key, project: p, dir, meta, allowed, vals });
+    // A project the Workspace built on a runtime has that runtime's menu from the core. The container plugins'
+    // own menus (DOCKER, PODMAN, K8S: every folder with a compose file or manifests) are left out on it: two
+    // buttons of one name, whose verbs do not go through the runtime layer (on Kubernetes they would look in
+    // another namespace). A compose project the Workspace did not build keeps the plugin's menu.
+    if (isRuntime) for (const id of projectRuntime.RUNTIMES) if (id in pluginMenus) pluginMenus[id] = '';
+    // One or the other: the DDEV button (or Configure DDEV), or the runtime's menu, in the DDEV slot of the layout.
+    const siteButton = ddevButton || runtimeButton;
     const rowLines = rowLayout.rowLinesHtml({
-      ddev: ddevButton, tests: testsMenu,
+      ddev: siteButton, tests: testsMenu,
       ...pluginMenus,
       screens: screensOnTools, composer: composerMenu, node: nodeMenu, backup: backupButton, clone: cloneButton,
       // A plugin's RAG menu keeps its slot: the core's own is drawn only where no plugin registered one.
@@ -3910,9 +4009,13 @@ async function projectRowsHtml(key, dir, state) {
     const tip = notes.noteTooltip(note);
     const split = splitTitle(rawLabel);
     const sayFolder = note.title && !note.title.toLowerCase().includes(p.toLowerCase());
-    const localSite = canDdev && isDdev;
-    const hubUrl = `https://${esc(p)}.${esc(key)}.${hubDomain()}`;
-    const ddevUrl = `https://${esc(ddevName)}.ddev.site`;
+    const localSite = canDdev && (isDdev || isRuntime);
+    // A runtime's site answers at its own address (a port on this machine, or the cluster node's): that is its
+    // link and its Launch. '' while a cluster's node address is not known yet.
+    const hubUrl = isRuntime ? esc(rt.url) : `https://${esc(p)}.${esc(key)}.${hubDomain()}`;
+    const ddevUrl = isRuntime ? esc(rt.url) : `https://${esc(ddevName)}.ddev.site`;
+    const siteHost = isRuntime ? rt.url.replace(/^https?:\/\//, '') : `${ddevName}.ddev.site`;
+    const menuName = isRuntime ? rt.label : 'DDEV';
     const worktree = (() => {
       const g = gitWorktreeInfo(projectPath);
       if (g.role === 'linked') {
@@ -3923,7 +4026,7 @@ async function projectRowsHtml(key, dir, state) {
       }
       return '';
     })();
-    const extraAddresses = !localSite ? [] : (() => {
+    const extraAddresses = !(localSite && isDdev) ? [] : (() => {
       const owners = extraDomainOwners();
       return ddevExtraDomains(projectPath).map((d) => {
         const others = (owners.get(d.host) || []).filter((c) => c !== `${key}/${p}`);
@@ -3935,9 +4038,9 @@ async function projectRowsHtml(key, dir, state) {
     // it) and aria-controls, no aria-haspopup, which had it announced as a menu button.
     const addrListId = `addresses-${String(key).replace(/[^A-Za-z0-9_-]/g, '-')}-${String(p).replace(/[^A-Za-z0-9_-]/g, '-')}`;
     const addressRow = !localSite ? '' : `<div class="pcard-addr${running ? '' : ' is-stopped'}">
-          ${running
-    ? `<a class="pcard-host" href="${ddevUrl}" target="_blank" rel="noopener" title="Canonical DDEV address">${cardHostHtml(`${ddevName}.ddev.site`)}</a>`
-    : `<span class="pcard-host" title="Stopped: start it from the DDEV menu">${cardHostHtml(`${ddevName}.ddev.site`)}</span>`}
+          ${running && ddevUrl
+    ? `<a class="pcard-host" href="${ddevUrl}" target="_blank" rel="noopener" title="${isRuntime ? `The site's address on ${esc(rt.title)}` : 'Canonical DDEV address'}">${cardHostHtml(siteHost)}</a>`
+    : `<span class="pcard-host" title="${running ? 'The address is not known yet' : `Stopped: start it from the ${menuName} menu`}">${cardHostHtml(siteHost || (isRuntime ? `${rt.title}: address not known yet` : ''))}</span>`}
           ${extraAddresses.length ? `<div class="uk-inline">
             <button class="pcard-count" type="button" aria-controls="${addrListId}"
                     aria-label="${extraAddresses.length} more address${extraAddresses.length === 1 ? '' : 'es'}"${extraAddresses.some((a) => a.clash) ? ' data-clash' : ''}>+${extraAddresses.length}</button>
@@ -3985,8 +4088,8 @@ async function projectRowsHtml(key, dir, state) {
         </div>
         ${addressRow}
         <div class="pcard-bar">
-          ${localSite ? `<a class="uk-button ${running ? 'uk-button-primary' : 'uk-button-default'} uk-button-small pcard-launch" href="${hubUrl}" target="_blank" rel="noopener"
-             title="${running ? hubUrl : `${hubUrl}: the project is stopped; start it from the DDEV menu`}">${iconHtml('tabler:rocket', 0.7)} Launch</a>` : ''}
+          ${localSite && hubUrl ? `<a class="uk-button ${running ? 'uk-button-primary' : 'uk-button-default'} uk-button-small pcard-launch" href="${hubUrl}" target="_blank" rel="noopener"
+             title="${running ? hubUrl : `${hubUrl}: the project is stopped; start it from the ${menuName} menu`}">${iconHtml('tabler:rocket', 0.7)} Launch</a>` : ''}
           <div class="pcard-tools" role="toolbar" aria-label="Tools for ${esc(p)}">
             ${rowLines.first}${rowLines.second}
             ${pluginProjectActionsHtml({ key, project: p, dir, meta })}
@@ -4809,6 +4912,7 @@ const ACTIONS = {
   ...require('./actions/ddev'),
   ...require('./actions/ddev-mail').make({ mailpitFor: ddevMail.mailpitFor(ddevStatusMap) }),
   ...require('./actions/ddev-addons'),
+  ...require('./actions/runtime'),
   ...require('./actions/rag'),
   ...require('./actions/testing'),
   ...require('./actions/step-packs'),
@@ -5157,13 +5261,19 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
     // `ddev import-db` ends the restore with "failed to extract provided file: EOF" on it.
     const { file: dbFile, empty: emptyDump } = require('./restore-dump').dumpBeside(meta.backupsDir, file);
     let shellLine = `set -e; echo "Extracting ${file}…"; tar -xzf '${archive}'`;
+    // A project on Docker Compose, Podman or Kubernetes carries a compose.yaml with an x-webship block: it is
+    // started, and its dump imported, through the runtime layer (core/scripts/runtime-verb.sh).
+    const viaRuntime = projectRuntime.verbLine([]);
+    const onRuntime = `[ ! -f '${targetDir}/.ddev/config.yaml' ] && grep -q '^x-webship:' '${targetDir}/compose.yaml' 2>/dev/null`;
     if (dbFile) {
-      shellLine += ` && if [ -f '${targetDir}/.ddev/config.yaml' ]; then cd '${targetDir}' && ddev start -y && echo "Importing database…" && ddev import-db --file='${dbFile}'; else echo "Not a DDEV project — import the DB dump manually: ${path.basename(dbFile)}"; fi`;
+      const viaLayer = viaRuntime ? `if ${onRuntime}; then cd '${targetDir}' && ${viaRuntime} start -y && echo "Importing database…" && ${viaRuntime} import-db --file='${dbFile}'; el` : '';
+      shellLine += ` && ${viaLayer}if [ -f '${targetDir}/.ddev/config.yaml' ]; then cd '${targetDir}' && ddev start -y && echo "Importing database…" && ddev import-db --file='${dbFile}'; else echo "Not a DDEV project — import the DB dump manually: ${path.basename(dbFile)}"; fi`;
     } else {
       // No database to import (a site that runs without one): the project is still started, as a restore
       // with a dump starts it, so the site answers when the restore ends.
       if (emptyDump) shellLine += ` && echo "${emptyDump} is empty: the project had no database to export when it was backed up, so there is none to import."`;
       shellLine += ` && if [ -f '${targetDir}/.ddev/config.yaml' ]; then cd '${targetDir}' && ddev start -y; fi`;
+      if (viaRuntime) shellLine += ` && if ${onRuntime}; then cd '${targetDir}' && ${viaRuntime} start -y; fi`;
     }
     return screenAction(send, { workspace, project: projectName, projectDir: meta.dir,
       ownerDir: targetDir, verb: 'restore', cmdLine: shellLine, label: `restore ${file}` });
@@ -5994,7 +6104,8 @@ async function onRequest(req, res) {
             hasNode: require('./actions/node').hasPackageJson(projectPath), hasGit: hasOwnGit(projectPath) };
           // Hidden entries, order and your own actions, then the columns the menu was set to — the two
           // passes a menu drawn inline went through (rowLayout.rowLinesHtml).
-          try { html = rowLayout.columnizeButtonHtml(slot, rowLayout.arrangeButtonHtml(slot, html, ctx), layout); } catch (_) { /* shown as it was drawn */ }
+          // The runtime menu (DOCKER, PODMAN, K8S) is not a button of the layout: it stands in DDEV's place, as drawn.
+          if (slot !== 'runtime') try { html = rowLayout.columnizeButtonHtml(slot, rowLayout.arrangeButtonHtml(slot, html, ctx), layout); } catch (_) { /* shown as it was drawn */ }
         }
         res.writeHead(answer.status, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(html);
@@ -7402,6 +7513,9 @@ async function onRequest(req, res) {
           const rDir = path.join(workspaceDir(rm[1]), rm[2]);
           if (!fs.existsSync(rDir)) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('No such project.'); }
           const rDdev = ddevProjectName(rDir);
+          // On another runtime the remove takes that runtime's side down first (fun-remove-project.sh).
+          const rOn = rDdev ? null : projectRuntime.readProject(rDir);
+          const rRuntime = projectRuntime.isRuntimeProject(rOn) ? rOn : null;
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
           return res.end(`
             <div class="editor-card">
@@ -7409,6 +7523,9 @@ async function onRequest(req, res) {
               <p>This cannot be undone. In order:</p>
               <ol class="uk-margin-small">
                 ${rDdev ? `<li><code>ddev delete -y -O</code> on <strong>${esc(rDdev)}</strong> — its containers, database volume, snapshots and registry entry go.</li>` : ''}
+                ${rRuntime ? `<li>On ${esc(projectRuntime.TITLES[rRuntime.runtime])}, <strong>${esc(rRuntime.name)}</strong>: ${rRuntime.runtime === 'kubernetes'
+    ? `its namespace <code>${esc(rRuntime.namespace)}</code> goes, with its pods and its database`
+    : 'its containers and its database volume go'}, and the image built for it.</li>` : ''}
                 <li>The folder <code>${esc(tildePath(rDir))}</code> is deleted.</li>
               </ol>
               ${(() => {
@@ -7453,9 +7570,9 @@ async function onRequest(req, res) {
                   return '';
                 })()}
                 <label class="uk-margin-small uk-display-block">
-                  <input class="uk-checkbox" type="checkbox" name="backup" value="yes"${rDdev ? '' : ' disabled'}>
+                  <input class="uk-checkbox" type="checkbox" name="backup" value="yes"${rDdev || rRuntime ? '' : ' disabled'}>
                   Back up the database into <code>backups/${esc(rm[1])}/${esc(rm[2])}/</code> first
-                  ${rDdev ? '' : '<span class="uk-text-meta">— not a DDEV project, nothing to export</span>'}
+                  ${rDdev || rRuntime ? '' : '<span class="uk-text-meta">— not a DDEV project, nothing to export</span>'}
                 </label>
                 <div class="remove-confirm uk-margin-small-top">
                   <label class="uk-form-label" for="remove-confirm-name">Type <code>${esc(rm[2])}</code> to confirm</label>
@@ -7720,6 +7837,8 @@ Summarise what you changed and how to verify it`,
       { const m = pathname.match(/^\/fragments\/session-done\/([a-z0-9][a-zA-Z0-9._-]*)$/);
         if (m) {
           const done = await require('./screens').sessionDone(m[1]);
+          // A verb that ended may have started or stopped a site on Docker Compose, Podman or Kubernetes.
+          if (done) projectRuntime.invalidate();
           if (done) res.setHeader('HX-Trigger', 'refresh-projects');
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
           return res.end(done ? '' : require('./jobs').sessionWatchHtml(m[1]));

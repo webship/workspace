@@ -103,6 +103,12 @@ function projectDir(ws, project) {
 
 const hasDdev = (dir) => fs.existsSync(path.join(dir, '.ddev', 'config.yaml'));
 const siteUrl = (ws, project) => `https://${project}.${ws}.${hubDomain()}`;
+/** A site on another runtime (Docker Compose, Podman, Kubernetes): { title, url }, or null. */
+const runtimeSite = (dir) => {
+  const projectRuntime = require('./project-runtime');
+  const on = dir ? projectRuntime.readProject(dir) : null;
+  return projectRuntime.isRuntimeProject(on) ? { title: projectRuntime.TITLES[on.runtime], url: projectRuntime.urlOf(on) } : null;
+};
 
 /** Every folder of the offered workspaces, as <optgroup>s of `ws/name`, for a form that is not on a project's row. */
 function projectOptions(chosen = '') {
@@ -161,7 +167,8 @@ function formHtml(ws, project, kind) {
         <p class="uk-text-meta">${ddev
     ? `This is a DDEV project: Claude Code starts it if it is stopped, and shows <code>${esc(siteUrl(ws, project))}</code>.`
     : general ? 'Any page can be the subject: a project here, or any link you paste. A link is looked at, never changed.'
-      : 'This folder has no DDEV site, so the recording is about its code, docs and history.'}
+      : runtimeSite(dir) ? `This is a ${esc(runtimeSite(dir).title)} site${runtimeSite(dir).url ? `: Claude Code shows <code>${esc(runtimeSite(dir).url)}</code> when it is running` : ''}.`
+        : 'This folder has no DDEV site, so the recording is about its code, docs and history.'}
           The voice is Piper (free, on this machine); a final ElevenLabs voice is a separate step you approve.</p>
         <div class="modal-actions">
           <button type="submit" class="uk-button uk-button-primary"><span uk-icon="icon: play; ratio: .8"></span> Start it</button>
@@ -201,7 +208,9 @@ function brief(form) {
       '# The project',
       ddev
         ? `- A DDEV site: start it with \`ddev start -y\` if it is stopped (never \`ddev stop\`). Its address is ${siteUrl(ws, project)} (or the one \`ddev describe\` prints).`
-        : '- No DDEV site here: base it on the code, the docs, the CHANGELOG and the git history.',
+        : runtimeSite(dir)
+          ? `- A site on ${runtimeSite(dir).title} (not DDEV): its address is ${runtimeSite(dir).url || 'the one its row shows'}. If it is stopped, start it from its row's menu; never run ddev in it by hand.`
+          : '- No DDEV site here: base it on the code, the docs, the CHANGELOG and the git history.',
       '- Read its CLAUDE.md, AGENTS.md and README first: they carry the rules and the facts. Do not state a fact you did not read.',
       '',
     ] : []),

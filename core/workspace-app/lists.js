@@ -41,7 +41,8 @@ const PROJECT_FILTERS = {
   all:     'All',
   running: 'Running',
   stopped: 'Stopped',
-  nodddev: 'No DDEV config',
+  // No .ddev/config.yaml and no compose.yaml of another runtime (Docker Compose, Podman, Kubernetes).
+  nodddev: 'No DDEV or runtime config',
   tested:  'Has a test report',
   failing: 'Has failing tests',
   // What is RUNNING in the project, not what the project is: a screen session, and the narrower case

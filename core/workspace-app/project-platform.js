@@ -12,16 +12,30 @@
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * The project type and docroot a project declares: `type:` and `docroot:` of its `.ddev/config.yaml`, or, on
+ * another runtime (Docker Compose, Podman, Kubernetes), of the `x-webship:` block of its `compose.yaml`
+ * (project-runtime.js). Null for a folder that carries neither.
+ */
+function declaredOf(projectDir) {
+  try {
+    const config = fs.readFileSync(path.join(projectDir, '.ddev', 'config.yaml'), 'utf8');
+    return { type: (config.match(/^type:\s*["']?([a-z0-9_-]+)["']?\s*$/m) || [])[1] || '',
+      docroot: (config.match(/^docroot:\s*"?([^"\n]*)"?/m) || [])[1] || '' };
+  } catch (_) { /* not a DDEV project */ }
+  const on = require('./project-runtime').readProject(projectDir);
+  if (!require('./project-runtime').isRuntimeProject(on)) return null;
+  return { type: /^[a-z0-9_-]+$/.test(on.type) ? on.type : '', docroot: /^[\w./-]*$/.test(on.docroot) ? on.docroot : '' };
+}
+
 // Types that say nothing about the platform, and Drupal's own (the profile decides there).
 const NOT_A_PLATFORM = /^(drupal\d*|php|generic|)$/;
 
 /** `wordpress`, `typo3`, `magento2`… — or '' for a Drupal project, a bare PHP one, or no DDEV project. */
 function platformOfProject(projectDir) {
-  let type = '';
-  try {
-    const config = fs.readFileSync(path.join(projectDir, '.ddev', 'config.yaml'), 'utf8');
-    type = (config.match(/^type:\s*["']?([a-z0-9_-]+)["']?\s*$/m) || [])[1] || '';
-  } catch (_) { return ''; }
+  const declared = declaredOf(projectDir);
+  if (!declared) return '';
+  const { type } = declared;
   // The name becomes part of a bash function name.
   return NOT_A_PLATFORM.test(type) ? '' : type.replace(/-/g, '_');
 }
@@ -35,11 +49,9 @@ function platformOfProject(projectDir) {
  * lists of Drupal core and Drupal CMS (the tooling's, or a platform plugin's) were never reached.
  */
 function drupalBaseOfProject(projectDir) {
-  let type = '';
-  try {
-    const config = fs.readFileSync(path.join(projectDir, '.ddev', 'config.yaml'), 'utf8');
-    type = (config.match(/^type:\s*["']?([a-z0-9_-]+)["']?\s*$/m) || [])[1] || '';
-  } catch (_) { return ''; }
+  const declared = declaredOf(projectDir);
+  if (!declared) return '';
+  const { type } = declared;
   if (!/^drupal\d*$/.test(type)) return '';
   let composer = '';
   try { composer = fs.readFileSync(path.join(projectDir, 'composer.json'), 'utf8'); } catch (_) { /* a project with no composer.json is a plain one */ }
@@ -106,11 +118,12 @@ function userListOfProject(projectDir, { root, profile = '' } = {}) {
 /** The install profile under <docroot>/profiles/contrib that names a Drupal project's distribution, or ''. */
 function profileOfProject(projectDir) {
   try {
-    const settings = fs.readFileSync(path.join(projectDir, '.ddev', 'config.yaml'), 'utf8');
-    const doc = (settings.match(/^docroot:\s*"?([^"\n]*)"?/m) || [])[1] || 'web';
+    const declared = declaredOf(projectDir);
+    if (!declared) return '';
+    const doc = declared.docroot || 'web';
     const info = fs.readdirSync(path.join(projectDir, doc, 'profiles', 'contrib'));
     return info.find((n) => n === 'webship') || info[0] || '';
   } catch (_) { return ''; }
 }
 
-module.exports = { platformOfProject, drupalBaseOfProject, userListNames, claimOfProject, userListOfProject, profileOfProject };
+module.exports = { declaredOf, platformOfProject, drupalBaseOfProject, userListNames, claimOfProject, userListOfProject, profileOfProject };

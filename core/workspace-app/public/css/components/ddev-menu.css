@@ -23,3 +23,5 @@
 .project-row .act-menu :is(.composer-columns, .node-columns) > ul + ul { border-left: 0; border-top: 1px solid var(--line); margin-top: 0.25rem; padding-top: 0.25rem; }
 /* A long note in a menu wraps; it is a sentence, not an entry. */
 .project-row .act-menu .uk-nav-header:not(.ddev-fold) { white-space: normal; text-transform: none; letter-spacing: 0; font-size: 0.75rem; line-height: 1.35; }
+/* The runtime menu (DOCKER, PODMAN, K8S) ends with what that runtime does not do yet: a sentence, set in like the entries. */
+.project-row .act-menu-runtime .runtime-not-yet { display: block; padding: 0.3rem 0.5rem 0; line-height: 1.35; }

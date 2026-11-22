@@ -112,6 +112,32 @@ jobs:
           printf '{\n  "name": "ci-placeholder",\n  "private": true,\n  "scripts": { "lint": "eslint .", "test": "node --test" }\n}\n' > products/ci-placeholder/package.json
           printf -- '---\nname: ci-placeholder-agent\ndescription: Use this agent only in CI, as the item the browser suite opens.\n---\n\nNothing to do.\n' > ai-agents/ci-placeholder-agent.md
           printf 'An item the browser suite opens in CI.\n\n```\nclaude "Nothing to do."\n```\n' > ai-prompts/ci-placeholder-prompt.md
+      # What the scenarios tagged @needs-runtime-docker drive (tests/features/runtimes/docker.feature: the row, the
+      # DOCKER menu, stop and start): a small running site on Docker Compose, in the shape a builder's
+      # `--runtime docker` leaves, a compose.yaml with an x-webship block. In sandboxes, where no other scenario
+      # reads a row. The Kubernetes scenarios (@needs-runtime-kubernetes) need a cluster and are skipped here, with
+      # the reason; they run where a kind cluster is.
+      - name: a running site on Docker Compose in sandboxes
+        run: |
+          mkdir -p sandboxes/ci-runtime-docker
+          cat > sandboxes/ci-runtime-docker/compose.yaml <<'YAML'
+          name: ci-runtime-docker
+          x-webship:
+            runtime: docker
+            stack: php
+            type: php
+            docroot: ""
+            php: "8.3"
+            database: "10.11"
+            port: 18080
+          services:
+            web:
+              image: nginx:alpine
+              ports:
+                - "127.0.0.1:18080:80"
+          YAML
+          docker compose -f sandboxes/ci-runtime-docker/compose.yaml up -d --wait
+          curl -fsS -o /dev/null http://127.0.0.1:18080/
       - name: start the dashboard
         working-directory: core/workspace-app
         run: |

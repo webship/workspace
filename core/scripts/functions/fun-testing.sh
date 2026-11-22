@@ -18,6 +18,11 @@
 #               the step definitions and the report/screenshot/video directories, preserving
 #               anything already there.
 #
+# A project on another runtime (Docker Compose, Podman, Kubernetes: fun-runtime.sh, webship/workspace#694) gets the
+# same webship-js stack without the add-on, which is DDEV's: webship-js is installed and scaffolds itself
+# (init-webship-js), and the suite runs in the runtime's tests container (Node.js 24 and the browsers' libraries in
+# its image, the browsers in a volume every project shares), against the site's own address.
+#
 # Both write their results to <project>/tests/reports/, which is what the dashboard's Tests menu
 # reads.
 
@@ -83,9 +88,25 @@ RUN mkdir -p /tmp/apt-off && (mv /etc/apt/sources.list.d/php.list /tmp/apt-off/ 
 DOCKERFILE
 }
 
-# Is chromium actually able to start in this project's web container?
+# Is the project in this folder a DDEV one? Every other runtime's project carries a compose.yaml of the layer.
+function testing_on_ddev() {
+  declare -f runtime_of > /dev/null || return 0 ;
+  [ "$(runtime_of)" == 'ddev' ] ;
+}
+
+# A command line where the suite runs: DDEV's web container, or the runtime's tests container.
+function testing_exec() {
+  if testing_on_ddev ; then ddev exec "$@" ; else ddev exec -s tests "$@" ; fi
+}
+
+# Where Playwright keeps its browsers there.
+function testing_browsers_path() {
+  if testing_on_ddev ; then printf '%s' "${TESTING_BROWSERS_PATH}" ; else printf '%s' "${RT_TESTS_BROWSERS_PATH}" ; fi
+}
+
+# Is chromium actually able to start where the suite runs?
 function testing_browser_libs_ok() {
-  ddev exec 'ldconfig -p | grep -q libnspr4' > /dev/null 2>&1 ;
+  testing_exec 'ldconfig -p | grep -q libnspr4' > /dev/null 2>&1 ;
 }
 
 # What the container said, for the dashboard: yes leaves the mark, anything else takes it away.
@@ -109,9 +130,14 @@ function testing_ensure_browser_libs() {
     testing_browser_libs_seen "${project_path}" yes ;
     return 0 ;
   fi
+  testing_browser_libs_seen "${project_path}" no ;
+  if ! testing_on_ddev ; then
+    # The libraries are in the runtime's tests image, which the question above builds when it is not there.
+    echo "The chromium libraries are missing from the tests image ${RT_TESTS_IMAGE}: remove the image, and the next run builds it again.";
+    return 1 ;
+  fi
   echo "";
   echo "The chromium libraries are missing from this project's web container — adding them to the image.";
-  testing_browser_libs_seen "${project_path}" no ;
   testing_write_browser_libs_build "${project_path}" || return 1 ;
   ddev restart || return 1 ;
   if testing_browser_libs_ok ; then
@@ -124,8 +150,9 @@ function testing_ensure_browser_libs() {
 }
 
 function testing_install_browsers() {
-  echo "Making sure the Playwright browsers are in the shared DDEV cache.";
-  ddev exec "PLAYWRIGHT_BROWSERS_PATH=${TESTING_BROWSERS_PATH} PLAYWRIGHT_SKIP_BROWSER_GC=1 npx playwright install chromium" || return 1 ;
+  if testing_on_ddev ; then echo "Making sure the Playwright browsers are in the shared DDEV cache.";
+  else echo "Making sure the Playwright browsers are in the tests volume every project shares."; fi
+  testing_exec "PLAYWRIGHT_BROWSERS_PATH=$(testing_browsers_path) PLAYWRIGHT_SKIP_BROWSER_GC=1 npx playwright install chromium" || return 1 ;
 }
 
 function testing_stack() {
@@ -209,8 +236,9 @@ function testing_require_project() {
     echo "No project ${PROJECT_NAME} in ${WORKSPACE_ROOT}/${doc_name}.";
     return 1 ;
   fi
-  if [ ! -f "${project_path}/.ddev/config.yaml" ] ; then
+  if [ ! -f "${project_path}/.ddev/config.yaml" ] && ! { declare -f rt_find_project > /dev/null && rt_find_project "${project_path}" > /dev/null ; } ; then
     echo "${doc_name}/${PROJECT_NAME} is not a DDEV project — the testing stack runs inside DDEV.";
+    echo "  (A site built with --runtime docker, podman or kubernetes runs it in that runtime's tests container.)";
     return 1 ;
   fi
   return 0 ;
@@ -248,6 +276,31 @@ function testing_addon_version() {
   sed -nE 's/^version: *"?([^"]*)"?[[:space:]]*$/\1/p' "$1/.ddev/addon-metadata/ddev-webship-js/manifest.yaml" 2>/dev/null | head -n 1 ;
 }
 
+# The webship-js stack on a project of another runtime: what the DDEV add-on does on post-start, done in the
+# runtime's tests container. webship-js is installed when it is not there, it scaffolds itself (cucumber.js, the
+# features, the step definitions, the package scripts: init-webship-js keeps every file it finds), and its sample
+# feature, which is about webship.co, becomes one that holds on any site.
+function testing_scaffold_on_runtime() {
+  local project_path="$1" ;
+  echo "Adding webship-js (Playwright + Cucumber-js) in the $(runtime_of) tests container.";
+  if [ ! -d "${project_path}/node_modules/webship-js" ] ; then
+    ddev npm install --no-save webship-js || { echo "  webship-js could not be installed: npm's words are above." ; return 1 ; }
+  fi
+  ddev exec -s tests 'node_modules/.bin/init-webship-js --skip-browsers' || return 1 ;
+  if [ -f "${project_path}/tests/features/check-homepage.feature" ] && grep -q 'Love to help in speeding up' "${project_path}/tests/features/check-homepage.feature" ; then
+    cat > "${project_path}/tests/features/check-homepage.feature" <<'FEATURE'
+Feature: Check the home page
+  As an anonymous user
+  I want to be able to visit the home page
+  So that I know that the site is reachable
+
+  Scenario: Check homepage is reachable
+    Given I am on homepage
+    Then I should be on homepage
+FEATURE
+  fi
+}
+
 # Set the testing environment up on an existing project. Idempotent: the in-project command checks
 # what is installed before it installs anything, and the webship add-on preserves every file it
 # finds, so a second run adds what a first run missed rather than resetting the suite.
@@ -271,6 +324,9 @@ function testing_configure() {
       ddev init-full-automated-testing || return 1 ;
       ;;
     *)
+      if ! testing_on_ddev ; then
+        testing_scaffold_on_runtime "${project_path}" || return 1 ;
+      else
       # Also the path for `webship-js`: the add-on owns the scaffold, and re-getting it is how you
       # pick up a newer version of it.
       echo "Adding the webship-js DDEV add-on (Playwright + Cucumber-js).";
@@ -299,6 +355,7 @@ function testing_configure() {
         ddev restart || return 1 ;
         # The containers are up again; the app in them may not be yet, and the platform hooks below talk to it.
         testing_wait_for_site ;
+      fi
       fi
       ;;
   esac
@@ -529,7 +586,7 @@ function testing_run() {
   # reproduces exactly that command with the filter appended. The browser and headed-ness travel
   # as the environment variables the config reads (BROWSER, HEADLESS), not as flags cucumber has
   # no idea about.
-  local env_prefix="PLAYWRIGHT_BROWSERS_PATH=${TESTING_BROWSERS_PATH} BROWSER=${BROWSER}";
+  local env_prefix="PLAYWRIGHT_BROWSERS_PATH=$(testing_browsers_path) BROWSER=${BROWSER}";
   # Recordings (#681). webship-js records only when asked (WEBSHIP_VIDEO, or video.mode in the suite's config), and
   # into ./videos; the Tests menu reads tests/videos/. A run from here puts them there, whoever asked for them.
   env_prefix="${env_prefix} WEBSHIP_VIDEO_DIR=tests/videos";
@@ -539,7 +596,7 @@ function testing_run() {
   # The suite's address is LAUNCH_URL in the web container, which the webship-js add-on sets from the project's
   # primary URL. On a generic project whose router serves another service it comes out empty (#532), and the suite
   # would fall back to localhost: the run then passes the primary URL itself.
-  if [ -z "$(ddev exec printenv LAUNCH_URL 2>/dev/null | tr -d '[:space:]')" ] ; then
+  if [ -z "$(testing_exec printenv LAUNCH_URL 2>/dev/null | tr -d '[:space:]')" ] ; then
     local primary ;
     primary="$(testing_primary_url)" ;
     [ -n "${primary}" ] && env_prefix="${env_prefix} LAUNCH_URL=${primary}" ;
@@ -582,7 +639,7 @@ function testing_run() {
 
   if [ -n "${filter}" ] ; then
     echo "  ddev exec ${env_prefix} ${cucumber} ${filter}";
-    ddev exec "${env_prefix} ${cucumber} ${filter}" 2>&1 | tee "${run_log}" ;
+    testing_exec "${env_prefix} ${cucumber} ${filter}" 2>&1 | tee "${run_log}" ;
     status=${PIPESTATUS[0]} ;
     # A run that matched nothing exits 0 too: a wrong --path or tag expression must not read as green.
     if grep -qE '^0 scenarios' "${run_log}" ; then
@@ -605,7 +662,7 @@ function testing_run() {
     script="test:${BROWSER}";
     echo "  ddev ${runner} run ${script}";
     [ "${HEADED}" == 'yes' ] && script="test:headed";
-    ddev exec "${env_prefix} ${runner} run ${script}" ;
+    testing_exec "${env_prefix} ${runner} run ${script}" ;
     status=$? ;
   fi
 
@@ -616,7 +673,7 @@ function testing_run() {
     if grep -q '"generate-reports"' package.json 2>/dev/null ; then
       echo "";
       echo "Generating the HTML report.";
-      ddev exec "WEBSHIP_REPORT_NAME=$(printf '%q' "${PROJECT_NAME}") ${runner} run generate-reports" || true ;
+      testing_exec "WEBSHIP_REPORT_NAME=$(printf '%q' "${PROJECT_NAME}") ${runner} run generate-reports" || true ;
     fi
   fi
 

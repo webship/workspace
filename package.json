@@ -20,6 +20,7 @@
     "core/config/settings.labels.yml",
     "core/config/theme.*.yml",
     "core/config/step-packs.json",
+    "core/config/runtimes",
     "core/docs",
     "core/scripts",
     "core/workspace-app/*.js",

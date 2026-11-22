@@ -182,6 +182,15 @@ Server-rendered HTML fragments, swapped by HTMX.
   table tells comes from the runner's published list: `agent` on each session and `browsers` (`host-processes.js`, which
   the runner and `screens.js` share); a pid the runner published is never walked here. Sessions are addressed as
   `<pid>.<name>`: screen's `-S <name>` takes any session whose name starts with it.
+- **A project's runtime is read by `project-runtime.js`**, never by looking for `.ddev/` in a new place:
+  `readProject(dir)` says DDEV, Docker Compose, Podman, Kubernetes or none (a `compose.yaml` with an `x-webship:`
+  block, written by a builder's `--runtime`), `urlOf()` its address and `statesFor()` its state, from one
+  `docker compose ls`, one `podman ps` and one `kubectl get deploy` per namespace, cached, each with a timeout:
+  a runtime that does not answer is `unknown`, never a page that waits. A runtime project's verbs
+  (`actions/runtime.js`, the DOCKER / PODMAN / K8S menu, Composer, Node, restore) run
+  `core/scripts/runtime-verb.sh <verb>` in the project, which calls `ddev <verb>`: the runtime layer
+  (`core/scripts/functions/fun-runtime.sh`) is the one place that knows docker, podman and kubectl. A DDEV
+  project's paths are the ones they were.
 - **The stylesheet is assembled** from `public/css/base.css` + `public/css/components/*.css` + a theme.
   `public/style.css` is not the source; editing it changes nothing. `cssVersion()` stamps the URL from
   the parts' mtimes, so a cached browser picks changes up.
@@ -210,6 +219,10 @@ Name the feature in `FEATURES`, not on the command line: cucumber-js adds a path
 so `npm run test:browser -- tests/features/x.feature` runs every feature.
 
 The smoke test's exit code is the number of failures, and it needs no environment setup.
+
+The features under `tests/features/runtimes/` drive a real site on Docker Compose or Kubernetes
+(`@needs-runtime-docker`, `@needs-runtime-kubernetes`: the first running one the workspace holds, skipped with
+the reason where there is none). CI runs the Docker ones against a small compose project it starts in the job.
 
 **A test that needs machine state skips with the reason**, at run time, rather than failing or being
 excluded — see `tests/step-definitions/preconditions.steps.js`. A suite with permanent red in it stops

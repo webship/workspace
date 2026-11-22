@@ -98,6 +98,15 @@ function hasComposerJson(dir) {
   try { return fs.statSync(path.join(dir, 'composer.json')).isFile(); } catch (_) { return false; }
 }
 
+/**
+ * For a project on another runtime than DDEV (Docker Compose, Podman, Kubernetes): the start of the line that runs
+ * a verb in it through the runtime layer, `bash '<root>/core/scripts/runtime-verb.sh'`. '' for any other folder.
+ */
+function runtimeVerbLine(dir) {
+  const projectRuntime = require('../project-runtime');
+  return projectRuntime.isRuntimeProject(projectRuntime.readProject(dir)) ? projectRuntime.verbLine([]) : '';
+}
+
 function isDdevProject(dir) {
   try { return fs.existsSync(path.join(dir, '.ddev', 'config.yaml')); } catch (_) { return false; }
 }
@@ -139,9 +148,12 @@ const sq = (s) => `'${s}'`;
  * The line a composer session runs. No `$` anywhere: the runner hands it to an outer `bash -lc "…"`,
  * which would expand it too early. Paths are checked against SAFE_PATH_RE and single-quoted.
  */
-function composerScreenCommand(label, args, { isDdev, projectDir }) {
+function composerScreenCommand(label, args, { isDdev, projectDir, viaRuntime = '' }) {
+  // A project on Docker Compose, Podman or Kubernetes: composer in its own web container, through the runtime
+  // layer (core/scripts/runtime-verb.sh), never in the dashboard's.
   const composer = isDdev
     ? `ddev composer --no-interaction --ansi ${args.join(' ')}`
+    : viaRuntime ? `${viaRuntime} composer --no-interaction --ansi ${args.join(' ')}`
     : `cd ${sq(dashboardDir())} && ddev exec -d ${sq(projectDir)} composer --no-interaction --ansi ${args.join(' ')}`;
   return `${composer}; ${lingerTail(label)}`;
 }
@@ -231,12 +243,13 @@ async function composer_run({ form, send, workspace, pathname }) {
     verb = `composer-script-${script.replace(/[^\w-]/g, '-')}`;
   }
   const isDdev = isDdevProject(projectDir);
-  if (!isDdev && !isDdevProject(dashboardDir())) {
+  const viaRuntime = isDdev ? '' : runtimeVerbLine(projectDir);
+  if (!isDdev && !viaRuntime && !isDdevProject(dashboardDir())) {
     return send('<div class="msg error">This folder is not a DDEV project, and the dashboard\'s own DDEV project was not found to run composer in.</div>', 500);
   }
 
   const started = await startUnlessRunning({ workspace, project: projectName, projectDir, verb,
-    cmdLine: composerScreenCommand(label, args, { isDdev, projectDir }), label });
+    cmdLine: composerScreenCommand(label, args, { isDdev, projectDir, viaRuntime }), label });
   if (started.stillRunning) {
     return send(`<div class="msg error"><code>${esc(label)}</code> is still running on <strong>${esc(projectName)}</strong> — ${terminalLink(started.session, 'open it')}. Left alone.</div>`, 409);
   }
@@ -256,7 +269,7 @@ module.exports = {
   composerActionsFor,
   composerModeOf,
   hasComposerJson,
-  isDdevProject,
+  isDdevProject, runtimeVerbLine,
   packageRefusal,
   composerScripts,
   composerScreenCommand,

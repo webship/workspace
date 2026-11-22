@@ -31,7 +31,7 @@ const { workspaceDir } = require('../workspaces');
 const { screenStartedHtml } = require('../jobs');
 const { NAME_RE } = require('../validate');
 const { lingerTail } = require('../linger');
-const { startUnlessRunning, terminalLink, isDdevProject, dashboardDir, sq, SAFE_PATH_RE } = require('./composer');
+const { startUnlessRunning, terminalLink, isDdevProject, runtimeVerbLine, dashboardDir, sq, SAFE_PATH_RE } = require('./composer');
 
 // The order of the tabs. yarn first: every site project in this tree uses it.
 const MANAGERS = ['yarn', 'npm'];
@@ -128,10 +128,14 @@ function nodeScripts(pkg) {
  * The line a node session runs. No `$` anywhere: the runner hands it to an outer `bash -lc "…"`.
  * Paths are checked against SAFE_PATH_RE and single-quoted.
  */
-function nodeScreenCommand(label, manager, args, { isDdev, projectDir, pinned }) {
+function nodeScreenCommand(label, manager, args, { isDdev, projectDir, pinned, viaRuntime = '' }) {
   let line;
   if (isDdev) {
     line = `ddev ${manager} ${args.join(' ')}`;
+  } else if (viaRuntime) {
+    // A project on Docker Compose, Podman or Kubernetes: in that runtime's tests container (Node.js 24), through
+    // the runtime layer.
+    line = `${viaRuntime} ${manager} ${args.join(' ')}`;
   } else {
     // Corepack would stop to ask before downloading the pinned Yarn; `env` sets that off without a `$`.
     const bin = (manager === 'yarn' && pinned && pinned.name === 'yarn')
@@ -190,12 +194,13 @@ async function node_run({ form, send, workspace, pathname }) {
   if (isPackage) args.push(sq(String(form.package).trim()));
 
   const isDdev = isDdevProject(projectDir);
-  if (!isDdev && !isDdevProject(dashboardDir())) {
+  const viaRuntime = isDdev ? '' : runtimeVerbLine(projectDir);
+  if (!isDdev && !viaRuntime && !isDdevProject(dashboardDir())) {
     return send('<div class="msg error">This folder is not a DDEV project, and the dashboard\'s own DDEV project was not found to run it in.</div>', 500);
   }
 
   const started = await startUnlessRunning({ workspace, project: projectName, projectDir, verb,
-    cmdLine: nodeScreenCommand(label, manager, args, { isDdev, projectDir, pinned: info.pinned }), label });
+    cmdLine: nodeScreenCommand(label, manager, args, { isDdev, projectDir, pinned: info.pinned, viaRuntime }), label });
   if (started.stillRunning) {
     return send(`<div class="msg error"><code>${esc(label)}</code> is still running on <strong>${esc(projectName)}</strong> — ${terminalLink(started.session, 'open it')}. Left alone.</div>`, 409);
   }

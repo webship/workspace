@@ -175,6 +175,16 @@ The menu also lists what the project itself defines, each in its own group that 
 
 ![The project's own DDEV commands](screenshots/projects/ddev-custom-commands.png)
 
+**A site on Docker Compose, Podman or Kubernetes has the same row.** A builder run with `--runtime docker`
+(or `podman`, or `kubernetes`) builds the site on that runtime instead of DDEV, and its card works the same
+way: the state is **Running** or **Stopped** and is the switch, the address is the site's own (a port on this
+machine, or the cluster node's address), and where the DDEV menu sits there is a **DOCKER**, **PODMAN** or
+**K8S** menu: start, stop, restart, describe, the web logs, a shell in the web container, export the database,
+back up, delete the containers (or the namespace) and remove the project. **COMPOSER** runs in the site's own web
+container, and **Tests** sets up and runs its webship-js suite in a tests container beside it. Clone, importing
+a database, snapshots, add-ons, extra domains and captured mail are DDEV's for now: the menu says so instead
+of offering them.
+
 **The assistant can be shown four ways.** The ✨ switch at the left of the toolbar shows and hides it —
 closed, the page has the whole width. Its header menu (⋮) offers **Sidebar** (the column it starts as),
 **Wide** (the same column doubled, for a long answer), **Floating** (a button in the corner, the panel

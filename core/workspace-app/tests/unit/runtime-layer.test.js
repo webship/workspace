@@ -140,3 +140,121 @@ test('kubernetes: config writes compose.yaml and k8s/ manifests, and each verb b
   const own = run(dir, p, 'ddev stop', { WORKSPACE_KUBE_CONTEXT: 'my-cluster' });
   assert.deepStrictEqual(own.calls, ['kubectl --context my-cluster -n ws-k1 scale deploy --all --replicas=0'], 'a cluster of your own, by its context');
 });
+
+/* ---- What the dashboard's tools need of the layer (the row, the Tests menu, backup, restore, remove) ---- */
+
+test('describe -j answers in DDEV\'s shape, so the tools read the state and the address as they do from DDEV', () => {
+  const dir = sandbox();
+  const p = path.join(dir, 'dj'); fs.mkdirSync(p);
+  run(dir, p, 'ddev config --project-type=drupal --docroot=web --project-name=dj', { WORKSPACE_RUNTIME: 'docker' });
+  const port = fs.readFileSync(path.join(p, 'compose.yaml'), 'utf8').match(/^ {2}port: (\d+)$/m)[1];
+  // The stand-in prints nothing: no running web container.
+  const stopped = run(dir, p, 'ddev describe -j');
+  assert.match(stopped.out, new RegExp(`^\\{"raw":\\{"name":"dj","status":"stopped","primary_url":"http://127\\.0\\.0\\.1:${port}","runtime":"docker"\\}\\}$`, 'm'));
+  assert.deepStrictEqual(stopped.calls, ['docker compose ps --status running -q web']);
+  // One that answers with a container id: running.
+  fs.writeFileSync(path.join(dir, 'bin', 'docker'), `#!/usr/bin/env bash\necho "docker $*" >> "${dir}/calls.log"\ncase "$*" in *"ps --status running -q web"*) echo abc123 ;; esac\n`, { mode: 0o755 });
+  const running = run(dir, p, 'ddev describe --json-output | grep -c \'"status":"running"\'');
+  assert.match(running.out, /^1$/m, 'the exact text fun-testing.sh looks for');
+
+  const k = path.join(dir, 'kj'); fs.mkdirSync(k);
+  fs.writeFileSync(path.join(dir, 'bin', 'kubectl'), `#!/usr/bin/env bash\necho "kubectl $*" >> "${dir}/calls.log"\ncase "$*" in *"get deploy web"*) printf 1 ;; *"get nodes"*) printf 172.18.0.2 ;; *"get svc"*) printf '' ;; esac\n`, { mode: 0o755 });
+  run(dir, k, 'ddev config --project-type=drupal --docroot=web --project-name=kj', { WORKSPACE_RUNTIME: 'kubernetes' });
+  const kube = run(dir, k, 'ddev describe -j');
+  assert.match(kube.out, /^\{"raw":\{"name":"kj","status":"running","primary_url":"http:\/\/172\.18\.0\.2:\d+","runtime":"kubernetes"\}\}$/m);
+});
+
+test('the JS side runs in the tests container: npm, npx, node, yarn and `exec -s tests`, on Docker, Podman and Kubernetes', () => {
+  const dir = sandbox();
+  const uid = `${process.getuid()}:${process.getgid()}`;
+  const d = path.join(dir, 'dn'); fs.mkdirSync(path.join(d, 'tests'), { recursive: true });
+  run(dir, d, 'ddev config --project-type=drupal --docroot=web --project-name=dn', { WORKSPACE_RUNTIME: 'docker' });
+  const port = fs.readFileSync(path.join(d, 'compose.yaml'), 'utf8').match(/^ {2}port: (\d+)$/m)[1];
+  const tail = `--user ${uid} -v ${d}:${d} -v webship-workspace-tests:/cache`;
+  const r = run(dir, d, 'ddev npm install; ddev exec -s tests "BROWSER=chromium node ./x.js"; cd tests && ddev npx playwright install chromium; ddev php -v');
+  assert.deepStrictEqual(r.calls, [
+    'docker image inspect webship-workspace-tests',
+    `docker run --rm --network host ${tail} -w ${d} -e LAUNCH_URL=http://127.0.0.1:${port} webship-workspace-tests bash -c npm install `,
+    'docker image inspect webship-workspace-tests',
+    `docker run --rm --network host ${tail} -w ${d} -e LAUNCH_URL=http://127.0.0.1:${port} webship-workspace-tests bash -c BROWSER=chromium node ./x.js`,
+    'docker image inspect webship-workspace-tests',
+    `docker run --rm --network host ${tail} -w ${d}/tests -e LAUNCH_URL=http://127.0.0.1:${port} webship-workspace-tests bash -c npx playwright install chromium `,
+    // PHP stays in the web container.
+    'docker compose exec -T -u www-data -w /var/www/html/tests web php -v',
+  ]);
+
+  const p = path.join(dir, 'pn'); fs.mkdirSync(p);
+  run(dir, p, 'ddev config --project-type=drupal --docroot=web --project-name=pn', { WORKSPACE_RUNTIME: 'podman' });
+  const pod = run(dir, p, 'ddev yarn install');
+  assert.strictEqual(pod.calls[0], 'podman image inspect webship-workspace-tests');
+  assert.match(pod.calls[1], /^podman run --rm --network host --userns=keep-id --user \d+:\d+ -v .* webship-workspace-tests bash -c yarn install ?$/, 'podman runs it, as the host user');
+
+  const k = path.join(dir, 'kn'); fs.mkdirSync(k);
+  fs.writeFileSync(path.join(dir, 'bin', 'kubectl'), `#!/usr/bin/env bash\necho "kubectl $*" >> "${dir}/calls.log"\ncase "$*" in *"get nodes"*) printf 172.18.0.2 ;; esac\n`, { mode: 0o755 });
+  run(dir, k, 'ddev config --project-type=drupal --docroot=web --project-name=kn', { WORKSPACE_RUNTIME: 'kubernetes' });
+  const kube = run(dir, k, 'ddev node -v').calls.filter((c) => /^docker/.test(c));
+  assert.strictEqual(kube[0], 'docker image inspect webship-workspace-tests');
+  assert.match(kube[1], /^docker run --rm --network host .* -e LAUNCH_URL=http:\/\/172\.18\.0\.2:\d+ webship-workspace-tests bash -c node -v ?$/, "on the host's network, against the node's address");
+});
+
+test('the tests image is built once, from core/config/runtimes/tests: Node.js 24 and the browsers\' libraries', () => {
+  const dir = sandbox();
+  const d = path.join(dir, 'ti'); fs.mkdirSync(d);
+  run(dir, d, 'ddev config --project-type=drupal --docroot=web --project-name=ti', { WORKSPACE_RUNTIME: 'docker' });
+  // No image yet: `image inspect` fails.
+  fs.writeFileSync(path.join(dir, 'bin', 'docker'), `#!/usr/bin/env bash\necho "docker $*" >> "${dir}/calls.log"\ncase "$*" in "image inspect"*) exit 1 ;; esac\n`, { mode: 0o755 });
+  const r = run(dir, d, 'ddev npm -v');
+  assert.strictEqual(r.calls[1], `docker build -t webship-workspace-tests ${STACKS}/tests`);
+  assert.match(r.out, /Building the tests image webship-workspace-tests \(once\)/);
+  const dockerfile = fs.readFileSync(path.join(STACKS, 'tests', 'Dockerfile'), 'utf8');
+  assert.match(dockerfile, /^FROM node:24-/m, 'every build runs Node.js 24');
+  assert.match(dockerfile, /playwright@[\d.]+ install-deps chromium/);
+  assert.match(dockerfile, /PLAYWRIGHT_BROWSERS_PATH=\/cache\/ms-playwright/);
+  assert.match(dockerfile, /PLAYWRIGHT_SKIP_BROWSER_GC=1/, "one project's Playwright never removes another's browser");
+  assert.match(dockerfile, /chmod 1777 \/cache/, 'the shared volume is writable by the host user');
+});
+
+test('export-db and import-db take --file=<path> and --file <path>, and an empty dump is a failure', () => {
+  const dir = sandbox();
+  const p = path.join(dir, 'db'); fs.mkdirSync(p);
+  run(dir, p, 'ddev config --project-type=drupal --docroot=web --project-name=db', { WORKSPACE_RUNTIME: 'docker' });
+  fs.writeFileSync(path.join(dir, 'in.sql'), 'select 1;\n');
+  // A db service that dumps something.
+  fs.writeFileSync(path.join(dir, 'bin', 'docker'), `#!/usr/bin/env bash\ncase "$*" in *mariadb-dump*) echo "-- MariaDB dump" ;; *) [ -t 0 ] || cat > /dev/null ;; esac\n`, { mode: 0o755 });
+  const r = run(dir, p, `ddev export-db --gzip --file ${dir}/a.sql.gz; echo "export $?"; ddev import-db --file ${dir}/in.sql; echo "import $?"; ddev import-db --file=${dir}/missing.sql; echo "missing $?"`);
+  assert.ok(fs.existsSync(path.join(dir, 'a.sql.gz')), 'the file after a separate --file');
+  assert.match(r.out, /^export 0$/m);
+  assert.match(r.out, /^import 0$/m);
+  assert.match(r.out, /No such file: .*missing\.sql/);
+  assert.match(r.out, /^missing 1$/m);
+  // A dump command that fails leaves a failure, not a file that looks like a backup.
+  fs.writeFileSync(path.join(dir, 'bin', 'docker'), `#!/usr/bin/env bash\ncase "$*" in *mariadb-dump*) exit 2 ;; esac\n`, { mode: 0o755 });
+  const failed = run(dir, p, `ddev export-db --file=${dir}/b.sql.gz; echo "export $?"`);
+  assert.match(failed.out, /^export 1$/m);
+  // And one that wrote nothing: a few bytes of gzip are not a dump.
+  fs.writeFileSync(path.join(dir, 'bin', 'docker'), '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+  assert.match(run(dir, p, `ddev export-db --file=${dir}/c.sql.gz; echo "export $?"`).out, /^export 1$/m);
+});
+
+test('restart stops what runs first on Docker and Podman: `up` alone leaves running containers as they are', () => {
+  const dir = sandbox();
+  const p = path.join(dir, 'rs'); fs.mkdirSync(p);
+  run(dir, p, 'ddev config --project-type=php --project-name=rs', { WORKSPACE_RUNTIME: 'docker' });
+  assert.deepStrictEqual(run(dir, p, 'ddev restart').calls, ['docker compose stop', 'docker compose up -d --build --wait']);
+  assert.deepStrictEqual(run(dir, p, 'ddev start -y').calls, ['docker compose up -d --build --wait']);
+});
+
+test('drupal on a container runtime keeps sites/default writable, as DDEV\'s own settings do', () => {
+  const dir = sandbox();
+  const p = path.join(dir, 'd5'); const sd = path.join(p, 'web', 'sites', 'default'); fs.mkdirSync(sd, { recursive: true });
+  fs.writeFileSync(path.join(sd, 'default.settings.php'), '<?php\n$settings = [];\n');
+  run(dir, p, 'ddev config --project-type=drupal --docroot=web --project-name=d5', { WORKSPACE_RUNTIME: 'docker' });
+  run(dir, p, 'ddev start');
+  assert.match(fs.readFileSync(path.join(sd, 'settings.webship-runtime.php'), 'utf8'), /\$settings\['skip_permissions_hardening'\] = TRUE;/);
+});
+
+test('the npm package ships the stacks the runtimes build from: a workspace made from npm has them', () => {
+  const { files } = JSON.parse(fs.readFileSync(path.join(SCRIPTS, '..', '..', 'package.json'), 'utf8'));
+  assert.ok(files.includes('core/config/runtimes'), 'core/config/runtimes is in package.json files');
+  for (const stack of ['php', 'tests']) assert.ok(fs.existsSync(path.join(STACKS, stack, 'Dockerfile')), `the ${stack} stack`);
+});
