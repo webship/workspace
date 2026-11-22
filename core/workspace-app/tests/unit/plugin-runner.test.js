@@ -41,7 +41,7 @@ const withoutScreen = () => { process.env.PATH = empty; };
 const askedLines = () => (fs.existsSync(asked) ? fs.readFileSync(asked, 'utf8').trim().split('\n') : []);
 
 const jobs = require('../../jobs');
-const { lingerTail, withoutLinger } = require('../../linger');
+const { lingerTail, withoutLinger } = require('../../linger.mts');
 
 const opts = (verb, extra = {}) => ({ workspace: 'dev', project: 'demo', projectDir: path.join(root, 'dev'), verb, cmdLine: 'echo ran-here', label: `the ${verb}`, ...extra });
 const noTerminal = (html) => { for (const gone of ['job-', 'terminal-pre', 'class="msg assistant terminal', 'hx-get="/fragments/job']) assert.ok(!html.includes(gone), `the answer draws no ${gone}`); };

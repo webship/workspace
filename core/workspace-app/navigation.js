@@ -49,7 +49,7 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { CONFIG_DIR } = require('./workspaces');
 
 // Overridable so a test can arrange a navigation without touching the machine's own, the way

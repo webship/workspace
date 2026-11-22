@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 
 const SUFFIXES = ['-voiceover-script', '-voiceover', '-transcript', '-script'];
 const HEADING = /^##\s+(\S+)\s+(.+?)\s+\(((?:\d+:)?\d{1,2}:\d{2}(?:\.\d+)?)\s+to\s+((?:\d+:)?\d{1,2}:\d{2}(?:\.\d+)?)\)\s*$/;

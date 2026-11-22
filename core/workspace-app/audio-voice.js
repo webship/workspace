@@ -11,10 +11,10 @@ const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { ROOT, workspaceDir } = require('./workspaces');
 const transcripts = require('./transcripts');
-const { VIDEO_RE } = require('./format');
+const { VIDEO_RE } = require('./format.mts');
 
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$/;
 const MAX_TEXT = 5000;

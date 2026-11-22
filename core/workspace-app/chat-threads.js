@@ -92,7 +92,7 @@ function appendTurn(thread, turn) {
   return writeThread({ ...thread, turns: [...thread.turns, t] });
 }
 
-// An answer kept before markdown.js made answers safe can hold markup that runs: it comes back as text.
+// An answer kept before markdown.mts made answers safe can hold markup that runs: it comes back as text.
 const UNSAFE_HTML = /<(script|iframe|object|embed|svg|math|style|link|meta|base|form)\b|\son[a-z]+\s*=|(?:href|src|action)\s*=\s*["']?\s*(?:javascript|vbscript|data):/i;
 const plain = (html) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/[ \t]+/g, ' ').trim();
 

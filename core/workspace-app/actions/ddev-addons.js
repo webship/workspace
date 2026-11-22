@@ -13,10 +13,10 @@
 
 const path = require('path');
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const { workspaceDir } = require('../workspaces');
 const { ddevProjectName, startInScreen, screenStartedHtml } = require('../jobs');
-const { NAME_RE } = require('../validate');
+const { NAME_RE } = require('../validate.mts');
 const addons = require('../ddev-addons');
 
 // An installed add-on is removed and updated BY NAME (`adminer`), not by repository: that is the name

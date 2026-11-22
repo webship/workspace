@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const { isValidWorkspace, loadWorkspaces, loadSettings, workspaceDir } = require('../workspaces');
 const folders = require('../folders');
 const notes = require('../notes');

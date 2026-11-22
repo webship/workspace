@@ -13,11 +13,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const { shWords } = require('../shell-quote.mts');
 const { workspaceDir, ROOT } = require('../workspaces');
 const { listProjects, startInScreen, screenStartedHtml } = require('../jobs');
-const { NAME_RE } = require('../validate');
+const { NAME_RE } = require('../validate.mts');
 const { projectFeatures } = require('../step-packs-page');
 
 const stepPacks = require(path.join(ROOT, 'core', 'scripts', 'libs', 'step_packs'));

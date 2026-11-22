@@ -8,7 +8,7 @@
  * link, the state is in the HTML, and the filter (ui.js) is shown only when it can run.
  */
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { iconHtml } = require('./icons');
 const model = require('./settings-model');
 

@@ -11,7 +11,7 @@
 
 const path = require('path');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { iconHtml } = require('./icons');
 const { needsInstall } = require('./plugin-manifest');
 const model = require('./settings-model');

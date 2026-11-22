@@ -21,8 +21,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('./html');
-const { humanSize, humanTime } = require('./format');
+const { esc } = require('./html.mts');
+const { humanSize, humanTime } = require('./format.mts');
 
 // What `ddev import-db` reads AND what is unambiguously a database dump. `.zip`, `.tgz` and `.tar.gz`
 // are left out on purpose: DDEV accepts them, and in this folder they are whole-project archives.

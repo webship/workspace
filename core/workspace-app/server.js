@@ -37,7 +37,7 @@ const {
   commandTitle, appVersion, exposureRisk,} = require('./workspaces');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const tabModal = require('./tab-modal');
 const eventLog = require('./event-log');
 const { sourceOf, commandFlags } = require('./workspaces');
@@ -111,7 +111,7 @@ const { uikitIcons, tablerIcons, iconHtml, isKnownIcon } = require('./icons');
 const { PAGE_SIZES, defaultPageSize, PROJECT_FILTERS, SORTS, defaultSort, readPageState, setPageCookie, paginate, listControlsHtml, listPagerHtml } = require('./lists');
 const { commandBlock } = require('./command-block');
 const { HOME_URL, wsUrl, withRequest, hereName, cookieDomain } = require('./urls');
-const { VIDEO_RE, AUDIO_RE, DOC_ARTIFACT_RE, humanTime, humanSize, tildePath } = require('./format');
+const { VIDEO_RE, AUDIO_RE, DOC_ARTIFACT_RE, humanTime, humanSize, tildePath } = require('./format.mts');
 const audioVoice = require('./audio-voice');
 const videoEdit = require('./video-edit');
 const projectMake = require('./project-make');
@@ -149,8 +149,8 @@ const {
   startInScreen, screenStartedHtml, screenAction, screenSessionName,
 } = require('./jobs');
 const { assembleCss, cssVersion, listThemes, themeLabel, createTheme, themePreview, isYamlOnlyTheme } = require('./themes');
-// The same rule as validate.js: never a leading dash, which a script would read as an option.
-const { NAME_RE } = require('./validate');
+// The same rule as validate.mts: never a leading dash, which a script would read as an option.
+const { NAME_RE } = require('./validate.mts');
 
 // The app's own documentation, beside the screenshots it references: one file for
 // both the /help page and whoever reads it in the repository.
@@ -221,7 +221,7 @@ function hostnameOwner(label, skipDir) {
   return '';
 }
 
-const { ITEM_NAME_RE } = require('./validate');
+const { ITEM_NAME_RE } = require('./validate.mts');
 const { projectHasGit, hasOwnGit, gitWorktreeInfo, gitBranchOf } = require('./git-info');
 const SCRIPT_RE = /^cmd-[a-zA-Z0-9_.-]+\.sh$/;
 
@@ -2634,8 +2634,8 @@ function styleNewFormHtml(from) {
 
 
 // Markdown to HTML for files nobody on this machine necessarily wrote (a CHANGELOG from a checkout, the
-// user guide): markdown.js, where embedded HTML becomes text and only safe links are kept.
-const { renderMarkdown } = require('./markdown');
+// user guide): markdown.mts, where embedded HTML becomes text and only safe links are kept.
+const { renderMarkdown } = require('./markdown.mts');
 
 /* ---------------- the changelog reader ---------------- */
 
@@ -5680,7 +5680,7 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
       const label = `run ${script}${shown ? ` ${shown}` : ''}`;
       const project = script.replace(/^cmd-|\.sh$/g, '');
       const started = await require('./actions/composer').startUnlessRunning({ workspace: target, project,
-        projectDir: dir, verb: 'run', cmdLine: `bash ${script}${split.argv.length ? ` ${toolArgs.shellArgs(split.argv)}` : ''}; ${require('./linger').lingerTail(label)}`, label });
+        projectDir: dir, verb: 'run', cmdLine: `bash ${script}${split.argv.length ? ` ${toolArgs.shellArgs(split.argv)}` : ''}; ${require('./linger.mts').lingerTail(label)}`, label });
       const answer = started.stillRunning ? { ...started, already: true } : started;
       return send(screenStartedHtml(answer, label, project), answer.ok ? 200 : (answer.already ? 409 : 500));
     }
@@ -7748,7 +7748,7 @@ Summarise what you changed and how to verify it`,
     // why it is plain (#572).
     const noPandoc = () => `<div class="msg error help-no-pandoc" role="status">pandoc is not installed where the dashboard runs, so
       the guide below is plain text, cut into its sections. Install pandoc there, or run the dashboard in its DDEV container,
-      which has it, for the guide with its pictures.</div>\n${require('./markdown').plainGuideHtml(guideBody)}`;
+      which has it, for the guide with its pictures.</div>\n${require('./markdown.mts').plainGuideHtml(guideBody)}`;
     const withImages = (html || noPandoc())
       .replace(/src="screenshots\//g, 'src="/help/screenshots/')
       .replace(/<pre(?![^>]*tabindex)/g, '<pre tabindex="0"');

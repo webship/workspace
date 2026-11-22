@@ -4,7 +4,7 @@
  * `project-make.js`, so it shows on Screens like every other session.
  */
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const make = require('../project-make');
 
 async function project_make({ form, send, res }) {

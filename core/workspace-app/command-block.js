@@ -6,7 +6,7 @@
  * they replace local data. Both are worth reading before they happen.
  */
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 
 const commandBlock = (title, lines, note) => `<div class="msg assistant">
     <strong>${esc(title)}</strong>

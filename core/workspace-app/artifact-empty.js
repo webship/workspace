@@ -9,7 +9,7 @@
 
 const fs = require('fs');
 const zlib = require('zlib');
-const { VIDEO_RE } = require('./format');
+const { VIDEO_RE } = require('./format.mts');
 
 // Shortest recording worth showing. A scenario that failed on its first step records well
 // under a second and shows nothing; across the 737 recordings here the median is 5s and

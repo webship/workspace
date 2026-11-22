@@ -35,7 +35,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { loadSettings, hubDomain } = require('./workspaces');
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { readPluginSettings } = require('./plugin-settings');
 
 const COOKIE = 'ws-session';

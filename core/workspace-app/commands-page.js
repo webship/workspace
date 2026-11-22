@@ -6,10 +6,10 @@
 const fs = require('fs');
 const yaml = require('js-yaml');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { loadWorkspaces, workspaceDir } = require('./workspaces');
 const { paginate, listControlsHtml, listPagerHtml } = require('./lists');
-const { tildePath } = require('./format');
+const { tildePath } = require('./format.mts');
 const rl = require('./row-layout');
 const cc = require('./commands');
 

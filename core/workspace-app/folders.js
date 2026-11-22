@@ -8,7 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 
 // Lowercase so it can later become a DDEV project or a hostname without a rename.
 const NAME_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;

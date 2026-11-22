@@ -23,7 +23,7 @@ const { spawn } = require('child_process');
 // before its plugins would otherwise run commands there again.
 const insideRunner = new AsyncLocalStorage();
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 
 /* ---------------- process helpers ---------------- */
 
@@ -449,7 +449,7 @@ async function startInScreenOnce(opts, session) {
   if (started && started.ok) {
     const { ROOT } = require('./workspaces');
     const notes = require('./screen-notes');
-    const line = require('./linger').withoutLinger(opts.cmdLine || '');
+    const line = require('./linger.mts').withoutLinger(opts.cmdLine || '');
     const claude = notes.claudeIdIn(line);
     notes.noteStarted(path.join(ROOT, '.screens'), {
       session: started.session || session, dir: opts.projectDir, workspace: opts.workspace, project: opts.project,
@@ -545,11 +545,11 @@ function sessionWatchHtml(session) {
 /** No screen session can be started: what is missing, the step that fixes it, the line to copy.
  *  `flash-stay` keeps it until it is closed: a command to copy must not fade while it is being read. */
 function noScreenHtml(result, label) {
-  const { tildePath } = require('./format');
+  const { tildePath } = require('./format.mts');
   const { ROOT } = require('./workspaces');
   const root = tildePath(ROOT);
   const dir = result.dir ? tildePath(result.dir) : root;
-  const line = `cd ${dir} && ${require('./linger').withoutLinger(result.cmdLine || '')}`;
+  const line = `cd ${dir} && ${require('./linger.mts').withoutLinger(result.cmdLine || '')}`;
   return `<div class="msg error flash-now flash-stay no-screen"><div class="no-screen-body">
       <strong>${esc(label)}</strong> was not started: a command runs in a screen session, and none can be started here.
       <br><strong>Missing:</strong> <code>screen</code> is not installed where the dashboard runs, and no runner is up.

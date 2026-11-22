@@ -16,7 +16,7 @@ const { spawn } = require('child_process');
 const APP = path.join(__dirname, '../..');
 const REPO = path.join(APP, '../..');
 const { copyConfig } = require('./_isolated-config');
-const { AUDIO_RE, VIDEO_RE } = require('../../format');
+const { AUDIO_RE, VIDEO_RE } = require('../../format.mts');
 const fb = require('../../files-browser');
 const types = require('../../workspace-types.mts');
 

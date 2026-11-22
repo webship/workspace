@@ -5,7 +5,7 @@
  * a card is one <a>, and a button inside a link is not a button.
  */
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { iconHtml } = require('./icons');
 
 const settingsFile = (key) => `workspace.${key}.settings.yml`;

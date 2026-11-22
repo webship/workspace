@@ -11,7 +11,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { workspaceDir } = require('./workspaces');
 const images = require('./images');
 const { writeRecords, recordPath } = require('./images-records');

@@ -10,12 +10,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('../html');
-const { VIDEO_RE, DOC_ARTIFACT_RE } = require('../format');
+const { esc } = require('../html.mts');
+const { VIDEO_RE, DOC_ARTIFACT_RE } = require('../format.mts');
 const { ROOT, loadWorkspaces, workspaceDir, isValidWorkspace } = require('../workspaces');
 const filesBrowser = require('../files-browser');
 const { screenAction } = require('../jobs');
-const { NAME_RE, ITEM_NAME_RE } = require('../validate');
+const { NAME_RE, ITEM_NAME_RE } = require('../validate.mts');
 const { shq, shWords } = require('../shell-quote.mts');
 const {
   INSTALL_TARGETS, NO_CLAUDE_SYNC, AI_ITEMS_REPO, AI_ITEMS_REPO_PATHS, AI_ITEMS_PROJECT_PATHS,

@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { workspaceDir, hubDomain } = require('./workspaces');
 
 const WORKSPACES = ['products', 'dev', 'test', 'sandboxes', 'demos'];

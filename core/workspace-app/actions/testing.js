@@ -12,9 +12,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const { shWords } = require('../shell-quote.mts');
-const { humanSize, humanTime } = require('../format');
+const { humanSize, humanTime } = require('../format.mts');
 const { ROOT, loadWorkspaces, workspaceDir } = require('../workspaces');
 const {
   run, jobFragment, runningJobKey, startJob, ddevProjectName, listProjects,
@@ -27,7 +27,7 @@ const {
 const {
   findTestReports, testReportFor, invalidateTestReports, testMediaHtml, testingStackOf,
 } = require('../test-reports');
-const { NAME_RE, SCRIPT_RE } = require('../validate');
+const { NAME_RE, SCRIPT_RE } = require('../validate.mts');
 const { commandBlock } = require('../command-block');
 const { wsUrl } = require('../urls');
 const { findGraphifyScript, findRagifyScript } = require('../workspaces');

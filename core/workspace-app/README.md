@@ -362,7 +362,7 @@ with Docker-outside-of-Docker so it can manage sibling DDEV projects:
   Two related details worth keeping:
 
   - **The CLI prints the reason FIRST and a usage synopsis LAST.** These errors are
-    rendered through `cliError()` in `format.js`, which drops the synopsis and keeps
+    rendered through `cliError()` in `format.mts`, which drops the synopsis and keeps
     the head — a tail slice showed a list of flags and threw the reason away.
   - **It hard-wraps mid-word.** The real output is `provided AP` / newline / `I token.`,
     so matching its text has to survive the wrap; the check in `actions/upsun.js` does.

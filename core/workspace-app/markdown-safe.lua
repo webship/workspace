@@ -1,4 +1,4 @@
--- What a markdown file or the assistant's answer says is shown, never run (markdown.js).
+-- What a markdown file or the assistant's answer says is shown, never run (markdown.mts).
 --
 -- pandoc's gfm reader keeps embedded HTML as raw HTML even with -raw_html, and the HTML writer writes it
 -- out: a CHANGELOG from a checkout, or an answer the assistant was talked into, carried <img onerror=…>

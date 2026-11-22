@@ -20,7 +20,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { loadWorkspaces, findBuilderScripts, builderLabel, ROOT } = require('./workspaces');
 const order = require('./build-order');
 

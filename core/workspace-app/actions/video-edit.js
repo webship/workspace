@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const { workspaceDir } = require('../workspaces');
 const { startInScreen, screenStartedHtml } = require('../jobs');
 const voice = require('../audio-voice');

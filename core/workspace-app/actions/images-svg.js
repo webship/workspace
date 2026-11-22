@@ -2,7 +2,7 @@
  * Generate SVG: without confirm=yes this answers with the plan; the request goes out only with the confirm dialog's Yes.
  */
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const images = require('../images');
 
 async function image_svg({ form, send, res }) {

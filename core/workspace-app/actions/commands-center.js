@@ -12,10 +12,10 @@
 
 const fs = require('fs');
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const { isValidWorkspace, workspaceDir } = require('../workspaces');
 const { screenStartedHtml, screenSessionName } = require('../jobs');
-const { lingerTail } = require('../linger');
+const { lingerTail } = require('../linger.mts');
 const { hasOwnGit } = require('../git-info');
 const { startUnlessRunning, terminalLink, isDdevProject, hasComposerJson } = require('./composer');
 const { hasPackageJson } = require('./node');

@@ -11,7 +11,7 @@ const { ROOT } = require('../workspaces');
 const { screenStartedHtml } = require('../jobs');
 const { shWords } = require('../shell-quote.mts');
 const { startUnlessRunning } = require('./composer');
-const { lingerTail } = require('../linger');
+const { lingerTail } = require('../linger.mts');
 const { pluginByName } = require('../plugin-manifest');
 
 const VERBS = new Set(['require', 'activate', 'install', 'configure', 'deactivate', 'uninstall', 'remove']);

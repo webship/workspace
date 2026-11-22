@@ -26,11 +26,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const { workspaceDir } = require('../workspaces');
 const { screenStartedHtml } = require('../jobs');
-const { NAME_RE } = require('../validate');
-const { lingerTail } = require('../linger');
+const { NAME_RE } = require('../validate.mts');
+const { lingerTail } = require('../linger.mts');
 const { startUnlessRunning, terminalLink, isDdevProject, runtimeVerbLine, dashboardDir, sq, SAFE_PATH_RE } = require('./composer');
 
 // The order of the tabs. yarn first: every site project in this tree uses it.

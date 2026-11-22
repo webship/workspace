@@ -10,10 +10,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const { loadWorkspaces, workspaceDir } = require('../workspaces');
 const { startInScreen, screenStartedHtml } = require('../jobs');
-const { NAME_RE } = require('../validate');
+const { NAME_RE } = require('../validate.mts');
 const projectRuntime = require('../project-runtime');
 
 /**

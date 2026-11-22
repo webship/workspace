@@ -11,10 +11,10 @@
 
 const path = require('path');
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const { workspaceDir } = require('../workspaces');
 const { ddevProjectName } = require('../jobs');
-const { NAME_RE } = require('../validate');
+const { NAME_RE } = require('../validate.mts');
 const mail = require('../ddev-mail');
 const { mailPanelHtml } = require('../ddev-mail-page');
 

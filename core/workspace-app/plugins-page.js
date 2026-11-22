@@ -17,7 +17,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { installedPlugins, needsInstall } = require('./plugin-manifest');
 const needs = require('./plugin-needs');
 const commandCheck = require('./command-check');
