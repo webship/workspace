@@ -13,7 +13,7 @@ const path = require('path');
 const { esc } = require('./html');
 const { ROOT, workspaceDir } = require('./workspaces');
 const transcripts = require('./transcripts');
-const mediaInfo = require('./media-info');
+const mediaInfo = require('./media-info.mts');
 const { VIDEO_RE, AUDIO_RE } = require('./format');
 const voice = require('./audio-voice');
 

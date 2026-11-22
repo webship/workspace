@@ -16,7 +16,7 @@ const { spawn, execFileSync } = require('child_process');
 const APP = path.join(__dirname, '../..');
 const REPO = path.join(APP, '../..');
 const { copyConfig } = require('./_isolated-config');
-const mi = require('../../media-info');
+const mi = require('../../media-info.mts');
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-media-'));
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-media-root-'));

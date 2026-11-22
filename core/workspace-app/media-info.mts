@@ -7,19 +7,19 @@
  * bit rate files the tooling makes. Anything else is unknown, and unknown is shown as nothing.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 const MP4_RE = /\.(mp4|m4v|mov|m4a)$/i;
-const cache = new Map();
+const cache = new Map<string, number | null>();
 
-function read(fd, start, length) {
+function read(fd: number, start: number, length: number): Buffer {
   const buf = Buffer.alloc(length);
   const got = fs.readSync(fd, buf, 0, length, start);
   return got < length ? buf.subarray(0, got) : buf;
 }
 
-function mvhdSeconds(buf) {
+function mvhdSeconds(buf: Buffer): number | null {
   const at = buf.indexOf('mvhd');
   if (at < 0) return null;
   try {
@@ -33,7 +33,7 @@ function mvhdSeconds(buf) {
 }
 
 /** The movie header of an mp4-family file, wherever the encoder put it: walk the top-level boxes. */
-function mp4Seconds(fd, size) {
+function mp4Seconds(fd: number, size: number): number | null {
   let pos = 0;
   for (let hops = 0; pos + 16 <= size && hops < 64; hops += 1) {
     const head = read(fd, pos, 16);
@@ -48,12 +48,12 @@ function mp4Seconds(fd, size) {
   return null;
 }
 
-function webmSeconds(fd, size) {
+function webmSeconds(fd: number, size: number): number | null {
   const buf = read(fd, 0, Math.min(262144, size));
   const i = buf.indexOf(Buffer.from([0x44, 0x89]));
   if (i < 0) return null;
   const len = buf[i + 2] & 0x7f;
-  let value;
+  let value: number;
   try {
     if (len === 4) value = buf.readFloatBE(i + 3);
     else if (len === 8) value = buf.readDoubleBE(i + 3);
@@ -68,7 +68,7 @@ function webmSeconds(fd, size) {
   return (value * scale) / 1e9;
 }
 
-function wavSeconds(fd, size) {
+function wavSeconds(fd: number, size: number): number | null {
   const buf = read(fd, 0, Math.min(4096, size));
   if (buf.toString('latin1', 0, 4) !== 'RIFF') return null;
   const fmt = buf.indexOf('fmt ');
@@ -79,12 +79,12 @@ function wavSeconds(fd, size) {
   return rate ? bytes / rate : null;
 }
 
-const MP3_RATES = {
+const MP3_RATES: Record<1 | 2, number[]> = {
   1: [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320],
   2: [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160],
 };
 
-function mp3Seconds(fd, size) {
+function mp3Seconds(fd: number, size: number): number | null {
   const head = read(fd, 0, Math.min(65536, size));
   let at = 0;
   if (head.toString('latin1', 0, 3) === 'ID3') at = 10 + ((head[6] & 0x7f) << 21 | (head[7] & 0x7f) << 14 | (head[8] & 0x7f) << 7 | (head[9] & 0x7f));
@@ -102,13 +102,13 @@ function mp3Seconds(fd, size) {
 }
 
 /** Seconds, or null when the file cannot be read or is of a kind not understood. Cached on path, size and time. */
-function seconds(full) {
-  let st;
+export function seconds(full: string): number | null {
+  let st: fs.Stats;
   try { st = fs.statSync(full); } catch (_) { return null; }
   const key = `${full}|${st.size}|${st.mtimeMs}`;
-  if (cache.has(key)) return cache.get(key);
-  let found = null;
-  let fd;
+  if (cache.has(key)) return cache.get(key) ?? null;
+  let found: number | null = null;
+  let fd: number | undefined;
   try {
     fd = fs.openSync(full, 'r');
     const ext = path.extname(full).toLowerCase();
@@ -117,20 +117,21 @@ function seconds(full) {
     else if (ext === '.wav') found = wavSeconds(fd, st.size);
     else if (ext === '.mp3') found = mp3Seconds(fd, st.size);
   } catch (_) { found = null; } finally { if (fd !== undefined) fs.closeSync(fd); }
-  if (!(found > 0) || !Number.isFinite(found)) found = null;
+  if (found === null || !(found > 0) || !Number.isFinite(found)) found = null;
   cache.set(key, found);
-  if (cache.size > 4000) cache.delete(cache.keys().next().value);
+  if (cache.size > 4000) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
   return found;
 }
 
 /** 7:56, or 1:02:03: the way a player says it, with no leading zero on the largest unit. */
-function clock(sec) {
-  if (!(sec > 0)) return '';
+export function clock(sec: number | null | undefined): string {
+  if (sec == null || !(sec > 0)) return '';
   const s = Math.round(sec);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
-  const pad = (n) => String(n).padStart(2, '0');
+  const pad = (n: number): string => String(n).padStart(2, '0');
   return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`;
 }
-
-module.exports = { seconds, clock };

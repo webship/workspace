@@ -7,26 +7,28 @@
  * tree had a Storybook the dashboard never mentioned.
  */
 
-'use strict';
-
-const { test, before, after } = require('node:test');
-const assert = require('node:assert');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { copyConfig } = require('./_isolated-config');
+import { test, before, after } from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { copyConfig } from './_isolated-config.js';
+import { ddevHostnames, ddevExtraDomains } from '../../ddev-domains.mts';
 
 // The walk over the workspaces runs on a tree built here, not on this checkout: a fresh clone holds no
-// project at all. The workspaces module reads its root once, at load, so it is set before the require.
-const REPO = path.join(__dirname, '../../../..');
+// project at all. The workspaces module reads its root once, at load, so it is set before it is imported
+// (an import at the top would be loaded before this line runs).
+const REPO = path.join(import.meta.dirname, '../../../..');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-ddev-domains-root-'));
 process.env.WORKSPACE_ROOT = root;
 
-const { ddevHostnames, ddevExtraDomains } = require('../../ddev-domains');
-const { loadWorkspaces } = require('../../workspaces');
+const { loadWorkspaces } = await import('../../workspaces.js');
+
+/** What this test reads of a workspace (workspaces.js is not TypeScript yet). */
+interface WorkspaceView { key: string; dir?: string }
 
 /** A DDEV project inside a workspace of the built tree. */
-function inTree(workspace, name, yaml) {
+function inTree(workspace: string, name: string, yaml: string | null): void {
   const dir = path.join(root, workspace, name);
   fs.mkdirSync(path.join(dir, '.ddev'), { recursive: true });
   if (yaml !== null) fs.writeFileSync(path.join(dir, '.ddev', 'config.yaml'), yaml);
@@ -44,7 +46,7 @@ before(() => {
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 /** A throwaway project directory holding one .ddev/config.yaml. */
-function project(yaml) {
+function project(yaml: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ddev-domains-'));
   fs.mkdirSync(path.join(dir, '.ddev'), { recursive: true });
   fs.writeFileSync(path.join(dir, '.ddev', 'config.yaml'), yaml);
@@ -159,10 +161,10 @@ additional_fqdns:
 
 test('the projects in this tree that ship a Storybook are found', () => {
   // The regression in one line: before this parsed additional_fqdns, every one of these was absent.
-  const found = [];
-  for (const w of Object.values(loadWorkspaces())) {
+  const found: string[] = [];
+  for (const w of Object.values(loadWorkspaces() as Record<string, WorkspaceView>)) {
     if (!w.dir) continue;
-    let names = [];
+    let names: string[] = [];
     try {
       names = fs.readdirSync(w.dir, { withFileTypes: true })
         .filter((e) => e.isDirectory() && !e.name.startsWith('.')).map((e) => e.name);

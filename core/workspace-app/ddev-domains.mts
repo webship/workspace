@@ -15,13 +15,17 @@
  * part nothing could reach while it lived inside the request handler.
  */
 
-'use strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const fs = require('fs');
-const path = require('path');
+/** The two keys of a project's config, kept apart, and the TLD a label is completed with. */
+export interface DdevHostnames { list: string[]; fqdns: string[]; tld: string }
+
+/** One extra address of a project. */
+export interface ExtraDomain { host: string; storybook: boolean }
 
 /** Strip one layer of quotes from a YAML scalar. */
-const unquote = (s) => String(s).trim().replace(/^["']|["']$/g, '');
+const unquote = (s: string): string => String(s).trim().replace(/^["']|["']$/g, '');
 
 /**
  * The raw keys, kept apart.
@@ -29,15 +33,15 @@ const unquote = (s) => String(s).trim().replace(/^["']|["']$/g, '');
  * `list` is what the hostname-collision check compares, and it compares labels — so a full hostname
  * must never be folded into it, or it would compare `blog2` against `storybook.x.ddev.site`.
  */
-function ddevHostnames(dir) {
-  const out = { list: [], fqdns: [], tld: 'ddev.site' };
-  let cfg;
+export function ddevHostnames(dir: string): DdevHostnames {
+  const out: DdevHostnames = { list: [], fqdns: [], tld: 'ddev.site' };
+  let cfg: string[];
   try {
     cfg = fs.readFileSync(path.join(dir, '.ddev', 'config.yaml'), 'utf8').split('\n');
   } catch (_) {
     return out;                       // not a DDEV project
   }
-  let into = null;
+  let into: string[] | null = null;
   for (const ln of cfg) {
     // A comment is not configuration. A stock config.yaml ships `# additional_hostnames:` and
     // `#  - somename`, and a parser that reads those hands every project hostnames it never had.
@@ -72,13 +76,11 @@ function ddevHostnames(dir) {
  * Storybook is marked because it is not another copy of the site: it is the component library, a
  * different thing to open, and the address people go looking for and cannot find.
  */
-function ddevExtraDomains(dir) {
+export function ddevExtraDomains(dir: string): ExtraDomain[] {
   const { list, fqdns, tld } = ddevHostnames(dir);
   const hosts = [...list.map((label) => `${label}.${tld}`), ...fqdns];
-  const seen = new Set();
+  const seen = new Set<string>();
   return hosts
     .filter((h) => h && !seen.has(h) && seen.add(h))
     .map((host) => ({ host, storybook: /^storybook\./i.test(host) }));
 }
-
-module.exports = { ddevHostnames, ddevExtraDomains };

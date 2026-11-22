@@ -43,9 +43,9 @@ const eventLog = require('./event-log');
 const { sourceOf, commandFlags } = require('./workspaces');
 const { ghCliAuth } = require('./github-auth');
 const { repoTree, gitBlobSha } = require('./repo-blobs');
-const { suggestionsFor } = require('./assistant-suggestions');
+const { suggestionsFor } = require('./assistant-suggestions.mts');
 const { activityByDir, listScreens, screensForDir, screenLogFor, screensListHtml, screensGridHtml, screenTailHtml, newScreenFormHtml, promptTemplateText, claudeResumeHtml, screenWhereHtml, termPaneHtml: newScreenPaneHtml, termLayerHtml } = require('./screens');
-const ddevSnapshots = require('./ddev-snapshots');
+const ddevSnapshots = require('./ddev-snapshots.mts');
 const { addonsPanelHtml } = require('./ddev-addons-page');
 const ddevImport = require('./ddev-import');
 const ddevMail = require('./ddev-mail-page');
@@ -117,7 +117,7 @@ const videoEdit = require('./video-edit');
 const projectMake = require('./project-make');
 const SCRIPTS_ALSO = () => ({ dir: workspaceDir('videos'), key: 'videos' });
 const transcripts = require('./transcripts');
-const mediaInfo = require('./media-info');
+const mediaInfo = require('./media-info.mts');
 const filesBrowser = require('./files-browser');
 const {
   findTestReports, testReportSummary, testReportFor, invalidateTestReports, testMediaHtml,
@@ -156,10 +156,10 @@ const { NAME_RE } = require('./validate');
 // both the /help page and whoever reads it in the repository.
 const APP_DOCS = path.join(__dirname, 'docs');
 
-// The addresses a project answers at beside its canonical one — see ddev-domains.js, which owns the
+// The addresses a project answers at beside its canonical one — see ddev-domains.mts, which owns the
 // parsing because `additional_hostnames` and `additional_fqdns` are two different DDEV keys and
 // reading only the first is what hid every Storybook domain in the tree.
-const { ddevHostnames, ddevExtraDomains } = require('./ddev-domains');
+const { ddevHostnames, ddevExtraDomains } = require('./ddev-domains.mts');
 
 /**
  * Every extra domain in the tree, and which project directories claim it.

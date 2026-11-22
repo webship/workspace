@@ -1,16 +1,25 @@
 // Suggested prompts for an empty assistant conversation, made from each workspace's own noun and
 // actions. A workspace can replace them with `assistant: suggestions:`; an empty list turns them off.
 
-const MAX_SUGGESTIONS = 5;
-const MAX_LENGTH = 120;
+export const MAX_SUGGESTIONS = 5;
+export const MAX_LENGTH = 120;
 
-const an = (noun) => (/^[aeiou]/i.test(noun) ? 'an' : 'a');
+/** What a suggestion is made from: what a workspace says about itself (workspaces.js). */
+export interface SuggestionMeta {
+  noun?: string;
+  nounPlural?: string;
+  kind?: string;
+  /** The actions the workspace's type allows (a Set). */
+  typeActions?: { has?(action: string): boolean };
+}
+
+const an = (noun: string): 'a' | 'an' => (/^[aeiou]/i.test(noun) ? 'an' : 'a');
 
 // null = not given (use the defaults), [] = none.
-function cleanSuggestions(list) {
+export function cleanSuggestions(list: unknown): string[] | null {
   if (!Array.isArray(list)) return null;
-  const seen = new Set();
-  const out = [];
+  const seen = new Set<string>();
+  const out: string[] = [];
   for (const item of list) {
     if (typeof item !== 'string') continue;
     const text = item.replace(/\s+/g, ' ').trim().slice(0, MAX_LENGTH);
@@ -22,26 +31,26 @@ function cleanSuggestions(list) {
   return out;
 }
 
-const HOME = [
+const HOME: string[] = [
   'What can this dashboard do?',
   'Which workspaces have something running right now?',
   'Where do I start on a new machine?',
   'How do I build a new project?',
 ];
 
-const SETTINGS = [
+const SETTINGS: string[] = [
   'What can I change on this page?',
   'What does each setting here control?',
   'Which of these settings matter most on a new machine?',
 ];
 
-const COMMANDS = [
+const COMMANDS: string[] = [
   'What can I run from here?',
   'How do I add a command of my own?',
   'Which commands act on a project, and which on a whole workspace?',
 ];
 
-function defaultSuggestions(context, meta) {
+export function defaultSuggestions(context: string | null | undefined, meta?: SuggestionMeta | null): string[] {
   const ctx = String(context || 'home');
   if (ctx === 'settings') return SETTINGS;
   if (ctx === 'commands') return COMMANDS;
@@ -49,7 +58,7 @@ function defaultSuggestions(context, meta) {
 
   const noun = meta.noun || 'item';
   const plural = meta.nounPlural || `${noun}s`;
-  const can = (action) => !!(meta.typeActions && meta.typeActions.has && meta.typeActions.has(action));
+  const can = (action: string): boolean => !!meta.typeActions?.has?.(action);
 
   if (/^backups:/.test(ctx)) {
     return [
@@ -83,9 +92,17 @@ function defaultSuggestions(context, meta) {
 }
 
 // The workspace's own list, else settings.yml's, else the defaults.
-function suggestionsFor({ context, meta, own, global }) {
+/** Where the suggestions are asked for: the page's context, its workspace, and the two lists a person may write. */
+export interface SuggestionsRequest {
+  context?: string | null;
+  meta?: SuggestionMeta | null;
+  /** The workspace's own `assistant: suggestions:`. */
+  own?: unknown;
+  /** settings.yml's `assistant: suggestions:`. */
+  global?: unknown;
+}
+
+export function suggestionsFor({ context, meta, own, global }: SuggestionsRequest): string[] {
   const chosen = cleanSuggestions(own) || cleanSuggestions(global);
   return (chosen || defaultSuggestions(context, meta)).slice(0, MAX_SUGGESTIONS);
 }
-
-module.exports = { suggestionsFor, defaultSuggestions, cleanSuggestions, MAX_SUGGESTIONS, MAX_LENGTH };

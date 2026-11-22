@@ -7,21 +7,22 @@
  * itself, so a new workspace gets sensible ones with no code change.
  */
 
-const { test } = require('node:test');
-const assert = require('node:assert');
-const fs = require('fs');
-const path = require('path');
+import { test } from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const { suggestionsFor, defaultSuggestions, cleanSuggestions, MAX_SUGGESTIONS, MAX_LENGTH } = require('../../assistant-suggestions');
-const { loadWorkspaces } = require('../../workspaces');
+import { suggestionsFor, defaultSuggestions, cleanSuggestions, MAX_SUGGESTIONS, MAX_LENGTH, type SuggestionMeta } from '../../assistant-suggestions.mts';
+import { loadWorkspaces } from '../../workspaces.js';
 
-const app = (f) => fs.readFileSync(path.join(__dirname, '../..', f), 'utf8');
+const app = (f: string): string => fs.readFileSync(path.join(import.meta.dirname, '../..', f), 'utf8');
 // The pronoun is the one capital a plain sentence may carry besides its first letter.
-const plain = (s) => s.replace(/\bI\b/g, 'i');
-const meta = (over) => ({ noun: 'project', nounPlural: 'projects', kind: 'projects', typeActions: new Set(['ddev', 'build', 'backup', 'tests', 'clone']), ...over });
+const plain = (s: string): string => s.replace(/\bI\b/g, 'i');
+const meta = (over: SuggestionMeta = {}): SuggestionMeta => ({ noun: 'project', nounPlural: 'projects', kind: 'projects', typeActions: new Set(['ddev', 'build', 'backup', 'tests', 'clone']), ...over });
 
 test('every real workspace gets a short, general list', () => {
-  const all = loadWorkspaces();
+  // workspaces.js is not TypeScript yet: what it returns is read as what this test uses of it.
+  const all = loadWorkspaces() as Record<string, SuggestionMeta>;
   assert.ok(Object.keys(all).length > 5, 'there are workspaces to check');
   for (const [key, ws] of Object.entries(all)) {
     const list = suggestionsFor({ context: `workspace:${key}`, meta: ws });
@@ -85,14 +86,14 @@ test('what a person writes is cleaned the way the defaults are made', () => {
   assert.strictEqual(cleanSuggestions('not a list'), null);
   assert.strictEqual(cleanSuggestions(undefined), null);
   assert.deepStrictEqual(cleanSuggestions(['  spaced   out  ', '', '   ', 42, null, { a: 1 }, 'Spaced out']), ['spaced out'], 'trimmed, one line, deduplicated, strings only');
-  assert.strictEqual(cleanSuggestions(Array.from({ length: 12 }, (_, i) => `Question ${i}?`)).length, MAX_SUGGESTIONS);
-  assert.strictEqual(cleanSuggestions(['x'.repeat(500)])[0].length, MAX_LENGTH);
+  assert.strictEqual(cleanSuggestions(Array.from({ length: 12 }, (_, i) => `Question ${i}?`))?.length, MAX_SUGGESTIONS);
+  assert.strictEqual(cleanSuggestions(['x'.repeat(500)])?.[0]?.length, MAX_LENGTH);
   assert.deepStrictEqual(cleanSuggestions(['one\ntwo']), ['one two'], 'one line each');
 });
 
 test('the page hands the list to the panel, and a workspace file can carry its own', () => {
   const server = app('server.js');
-  assert.ok(server.includes("require('./assistant-suggestions')"));
+  assert.ok(server.includes("require('./assistant-suggestions.mts')"));
   assert.ok(server.includes('suggestions });') || server.includes('suggestions };'), 'it is part of the settings the panel is given');
   assert.ok(server.includes('own: meta ? meta.assistantSuggestions : undefined'));
   assert.ok(app('workspaces.js').includes('assistantSuggestions: (wsSettings.assistant || {}).suggestions'));

@@ -217,7 +217,7 @@ function _loadWorkspacesFresh() {
       // five places that name the panel — a heading and a button disagreeing about what the thing
       // is called is worse than either name.
       assistant: assistantIdentity(settings, wsSettings),
-      // `assistant: suggestions:` from this workspace's file, unvalidated (assistant-suggestions.js cleans it).
+      // `assistant: suggestions:` from this workspace's file, unvalidated (assistant-suggestions.mts cleans it).
       assistantSuggestions: (wsSettings.assistant || {}).suggestions,
     };
   }
