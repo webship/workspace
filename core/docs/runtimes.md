@@ -8,9 +8,9 @@ This page says what works today. It is updated as each part is proven on a real 
 
 | | DDEV | Docker Compose | Kubernetes | Podman |
 |---|---|---|---|---|
-| Build and install a Drupal site (the core's Drupal-family builders) | Yes | Yes | Yes | Yes, not yet run on a real Podman |
-| Composer, Drush and commands in the site | Yes | Yes | Yes | The same commands as Docker |
-| Export and import the database | Yes | Yes | Yes | The same commands as Docker |
+| Build and install a Drupal site (the core's Drupal-family builders) | Yes | Yes | Yes | Yes |
+| Composer, Drush and commands in the site | Yes | Yes | Yes | Yes |
+| Export and import the database | Yes | Yes | Yes | Yes |
 | The site's row in the dashboard: state, link, menus | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman |
 | The Tests menu, test users, backup, restore and remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman |
 | Clone, import a database from the menu, snapshots, add-ons, extra domains, captured mail | Yes | On the way | On the way | On the way |
@@ -60,6 +60,15 @@ A site on Docker Compose, Podman or Kubernetes has the row a DDEV project has. I
 - The state is read from `docker compose ls`, `podman ps` and `kubectl get deploy`, each with a timeout. A runtime that does not answer shows **unknown**, and the page does not wait for it.
 
 What is not there yet is said in the menu instead of offered: clone, importing a database, snapshots, add-ons, extra domains and captured mail.
+
+## Podman
+
+Podman runs the same `compose.yaml` as Docker, through `podman compose`, without a daemon and without root. Two things are its own:
+
+- **Its socket must be running:** `systemctl --user start podman.socket` (add `enable` to keep it across restarts). `podman compose` hands the file to the Compose plugin, which talks to that socket.
+- **The web service keeps your user:** its compose file sets `userns_mode: keep-id`, so the site's files belong to you, and it starts as root inside the container so Apache can listen on port 80.
+
+Proven on Podman 4.9.3, rootless: Drupal 11 built and installed, its pages answering, Drush working, and the database exported and imported back. The dashboard's row and tools on a Podman site use the same code as Docker and have not been run on a real Podman yet.
 
 ## Which cluster
 

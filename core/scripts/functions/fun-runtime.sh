@@ -75,6 +75,11 @@ function rt_compose_write() {
   local rt="$1" root="$2" name="$3" type="$4" docroot="$5" php="$6" db="$7" port="$8" ;
   mkdir -p "${root}/.webship/runtime" ;
   cp "${RT_STACKS}/php/Dockerfile" "${root}/.webship/runtime/Dockerfile" ;
+  # Rootless Podman maps a container's users into a range of their own: with keep-id the user of the web service is
+  # the host user, so it can write the project folder it is given (found on a real Podman build, #694).
+  local userns="" ;
+  # The container still starts as root inside (user 0:0), so Apache can bind port 80; its workers are www-data.
+  [ "${rt}" = podman ] && userns=$'    userns_mode: keep-id\n    user: "0:0"\n' ;
   cat > "${root}/compose.yaml" <<YAML
 # Written by the Webship Workspace (its ${rt} runtime, webship/workspace#694). Run it with: ${rt} compose up -d
 name: ${name}
@@ -95,7 +100,7 @@ services:
         UID: "$(id -u)"
         GID: "$(id -g)"
     image: webship-${name}-web
-    environment:
+${userns}    environment:
       APACHE_DOCUMENT_ROOT: /var/www/html${docroot:+/${docroot}}
       WEBSHIP_RUNTIME: ${rt}
     volumes:
