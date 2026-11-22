@@ -34,3 +34,36 @@ Feature: The page's own scripts do their work in a browser
      When I click on the element "#editor-modal-body [data-sound-loop]"
      Then the recording should loop
       And there should be no JavaScript errors
+
+  # An automated browser cannot be heard, so a stand-in recogniser "hears" one phrase.
+  Scenario: Every text field has a microphone named after it, and it dictates
+    Given the browser hears "hello there" when it listens
+      And I am on "/settings/settings.yml"
+     Then every text field should have a microphone named after it
+     When I press the microphone of the first text field
+     Then the first text field should read "hello there"
+      And there should be no JavaScript errors
+
+  Scenario: The palette opens from the keyboard, finds a workspace, and shows the shortcuts
+    Given I am on "/"
+     When I press the key "Control+k"
+     Then the palette should be open
+     When I type "sandbox" in the palette
+     Then the first result of the palette should be "Sandboxes"
+      And the palette should announce "1 result"
+     When I press the key "Escape"
+     Then the palette should be closed
+     When I press the key "/"
+     Then the palette should be open
+     When I press the key "Escape"
+      And I press the key "Shift+Slash"
+     Then the palette should show the keyboard shortcuts
+      And there should be no JavaScript errors
+
+  Scenario: A field that asks for suggestions asks for names after "@" at the start of a word
+    Given I am on "/"
+     Then "@webs" should ask for "@" names, and "mail me@x" should not
+     When a field asks for suggestions from "/fragments/ai-suggest/dev"
+      And I type "@we" in that field
+     Then the dashboard should be asked for "@" names
+      And there should be no JavaScript errors

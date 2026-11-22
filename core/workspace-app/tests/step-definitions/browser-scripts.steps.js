@@ -8,7 +8,7 @@
 
 'use strict';
 
-const { When, Then } = require('@cucumber/cucumber');
+const { Given, When, Then } = require('@cucumber/cucumber');
 const assert = require('assert');
 
 const CARDS = '[data-sortable=".ws-card-wrap"] > .ws-card-wrap';
@@ -83,4 +83,101 @@ Then(/^the speed ([0-9.]+) should be kept for the next recording$/, async functi
 Then(/^the recording should loop$/, async function () {
   const p = await player(this.page);
   assert.ok(p && p.loop, 'the recording does not loop');
+});
+
+/* ---------------- the field microphones ---------------- */
+
+const FIELDS = '.field-mic-wrap > input[type="text"], .field-mic-wrap > input:not([type])';
+
+Given(/^the browser hears "([^"]*)" when it listens$/, async function (phrase) {
+  // Before the page loads, so mic.js finds it. The browser's own recogniser is not writable as a plain property.
+  await this.context.addInitScript((said) => {
+    class Heard {
+      start() {
+        const result = Object.assign([{ transcript: said }], { isFinal: true });
+        setTimeout(() => { if (this.onresult) this.onresult({ resultIndex: 0, results: [result] }); if (this.onend) this.onend(); }, 50);
+      }
+    }
+    for (const name of ['SpeechRecognition', 'webkitSpeechRecognition']) Object.defineProperty(window, name, { value: Heard, configurable: true, writable: true });
+  }, phrase);
+});
+
+Then(/^every text field should have a microphone named after it$/, async function () {
+  const labels = await this.page.$$eval('.field-mic', (b) => b.map((x) => x.getAttribute('aria-label') || ''));
+  assert.ok(labels.length > 0, 'no field microphone on this page');
+  for (const l of labels) assert.match(l, /^Dictate into \S/);
+  assert.strictEqual(await this.page.$$eval(FIELDS, (f) => f.length), await this.page.$$eval('.field-mic-wrap > input, .field-mic-wrap > textarea', (f) => f.length));
+});
+
+When(/^I press the microphone of the first text field$/, async function () {
+  // The field may be in a folded section: the button is pressed as a click on it, the way a person's would land.
+  await this.page.$eval(FIELDS, (f) => { f.value = ''; f.nextElementSibling.click(); });
+});
+
+Then(/^the first text field should read "([^"]*)"$/, async function (text) {
+  await this.page.waitForFunction(([sel, want]) => document.querySelector(sel).value === want, [FIELDS, text], { timeout: 5000 }).catch(() => {});
+  assert.strictEqual(await this.page.$eval(FIELDS, (f) => f.value), text);
+});
+
+/* ---------------- the palette ---------------- */
+
+Then(/^the palette should be open$/, async function () {
+  await this.page.waitForSelector('#palette:not([hidden])', { timeout: 5000 });
+});
+
+Then(/^the palette should be closed$/, async function () {
+  assert.ok(await this.page.$eval('#palette', (p) => p.hidden), 'the palette is still open');
+});
+
+When(/^I type "([^"]*)" in the palette$/, async function (text) {
+  await this.page.type('#palette .palette-input', text);
+});
+
+Then(/^the first result of the palette should be "([^"]*)"$/, async function (label) {
+  await this.page.waitForFunction((want) => {
+    const first = document.querySelector('#palette-list [role=option] .palette-label');
+    return first && first.textContent === want;
+  }, label, { timeout: 5000 }).catch(() => {});
+  assert.strictEqual(await this.page.$eval('#palette-list [role=option] .palette-label', (l) => l.textContent), label);
+});
+
+Then(/^the palette should announce "([^"]*)"$/, async function (said) {
+  assert.strictEqual(await this.page.textContent('.palette-live'), said);
+});
+
+Then(/^the palette should show the keyboard shortcuts$/, async function () {
+  await this.page.waitForSelector('#palette:not([hidden]) .palette-shortcut', { timeout: 5000 });
+  const keys = await this.page.$$eval('#palette-list .palette-shortcut kbd', (k) => k.map((x) => x.textContent));
+  assert.ok(keys.includes('?') && keys.some((k) => /^g /.test(k)), `the sheet: ${keys.join(', ')}`);
+});
+
+/* ---------------- the suggestions ---------------- */
+
+Then(/^"([^"]*)" should ask for "([^"]*)" names, and "([^"]*)" should not$/, async function (asks, trigger, not) {
+  const [yes, no] = await this.page.evaluate(([a, b]) => [window.wsSuggest.tokenAt(a, a.length), window.wsSuggest.tokenAt(b, b.length)], [asks, not]);
+  assert.ok(yes && yes.trigger === trigger && yes.at === 0, `"${asks}": ${JSON.stringify(yes)}`);
+  assert.strictEqual(no, null, `"${not}" is an address, not a name`);
+});
+
+When(/^a field asks for suggestions from "([^"]*)"$/, async function (url) {
+  await this.page.evaluate((u) => {
+    const t = document.createElement('textarea');
+    t.id = 'suggest-probe';
+    t.setAttribute('aria-label', 'Suggestions probe');
+    t.dataset.suggest = u;
+    document.body.appendChild(t);
+    window.wsSuggest.attachAll(document.body);
+  }, url);
+  this.suggestUrl = url;
+});
+
+When(/^I type "([^"]*)" in that field$/, async function (text) {
+  this.suggestAsked = this.page.waitForRequest((r) => r.url().includes(this.suggestUrl) && r.url().includes(`trigger=${encodeURIComponent(text[0])}`), { timeout: 5000 })
+    .then(() => true).catch(() => false);
+  await this.page.focus('#suggest-probe');
+  await this.page.keyboard.type(text);
+});
+
+Then(/^the dashboard should be asked for "([^"]*)" names$/, async function (trigger) {
+  assert.ok(await this.suggestAsked, `no request for "${trigger}" names was made`);
 });
