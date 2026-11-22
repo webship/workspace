@@ -96,7 +96,7 @@ test('a pack is only ever @webship-js/<name>-steps, whatever is typed', () => {
 
 test('the shipped list: real packs, a kind each, extensions on a base it knows', () => {
   const { packs, upcoming } = sp.shippedList();
-  assert.ok(packs.length >= 39, 'the 39 packs on npm on 2026-11-21');
+  assert.ok(packs.length >= 40, 'the 40 packs on npm on 2026-11-22');
   for (const p of [...packs, ...upcoming]) {
     assert.match(p.name, sp.PACK_RE, p.name);
     assert.ok(['platform', 'extension', 'any-site'].includes(p.kind), `${p.name}: ${p.kind}`);
@@ -158,7 +158,7 @@ test('the list: npm unreachable and nothing cached gives the list shipped with t
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-steps-root-'));
   const list = await sp.listPacks({ root, fetchImpl: fakeFetch({ 'https://': new Error('offline') }) });
   assert.strictEqual(list.source, 'shipped');
-  assert.ok(list.packs.length >= 39);
+  assert.ok(list.packs.length >= 40);
   assert.ok(list.packs.every((p) => p.docs.startsWith('https://webship.co/docs/webship-js/2.0.x/')));
   const upcoming = sp.shippedList().upcoming.map((p) => p.name);
   assert.ok(!list.packs.some((p) => upcoming.includes(p.name)), 'a pack that is not on npm yet is not offered');
@@ -376,6 +376,8 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   // Wagtail: an image rendition's address, or a new project's welcome page (2026-11-21).
   assert.deepStrictEqual(hits('<img src="/media/images/bread.2e16d0ba.fill-1920x600.jpg" alt="">'), ['wagtail']);
   assert.deepStrictEqual(hits('<link rel="stylesheet" href="/static/css/welcome_page.css">'), ['wagtail']);
+  // phpBB: the body's id (2026-11-22).
+  assert.deepStrictEqual(hits('<body id="phpbb" class="nojs notouch section-index ltr">'), ['phpbb']);
   assert.deepStrictEqual(hits('<link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">'), ['bootstrap']);
   assert.deepStrictEqual(hits('<script src="/js/bootstrap.bundle.min.js?v=5"></script>'), ['bootstrap']);
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
