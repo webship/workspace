@@ -17,13 +17,13 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 
-const { esc } = require('./html');
-const { humanSize, humanTime, cliError } = require('./format');
+const { esc } = require('./html.mts');
+const { humanSize, humanTime, cliError } = require('./format.mts');
 const { ROOT, CONFIG_DIR, loadSettings, loadWorkspaces, workspaceDir, isValidWorkspace } = require('./workspaces');
 const {
   run, startJob, jobFragment, runningJobKey, listProjects, screenAction, startInScreen, screenStartedHtml, addRunner,
 } = require('./jobs');
-const { NAME_RE } = require('./validate');
+const { NAME_RE } = require('./validate.mts');
 const { wsUrl } = require('./urls');
 const { TYPES, addTypeAction } = require('./workspace-types.mts');
 const rowLayout = require('./row-layout');
@@ -69,9 +69,9 @@ const lib = {
   hasOwnGit: (dir) => require('./git-info').hasOwnGit(dir),
   gitWorktreeInfo: (dir) => require('./git-info').gitWorktreeInfo(dir),
   gitBranchOf: (dir) => require('./git-info').gitBranchOf(dir),
-  lingerTail: (label) => require('./linger').lingerTail(label),
-  LINGER_MARK: require('./linger').LINGER_MARK,
-  tildePath: (p) => require('./format').tildePath(p),
+  lingerTail: (label) => require('./linger.mts').lingerTail(label),
+  LINGER_MARK: require('./linger.mts').LINGER_MARK,
+  tildePath: (p) => require('./format.mts').tildePath(p),
   hostRunnerRequest: (...a) => require('./jobs').hostRunnerRequest(...a),
   // The list helpers a plugin's own list page draws with (paging, sorting, the controls), the
   // stylesheet version a standalone page links, and the script finder (cmd-tools-<x>.sh in a folder).

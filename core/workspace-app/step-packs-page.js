@@ -14,8 +14,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('./html');
-const { humanTime } = require('./format');
+const { esc } = require('./html.mts');
+const { humanTime } = require('./format.mts');
 const { iconHtml } = require('./icons');
 const { ROOT } = require('./workspaces');
 

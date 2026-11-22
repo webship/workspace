@@ -3,7 +3,7 @@
  *
  * `pandoc -f gfm-raw_html` kept embedded HTML (2.17 and 3.1 alike), so a CHANGELOG from a checkout, or an
  * answer the assistant was talked into, put `<img onerror=…>` and `javascript:` links into the dashboard's
- * origin; and an OPEN line opened any address. markdown.js filters the render, the assistant opens only a
+ * origin; and an OPEN line opened any address. markdown.mts filters the render, the assistant opens only a
  * site of this machine, and an answer kept before the fix comes back from the history as text.
  */
 
@@ -21,7 +21,7 @@ fs.mkdirSync(path.join(root, 'dev'), { recursive: true });
 process.env.WORKSPACE_ROOT = root;
 process.env.WORKSPACE_CONFIG = path.join(root, 'core', 'config');
 
-const { renderMarkdown } = require('../../markdown');
+const { renderMarkdown } = require('../../markdown.mts');
 
 const HOSTILE = [
   'a <img src=x onerror=alert(3)> b <script>alert(2)</script>',
@@ -102,5 +102,5 @@ test('an answer kept with live markup before the fix comes back from the history
 test('the filter ships in the npm package: the files list names the .lua, which "*.js" would not take', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', '..', 'package.json'), 'utf8'));
   assert.ok(pkg.files.includes('core/workspace-app/markdown-safe.lua'), 'package.json files');
-  assert.ok(fs.existsSync(require('../../markdown').FILTER), 'markdown.js points at it');
+  assert.ok(fs.existsSync(require('../../markdown.mts').FILTER), 'markdown.mts points at it');
 });

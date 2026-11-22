@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const { startJob, stopJob, jobFragment, runningJobKey, hostRunnerUp, hostRunnerRequest } = require('../jobs');
 const { screenLogFor, screensGridHtml, screenTargetDir, defaultSessionName } = require('../screens');
 const { screenVerb, wipeEverywhere } = require('../screen-verbs');

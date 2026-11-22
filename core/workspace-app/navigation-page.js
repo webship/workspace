@@ -11,7 +11,7 @@
  * the ones its pages have rendered. Open a workspace once and its rail is arrangeable.
  */
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { loadWorkspaces } = require('./workspaces');
 const rail = require('./navigation');
 const cc = require('./commands');

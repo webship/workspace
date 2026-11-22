@@ -18,8 +18,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('./html');
-const { humanTime } = require('./format');
+const { esc } = require('./html.mts');
+const { humanTime } = require('./format.mts');
 const { CONFIG_DIR } = require('./workspaces');
 
 // Status colours are the one place this file names a colour outright: a PDF has no theme to

@@ -11,8 +11,8 @@ const crypto = require('crypto');
 
 const { run } = require('./jobs');
 const { ROOT, loadWorkspaces } = require('./workspaces');
-const { esc } = require('./html');
-const { tildePath, humanTime } = require('./format');
+const { esc } = require('./html.mts');
+const { tildePath, humanTime } = require('./format.mts');
 const { waitingState } = require('./waiting');
 const claudeSessions = require('./claude-sessions');
 const claudeArgs = require('./claude-args');
@@ -240,7 +240,7 @@ async function sessionDone(session) {
   try {
     const text = fs.readFileSync(log, 'utf8').slice(-2000);
     const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    return lines.length > 0 && lines[lines.length - 1].includes(require('./linger').LINGER_MARK);
+    return lines.length > 0 && lines[lines.length - 1].includes(require('./linger.mts').LINGER_MARK);
   } catch (_) { return false; }
 }
 

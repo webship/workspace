@@ -12,11 +12,11 @@
 
 const path = require('path');
 
-const { esc } = require('./html');
-const { humanSize, humanTime } = require('./format');
+const { esc } = require('./html.mts');
+const { humanSize, humanTime } = require('./format.mts');
 const { workspaceDir } = require('./workspaces');
 const { ddevProjectName } = require('./jobs');
-const { NAME_RE } = require('./validate');
+const { NAME_RE } = require('./validate.mts');
 const mail = require('./ddev-mail');
 
 // `/fragments/projects/mail/<workspace>/<project>` — the one path this feature answers on, matched

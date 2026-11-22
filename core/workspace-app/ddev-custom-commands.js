@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 
 const COMMAND_RE = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,60}$/;
 // The folders DDEV runs a command in: the host, or the service of that name.

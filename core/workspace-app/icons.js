@@ -10,7 +10,7 @@ const path = require('path');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 
 // Read once: the Tabler sprite is 4,736 icons, and a workspace page renders twenty of them.
 let _tablerCache = null;

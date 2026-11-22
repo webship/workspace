@@ -8,8 +8,8 @@ const path = require('path');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
 
-const { esc } = require('./html');
-const { humanSize, humanTime, tildePath } = require('./format');
+const { esc } = require('./html.mts');
+const { humanSize, humanTime, tildePath } = require('./format.mts');
 const { iconHtml } = require('./icons');
 const { ROOT, hubDomain, workspaceDir } = require('./workspaces');
 const lists = require('./lists');

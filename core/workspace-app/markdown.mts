@@ -12,18 +12,18 @@
  * Null when pandoc is missing or fails: every caller then shows the text, escaped.
  */
 
-const path = require('path');
-const { spawn } = require('child_process');
+import path from 'node:path';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
-const FILTER = path.join(__dirname, 'markdown-safe.lua');
-const PANDOC_ARGS = ['-f', 'gfm-raw_html', '-t', 'html', '--lua-filter', FILTER];
+export const FILTER: string = path.join(import.meta.dirname, 'markdown-safe.lua');
+export const PANDOC_ARGS: string[] = ['-f', 'gfm-raw_html', '-t', 'html', '--lua-filter', FILTER];
 
-function renderMarkdown(md) {
+export function renderMarkdown(md: unknown): Promise<string | null> {
   return new Promise((resolve) => {
-    let child;
+    let child: ChildProcessWithoutNullStreams;
     try { child = spawn('pandoc', PANDOC_ARGS, { stdio: ['pipe', 'pipe', 'pipe'] }); } catch (_) { return resolve(null); }
     let out = '';
-    child.stdout.on('data', (d) => { out += d; });
+    child.stdout.on('data', (d: Buffer) => { out += d; });
     child.on('close', (code) => resolve(code === 0 ? out : null));
     child.on('error', () => resolve(null));
     child.stdin.on('error', () => { /* pandoc is gone: the close says so */ });
@@ -38,18 +38,18 @@ function renderMarkdown(md) {
  * but for - and _, spaces to hyphens, a second one of a name gets -1); the text of each section stays as it is written,
  * escaped, in one plain block. Less than pandoc makes of it, never nothing and never unsafe.
  */
-function plainGuideHtml(md) {
-  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const inline = (t) => t.replace(/`([^`]*)`/g, '$1').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').trim();
-  const seen = new Map();
-  const idOf = (title) => {
+export function plainGuideHtml(md: unknown): string {
+  const esc = (t: string): string => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const inline = (t: string): string => t.replace(/`([^`]*)`/g, '$1').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').trim();
+  const seen = new Map<string, number>();
+  const idOf = (title: string): string => {
     const base = title.toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, '').trim().replace(/\s/g, '-');
     const n = seen.get(base) || 0;
     seen.set(base, n + 1);
     return n ? `${base}-${n}` : base;
   };
-  const out = [];
-  let block = [];
+  const out: string[] = [];
+  let block: string[] = [];
   let fenced = false;
   const flush = () => {
     const text = block.join('\n').replace(/^\n+|\n+$/g, '');
@@ -61,8 +61,9 @@ function plainGuideHtml(md) {
     const h = !fenced && /^(#{2,3})\s+(.+?)\s*#*\s*$/.exec(line);
     if (h) {
       flush();
-      const title = inline(h[2]);
-      out.push(`<h${h[1].length} id="${esc(idOf(title))}">${esc(title)}</h${h[1].length}>`);
+      const title = inline(h[2] ?? '');
+      const level = (h[1] ?? '##').length;
+      out.push(`<h${level} id="${esc(idOf(title))}">${esc(title)}</h${level}>`);
     } else {
       block.push(line);
     }
@@ -70,5 +71,3 @@ function plainGuideHtml(md) {
   flush();
   return out.join('\n');
 }
-
-module.exports = { renderMarkdown, plainGuideHtml, PANDOC_ARGS, FILTER };

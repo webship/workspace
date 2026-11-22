@@ -15,7 +15,7 @@
  * only below 640px (tab-modal.css), so wider screens are as they were.
  */
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { iconHtml } = require('./icons');
 
 /**

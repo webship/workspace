@@ -10,11 +10,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { ROOT, workspaceDir } = require('./workspaces');
 const transcripts = require('./transcripts');
 const mediaInfo = require('./media-info.mts');
-const { VIDEO_RE, AUDIO_RE } = require('./format');
+const { VIDEO_RE, AUDIO_RE } = require('./format.mts');
 const voice = require('./audio-voice');
 
 const MODES = [['voice', 'Voice', 'microphone'], ['scenes', 'Logo and music', 'image'], ['pace', 'Speed and length', 'clock'],

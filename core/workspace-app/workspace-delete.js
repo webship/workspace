@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { ROOT, CONFIG_DIR, loadWorkspaces } = require('./workspaces');
 const { readListBlock, writeListBlock } = require('./settings-file');
 

@@ -27,7 +27,7 @@ const path = require('path');
 const yaml = require('js-yaml');
 
 const { CONFIG_DIR, ROOT, loadWorkspaces, isValidWorkspace, workspaceDir, builderLabel, commandTitle, commandDescription } = require('./workspaces');
-const { NAME_RE, SCRIPT_RE } = require('./validate');
+const { NAME_RE, SCRIPT_RE } = require('./validate.mts');
 const rl = require('./row-layout');
 
 const ON = {

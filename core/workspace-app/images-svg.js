@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const { CONFIG_DIR, workspaceDir } = require('./workspaces');
 const images = require('./images');
 const providers = require('./images-providers');

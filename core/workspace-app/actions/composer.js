@@ -35,11 +35,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const { ROOT, workspaceDir, loadWorkspaces } = require('../workspaces');
 const { startInScreen, screenStartedHtml, screensLink, hostRunnerRequest } = require('../jobs');
-const { NAME_RE } = require('../validate');
-const { lingerTail, LINGER_MARK } = require('../linger');
+const { NAME_RE } = require('../validate.mts');
+const { lingerTail, LINGER_MARK } = require('../linger.mts');
 
 // In the order people reach for them: what is run every day first, then looking around, then the rare ones.
 const COMPOSER_RUN_ACTIONS = {

@@ -8,13 +8,11 @@
 
 // Never a leading dash: a name is passed to scripts and tools as an argument, and `--orphans` or `--help`
 // as a project name was read as an option (Remove listed the machine's orphans, Backup printed its help).
-const NAME_RE = /^[a-zA-Z0-9_][a-zA-Z0-9_-]*$/;
+export const NAME_RE: RegExp = /^[a-zA-Z0-9_][a-zA-Z0-9_-]*$/;
 // A file item — a doc, a worklog, an agent — is named after its file, and those
 // names carry dots: a version in a report name, a time in a dated worklog. The
 // project rule above refuses them, which made Edit answer 400 on real files. This
 // one allows a dot inside the name while still refusing traversal: nothing may
 // start with a dot, and ".." never appears.
-const ITEM_NAME_RE = /^(?!\.)(?!.*\.\.)[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
-const SCRIPT_RE = /^cmd-[a-zA-Z0-9_.-]+\.sh$/;
-
-module.exports = { NAME_RE, ITEM_NAME_RE, SCRIPT_RE };
+export const ITEM_NAME_RE: RegExp = /^(?!\.)(?!.*\.\.)[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+export const SCRIPT_RE: RegExp = /^cmd-[a-zA-Z0-9_.-]+\.sh$/;

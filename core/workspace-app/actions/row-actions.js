@@ -13,11 +13,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const { workspaceDir } = require('../workspaces');
 const { screenStartedHtml, screenSessionName } = require('../jobs');
-const { NAME_RE } = require('../validate');
-const { lingerTail } = require('../linger');
+const { NAME_RE } = require('../validate.mts');
+const { lingerTail } = require('../linger.mts');
 const { hasOwnGit } = require('../git-info');
 const { startUnlessRunning, terminalLink, isDdevProject, hasComposerJson, SAFE_PATH_RE } = require('./composer');
 const { hasPackageJson } = require('./node');

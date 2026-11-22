@@ -7,7 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { plainGuideHtml } = require('../../markdown');
+const { plainGuideHtml } = require('../../markdown.mts');
 
 test('## and ### become headings with pandoc\'s ids, and each section keeps its text', () => {
   const html = plainGuideHtml('# Guide\nIntro\n\n## Getting started\nText one\n\n### The `screens` page, **at last**\nMore\n\n## Getting started\nAgain\n');
@@ -37,5 +37,5 @@ test('the Help page uses it when pandoc is missing, and says why', () => {
   assert.match(server, /const withImages = \(html \|\| noPandoc\(\)\)/);
   assert.match(server, /pandoc is not installed where the dashboard runs, so\s+the guide below is plain text, cut into its sections\./);
   // The guide without its first line: its title is the page's h1 (#575).
-  assert.match(server, /require\('\.\/markdown'\)\.plainGuideHtml\(guideBody\)/);
+  assert.match(server, /require\('\.\/markdown\.mts'\)\.plainGuideHtml\(guideBody\)/);
 });

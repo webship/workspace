@@ -5,7 +5,7 @@
  * Every value is picked from a list, never typed into a shell line.
  */
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 
 const PROJECT_TYPES = ['php', 'generic', 'drupal12', 'drupal11', 'drupal10', 'drupal9', 'drupal8', 'drupal7', 'drupal6', 'drupal',
   'backdrop', 'wordpress', 'wp-bedrock', 'typo3', 'laravel', 'symfony', 'craftcms', 'shopware6', 'magento2', 'magento', 'maho',

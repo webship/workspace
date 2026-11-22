@@ -7,17 +7,17 @@
 
 // What counts as a video, in one place: the listing, the play fragment and the row icon all have
 // to agree, or a file gets a Play button that 404s.
-const VIDEO_RE = /\.(mp4|m4v|webm|ogv|mov)$/i;
+export const VIDEO_RE = /\.(mp4|m4v|webm|ogv|mov)$/i;
 // Sound the browser plays in an <audio> element; the listing, the player and the file route share it.
-const AUDIO_RE = /\.(mp3|wav|ogg|oga|opus|m4a|aac|flac|weba)$/i;
+export const AUDIO_RE = /\.(mp3|wav|ogg|oga|opus|m4a|aac|flac|weba)$/i;
 // Rendered document formats a docs row can carry beside its markdown.
-const DOC_ARTIFACT_RE = /\.(pdf|html?|docx?|xlsx?|pptx?|odt|ods|odp|rtf|csv)$/i;
+export const DOC_ARTIFACT_RE = /\.(pdf|html?|docx?|xlsx?|pptx?|odt|ods|odp|rtf|csv)$/i;
 
-function humanTime(d) {
+export function humanTime(d: unknown): string {
   if (!(d instanceof Date) || !d.getTime()) return '';
   const p = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d)
-    .reduce((o, x) => (o[x.type] = x.value, o), {});
+    .reduce<Partial<Record<Intl.DateTimeFormatPartTypes, string>>>((o, x) => (o[x.type] = x.value, o), {});
   const off = -d.getTimezoneOffset();
   const sign = off < 0 ? '-' : '+';
   const oh = String(Math.floor(Math.abs(off) / 60)).padStart(2, '0');
@@ -25,7 +25,7 @@ function humanTime(d) {
   return `${p.day} ${p.month} ${p.year} ${p.hour}:${p.minute} ${sign}${oh}:${om}`;
 }
 
-function humanSize(bytes) {
+export function humanSize(bytes: number): string {
   if (bytes > 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
   if (bytes > 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   return Math.max(1, Math.round(bytes / 1024)) + ' KB';
@@ -39,7 +39,7 @@ function humanSize(bytes) {
  * path that differs between machines, so a command someone copies from here
  * should paste cleanly on theirs.
  */
-function tildePath(p) {
+export function tildePath(p: unknown): string {
   const home = process.env.HOME || '';
   const s = String(p || '');
   if (!home || !s.startsWith(home)) return s;
@@ -54,7 +54,7 @@ function tildePath(p) {
 // so `.slice(-300)` showed a list of flags and threw the reason away. An unreadable
 // error is worse than a long one: the Upsun token failure read as a syntax problem for
 // as long as it was displayed that way.
-function cliError(text, max = 400) {
+export function cliError(text: unknown, max = 400): string {
   const raw = String(text || '').replace(/\r/g, '');
   const kept = raw.split('\n').filter((l) => {
     const t = l.trim();
@@ -67,7 +67,3 @@ function cliError(text, max = 400) {
   const out = kept || raw.trim();
   return out.length > max ? out.slice(0, max) + '…' : out;
 }
-
-module.exports = {
-  tildePath, cliError,
-  DOC_ARTIFACT_RE, VIDEO_RE, AUDIO_RE, humanTime, humanSize };

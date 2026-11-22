@@ -14,11 +14,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('../html');
+const { esc } = require('../html.mts');
 const { workspaceDir } = require('../workspaces');
 const { jobFragment, runningJobKey, startJob, listProjects , startInScreen, screenStartedHtml } = require('../jobs');
 const { shWords } = require('../shell-quote.mts');
-const { NAME_RE } = require('../validate');
+const { NAME_RE } = require('../validate.mts');
 const { checksDeclaredOf } = require('../checks');
 
 const SCRIPT = 'cmd-tools-checks.sh';

@@ -16,7 +16,7 @@ const path = require('path');
 const composer = require('../../actions/composer');
 const { COMPOSER_RUN_ACTIONS, COMPOSER_PACKAGE_ACTIONS, SCRIPT_ROUTE, hasComposerJson, packageRefusal,
   composerScripts, composerScreenCommand, sessionFinished } = composer;
-const { LINGER_MARK, lingerTail } = require('../../linger');
+const { LINGER_MARK, lingerTail } = require('../../linger.mts');
 // The GIT plugin's session line, for the comparison below: the same tail, the same no-prompt no-pager git.
 const gitScreenCommand = (label, args) => `GIT_TERMINAL_PROMPT=0 git --no-pager ${args.join(' ')}; ${lingerTail(label)}`;
 

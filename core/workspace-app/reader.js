@@ -18,7 +18,7 @@
 
 const dns = require('dns').promises;
 const net = require('net');
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 
 const MAX_BYTES = 1500000;
 

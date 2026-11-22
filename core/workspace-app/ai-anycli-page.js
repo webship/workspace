@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const A = require('./ai-anycli');
 
 const KIND_LABEL = { 'ai-agents': 'AI Agents', 'ai-skills': 'AI Skills', 'ai-commands': 'AI Commands', 'ai-prompts': 'AI Prompts', cmd: 'cmd-* commands' };

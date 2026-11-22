@@ -6,7 +6,7 @@
  * were looking at.
  */
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 // hubDomain as well as styleSettings: setPageCookie writes its cookies against the hub domain so a
 // preference set on workspace.ddev.site is still in force on dev.workspace.ddev.site. It was used
 // there without being imported, which made every list 500 the moment `auto` appeared in the query —

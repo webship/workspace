@@ -8,8 +8,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const { esc } = require('./html');
-const { humanSize, humanTime, VIDEO_RE } = require('./format');
+const { esc } = require('./html.mts');
+const { humanSize, humanTime, VIDEO_RE } = require('./format.mts');
 const { workspaceDir } = require('./workspaces');
 const { artifactIsEmpty } = require('./artifact-empty');
 

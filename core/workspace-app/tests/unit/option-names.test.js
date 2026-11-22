@@ -15,7 +15,7 @@ const path = require('path');
 const net = require('net');
 const { spawn } = require('child_process');
 
-const { NAME_RE } = require('../../validate');
+const { NAME_RE } = require('../../validate.mts');
 
 const APP = path.join(__dirname, '../..');
 const REPO = path.join(APP, '../..');

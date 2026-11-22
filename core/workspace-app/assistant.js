@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const { esc } = require('./html');
+const { esc } = require('./html.mts');
 const {
   ROOT, CONFIG_DIR, loadSettings, loadWorkspaces, isValidWorkspace, workspaceDir, hubDomain,
   findBuilderScripts, listBackups, commandFlags,
@@ -477,9 +477,9 @@ async function assistantReply(message, ctx, thread = null, { voice = false, avat
         <a class="uk-button uk-button-default uk-button-small" href="${esc(wsUrl(directive.plan.workspace))}">Go to ${esc(directive.plan.workspace)}</a>
       </div>
     </div>` : '';
-  // The answer is shown, never run: embedded HTML becomes text and a link keeps only a safe address (markdown.js).
+  // The answer is shown, never run: embedded HTML becomes text and a link keeps only a safe address (markdown.mts).
   // The agent reads files, pages and command output, any of which can try to put markup in its answer.
-  const mdResult = await require('./markdown').renderMarkdown(reply);
+  const mdResult = await require('./markdown.mts').renderMarkdown(reply);
   if (mdResult) replyHtml = mdResult;
 
   return { replyHtml: `${replyHtml}${planHtml}`, directive, sessionId: newSessionId };

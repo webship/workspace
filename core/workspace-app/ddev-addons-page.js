@@ -5,8 +5,8 @@
  * route resolves the project and calls one function, and what a panel looks like is one file to open.
  */
 
-const { esc } = require('./html');
-const { humanTime } = require('./format');
+const { esc } = require('./html.mts');
+const { humanTime } = require('./format.mts');
 const addons = require('./ddev-addons');
 
 const PER_PAGE = 24;
