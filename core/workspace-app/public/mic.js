@@ -4,8 +4,9 @@
   "use strict";
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const elementOf = (t) => t instanceof Element ? t : null;
-  const cfg = window.WS_SPEECH && window.WS_SPEECH.fieldMic || null;
-  const enabled = () => !!SpeechRecognition;
+  const given = window.WS_SPEECH ? window.WS_SPEECH.fieldMic : null;
+  const cfg = given || null;
+  const enabled = () => !!SpeechRecognition && given !== false;
   document.addEventListener("DOMContentLoaded", () => {
     if (!SpeechRecognition) {
       document.querySelectorAll(".mic-btn").forEach((b) => {
