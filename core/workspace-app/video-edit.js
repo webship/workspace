@@ -12,7 +12,7 @@ const path = require('path');
 
 const { esc } = require('./html.mts');
 const { ROOT, workspaceDir } = require('./workspaces');
-const transcripts = require('./transcripts');
+const transcripts = require('./transcripts.mts');
 const mediaInfo = require('./media-info.mts');
 const { VIDEO_RE, AUDIO_RE } = require('./format.mts');
 const voice = require('./audio-voice');

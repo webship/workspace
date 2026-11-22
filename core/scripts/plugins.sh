@@ -158,14 +158,14 @@ set_workspaces_list() {
   ' "${verb}" "${key}" ) ;
 }
 
-# ── What a plugin needs from another plugin (core/workspace-app/plugin-needs.js) ────────────────────
+# ── What a plugin needs from another plugin (core/workspace-app/plugin-needs.mts) ────────────────────
 SELF="${BASH_SOURCE[0]}";
-needs_lines()   { ( cd "${APP}" && node plugin-needs.js lines "$1" 2>/dev/null ) ; }
-needs_say()     { ( cd "${APP}" && node plugin-needs.js say "$1" 2>/dev/null ) ; }
-needed_by()     { ( cd "${APP}" && node plugin-needs.js dependents "$1" 2>/dev/null ) ; }
+needs_lines()   { ( cd "${APP}" && node plugin-needs.mts lines "$1" 2>/dev/null ) ; }
+needs_say()     { ( cd "${APP}" && node plugin-needs.mts say "$1" 2>/dev/null ) ; }
+needed_by()     { ( cd "${APP}" && node plugin-needs.mts dependents "$1" 2>/dev/null ) ; }
 plugin_names()  { ( cd "${APP}" && node plugin-manifest.mts 2>/dev/null | cut -f1 | sort ) ; }
-# Is the plugin turned on here: plugins.<name>.enabled is true in settings.yml (plugin-needs.js state().active)?
-plugin_active() { ( cd "${APP}" && node -e 'process.exit(require("./plugin-needs").state().active.has(process.argv[1]) ? 0 : 1)' "$1" 2>/dev/null ) ; }
+# Is the plugin turned on here: plugins.<name>.enabled is true in settings.yml (plugin-needs.mts state().active)?
+plugin_active() { ( cd "${APP}" && node plugin-needs.mts active "$1" 2>/dev/null ) ; }
 
 # The same script for a plugin this one needs: never a restart of its own (the outer run does one), and
 # the chain of names that led here, so a cycle found after a package was fetched stops instead of looping.

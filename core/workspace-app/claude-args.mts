@@ -20,7 +20,26 @@
  * else is offered, including flags that did not exist when this was written.
  */
 
-const { execFile } = require('child_process');
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFile } from 'node:child_process';
+
+/** One option of `claude --help`, as the form offers and checks it. */
+export interface ClaudeOption {
+  name: string;
+  flags: string[];
+  /** Whether it takes a value: `<x>` needs one, `[x]` may take one. */
+  takes: 'required' | 'optional' | 'none';
+  repeatable: boolean;
+  placeholder: string;
+  choices: string[];
+  default: string;
+  suggestions: string[];
+  description: string;
+}
+
+/** What was read of the help: the options, or why there are none, and when. */
+export interface ClaudeOptions { at: number; options: ClaudeOption[] | null; error: string }
 
 /* ------------------------------------------------------------------ *
  * Parsing `claude --help`
@@ -31,13 +50,13 @@ const { execFile } = require('child_process');
  * `  --autocompact <auto|tokens>` or `  --cloud [description|session_id|url]`, and its description runs
  * on until the next one — wrapped, and sometimes starting on the line below when the flags are long.
  */
-function parseOptions(help) {
+export function parseOptions(help: string): ClaudeOption[] {
   const body = help.slice(help.indexOf('\nOptions:'));
   const end = body.indexOf('\nCommands:');
   const lines = (end < 0 ? body : body.slice(0, end)).split('\n').slice(1);
 
-  const out = [];
-  let current = null;
+  const out: { spec: string; text: string }[] = [];
+  let current: { spec: string; text: string } | null = null;
   for (const line of lines) {
     const start = line.match(/^ {2}(-[^\s].*)$/);
     if (start) {
@@ -45,32 +64,32 @@ function parseOptions(help) {
       // Two columns: the flags, then a run of 2+ spaces, then the description — which wraps, and which
       // starts on the NEXT line when the flags are too long for the column. Splitting on the first wide
       // gap is what tells the two apart; without it the description was read as part of the flag name.
-      const both = start[1].match(/^(.*?)(?:\s{2,}(.*))?$/);
-      current = { spec: both[1].trim(), text: (both[2] || '').trim() };
+      const both = (start[1] ?? '').match(/^(.*?)(?:\s{2,}(.*))?$/);
+      current = { spec: (both?.[1] ?? '').trim(), text: (both?.[2] || '').trim() };
       continue;
     }
     if (!current) continue;
     const cont = line.match(/^ {4,}(\S.*)$/);
-    if (cont) current.text += `${current.text ? ' ' : ''}${cont[1].trim()}`;
+    if (cont) current.text += `${current.text ? ' ' : ''}${(cont[1] ?? '').trim()}`;
   }
   if (current) out.push(current);
 
-  return out.map(shape).filter(Boolean);
+  return out.map(shape).filter((o): o is ClaudeOption => !!o);
 }
 
 /**
  * A raw entry as something to render and to check. The flags and the value come off the front of the
  * spec; anything left on it is the first line of a wrapped description.
  */
-function shape({ spec, text }) {
+export function shape({ spec, text }: { spec: string; text: string }): ClaudeOption | null {
   // The value is the LAST bracketed group of the flag part: `--allowedTools, --allowed-tools <tools...>`.
   const m = spec.match(/^([^<[]+?)(?:\s+([<[][^\])>]*[\])>]))?\s*$/);
   if (!m) return null;
-  const flagPart = m[1].trim().replace(/,$/, '');
+  const flagPart = (m[1] ?? '').trim().replace(/,$/, '');
   const arg = m[2] || '';
   const flags = flagPart.split(/,\s*/).map((f) => f.trim()).filter((f) => /^--?[A-Za-z]/.test(f));
   if (!flags.length) return null;
-  const name = flags.filter((f) => f.startsWith('--')).pop() || flags[0];
+  const name = flags.filter((f) => f.startsWith('--')).pop() || flags[0] || '';
 
   const description = text.replace(/\s+/g, ' ').trim();
   // Only what the CLI calls a CHOICE is one. `<auto|tokens>` in the flag line is a hint at the shape of
@@ -101,7 +120,7 @@ function shape({ spec, text }) {
     // for the latest model (e.g. 'fable', 'opus', or 'sonnet') or a model's full name (e.g.
     // 'claude-fable-5')" — so those are worth offering, and typing another one has to stay possible.
     // A closed select here would refuse every model released after this help text was read.
-    suggestions: [...description.matchAll(/'([a-z][a-z0-9.-]{1,40})'/g)].map((m) => m[1]),
+    suggestions: [...description.matchAll(/'([a-z][a-z0-9.-]{1,40})'/g)].map((x) => x[1] ?? ''),
     description,
   };
 }
@@ -116,14 +135,12 @@ function shape({ spec, text }) {
  * Suggestions, not a closed list: an agent can also come from a plugin or a directory this does not
  * know about, and refusing a name the CLI would have accepted is worse than offering an incomplete list.
  */
-function installedAgents(projectDir) {
-  const fs = require('fs');
-  const path = require('path');
+export function installedAgents(projectDir?: string | null): string[] {
   const homes = [path.join(process.env.HOME || '', '.claude', 'agents')];
   if (projectDir) homes.push(path.join(projectDir, '.claude', 'agents'));
-  const names = new Set();
+  const names = new Set<string>();
   for (const dir of homes) {
-    let files = [];
+    let files: string[] = [];
     try { files = fs.readdirSync(dir).filter((f) => f.endsWith('.md')); } catch (_) { continue; }
     for (const f of files) {
       let head = '';
@@ -135,7 +152,7 @@ function installedAgents(projectDir) {
       if (!/^---\s*$/m.test(head.split('\n')[0] || '')) continue;
       const m = head.match(/^name:\s*["']?([a-zA-Z0-9][a-zA-Z0-9_-]{0,60})["']?\s*$/m);
       if (!m) continue;
-      names.add(m[1]);
+      if (m[1]) names.add(m[1]);
     }
   }
   return [...names].sort();
@@ -149,7 +166,7 @@ function installedAgents(projectDir) {
  * Held back, each with the reason it is not offered. Stated rather than filtered by a clever rule: a
  * person reading this should be able to see why a flag they know is missing, and disagree with it.
  */
-const WITHHELD = {
+export const WITHHELD: Record<string, string> = {
   '--help': 'prints the help and exits',
   '--version': 'prints the version and exits',
   '--print': 'a screen IS the interactive session; --print exits as soon as it has answered',
@@ -174,9 +191,9 @@ const WITHHELD = {
 };
 
 /** Only works when the CLI is printing rather than running a session. */
-const PRINT_ONLY = /only works with (--print|--input-format|--output-format)|\(only works with --print\)/i;
+export const PRINT_ONLY = /only works with (--print|--input-format|--output-format)|\(only works with --print\)/i;
 
-function usableOnAScreen(opt) {
+export function usableOnAScreen(opt: ClaudeOption): boolean {
   if (WITHHELD[opt.name]) return false;
   if (opt.flags.some((f) => WITHHELD[f])) return false;
   return !PRINT_ONLY.test(opt.description);
@@ -189,11 +206,11 @@ function usableOnAScreen(opt) {
 // The help text changes only when the CLI is updated, and the form is drawn on every modal open — so it
 // is read once and kept. A failure is kept too, briefly: a machine with no claude on PATH must not shell
 // out on every keystroke to be told so again.
-let memo = { at: 0, options: null, error: '' };
+let memo: ClaudeOptions = { at: 0, options: null, error: '' };
 const TTL = 10 * 60 * 1000;
 const FAIL_TTL = 30 * 1000;
 
-function helpText() {
+function helpText(): Promise<{ text?: string; error?: string }> {
   return new Promise((resolve) => {
     execFile('claude', ['--help'], { timeout: 15000, maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) => {
       // Commander prints its help on stdout; a version that uses stderr is still the help.
@@ -205,19 +222,19 @@ function helpText() {
 }
 
 /** Every option a screen can be started with, newest help text, cached. */
-async function claudeOptions() {
+export async function claudeOptions(): Promise<ClaudeOptions> {
   const now = Date.now();
   const ttl = memo.error ? FAIL_TTL : TTL;
   if (memo.options && now - memo.at < ttl) return memo;
   const { text, error } = await helpText();
   memo = error
     ? { at: now, options: [], error }
-    : { at: now, options: parseOptions(text).filter(usableOnAScreen), error: '' };
+    : { at: now, options: parseOptions(text ?? '').filter(usableOnAScreen), error: '' };
   return memo;
 }
 
 /** Forget what was read — for a test, and for a machine that has just updated the CLI. */
-function forget() { memo = { at: 0, options: null, error: '' }; }
+export function forget(): void { memo = { at: 0, options: null, error: '' }; }
 
 /* ------------------------------------------------------------------ *
  * How the form shows them
@@ -227,13 +244,13 @@ function forget() { memo = { at: 0, options: null, error: '' }; }
  * The handful that are asked about every time, in the order someone reaches for them. Everything else is
  * behind "All options", so the form opens as four controls rather than fifty.
  */
-const COMMON = ['--model', '--permission-mode', '--effort', '--agent'];
+export const COMMON = ['--model', '--permission-mode', '--effort', '--agent'];
 
 /** A field name that cannot collide with the form's own: `--add-dir` posts as `arg_add_dir`. */
-const fieldName = (name) => `arg_${name.replace(/^--/, '').replace(/[^A-Za-z0-9]+/g, '_')}`;
+export const fieldName = (name: string): string => `arg_${name.replace(/^--/, '').replace(/[^A-Za-z0-9]+/g, '_')}`;
 
 /** The option a posted field name belongs to. */
-function optionFor(options, field) {
+export function optionFor(options: readonly ClaudeOption[], field: string): ClaudeOption | null {
   return options.find((o) => fieldName(o.name) === field) || null;
 }
 
@@ -243,15 +260,15 @@ function optionFor(options, field) {
  * A value that breaks it is REFUSED by name rather than dropped, because a flag that silently did
  * nothing is worse than one that says why.
  */
-const SAFE_VALUE = /^[A-Za-z0-9 @=+.,:/_-]*$/;
+export const SAFE_VALUE = /^[A-Za-z0-9 @=+.,:/_-]*$/;
 
 /**
  * The flags one submitted form asks for, as an array of shell words, or an error naming the field.
  * Every flag has to be one the CLI printed, and every value has to fit the shape that flag documented.
  */
-function flagsFromForm(options, form) {
-  const words = [];
-  const problems = [];
+export function flagsFromForm(options: readonly ClaudeOption[], form: Record<string, unknown>): { words: string[]; problems: string[] } {
+  const words: string[] = [];
+  const problems: string[] = [];
   for (const opt of options) {
     const raw = form[fieldName(opt.name)];
     if (raw === undefined) continue;
@@ -274,9 +291,3 @@ function flagsFromForm(options, form) {
   }
   return { words, problems };
 }
-
-module.exports = {
-  installedAgents,
-  parseOptions, shape, usableOnAScreen, WITHHELD, PRINT_ONLY, COMMON,
-  claudeOptions, forget, fieldName, optionFor, flagsFromForm, SAFE_VALUE,
-};

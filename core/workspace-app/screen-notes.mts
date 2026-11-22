@@ -15,26 +15,57 @@
  * scripts/screen-then.js on the host.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+
+/** What a session ran: a shell, Claude Code, or a command. */
+export type NoteKind = 'shell' | 'claude' | 'command';
+
+/** The note a session leaves (one JSON file in .screens/notes/). */
+export interface ScreenNote {
+  v: number;
+  id: string;
+  session: string;
+  dir: string;
+  workspace: string;
+  project: string;
+  kind: NoteKind;
+  what: string;
+  /** The Claude Code conversation it holds, or ''. */
+  claude: string;
+  flags: string[];
+  resumedFrom: string;
+  started: number;
+  /** When it was found gone, or 0 while it runs. */
+  ended: number;
+  /** 'seen' (watched it end), 'gone' (ended while nobody looked), or ''. */
+  end: string;
+  lastSign: number;
+}
+
+/** What a starter says about a session it has just started. */
+export interface NoteFields {
+  session?: unknown; dir?: unknown; workspace?: unknown; project?: unknown; kind?: unknown; what?: unknown;
+  claude?: unknown; flags?: unknown; resumedFrom?: unknown;
+}
 
 /** How many notes are kept, newest first. A note is a few hundred bytes. */
-const KEEP = 200;
+export const KEEP = 200;
 /** A session that was seen running this recently and is gone now was seen ending. */
-const SEEN_FRESH_MS = 2 * 60 * 1000;
+export const SEEN_FRESH_MS = 2 * 60 * 1000;
 
 const SESSION_RE = /^[a-z0-9][a-zA-Z0-9._-]{0,59}$/;
 /** A note's id: when it started (milliseconds) and the session's name. Checked before it becomes a path. */
-const NOTE_ID_RE = /^[0-9]{13}-[a-z0-9][a-zA-Z0-9._-]{0,59}$/;
+export const NOTE_ID_RE = /^[0-9]{13}-[a-z0-9][a-zA-Z0-9._-]{0,59}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const KINDS = new Set(['shell', 'claude', 'command']);
+const KINDS = new Set<unknown>(['shell', 'claude', 'command']);
 
-const notesDir = (store) => path.join(store, 'notes');
-const isNoteId = (id) => NOTE_ID_RE.test(String(id || ''));
-const fileOf = (store, id) => path.join(notesDir(store), `${id}.json`);
+export const notesDir = (store: string): string => path.join(store, 'notes');
+export const isNoteId = (id: unknown): id is string => NOTE_ID_RE.test(String(id || ''));
+const fileOf = (store: string, id: string): string => path.join(notesDir(store), `${id}.json`);
 
 /** Written beside and renamed over, so a list read at that moment never finds half a note. This user's only. */
-function save(store, note) {
+function save(store: string, note: ScreenNote): void {
   const dir = notesDir(store);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const tmp = path.join(dir, `.${note.id}.${process.pid}.tmp`);
@@ -42,19 +73,19 @@ function save(store, note) {
   fs.renameSync(tmp, fileOf(store, note.id));
 }
 
-function readNote(store, id) {
+export function readNote(store: string, id: unknown): ScreenNote | null {
   if (!isNoteId(id)) return null;
   try {
-    const note = JSON.parse(fs.readFileSync(fileOf(store, id), 'utf8'));
+    const note = JSON.parse(fs.readFileSync(fileOf(store, id), 'utf8')) as ScreenNote | null;
     return note && note.id === id && SESSION_RE.test(String(note.session || '')) ? note : null;
   } catch (_) { return null; }
 }
 
 /** Every note, newest first. */
-function allNotes(store) {
-  let names = [];
+export function allNotes(store: string): ScreenNote[] {
+  let names: string[] = [];
   try { names = fs.readdirSync(notesDir(store)); } catch (_) { return []; }
-  const notes = [];
+  const notes: ScreenNote[] = [];
   for (const name of names) {
     if (!name.endsWith('.json')) continue;
     const note = readNote(store, name.slice(0, -5));
@@ -67,15 +98,15 @@ function allNotes(store) {
  * The conversation a command line opens, when it runs Claude Code with an id: `--session-id <id>` for a
  * new one, `--resume <id>` for one picked up again. Empty for anything else.
  */
-function claudeIdIn(line) {
+export function claudeIdIn(line: unknown): string {
   const s = String(line || '');
   if (!/(?:^|[\s;&|(])claude(?:\s|$)/.test(s)) return '';
   const m = s.match(/--(?:session-id|resume)[\s=]+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![0-9a-f-])/i);
-  return m ? m[1].toLowerCase() : '';
+  return m ? (m[1] ?? '').toLowerCase() : '';
 }
 
 /** Drop the oldest notes beyond `keep`. */
-function prune(store, keep = KEEP) {
+export function prune(store: string, keep: number = KEEP): void {
   for (const note of allNotes(store).slice(keep)) {
     try { fs.unlinkSync(fileOf(store, note.id)); } catch (_) { /* gone already */ }
   }
@@ -88,8 +119,8 @@ function prune(store, keep = KEEP) {
  * `what` is what ran, as a person reads it; `claude` the conversation id when it ran Claude Code, and
  * `flags` the options it ran with, already checked against `claude --help` by whoever started it.
  */
-function noteStarted(store, fields, now = Date.now()) {
-  const f = fields || {};
+export function noteStarted(store: string, fields: NoteFields | null | undefined, now: number = Date.now()): ScreenNote | null {
+  const f: NoteFields = fields || {};
   const session = String(f.session || '');
   if (!SESSION_RE.test(session)) return null;
   let at = Math.floor(now);
@@ -97,14 +128,14 @@ function noteStarted(store, fields, now = Date.now()) {
     // Two starts of one name in the same millisecond still get two notes.
     while (fs.existsSync(fileOf(store, `${at}-${session}`))) at += 1;
   } catch (_) { /* written below, or not at all */ }
-  const note = {
+  const note: ScreenNote = {
     v: 1,
     id: `${at}-${session}`,
     session,
     dir: String(f.dir || ''),
     workspace: String(f.workspace || ''),
     project: String(f.project || ''),
-    kind: KINDS.has(f.kind) ? f.kind : 'command',
+    kind: KINDS.has(f.kind) ? (f.kind as NoteKind) : 'command',
     what: String(f.what || '').slice(0, 500),
     claude: UUID_RE.test(String(f.claude || '')) ? String(f.claude).toLowerCase() : '',
     flags: (Array.isArray(f.flags) ? f.flags : []).map(String).slice(0, 40),
@@ -140,9 +171,10 @@ function noteStarted(store, fields, now = Date.now()) {
  * A note stamped over and then found running again (the runner was down for a while and came back) is
  * opened again: it was never over. Returns how many notes changed.
  */
-function settle(store, live, { seen = new Map(), now = Date.now(), lastSignOf = () => 0 } = {}) {
+export function settle(store: string, live: Iterable<string> | null | undefined,
+  { seen = new Map(), now = Date.now(), lastSignOf = () => 0 }: { seen?: Map<string, number>; now?: number; lastSignOf?: (note: ScreenNote, newest: boolean) => unknown } = {}): number {
   const running = new Set(live || []);
-  const named = new Set();
+  const named = new Set<string>();
   let changed = 0;
   for (const note of allNotes(store)) {
     const newest = !named.has(note.session);
@@ -177,10 +209,10 @@ function settle(store, live, { seen = new Map(), now = Date.now(), lastSignOf = 
 }
 
 /** The notes of sessions that are not running, newest first: what the Past sessions list shows. */
-function pastNotes(store, live, { limit = 0 } = {}) {
+export function pastNotes(store: string, live: Iterable<string> | null | undefined, { limit = 0 }: { limit?: number } = {}): (ScreenNote & { newest: boolean })[] {
   const running = new Set(live || []);
-  const named = new Set();
-  const out = [];
+  const named = new Set<string>();
+  const out: (ScreenNote & { newest: boolean })[] = [];
   for (const note of allNotes(store)) {
     const newest = !named.has(note.session);
     named.add(note.session);
@@ -191,18 +223,13 @@ function pastNotes(store, live, { limit = 0 } = {}) {
 }
 
 /** The note of the session running under a name now, if the dashboard started it. */
-function runningNoteOf(store, session, live) {
+export function runningNoteOf(store: string, session: string, live: Iterable<string> | null | undefined): ScreenNote | null {
   if (!new Set(live || []).has(session)) return null;
   return allNotes(store).find((n) => n.session === session) || null;
 }
 
 /** Forget one note. The transcript and the log stay where they are. */
-function forgetNote(store, id) {
+export function forgetNote(store: string, id: unknown): boolean {
   if (!isNoteId(id)) return false;
   try { fs.unlinkSync(fileOf(store, id)); return true; } catch (_) { return false; }
 }
-
-module.exports = {
-  KEEP, SEEN_FRESH_MS, NOTE_ID_RE,
-  notesDir, isNoteId, readNote, allNotes, claudeIdIn, noteStarted, settle, pastNotes, runningNoteOf, forgetNote, prune,
-};

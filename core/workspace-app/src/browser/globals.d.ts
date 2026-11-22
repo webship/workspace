@@ -39,7 +39,7 @@ interface SpeechRecognitionLike {
 }
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
-/** The speech settings the server resolves (speech.js) and puts on the page. */
+/** The speech settings the server resolves (speech.mts) and puts on the page. */
 interface WsSpeech {
   /** The field microphones' settings, or false when they are switched off. */
   fieldMic?: { lang?: string; interimResults?: boolean } | false | null;

@@ -31,5 +31,5 @@ test('no function is defined twice in one core script', () => {
 test('plugins.sh asks plugin-needs whether a plugin is active, in one place', () => {
   const sh = fs.readFileSync(path.join(SCRIPTS, 'plugins.sh'), 'utf8');
   assert.strictEqual((sh.match(/^plugin_active\(\)/gm) || []).length, 1);
-  assert.match(sh, /^plugin_active\(\) \{ \( cd "\$\{APP\}" && node -e 'process\.exit\(require\("\.\/plugin-needs"\)\.state\(\)\.active\.has/m);
+  assert.match(sh, /^plugin_active\(\) \{ \( cd "\$\{APP\}" && node plugin-needs\.mts active "\$1" 2>\/dev\/null \) ; \}$/m);
 });

@@ -3,8 +3,8 @@ const path = require('path');
 const yaml = require('js-yaml');
 const { resolveType, typeActions } = require('./workspace-types.mts');
 // What the assistant is called on this workspace's page, and what its composer says when empty.
-// The rule about which level wins lives in speech.js with the rest of the assistant's settings.
-const { assistantIdentity } = require('./speech');
+// The rule about which level wins lives in speech.mts with the rest of the assistant's settings.
+const { assistantIdentity } = require('./speech.mts');
 
 // Locate the workspace from this file — core/workspace-app/workspaces.js — so a
 // fresh clone needs no environment setup. The WORKSPACE_* variables still

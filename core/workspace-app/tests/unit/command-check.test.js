@@ -53,7 +53,7 @@ test('a command entry is a name, a list when any one will do, or { command, wher
 });
 
 test('needs as an object keeps its plugins working, and a wrong command is a problem of the manifest', () => {
-  const { normalize } = require('../../plugin-needs');
+  const { normalize } = require('../../plugin-needs.mts');
   assert.deepStrictEqual(normalize({ plugins: [['dev', 'test'], 'ai-agents'], commands: ['upsun'] }).groups, [['dev', 'test'], ['ai-agents']]);
   assert.deepStrictEqual(normalize({ commands: ['upsun'] }), { groups: [], problems: [] });
   assert.strictEqual(normalize({ commands: ['not ok'] }).problems.length, 1);

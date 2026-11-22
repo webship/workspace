@@ -13,7 +13,7 @@ const { execFile } = require('child_process');
 
 const { esc } = require('./html.mts');
 const { ROOT, workspaceDir } = require('./workspaces');
-const transcripts = require('./transcripts');
+const transcripts = require('./transcripts.mts');
 const { VIDEO_RE } = require('./format.mts');
 
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$/;

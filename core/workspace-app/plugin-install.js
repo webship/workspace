@@ -31,7 +31,7 @@
  *   ai.agents|skills|   -> ai-agents/ | ai-skills/ | ai-commands/ | ai-prompts/, when that workspace folder is
  *   commands|prompts       there. A file a person edited (or already had) is kept, at install and at uninstall.
  *
- * What a plugin `needs` from another plugin (plugin-needs.js) is checked first: an install whose needs are
+ * What a plugin `needs` from another plugin (plugin-needs.mts) is checked first: an install whose needs are
  * not met places nothing, and an uninstall another installed plugin relies on removes nothing. A plugin
  * that is a workspace folder arriving later is reached too: the commands and AI items of the plugins
  * already installed are placed into it.
@@ -43,7 +43,7 @@ const crypto = require('crypto');
 const yaml = require('js-yaml');
 
 const { pluginByName, installedPlugins } = require('./plugin-manifest.mts');
-const needs = require('./plugin-needs');
+const needs = require('./plugin-needs.mts');
 // The workspace root as the dashboard knows it — NOT __dirname's parents: inside the container the
 // app runs at /var/www/html while the tree is bind-mounted at its own absolute path, and the record
 // written from one side must be the one read from the other.

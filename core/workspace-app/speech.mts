@@ -23,10 +23,48 @@
  * the same reason the RAG index is local.
  */
 
-'use strict';
+/** settings.yml (or a workspace's settings file), as far as the speech settings read it: values as YAML gives them. */
+export interface SpeechSettingsFile { language?: unknown; assistant?: Record<string, unknown> | null; [key: string]: unknown }
+
+/** The voice command phrases, '' for a command that is off. */
+export interface Commands { submit: string; stop: string; pause: string; resume: string; removeAllText: string }
+
+/** The `assistant:` block, normalised. */
+export interface AssistantSettings {
+  voiceInput: boolean; voiceOutput: boolean; submitAfterSilence: number; speechRate: number; speechPitch: number; speechVolume: number;
+  speechLanguage: string; voiceName: string; avatars: string[]; avatar: string; agent: string; memory: string;
+  interimResults: boolean; stopAfterSubmit: boolean; commands: Commands;
+}
+
+/** deep-chat's speechToText. */
+export interface SpeechToText {
+  webSpeech: true | { language: string };
+  displayInterimResults: boolean;
+  stopAfterSubmit: boolean;
+  submitAfterSilence?: number;
+  textColor: { interim: string; final: string };
+  button: Record<'default' | 'active' | 'commandMode', { container: { default: { color: string } } }>;
+  commands?: Record<string, unknown> & { settings: { substrings: boolean; caseSensitive: boolean } };
+}
+
+/** What the page is handed for the assistant's panel. */
+export interface PanelConfig {
+  name: string;
+  placeholder: string;
+  voiceInput: boolean;
+  speechToText: SpeechToText | false;
+  textToSpeech: TextToSpeech | false;
+  voiceOutput: boolean;
+  narration: TextToSpeech | false;
+  fieldMic: { lang: string; interimResults: boolean } | false;
+  avatar: string;
+}
+
+/** deep-chat's textToSpeech. */
+export interface TextToSpeech { volume: number; rate: number; pitch: number; voiceName?: string; lang?: string }
 
 /** Defaults, in one place, so the page and the resolver cannot disagree about them. */
-const DEFAULTS = {
+export const DEFAULTS = {
   // What the assistant is CALLED, and what its composer says when the box is empty.
   name: 'AI Assistant',
   placeholder: '',
@@ -50,28 +88,28 @@ const DEFAULTS = {
   // The Claude Code agent the assistant runs as; `none` runs it without one.
   agent: 'webship-workspace',
 };
-const AVATARS = ['druplicon', 'none'];
+export const AVATARS = ['druplicon', 'none'];
 
 /**
  * The Workspace's default language, settings.yml `language:` (one of LANGUAGES, without `auto`): the
  * language the assistant answers in, listens for and speaks. en-US when it is unset or not one we know.
  */
-function workspaceLanguage(settings = {}) {
+export function workspaceLanguage(settings: SpeechSettingsFile | null = {}): string {
   const v = String((settings && settings.language) || '').trim();
   const known = LANGUAGES.find(([code]) => code !== 'auto' && code.toLowerCase() === v.toLowerCase());
   return known ? known[0] : DEFAULTS.speechLanguage;
 }
-const languageName = (code) => (LANGUAGES.find(([c]) => c === code) || [code, code])[1];
+export const languageName = (code: string): string => (LANGUAGES.find(([c]) => c === code) || [code, code])[1];
 
 // The names in `assistant.avatars:`, each a plain machine name; the shipped list when there are none.
-const avatarList = (v) => {
+const avatarList = (v: unknown): string[] => {
   const names = (Array.isArray(v) ? v : []).map((x) => String(x || '').trim().toLowerCase())
     .filter((x, i, all) => /^[a-z0-9][a-z0-9_-]{0,62}$/.test(x) && x !== 'none' && all.indexOf(x) === i);
   return names.length ? names : DEFAULTS.avatars;
 };
-const bool = (v, d) => (v === undefined || v === null ? d : v !== false && v !== 'false');
-const num = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
-const str = (v, d) => (typeof v === 'string' && v.trim() ? v.trim() : d);
+const bool = (v: unknown, d: boolean): boolean => (v === undefined || v === null ? d : v !== false && v !== 'false');
+const num = (v: unknown, d: number): number => (Number.isFinite(Number(v)) ? Number(v) : d);
+const str = (v: unknown, d: string): string => (typeof v === 'string' && v.trim() ? v.trim() : d);
 
 /**
  * "Not set", spelled as a word.
@@ -84,8 +122,8 @@ const str = (v, d) => (typeof v === 'string' && v.trim() ? v.trim() : d);
 // `false` and `no` belong here as well as the obvious words: parse_yaml hands values back as
 // STRINGS, so `command_stop: false` arrives as "false" — which without this is a phrase, and the
 // microphone would sit there listening for someone to say the word "false".
-const UNSET = new Set(['auto', 'default', 'off', 'none', 'browser', 'false', 'no', '0', '']);
-const optional = (v) => {
+export const UNSET = new Set(['auto', 'default', 'off', 'none', 'browser', 'false', 'no', '0', '']);
+const optional = (v: unknown): string => {
   const t = str(v, '');
   return UNSET.has(t.toLowerCase()) ? '' : t;
 };
@@ -103,7 +141,7 @@ const optional = (v) => {
  * settings file is the source of truth, and a form that quietly rewrites it is worse than one that
  * admits it does not recognise a value.
  */
-const LANGUAGES = [
+export const LANGUAGES: [string, string][] = [
   ['auto', 'Follow the browser'],
   ['en-US', 'English (United States)'],
   ['en-GB', 'English (United Kingdom)'],
@@ -127,7 +165,7 @@ const LANGUAGES = [
  * were pinned to `document.documentElement.lang` and ignored the setting entirely — which is the
  * confident-nonsense failure again, on most of the microphones in the app.
  */
-function fieldMicConfig(cfg) {
+export function fieldMicConfig(cfg: Pick<AssistantSettings, 'voiceInput' | 'speechLanguage' | 'interimResults'>): { lang: string; interimResults: boolean } | false {
   if (!cfg.voiceInput) return false;
   return {
     // Empty means "let the browser decide", which is what SpeechRecognition does with an unset lang.
@@ -143,7 +181,7 @@ function fieldMicConfig(cfg) {
  *   false / off     no command — and `off` must keep working, because that is what shipped
  *   "any phrase"    listen for that instead, which is the only way to have one in another language
  */
-function commandPhrase(value, word) {
+function commandPhrase(value: unknown, word: string): string {
   if (value === true || value === 'true' || value === 'yes' || value === 'on') return word;
   return optional(value);
 }
@@ -165,10 +203,10 @@ function commandPhrase(value, word) {
  * global has set, because "say nothing" is how it inherits. Set the placeholder per workspace
  * instead of globally if one of them needs to be silent.
  */
-function assistantIdentity(settings = {}, wsSettings = null) {
-  const global = (settings && settings.assistant) || {};
-  const own = (wsSettings && wsSettings.assistant) || {};
-  const level = (key) => optional(own[key]) || optional(global[key]);
+export function assistantIdentity(settings: SpeechSettingsFile | null = {}, wsSettings: SpeechSettingsFile | null = null): { name: string; placeholder: string } {
+  const global: Record<string, unknown> = (settings && settings.assistant) || {};
+  const own: Record<string, unknown> = (wsSettings && wsSettings.assistant) || {};
+  const level = (key: string): string => optional(own[key]) || optional(global[key]);
   return {
     name: level('name') || DEFAULTS.name,
     placeholder: level('placeholder') || DEFAULTS.placeholder,
@@ -176,8 +214,8 @@ function assistantIdentity(settings = {}, wsSettings = null) {
 }
 
 /** The `assistant:` block of settings.yml, normalised. */
-function assistantSettings(settings = {}) {
-  const a = settings.assistant || {};
+export function assistantSettings(settings: SpeechSettingsFile = {}): AssistantSettings {
+  const a: Record<string, unknown> = settings.assistant || {};
   return {
     voiceInput: bool(a.voice_input, DEFAULTS.voiceInput),
     voiceOutput: bool(a.voice_output, DEFAULTS.voiceOutput),
@@ -195,7 +233,7 @@ function assistantSettings(settings = {}) {
       : optional(a.speech_language),
     voiceName: optional(a.voice_name),
     avatars: avatarList(a.avatars),
-    avatar: a.avatar === 'none' ? 'none' : (avatarList(a.avatars).includes(String(a.avatar)) ? String(a.avatar) : avatarList(a.avatars)[0]),
+    avatar: a.avatar === 'none' ? 'none' : (avatarList(a.avatars).includes(String(a.avatar)) ? String(a.avatar) : avatarList(a.avatars)[0] ?? DEFAULTS.avatar),
     agent: a.agent === undefined ? DEFAULTS.agent : (/^[a-z0-9][a-z0-9-]{0,62}$/.test(String(a.agent)) && String(a.agent) !== 'none' ? String(a.agent) : ''),
     // A folder inside the workspace tree, never an absolute path or one that climbs out of it.
     memory: typeof a.memory === 'string' && /^[\w.-]+(\/[\w.-]+)*$/.test(a.memory.trim()) && !/(^|\/)\.\.(\/|$)/.test(a.memory) ? a.memory.trim() : DEFAULTS.memory,
@@ -222,11 +260,11 @@ function assistantSettings(settings = {}) {
  * deep-chat's `speechToText`, or `false` to remove the microphone entirely rather than leave a
  * button that does nothing.
  */
-function speechToTextConfig(cfg) {
+export function speechToTextConfig(cfg: Pick<AssistantSettings, 'voiceInput' | 'commands' | 'speechLanguage' | 'interimResults' | 'stopAfterSubmit' | 'submitAfterSilence'>): SpeechToText | false {
   if (!cfg.voiceInput) return false;
 
   // Only the commands that were actually given a phrase. An empty phrase is not a disabled command.
-  const commands = {};
+  const commands: Record<string, string> = {};
   for (const [key, phrase] of Object.entries(cfg.commands || {})) {
     if (phrase) commands[key] = phrase;
   }
@@ -257,7 +295,7 @@ function speechToTextConfig(cfg) {
  * separate switch, and `audio.autoPlay` in the docs is about responses carrying an audio file, which
  * this assistant never returns.
  */
-function textToSpeechConfig(cfg) {
+export function textToSpeechConfig(cfg: Pick<AssistantSettings, 'voiceOutput' | 'speechVolume' | 'speechRate' | 'speechPitch' | 'voiceName' | 'speechLanguage'>): TextToSpeech | false {
   if (!cfg.voiceOutput) return false;
   return {
     volume: cfg.speechVolume,
@@ -273,7 +311,7 @@ function textToSpeechConfig(cfg) {
 }
 
 /** What the page is handed: the flags it still needs, plus the two finished deep-chat objects. */
-function panelConfig(settings = {}, wsSettings = null) {
+export function panelConfig(settings: SpeechSettingsFile = {}, wsSettings: SpeechSettingsFile | null = null): PanelConfig {
   const cfg = assistantSettings(settings);
   return {
     ...assistantIdentity(settings, wsSettings),
@@ -290,8 +328,3 @@ function panelConfig(settings = {}, wsSettings = null) {
     avatar: cfg.avatar,
   };
 }
-
-module.exports = {
-  assistantSettings, assistantIdentity, speechToTextConfig, textToSpeechConfig, fieldMicConfig,
-  panelConfig, LANGUAGES, DEFAULTS, UNSET, AVATARS, workspaceLanguage, languageName,
-};

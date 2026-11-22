@@ -11,10 +11,10 @@
  * do not change meaning when it is updated.
  */
 
-const assert = require('node:assert');
-const { test } = require('node:test');
+import assert from 'node:assert';
+import { test } from 'node:test';
 
-const ca = require('../../claude-args');
+import * as ca from '../../claude-args.mts';
 
 // The two-column shape `claude --help` prints: flags, a wide gap, then a description that wraps — and
 // that starts on the next line when the flags are too long for the column.
@@ -57,7 +57,12 @@ Commands:
 `;
 
 const parsed = ca.parseOptions(HELP);
-const by = (name) => parsed.find((o) => o.name === name);
+/** The option of that name; a missing one fails the test that asked for it. */
+const by = (name: string): ca.ClaudeOption => {
+  const o = parsed.find((x) => x.name === name);
+  assert.ok(o, `${name} is in the help`);
+  return o;
+};
 
 test('the two columns are told apart, wrapped description and all', () => {
   assert.strictEqual(by('--model').description, 'Model for the current session');
@@ -178,5 +183,5 @@ test('help that says nothing is an error, not an empty list of options', async (
   const { options, error } = await ca.claudeOptions();
   // On a machine with claude installed this reads the real help; on one without, it is the error path.
   // Either is correct — what must never happen is an empty list reported as success.
-  assert.ok(error ? options.length === 0 : options.length > 0);
+  assert.ok(error ? (options || []).length === 0 : (options || []).length > 0);
 });

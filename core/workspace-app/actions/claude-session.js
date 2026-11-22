@@ -83,9 +83,9 @@ async function claude_resume({ form, send, res }) {
   if (!answer) return send('<div class="msg error">The screen runner on this machine is not up.</div>', 503);
   if (answer.already) return send(`<div class="msg error"><strong>${esc(session)}</strong> is still running. Exit it first, or open it from Screens.</div>`, 409);
   if (!answer.ok) return send(`<div class="msg error">Could not resume it: ${esc(String(answer.error || '').slice(-200))}</div>`, 500);
-  // Noted like every session the dashboard starts, as the conversation it holds (screen-notes.js).
+  // Noted like every session the dashboard starts, as the conversation it holds (screen-notes.mts).
   const rel = path.relative(ROOT, dir).split(path.sep);
-  require('../screen-notes').noteStarted(path.join(ROOT, '.screens'), {
+  require('../screen-notes.mts').noteStarted(path.join(ROOT, '.screens'), {
     session, dir, workspace: rel[0] || '', project: rel[1] || '', kind: 'claude', what: `claude --resume ${last.id}`, claude: last.id,
   });
   try { res.setHeader('HX-Trigger', JSON.stringify({ 'screens-changed': { session } })); } catch (_) { /* headers already sent */ }

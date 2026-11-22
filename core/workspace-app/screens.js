@@ -15,8 +15,8 @@ const { esc } = require('./html.mts');
 const { tildePath, humanTime } = require('./format.mts');
 const { waitingState } = require('./waiting');
 const claudeSessions = require('./claude-sessions');
-const claudeArgs = require('./claude-args');
-const screenNotes = require('./screen-notes');
+const claudeArgs = require('./claude-args.mts');
+const screenNotes = require('./screen-notes.mts');
 const hostProcesses = require('./host-processes');
 
 /**
@@ -1062,7 +1062,7 @@ function termLayerHtml(sessions = []) {
 const notesStore = () => path.join(ROOT, '.screens');
 
 // When this process last saw each session running. It is what tells a session the dashboard watched end from
-// one that ended while it was down or the machine was off (screen-notes.js, settle).
+// one that ended while it was down or the machine was off (screen-notes.mts, settle).
 const seenRunning = new Map();
 let settledAt = 0;
 

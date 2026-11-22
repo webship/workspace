@@ -12,8 +12,8 @@ const { startJob, stopJob, jobFragment, runningJobKey, hostRunnerUp, hostRunnerR
 const { screenLogFor, screensGridHtml, screenTargetDir, defaultSessionName } = require('../screens');
 const { screenVerb, wipeEverywhere } = require('../screen-verbs');
 const claudeSessions = require('../claude-sessions');
-const claudeArgs = require('../claude-args');
-const screenNotes = require('../screen-notes');
+const claudeArgs = require('../claude-args.mts');
+const screenNotes = require('../screen-notes.mts');
 const { ROOT } = require('../workspaces');
 
 // A new session: named by the user, started detached in a directory the
@@ -57,7 +57,7 @@ async function screen_new({ form, send, res }) {
   const command = String(form.command || '').trim();
   const kind = String(form.kind || (command ? 'command' : 'shell'));
   let inner;
-  // What the session's note keeps (screen-notes.js): the conversation it holds and the options it ran with.
+  // What the session's note keeps (screen-notes.mts): the conversation it holds and the options it ran with.
   let claudeId = '';
   let claudeFlags = [];
   if (kind === 'claude') {
@@ -65,7 +65,7 @@ async function screen_new({ form, send, res }) {
     // the prompt it opens with; a prompt template brings its own flags along,
     // so the session runs the same command that prompt file documents
     // (typically --permission-mode bypassPermissions).
-    // The flags are the CLI's own, read from `claude --help` (claude-args.js) rather than typed into a
+    // The flags are the CLI's own, read from `claude --help` (claude-args.mts) rather than typed into a
     // free-text box: every one that arrives has to be an option that help printed, and every value has
     // to fit the shape that option documented. A value that does not is REFUSED by name — a flag that
     // silently did nothing is worse than one that says why.

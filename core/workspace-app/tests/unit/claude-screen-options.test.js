@@ -13,7 +13,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 
-const claudeArgs = require('../../claude-args');
+const claudeArgs = require('../../claude-args.mts');
 const server = fs.readFileSync(path.join(__dirname, '../../server.js'), 'utf8');
 const screens = fs.readFileSync(path.join(__dirname, '../../screens.js'), 'utf8');
 
@@ -45,7 +45,7 @@ test('an option that enumerates its values in prose gets a closed list', () => {
 
 test('a shape hint is still not a list of choices', () => {
   // `<auto|tokens>` means "auto, or a number of tokens". Reading it as choices would refuse 200k, and
-  // the comment in claude-args.js says so; the prose rule must not undo that.
+  // the comment in claude-args.mts says so; the prose rule must not undo that.
   const auto = opt('--autocompact');
   assert.deepEqual(auto.choices, [], 'pipes in the value placeholder are not choices');
   // Nor is a lone default or a pair — three or more bare words is the bar.
@@ -67,7 +67,7 @@ test('the agents offered are the ones that exist, by their frontmatter name', ()
   // A rules document in the same folder is not an agent: the CLI dispatches on a frontmatter `name`,
   // and RULES.md has none. Blocklisting the docs by name would work until somebody added another.
   assert.ok(!agents.includes('RULES'), 'prose in the agents folder is not an agent');
-  assert.match(require('fs').readFileSync(path.join(__dirname, '../../claude-args.js'), 'utf8'),
+  assert.match(require('fs').readFileSync(path.join(__dirname, '../../claude-args.mts'), 'utf8'),
     /if \(!\/\^---\\s\*\$\/m\.test/, 'frontmatter is what makes it an agent');
 });
 
