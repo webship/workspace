@@ -284,20 +284,25 @@ committed: a fresh clone still runs the dashboard with no build step.
 - **A test that reads a script's source** reads the `.ts` (`src/browser/media-player.ts`): the built file has no
   comments and esbuild's formatting. A test that runs a script requires the built `public/<name>.js`.
 - **Not built:** the vendored libraries (`public/vendor/`, `htmx.min.js`, UIkit) stay as they are shipped.
-- **Converted so far:** `narration`, `media-player`, `sortable`, `mic`, `palette`, `suggest`. The other scripts in
+- **Converted so far:** `narration`, `media-player`, `sortable`, `mic`, `palette`, `suggest`, and `ui.js` split in parts (not typed yet). The other scripts in
   `public/` are still hand-written JavaScript until their turn. A test that reads a script's source and must work
   for both kinds reads `src/browser/<name>.ts` when there is one, else `public/<name>.js`
   (`board-pointer-and-swaps.test.js`).
-- **`ui.js` comes last, split in parts.** It is 3,300 lines in one file: a dozen self-contained sections (the
-  mentions, the tab modals, the help page, the rail, the assistant's deep-chat, the New screen form, …) and about
-  56 top-level names that other scripts and the server's inline handlers reach as globals. The plan:
-  1. List those globals (what `window` and the inline `on…="…"` handlers read), and declare them in
-     `globals.d.ts`, so a part can only use what is said there.
-  2. Split it into `src/browser/ui/<part>.js` plus an `index`, built by esbuild with bundling as the one bundled entry
-     (`public/ui.js`, IIFE): each global is assigned to `window` by name, in the order the file has them now. This
-     step moves code and changes nothing it does; about 60 unit tests read `public/ui.js` and move to a helper that
-     reads the parts.
-  3. Convert the parts to `.ts` one or a few per PR, smallest first, `initDeepChat` (680 lines) last.
+- **`ui.js` is one script in parts**, `src/browser/ui/NN-<part>.js` (18 of them: `01-core`, `02-editor-and-mentions`,
+  … `13-assistant-chat`, … `18-build-name`). The build puts them one after the other, in the order of their names,
+  into `public/ui.js`, after the "built" line: no bundling and no module wrapper, so they share one script's scope
+  exactly as the single file did, and a part may use a name another part declares. Each part is a whole script
+  (`node --check` passes on it alone); `browser-build.test.mts` holds both. A unit test that reads `public/ui.js`
+  reads what it read before. To change `ui.js`, change its part and run `npm run build:browser`.
+- **What `ui.js` shares.** It declares 57 top-level names. Four are used by another part: `swappedEl` (six parts),
+  `wsPref` and `wsPrefSet` (the page head's preference store, guarded here), and `markCurrentViews`. One is read by
+  another script: `flashResults` (sortable, through `window`). Seven are put on `window` for the server's inline
+  handlers and the other scripts: `navSyncGroups`, `screenKindChanged`, `screenNameFollowsTarget`,
+  `screenPromptTemplate`, `wsAssistantHooks`, `wsAssistantSend`, `wsAssistantVoice`. The rest stay inside the part
+  that declares them.
+- **Next:** convert the parts to `.ts` one or a few per PR, smallest first and `13-assistant-chat` (680 lines) last.
+  A `.ts` part has its types stripped by esbuild and is joined like the others; the parts share one scope, so they
+  are checked together (classic scripts, no `moduleDetection: force`), with the shared names above declared once.
 
 ---
 

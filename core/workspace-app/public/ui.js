@@ -1,3 +1,4 @@
+// Built from src/browser by `npm run build:browser`: edit the .ts source there, not this file.
 /* Tiny progressive-enhancement layer on top of HTMX (no frameworks). */
 
 // Preferences — theme, the rail, the assistant, the page width — are stored by the pre-paint script in
