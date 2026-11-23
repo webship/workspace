@@ -26,6 +26,7 @@
  * Plain Node, no dependencies: this runs before anything is installed. Env for tests:
  *   WEBSHIP_WORKSPACE_SKIP_NPM=1   do not run npm install in the dashboard
  *   WEBSHIP_WORKSPACE_SKIP_DDEV=1  do not start the dashboard (on any runtime; WEBSHIP_WORKSPACE_SKIP_START=1 is the same)
+ *   WEBSHIP_WORKSPACE_NODE_VERSION  stands in for the version of the Node.js this runs on
  */
 
 const crypto = require('crypto');
@@ -34,9 +35,36 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
+const PKG_ROOT = path.resolve(__dirname, '..', '..');   // the package: core/, README.md, LICENSE
+
+// Node.js runs the core's TypeScript files as they are from the version in the package's `engines` on (22.18). On an
+// older one the first of them fails with a SyntaxError that names no cause, and `update` would skip a step in silence.
+// So the Node.js this runs on is checked here, before anything of the core is loaded, and a command that would do
+// something says what is needed and does nothing. The version and the help still answer.
+function nodeNeeded() {
+  let engines = '';
+  try { engines = String((require(path.join(PKG_ROOT, 'package.json')).engines || {}).node || ''); } catch (_) { /* no package.json: no check */ }
+  const m = engines.match(/(\d+)\.(\d+)/);
+  return m ? [Number(m[1]), Number(m[2])] : null;
+}
+function nodeTooOld(version, needed) {
+  const m = String(version).match(/^v?(\d+)\.(\d+)/);
+  if (!m || !needed) return false;
+  return Number(m[1]) < needed[0] || (Number(m[1]) === needed[0] && Number(m[2]) < needed[1]);
+}
+{
+  const asked = process.argv.slice(2);
+  const answersAnyway = asked.length === 0 || ['help', 'version', '--version', '-v'].includes(asked[0]) || asked.includes('--help') || asked.includes('-h');
+  const needed = nodeNeeded();
+  const running = process.env.WEBSHIP_WORKSPACE_NODE_VERSION || process.versions.node;
+  if (!answersAnyway && nodeTooOld(running, needed)) {
+    process.stderr.write(`Webship Workspace needs Node.js ${needed.join('.')} or later: this is Node.js ${running} (${process.execPath}).\nInstall a newer Node.js (https://nodejs.org/en/download), then run the command again. Nothing was changed.\n`);
+    process.exit(1);
+  }
+}
+
 const dashboardRuntime = require('./dashboard-runtime');
 
-const PKG_ROOT = path.resolve(__dirname, '..', '..');   // the package: core/, README.md, LICENSE
 const CORE_SRC = path.join(PKG_ROOT, 'core');
 
 const say = (s) => process.stdout.write(`${s}\n`);
