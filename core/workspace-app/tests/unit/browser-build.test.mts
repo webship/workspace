@@ -36,7 +36,12 @@ test('the committed scripts are what their sources build to', () => {
 
 test('the pages load them at the same addresses, and the vendored libraries are not built', () => {
   const server = fs.readFileSync(path.join(APP, 'server.js'), 'utf8');
-  for (const f of builtNames) assert.ok(server.includes(`assetUrl('/${f}')`), `${f} is loaded as before`);
+  // A page loads a script (assetUrl in server.js), or a module of the page imports it (from '/<name>.js').
+  const pub = path.join(APP, 'public');
+  const importers = fs.readdirSync(pub).filter((n) => n.endsWith('.js')).map((n) => fs.readFileSync(path.join(pub, n), 'utf8'));
+  for (const f of builtNames) {
+    assert.ok(server.includes(`assetUrl('/${f}')`) || importers.some((src) => src.includes(`from '/${f}'`)), `${f} is loaded as before`);
+  }
   assert.ok(!sources.some((f) => /^(htmx|uikit)/.test(f)), 'htmx and UIkit stay vendored');
   assert.ok(!fs.existsSync(path.join(SRC, 'vendor')));
 });

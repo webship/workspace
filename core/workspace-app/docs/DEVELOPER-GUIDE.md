@@ -293,6 +293,9 @@ committed: a fresh clone still runs the dashboard with no build step.
   `public/` are still hand-written JavaScript until their turn. A test that reads a script's source and must work
   for both kinds reads `src/browser/<name>.ts` when there is one, else `public/<name>.js`
   (`board-pointer-and-swaps.test.js`).
+- **An ES module** is built the same way: `assistant-avatar-moves`, which the avatar imports from
+  `/assistant-avatar-moves.js`, keeps its `export` in the built file. A built script is loaded by a page (`assetUrl`
+  in `server.js`) or imported by a module of the page; `browser-build.test.mts` accepts either.
 - **`ui.js` is one script in parts**, `src/browser/ui/NN-<part>.js` (18 of them: `01-core`, `02-editor-and-mentions`,
   … `13-assistant-chat`, … `18-build-name`). The build puts them one after the other, in the order of their names,
   into `public/ui.js`, after the "built" line: no bundling and no module wrapper, so they share one script's scope
