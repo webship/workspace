@@ -865,6 +865,9 @@ services:
       environment:
         WEBSHIP_RUNTIME: lando
         WEBSHIP_PORT: "${port}"
+        # Lando's Apache passes BACKDROP_SETTINGS (its Backdrop recipe's database settings) to every site, and the
+        # text as it is written when the variable is not set, on which Backdrop CMS stops: no settings to add.
+        BACKDROP_SETTINGS: "{}"
       volumes:
         - ./.webship/runtime/lando-port.conf:/etc/apache2/conf-enabled/webship-port.conf
       ports:
