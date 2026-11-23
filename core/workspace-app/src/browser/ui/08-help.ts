@@ -3,38 +3,38 @@
 (function helpPage() {
   const page = document.querySelector('.help-layout');
   if (!page) return;
-  const sections = [...page.querySelectorAll('.help-section')];
-  const clearMarks = () => page.querySelectorAll('mark.help-hit').forEach((m) => m.replaceWith(document.createTextNode(m.textContent)));
-  const mark = (root, word) => {
+  const sections = [...page.querySelectorAll<HTMLElement>('.help-section')];
+  const clearMarks = () => page.querySelectorAll('mark.help-hit').forEach((m) => m.replaceWith(document.createTextNode(m.textContent || '')));
+  const mark = (root: Element, word: string) => {
     const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    const hits = [];
+    const hits: [Node, number][] = [];
     for (let n = walk.nextNode(); n; n = walk.nextNode()) {
-      const i = n.nodeValue.toLowerCase().indexOf(word);
-      if (i >= 0 && !n.parentElement.closest('pre, code, mark')) hits.push([n, i]);
+      const i = (n.nodeValue || '').toLowerCase().indexOf(word);
+      if (i >= 0 && !n.parentElement!.closest('pre, code, mark')) hits.push([n, i]);
     }
     hits.forEach(([n, i]) => {
       const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + word.length);
       const m = document.createElement('mark'); m.className = 'help-hit'; r.surroundContents(m);
     });
   };
-  page.querySelector('.help-find').addEventListener('input', (e) => {
+  page.querySelector('.help-find')!.addEventListener('input', (e) => {
     clearMarks();
     page.querySelectorAll('.help-section').forEach((s) => s.normalize());
-    const words = e.target.value.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
+    const words = (e.target as HTMLInputElement).value.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
     let shown = 0;
     sections.forEach((s) => {
       const on = words.every((w) => s.textContent.toLowerCase().includes(w));
       s.hidden = !on;
-      const link = page.querySelector(`[data-help-toc="${CSS.escape(s.dataset.helpSection)}"]`);
-      if (link) link.parentElement.hidden = !on;
+      const link = page.querySelector(`[data-help-toc="${CSS.escape(s.dataset.helpSection || '')}"]`);
+      if (link) link.parentElement!.hidden = !on;
       if (on) { shown += 1; if (words.length) words.forEach((w) => mark(s, w)); }
     });
-    page.querySelector('.help-none').hidden = shown > 0;
+    page.querySelector<HTMLElement>('.help-none')!.hidden = shown > 0;
   });
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver((entries) => {
       entries.filter((x) => x.isIntersecting).forEach((x) => {
-        page.querySelectorAll('[data-help-toc]').forEach((a) => a.classList.toggle('is-current', a.dataset.helpToc === x.target.dataset.helpSection));
+        page.querySelectorAll<HTMLElement>('[data-help-toc]').forEach((a) => a.classList.toggle('is-current', a.dataset.helpToc === (x.target as HTMLElement).dataset.helpSection));
       });
     }, { rootMargin: '-20% 0px -70% 0px' });
     sections.forEach((s) => io.observe(s));
@@ -58,7 +58,7 @@
 })();
 
 // The guide's code blocks are what people come to copy, so each one has a Copy button.
-document.querySelectorAll('.help-body pre').forEach((pre) => {
+document.querySelectorAll<HTMLElement>('.help-body pre').forEach((pre) => {
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'help-copy';

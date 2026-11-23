@@ -1159,20 +1159,24 @@ document.addEventListener('shown', (e) => {
 // away: focus fell to the page and whatever was typed while the request ran was lost. The field being
 // typed in is remembered before a swap and given back after it, with its value and caret; if more was
 // typed than was searched, the search runs again.
+/** What an htmx swap event carries about where it goes (htmx 4 puts it in detail.ctx). */
+                                                                                           
+
 (function keepTypingThroughSwaps() {
-  let kept = null;
+  let kept                                                                                                    = null;
   document.body.addEventListener('htmx:before:swap', (e) => {
-    const a = document.activeElement;
-    const ctx = (e.detail && e.detail.ctx) || {};
-    const target = ctx.target || (e.detail && e.detail.target) || e.target;
-    const into = target && target.nodeType === 1 ? target : null;
+    const a = document.activeElement                                                 ;
+    const detail = (e                                  ).detail;
+    const ctx = (detail && detail.ctx) || {};
+    const target = ctx.target || (detail && detail.target) || e.target;
+    const into = target && (target        ).nodeType === 1 ? target            : null;
     if (!a || !into || !into.contains(a) || !a.matches('input[name], textarea[name]')) { kept = null; return; }
     kept = { name: a.name, value: a.value, start: a.selectionStart, end: a.selectionEnd, target: into };
   });
   document.body.addEventListener('htmx:after:swap', () => {
     if (!kept) return;
     const k = kept; kept = null;
-    const field = k.target.querySelector(`[name="${CSS.escape(k.name)}"]`);
+    const field = k.target.querySelector                                        (`[name="${CSS.escape(k.name)}"]`);
     if (!field) return;
     const searched = field.value;
     if (field.value !== k.value) field.value = k.value;
@@ -1188,29 +1192,30 @@ document.addEventListener('shown', (e) => {
 // remembered by its row (the title the card is named by) and its place in that row — its menu's slot, or
 // its order among the row's controls — and given back in the new markup.
 (function keepRowFocusThroughRedraws() {
-  let kept = null;
-  const controls = (row) => [...row.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+  let kept                                                                        = null;
+  const controls = (row         )                => [...row.querySelectorAll             ('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
     .filter((el) => !el.closest('.uk-dropdown'));
   // A project card by its title; an item row (a doc, an agent, a skill…) by its machine name, which it has
   // instead — without it, closing a doc's editor gave focus back to Edit and the redraw took it away.
-  const nameOf = (row) => {
+  const nameOf = (row         )         => {
     const t = row.querySelector('.pcard-title');
-    if (t) return t.getAttribute('title') || t.textContent.trim();
+    if (t) return t.getAttribute('title') || (t.textContent || '').trim();
     const m = row.querySelector('.item-machine');
-    return m ? `item:${m.textContent.trim()}` : '';
+    return m ? `item:${(m.textContent || '').trim()}` : '';
   };
   document.body.addEventListener('htmx:before:swap', (e) => {
     kept = null;
     const a = document.activeElement;
-    const ctx = (e.detail && e.detail.ctx) || {};
-    const target = ctx.target || (e.detail && e.detail.target) || e.target;
-    const into = target && target.nodeType === 1 ? target : null;
+    const detail = (e                                  ).detail;
+    const ctx = (detail && detail.ctx) || {};
+    const target = ctx.target || (detail && detail.target) || e.target;
+    const into = target && (target        ).nodeType === 1 ? target            : null;
     if (!a || a === document.body || !into || !into.contains(a)) return;
     const row = a.closest('.project-row');
     if (!row || !nameOf(row) || a.matches('input[name], textarea[name]')) return;
     const menu = a.closest('.act-menu');
-    const slot = menu ? [...menu.classList].find((c) => /^act-menu-(?!hosting$|container$|lazy$)/.test(c)) : '';
-    kept = { name: nameOf(row), slot, index: controls(row).indexOf(a), target: into };
+    const slot = (menu ? [...menu.classList].find((c) => /^act-menu-(?!hosting$|container$|lazy$)/.test(c)) : '') || '';
+    kept = { name: nameOf(row), slot, index: controls(row).indexOf(a               ), target: into };
   });
   document.body.addEventListener('htmx:after:swap', () => {
     if (!kept) return;
@@ -1218,7 +1223,7 @@ document.addEventListener('shown', (e) => {
     if (document.activeElement && document.activeElement !== document.body && k.target.contains(document.activeElement)) return;
     const row = [...k.target.querySelectorAll('.project-row')].find((r) => nameOf(r) === k.name);
     if (!row) return;
-    const inMenu = k.slot && row.querySelector(`.${CSS.escape(k.slot)} > button, .${CSS.escape(k.slot)} button`);
+    const inMenu = k.slot ? row.querySelector             (`.${CSS.escape(k.slot)} > button, .${CSS.escape(k.slot)} button`) : null;
     const target = inMenu || (k.index >= 0 ? controls(row)[k.index] : null);
     if (target) target.focus({ preventScroll: true });
   });
@@ -1403,38 +1408,38 @@ window.addEventListener('beforeunload', (e) => {
 (function helpPage() {
   const page = document.querySelector('.help-layout');
   if (!page) return;
-  const sections = [...page.querySelectorAll('.help-section')];
-  const clearMarks = () => page.querySelectorAll('mark.help-hit').forEach((m) => m.replaceWith(document.createTextNode(m.textContent)));
-  const mark = (root, word) => {
+  const sections = [...page.querySelectorAll             ('.help-section')];
+  const clearMarks = () => page.querySelectorAll('mark.help-hit').forEach((m) => m.replaceWith(document.createTextNode(m.textContent || '')));
+  const mark = (root         , word        ) => {
     const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    const hits = [];
+    const hits                   = [];
     for (let n = walk.nextNode(); n; n = walk.nextNode()) {
-      const i = n.nodeValue.toLowerCase().indexOf(word);
-      if (i >= 0 && !n.parentElement.closest('pre, code, mark')) hits.push([n, i]);
+      const i = (n.nodeValue || '').toLowerCase().indexOf(word);
+      if (i >= 0 && !n.parentElement .closest('pre, code, mark')) hits.push([n, i]);
     }
     hits.forEach(([n, i]) => {
       const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + word.length);
       const m = document.createElement('mark'); m.className = 'help-hit'; r.surroundContents(m);
     });
   };
-  page.querySelector('.help-find').addEventListener('input', (e) => {
+  page.querySelector('.help-find') .addEventListener('input', (e) => {
     clearMarks();
     page.querySelectorAll('.help-section').forEach((s) => s.normalize());
-    const words = e.target.value.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
+    const words = (e.target                    ).value.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
     let shown = 0;
     sections.forEach((s) => {
       const on = words.every((w) => s.textContent.toLowerCase().includes(w));
       s.hidden = !on;
-      const link = page.querySelector(`[data-help-toc="${CSS.escape(s.dataset.helpSection)}"]`);
-      if (link) link.parentElement.hidden = !on;
+      const link = page.querySelector(`[data-help-toc="${CSS.escape(s.dataset.helpSection || '')}"]`);
+      if (link) link.parentElement .hidden = !on;
       if (on) { shown += 1; if (words.length) words.forEach((w) => mark(s, w)); }
     });
-    page.querySelector('.help-none').hidden = shown > 0;
+    page.querySelector             ('.help-none') .hidden = shown > 0;
   });
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver((entries) => {
       entries.filter((x) => x.isIntersecting).forEach((x) => {
-        page.querySelectorAll('[data-help-toc]').forEach((a) => a.classList.toggle('is-current', a.dataset.helpToc === x.target.dataset.helpSection));
+        page.querySelectorAll             ('[data-help-toc]').forEach((a) => a.classList.toggle('is-current', a.dataset.helpToc === (x.target               ).dataset.helpSection));
       });
     }, { rootMargin: '-20% 0px -70% 0px' });
     sections.forEach((s) => io.observe(s));
@@ -1458,7 +1463,7 @@ window.addEventListener('beforeunload', (e) => {
 })();
 
 // The guide's code blocks are what people come to copy, so each one has a Copy button.
-document.querySelectorAll('.help-body pre').forEach((pre) => {
+document.querySelectorAll             ('.help-body pre').forEach((pre) => {
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'help-copy';
@@ -3136,12 +3141,12 @@ document.body.addEventListener('htmx:after:settle', (e) => {
 // would last exactly one poll. Kept per browser, like the theme and the page width.
 (function screensColumns() {
   const KEY = 'ws-screens-cols';
-  const read = () => {
-    try { return ['1', '2', '3'].includes(localStorage.getItem(KEY)) ? localStorage.getItem(KEY) : '1'; }
+  const read = ()         => {
+    try { const v = localStorage.getItem(KEY) || ''; return ['1', '2', '3'].includes(v) ? v : '1'; }
     catch (_) { return '1'; }
   };
   function apply() {
-    const list = document.querySelector('.screens-list');
+    const list = document.querySelector             ('.screens-list');
     // The modal only wears the count while it is actually holding the list: it is the one modal in the
     // dashboard, and an editor opened after the screens would otherwise inherit a width chosen for
     // three columns of session cards.
@@ -3155,7 +3160,7 @@ document.body.addEventListener('htmx:after:settle', (e) => {
     list.dataset.cols = cols;
     // The buttons only: the modal itself carries data-screens-cols for its width, and as a match it was
     // being given the primary button's class, which painted the whole overlay brand blue.
-    document.querySelectorAll('button[data-screens-cols]').forEach((b) => {
+    document.querySelectorAll                   ('button[data-screens-cols]').forEach((b) => {
       const on = b.dataset.screensCols === cols;
       b.classList.toggle('uk-button-primary', on);
       b.classList.toggle('uk-button-default', !on);
@@ -3165,10 +3170,10 @@ document.body.addEventListener('htmx:after:settle', (e) => {
   document.addEventListener('click', (e) => {
     // The count buttons only. The modal wears data-screens-cols too (for its width): matched here, every
     // click inside the Screens modal was cancelled, and a link in it — "the Screens page" — went nowhere.
-    const btn = e.target.closest('button[data-screens-cols]');
+    const btn = (e.target           ).closest                   ('button[data-screens-cols]');
     if (!btn) return;
     e.preventDefault();
-    try { localStorage.setItem(KEY, btn.dataset.screensCols); } catch (_) { /* private window */ }
+    try { localStorage.setItem(KEY, btn.dataset.screensCols || '1'); } catch (_) { /* private window */ }
     apply();
   });
   document.addEventListener('DOMContentLoaded', apply);
