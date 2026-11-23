@@ -128,7 +128,7 @@ test('the plugins are drawn again when a step has run, and the page says its fil
 
 test('focus stays with the plugin when its row or its steps are drawn again after a step', () => {
   assert.match(html, /<li class="plugin-row" data-refocus="row-jira"/);
-  const page = fs.readFileSync(path.join(import.meta.dirname, '..', '..', 'settings-plugin-page.js'), 'utf8');
+  const page = fs.readFileSync(path.join(import.meta.dirname, '..', '..', 'settings-plugin-page.mts'), 'utf8');
   assert.match(page, /data-refocus="steps-\$\{esc\(p\.name\)\}"/);
   const ui = fs.readFileSync(path.join(import.meta.dirname, '..', '..', 'public', 'ui.js'), 'utf8');
   assert.match(ui, /document\.activeElement !== document\.body\)\) return;/, 'only when focus was lost: a person who moved on is left where they are');

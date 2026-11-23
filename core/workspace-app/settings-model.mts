@@ -9,18 +9,21 @@
 
 import { FAMILIES as CATALOG, SCOPE } from './plugin-catalog.mts';
 import type { Manifest } from './plugin-manifest.mts';
+import type { Need } from './plugin-needs.mts';
 
 /** A family of Settings. */
 export interface Family { id: string; label: string; icon: string; about: string }
 
 /** What a manifest may say for Settings, besides what plugin-manifest.mts reads. */
-type SettingsManifest = Partial<Manifest> & { family?: string; summary?: string };
+export type SettingsManifest = Partial<Manifest> & { family?: string; summary?: string };
 
 /** What a need of a plugin that is not met says: the plugin to pick for it. */
-interface Unmet { pick: string; [field: string]: unknown }
+export type Unmet = Partial<Need> & { pick: string };
+/** What plugin-needs says of a plugin's needs, as far as Settings reads it: the unmet ones, the problems, all of them. */
+export interface Wants { unmet?: Unmet[]; problems?: string[]; needs?: Need[]; suggests?: Need[] }
 
 /** A command a plugin needs or suggests, and whether it was found here. */
-interface CommandCheck { kind: string; name: string; state: string }
+export interface CommandCheck { kind: string; name: string; state: string; anyOf?: string[]; why?: string; where?: string; version?: string; hint?: string }
 
 /** A plugin, as far as its name, family and line are read. */
 export interface PluginLike {
@@ -36,8 +39,13 @@ export interface PluginLike {
 export interface PluginRow extends PluginLike {
   /** 0 required, 1 activated, 2 installed, 3 configured; a row without one is in none of them. */
   step?: number;
-  wants?: { unmet?: Unmet[]; problems?: string[] } | null;
-  placed?: { missing?: string[] } | null;
+  wants?: Wants | null;
+  /** What plugin-install's status() says of it: installed, how many files it placed, which are missing. */
+  placed?: { missing?: string[]; installed?: boolean; placed?: number } | null;
+  /** Its package spec, the plugins that need it, and whether the dashboard loaded it (plugins-page.js rows()). */
+  spec?: string;
+  neededBy?: string[];
+  loaded?: boolean;
   commands?: CommandCheck[];
   todo?: string[];
   [field: string]: unknown;
