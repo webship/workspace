@@ -18,25 +18,41 @@
  * So `resumable` is the transcript, and a directory-only id is reported rather than offered.
  */
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 
-const PROJECTS = path.join(os.homedir(), '.claude', 'projects');
+/** One part of a message in a transcript line: text, a tool call or a tool's result. */
+interface ContentPart { type?: string; text?: string; name?: string; input?: Record<string, unknown> }
+/** One line of a session's transcript (`<id>.jsonl`), as far as it is read here. */
+interface TranscriptLine {
+  type?: string;
+  message?: { content?: string | ContentPart[] };
+  isSidechain?: boolean;
+  isMeta?: boolean;
+  isCompactSummary?: boolean;
+  timestamp?: string;
+}
+/** A session of a folder, newest first in sessionsFor's answer. */
+export interface SessionEntry { id: string; at: number; size: number; title: string; transcript: boolean; resumable: boolean }
+/** One turn of a conversation, as the dashboard shows it. */
+export interface Turn { who: 'you' | 'claude'; text: string; tools: string[]; at: number }
+
+export const PROJECTS = path.join(os.homedir(), '.claude', 'projects');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Is this a session id we would hand to `claude --resume`? */
-const isSessionId = (v) => UUID_RE.test(String(v || ''));
+export const isSessionId = (v: unknown): boolean => UUID_RE.test(String(v || ''));
 
 /**
  * The CLI's own name for a directory: the absolute path with every slash turned into a dash. So
  * /home/user/workspace/dev/ha1x00b1 is -home-user-workspace-dev-ha1x00b1.
  */
-function projectSlug(dir) {
+export function projectSlug(dir: string): string {
   return String(path.resolve(dir)).replace(/\//g, '-');
 }
 
-function projectDirFor(dir) {
+export function projectDirFor(dir: string): string {
   return path.join(PROJECTS, projectSlug(dir));
 }
 
@@ -44,7 +60,7 @@ function projectDirFor(dir) {
  * The first thing the person typed, as the session's title. Read from the head of the file rather than
  * all of it: a long transcript is tens of megabytes and this runs while a form is being drawn.
  */
-function titleOf(file) {
+export function titleOf(file: string): string {
   let head = '';
   try {
     const fd = fs.openSync(file, 'r');
@@ -58,7 +74,7 @@ function titleOf(file) {
   for (const line of head.split('\n')) {
     if (!line.startsWith('{') || !line.includes('"type":"user"')) continue;
     try {
-      const d = JSON.parse(line);
+      const d = JSON.parse(line) as TranscriptLine;
       const content = (d.message || {}).content;
       const text = typeof content === 'string'
         ? content
@@ -78,13 +94,13 @@ function titleOf(file) {
  * `at` is when it was last written — which is what "the one I was just in" means — and `title` is the
  * first thing typed in it, so two sessions in one project can be told apart without opening either.
  */
-function sessionsFor(dir, { limit = 25, resumableOnly = false } = {}) {
+export function sessionsFor(dir: string, { limit = 25, resumableOnly = false }: { limit?: number; resumableOnly?: boolean } = {}): SessionEntry[] {
   const projectDir = projectDirFor(dir);
-  let names = [];
+  let names: string[] = [];
   try { names = fs.readdirSync(projectDir); } catch (_) { return []; }
 
-  const found = new Map();
-  const note = (id, file, isTranscript) => {
+  const found = new Map<string, SessionEntry>();
+  const note = (id: string, file: string, isTranscript: boolean) => {
     let st;
     try { st = fs.statSync(file); } catch (_) { return; }
     const prev = found.get(id);
@@ -118,7 +134,7 @@ function sessionsFor(dir, { limit = 25, resumableOnly = false } = {}) {
 }
 
 /** Does this directory have any session to resume? Cheap enough to ask while drawing a list. */
-function hasSessions(dir) {
+export function hasSessions(dir: string): boolean {
   try {
     return fs.readdirSync(projectDirFor(dir)).some((n) => isSessionId(n) || (n.endsWith('.jsonl') && isSessionId(n.slice(0, -6))));
   } catch (_) {
@@ -127,7 +143,7 @@ function hasSessions(dir) {
 }
 
 /** Where the CLI keeps one conversation of a folder, or '' for an id that is not one. */
-function transcriptFile(dir, id) {
+export function transcriptFile(dir: string, id: unknown): string {
   return isSessionId(id) && dir ? path.join(projectDirFor(dir), `${String(id).toLowerCase()}.jsonl`) : '';
 }
 
@@ -141,7 +157,7 @@ const CLI_WRAPPERS = ['system-reminder', 'local-command-stdout', 'local-command-
 const WRAPPED = new RegExp(`<(${CLI_WRAPPERS.join('|')})>[\\s\\S]*?<\\/\\1>`, 'g');
 
 /** What was typed, out of a user line: a slash command as its name and arguments, a shell line as `! <line>`. */
-function typedText(text) {
+function typedText(text: unknown): string {
   const s = String(text || '');
   const name = (s.match(/<command-name>([\s\S]*?)<\/command-name>/) || [])[1];
   if (name) {
@@ -154,10 +170,10 @@ function typedText(text) {
 }
 
 /** One tool call, as a line: its name, and the part of its input that says what it was for. */
-function toolLine(part) {
-  const input = (part && part.input) || {};
+function toolLine(part: ContentPart | null | undefined): string {
+  const input: Record<string, unknown> = (part && part.input) || {};
   const what = ['description', 'command', 'file_path', 'path', 'pattern', 'url', 'query', 'prompt']
-    .map((k) => input[k]).find((v) => typeof v === 'string' && v.trim()) || '';
+    .map((k) => input[k]).find((v): v is string => typeof v === 'string' && !!v.trim()) || '';
   const name = String((part && part.name) || 'tool');
   return what ? `${name} · ${what.replace(/\s+/g, ' ').trim().slice(0, 160)}` : name;
 }
@@ -170,7 +186,7 @@ function toolLine(part) {
  * The model's thinking, tool results and the CLI's own records stay out. Read from the end and bounded, because the
  * transcript of a long day runs to tens of megabytes and this answers one click.
  */
-function readConversation(file, { maxBytes = 4 * 1024 * 1024, limit = 60 } = {}) {
+export function readConversation(file: string, { maxBytes = 4 * 1024 * 1024, limit = 60 }: { maxBytes?: number; limit?: number } = {}): { turns: Turn[]; total: number; cut: boolean; missing: boolean } {
   let text = '';
   let cut = false;
   try {
@@ -187,16 +203,16 @@ function readConversation(file, { maxBytes = 4 * 1024 * 1024, limit = 60 } = {})
   } catch (_) {
     return { turns: [], total: 0, cut: false, missing: true };
   }
-  const turns = [];
+  const turns: Turn[] = [];
   for (const line of text.split('\n')) {
     if (!line.startsWith('{')) continue;
-    let d;
-    try { d = JSON.parse(line); } catch (_) { continue; }
+    let d: TranscriptLine;
+    try { d = JSON.parse(line) as TranscriptLine; } catch (_) { continue; }
     if (!d || (d.type !== 'user' && d.type !== 'assistant')) continue;
     // A subagent's own exchange, the CLI's injected context, and a compacted summary are not the conversation.
     if (d.isSidechain || d.isMeta || d.isCompactSummary) continue;
     const content = d.message && d.message.content;
-    const parts = typeof content === 'string' ? [{ type: 'text', text: content }] : Array.isArray(content) ? content : [];
+    const parts: ContentPart[] = typeof content === 'string' ? [{ type: 'text', text: content }] : Array.isArray(content) ? content : [];
     const at = Date.parse(d.timestamp || '') || 0;
     const said = parts.filter((p) => p && p.type === 'text').map((p) => String(p.text || '')).join('\n');
     if (d.type === 'user') {
@@ -213,4 +229,3 @@ function readConversation(file, { maxBytes = 4 * 1024 * 1024, limit = 60 } = {})
   return { turns: limit ? turns.slice(-limit) : turns, total: turns.length, cut, missing: false };
 }
 
-module.exports = { PROJECTS, isSessionId, projectSlug, projectDirFor, sessionsFor, hasSessions, titleOf, transcriptFile, readConversation };

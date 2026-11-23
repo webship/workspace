@@ -33,7 +33,7 @@ const googleAuth = require('./auth-google');
 const { iconHtml } = require('./icons.mts');
 const { commandBlock } = require('./command-block.mts');
 const { tabModalHtml } = require('./tab-modal.mts');
-const claudeSessions = require('./claude-sessions');
+const claudeSessions = require('./claude-sessions.mts');
 const { installedPlugins } = require('./plugin-manifest.mts');
 
 // What register(api) hands every plugin. Shared helpers rather than reaching into server.js: the

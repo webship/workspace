@@ -4,7 +4,7 @@
  * Claude Code drawing run the same checks.
  */
 
-const { sanitizeSvg, removedSummary, tokens, parseTag, DRAWABLE } = require('./images-svg-sanitize');
+const { sanitizeSvg, removedSummary, tokens, parseTag, DRAWABLE } = require('./images-svg-sanitize.mts');
 
 const STYLES = { still: 'Still', draw: 'Draw the strokes', css: 'CSS keyframes', smil: 'SMIL' };
 const SHAPES = { wide: [960, 400], landscape: [960, 640], square: [800, 800] };
