@@ -121,6 +121,52 @@ function rt_claim() {
   else sed -i "/^x-webship:\$/a\\  platform: ${plugin}" "${file}" ; fi
 }
 
+# A project's own PHP settings, read on the input, where its runtime reads them (webship/workspace#825): on DDEV
+# .ddev/php/<name>.ini, DDEV's own folder; on another runtime .webship/php/<name>.ini, which the web container scans
+# after the stack's own settings (PHP_INI_SCAN_DIR, for the web server and the command line alike). PHP reads them
+# when it starts: run it after `ddev config` and before the start, as a builder writes DDEV's file.
+function rt_php_ini() {
+  local name="$1" found root dir ;
+  [[ "${name}" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "rt_php_ini: a name, please (lower case, digits, - and _)." >&2 ; return 1 ; } ;
+  found="$(rt_find_project "${2:-$PWD}")" || { echo "rt_php_ini: no project in ${2:-$PWD} (run it after 'ddev config')." >&2 ; return 1 ; } ;
+  root="${found#* }" ; dir="${root}/.webship/php" ;
+  [ "${found%% *}" = ddev ] && dir="${root}/.ddev/php" ;
+  mkdir -p "${dir}" && cat > "${dir}/${name}.ini" ;
+}
+
+# A task kept running beside the web server, in the web container's image with the project's code and settings
+# (webship/workspace#825): a platform's cron, a queue worker. On DDEV a web_extra_daemons entry in
+# .ddev/config.daemon-<name>.yaml; on Docker Compose and Podman the project's `daemons` service, on Kubernetes a second
+# container of the web pod, each running .webship/daemons/<name>.sh as the web server's user. The task is declared
+# in the x-webship block (`daemons:`), so it stays when the files are written again. Run it after `ddev config`.
+function rt_daemon() {
+  local name="$1" command="${2:-}" found rt root file list ;
+  { [[ "${name}" =~ ^[a-z0-9][a-z0-9_-]*$ ]] && [ -n "${command}" ] ; } || { echo "rt_daemon: a name (lower case, digits, - and _) and a command, please." >&2 ; return 1 ; } ;
+  found="$(rt_find_project "${3:-$PWD}")" || { echo "rt_daemon: no project in ${3:-$PWD} (run it after 'ddev config')." >&2 ; return 1 ; } ;
+  rt="${found%% *}" ; root="${found#* }" ;
+  if [ "${rt}" = ddev ] ; then
+    cat > "${root}/.ddev/config.daemon-${name}.yaml" <<YAML
+# Written by the Webship Workspace (rt_daemon, webship/workspace#825): a task kept running beside the web server.
+web_extra_daemons:
+  - name: "${name}"
+    command: "${command//\"/\\\"}"
+    directory: /var/www/html
+YAML
+    return 0 ;
+  fi
+  case "${rt}" in
+    lando|docksal) echo "(${rt}: a task beside the web server is not on ${rt} yet, so '${name}' does not run there: webship/workspace#825)" ; return 0 ;;
+  esac
+  mkdir -p "${root}/.webship/daemons" ;
+  printf '#!/usr/bin/env bash\n# Written by the Webship Workspace (rt_daemon, webship/workspace#825): kept running beside the web server.\n%s\n' "${command}" > "${root}/.webship/daemons/${name}.sh" ;
+  file="${root}/$(rt_meta_file "${root}")" ; list="$(rt_meta daemons "${root}")" ;
+  case ",${list}," in *",${name},"*) ;; *) list="${list:+${list},}${name}" ;; esac
+  if [ -n "$(rt_meta daemons "${root}")" ] ; then sed -i "/^x-webship:/,/^[^ x]/s/^  daemons: .*/  daemons: ${list}/" "${file}" ;
+  else sed -i "/^x-webship:\$/a\\  daemons: ${list}" "${file}" ; fi
+  # The runtime's files again, with the task in them: `ddev config` keeps what it is not asked to change.
+  ( cd "${root}" && ddev config > /dev/null ) ;
+}
+
 # Is the project of a folder this platform's? On DDEV its project type, or the plugin's `.ddev/config.<name>.yaml`;
 # on another runtime the type or the claim (rt_claim) of its x-webship block. A plugin's `<name>_is_project` asks
 # this instead of reading .ddev/config.yaml, so it answers on every runtime. `-` and `_` in a name are one.
@@ -218,7 +264,7 @@ function rt_dc() {
 
 # Writes compose.yaml and the stack's build folder for a project: what `ddev config` does for DDEV.
 function rt_compose_write() {
-  local rt="$1" root="$2" name="$3" type="$4" docroot="$5" php="$6" db="$7" port="$8" platform="${9:-}" mail_port="${10:-}" ;
+  local rt="$1" root="$2" name="$3" type="$4" docroot="$5" php="$6" db="$7" port="$8" platform="${9:-}" mail_port="${10:-}" daemons="${11:-}" ;
   mkdir -p "${root}/.webship/runtime" ;
   cp "${RT_STACKS}/php/Dockerfile" "${root}/.webship/runtime/Dockerfile" ;
   # Rootless Podman maps a container's users into a range of their own: with keep-id the user of the web service is
@@ -241,7 +287,8 @@ x-webship:${platform:+
   php: "${php}"
   database: "${db}"
   port: ${port}${mail_port:+
-  mail_port: ${mail_port}}
+  mail_port: ${mail_port}}${daemons:+
+  daemons: ${daemons}}
 services:
   web:
     build:
@@ -254,6 +301,8 @@ services:
 ${userns}    environment:
       APACHE_DOCUMENT_ROOT: /var/www/html${docroot:+/${docroot}}
       WEBSHIP_RUNTIME: ${rt}
+      # The project's own PHP settings (rt_php_ini), after the stack's: the leading ':' keeps PHP's own folder.
+      PHP_INI_SCAN_DIR: ":/var/www/html/.webship/php"
       # The site's own port, also inside the container: it reaches itself at its address (the stack's Dockerfile).
       WEBSHIP_PORT: "${port}"
     volumes:
@@ -278,9 +327,37 @@ ${userns}    environment:
       timeout: 5s
       retries: 60
   mail:
-    image: axllent/mailpit${mail_ports}
+    image: axllent/mailpit${mail_ports}${daemons:+
+$(rt_compose_daemons "${name}" "${php}" "${docroot}" "${rt}" "${userns}")}
 volumes:
   db:
+YAML
+}
+
+# The service of the tasks beside the web server (rt_daemon), for compose.yaml: the web service's image, code and
+# settings, and every .webship/daemons/*.sh of the project run as the web server's user. `$$` is compose's `$`.
+function rt_compose_daemons() {
+  local name="$1" php="$2" docroot="$3" rt="$4" userns="$5" ;
+  cat <<YAML
+  # The tasks beside the web server (rt_daemon, webship/workspace#825).
+  daemons:
+    build:
+      context: .webship/runtime
+      args:
+        PHP_VERSION: "${php}"
+        UID: "$(id -u)"
+        GID: "$(id -g)"
+    image: webship-${name}-web
+${userns}    command: ["runuser", "-u", "www-data", "--", "bash", "-c", "for f in /var/www/html/.webship/daemons/*.sh ; do [ -f \"\$\$f\" ] && bash \"\$\$f\" & done ; wait"]
+    environment:
+      APACHE_DOCUMENT_ROOT: /var/www/html${docroot:+/${docroot}}
+      WEBSHIP_RUNTIME: ${rt}
+      PHP_INI_SCAN_DIR: ":/var/www/html/.webship/php"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
 YAML
 }
 
@@ -447,13 +524,15 @@ function rt_compose() {
       # A plugin's claim (rt_claim) stays when the file is written again.
       platform="$( [ -f "${root}/compose.yaml" ] && rt_meta platform "${root}" )" ;
       mail_port="$( [ -f "${root}/compose.yaml" ] && rt_meta mail_port "${root}" )" ;
+      # The tasks beside the web server (rt_daemon) stay too.
+      local daemons ; daemons="$( [ -f "${root}/compose.yaml" ] && rt_meta daemons "${root}" )" ;
       for a in "$@" ; do
         case "${a}" in
           --project-name=*) name="${a#*=}" ;; --project-type=*) type="${a#*=}" ;; --docroot=*) docroot="${a#*=}" ;;
           --php-version=*) php="${a#*=}" ;; --database=*) db="${a#*=}" ; db="${db#*:}" ;;
         esac
       done
-      rt_compose_write "${rt}" "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" ;
+      rt_compose_write "${rt}" "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" "${daemons}" ;
       echo "Wrote compose.yaml for ${rt} (${type:-php}, PHP ${php:-8.3}, MariaDB ${db:-10.11}): $(rt_url "${root}")" ;;
     start|restart)
       [ -n "${root}" ] || { echo "No ${rt} project here." >&2 ; return 1 ; } ;
@@ -555,11 +634,24 @@ function rt_k8s_web_image() {
 }
 
 function rt_k8s_write() {
-  local root="$1" name type docroot php db port mail_port ns image pull=Never ;
+  local root="$1" name type docroot php db port mail_port ns image pull=Never daemons sidecar="" ;
   name="$(sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1)" ; docroot="$(rt_meta docroot "${root}")" ;
+  daemons="$(rt_meta daemons "${root}")" ;
   db="$(rt_meta database "${root}")" ; port="$(rt_meta port "${root}")" ; mail_port="$(rt_meta mail_port "${root}")" ; ns="ws-${name}" ;
   image="$(rt_k8s_web_image "${root}")" ; [ "${image}" = "webship-${name}-web" ] || pull=IfNotPresent ;
   mkdir -p "${root}/k8s" ;
+  # The tasks beside the web server (rt_daemon, webship/workspace#825): a second container of the web pod, with its
+  # image, code and settings, running every .webship/daemons/*.sh as the web server's user.
+  [ -n "${daemons}" ] && sidecar="
+        - name: daemons
+          image: ${image}
+          imagePullPolicy: ${pull}
+          command: [\"runuser\", \"-u\", \"www-data\", \"--\", \"bash\", \"-c\", \"for f in /var/www/html/.webship/daemons/*.sh ; do [ -f \\\"\$f\\\" ] && bash \\\"\$f\\\" & done ; wait\"]
+          env:
+            - {name: APACHE_DOCUMENT_ROOT, value: /var/www/html${docroot:+/${docroot}}}
+            - {name: WEBSHIP_RUNTIME, value: kubernetes}
+            - {name: PHP_INI_SCAN_DIR, value: \":/var/www/html/.webship/php\"}
+          volumeMounts: [{name: code, mountPath: /var/www/html}]" ;
   cat > "${root}/k8s/kustomization.yaml" <<YAML
 # Written by the Webship Workspace's kubernetes runtime (webship/workspace#694) from compose.yaml.
 namespace: ${ns}
@@ -674,8 +766,10 @@ spec:
           env:
             - {name: APACHE_DOCUMENT_ROOT, value: /var/www/html${docroot:+/${docroot}}}
             - {name: WEBSHIP_RUNTIME, value: kubernetes}
+            # The project's own PHP settings (rt_php_ini), after the stack's: the leading ':' keeps PHP's own folder.
+            - {name: PHP_INI_SCAN_DIR, value: ":/var/www/html/.webship/php"}
           ports: [{containerPort: 80}]
-          volumeMounts: [{name: code, mountPath: /var/www/html}]
+          volumeMounts: [{name: code, mountPath: /var/www/html}]${sidecar}
       volumes:
         - name: code
           hostPath: {path: ${root}, type: Directory}
@@ -780,7 +874,7 @@ function rt_k8s() {
       [ -f "${file}" ] || { echo "No such file: ${file}" >&2 ; return 1 ; } ;
       case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | kx db mariadb -udb -pdb db ;;
     launch) echo "$(rt_url "${root}")${1:-}" ;;
-    logs) rt_kubectl -n "${ns}" logs deploy/web --tail "${LOG_LINES:-200}" ;;
+    logs) rt_kubectl -n "${ns}" logs deploy/web -c web --tail "${LOG_LINES:-200}" ;;
     version|--version|-v) echo "the Webship Workspace's kubernetes runtime (no DDEV), context $(rt_kctx)" ;;
     *) echo "The kubernetes runtime cannot run 'ddev ${verb}' (webship/workspace#694)." >&2 ; return 1 ;;
   esac
@@ -865,6 +959,8 @@ services:
       environment:
         WEBSHIP_RUNTIME: lando
         WEBSHIP_PORT: "${port}"
+        # The project's own PHP settings (rt_php_ini), after the stack's: the leading ':' keeps PHP's own folder.
+        PHP_INI_SCAN_DIR: ":/app/.webship/php"
         # Lando's Apache passes BACKDROP_SETTINGS (its Backdrop recipe's database settings) to every site, and the
         # text as it is written when the variable is not set, on which Backdrop CMS stops: no settings to add.
         BACKDROP_SETTINGS: "{}"
@@ -1079,6 +1175,8 @@ services:
   cli:
     environment:
       - WEBSHIP_RUNTIME=docksal
+      # The project's own PHP settings (rt_php_ini), after the stack's: the leading ':' keeps PHP's own folder.
+      - PHP_INI_SCAN_DIR=:/var/www/.webship/php
   # Mailpit: PHP's mail goes there from cli, and its page is http://mail.${safe}.docksal.site (MAIL_URL).
   mail:
     extends:

@@ -128,6 +128,23 @@ On Docksal: PHP runs in the `cli` container (DDEV's `web`), the project is at `/
 
 10. **The words.** The file header, `--help`, the README and the assistant's context say "container-based (DDEV by default)" and name the runtimes. No sentence says a site is only at `ddev.site`.
 
+### PHP settings of the project's own, and a task beside the web server
+
+A platform that needs PHP settings of its own (Moodle's `max_input_vars`), or a task that keeps running beside the web server (a cron loop, a queue worker), says so through the layer, after `ddev config` and before the first start, on every runtime (webship/workspace#825):
+
+```bash
+printf 'max_input_vars = 5000\n' | rt_php_ini moodle            # the settings, read on the input
+rt_daemon cron "bash /var/www/html/.webship/moodle-cron.sh"      # a name, and the command that keeps running
+```
+
+| | DDEV | Docker Compose, Podman | Kubernetes | Lando | Docksal |
+| --- | --- | --- | --- | --- | --- |
+| `rt_php_ini <name>` | `.ddev/php/<name>.ini`, DDEV's own folder | `.webship/php/<name>.ini` | the same | the same | the same |
+| Read by | DDEV | the web container (`PHP_INI_SCAN_DIR`), for Apache and the command line, after the stack's own settings | the web pod, the same | the appserver, the same | `cli`, where PHP runs, the same |
+| `rt_daemon <name> <command>` | `.ddev/config.daemon-<name>.yaml` (`web_extra_daemons`) | `.webship/daemons/<name>.sh`, declared in the `x-webship` block (`daemons:`); the project's `daemons` service runs every task as the web server's user, with the web service's image, code and settings | the same script; a second container of the web pod, `daemons` | not yet: a line says so, and the build goes on | not yet: the same |
+
+A task is a command that does not end (a loop, a worker); its folder is the project's root in the container. The settings are read when PHP starts: written after a start, they need `ddev restart`. A builder that keeps its own DDEV files can call the two helpers on the other runtimes only, so its DDEV build stays what it was.
+
 ## What never to do
 
 - Never call `docker`, `docker compose`, `podman` or `kubectl` from a plugin, and never `command ddev`. Only `ddev <verb>`: the layer chooses.
@@ -170,7 +187,8 @@ Keep the logs. Write down the numbers: the seconds of each build, the scenarios 
 ## What does not fit yet
 
 - **A database that is not MariaDB** (PostgreSQL, MySQL 8, SQLite in a file is fine): the `php` stack has one database service.
-- **A service of the platform's own** (OpenSearch for Magento, Redis, a queue worker): a DDEV add-on or a `docker-compose.<name>.yaml` in `.ddev/` has no equivalent yet.
+- **A service of the platform's own** (OpenSearch for Magento, Redis): a DDEV add-on or a `docker-compose.<name>.yaml` in `.ddev/` has no equivalent yet. PHP settings of the project's own and a task in the web container's image (a cron loop, a queue worker) do fit: `rt_php_ini` and `rt_daemon` above.
+- **A task beside the web server on Lando or Docksal:** `rt_daemon` says it does not run there yet.
 - **A platform that is not PHP** (Node.js, Python, Java, .NET, Ruby): it needs a stack of its own under `core/config/runtimes/`, and a `stack:` the layer can render. Until then it builds on DDEV only.
 
 A builder that does not fit yet must not build a `php` stack by accident, when the workspace's `container.runtime` names another runtime. It says so and stops, before `ddev config`:
