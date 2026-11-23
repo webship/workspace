@@ -18,7 +18,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 
-const { waitingState } = require('../../waiting');
+const { waitingState } = require('../../waiting.mts');
 const { sessionWaitingWhy, agentSessions } = require('../../screens');
 const server = fs.readFileSync(path.join(__dirname, '../../server.js'), 'utf8');
 const screensSrc = fs.readFileSync(path.join(__dirname, '../../screens.js'), 'utf8');

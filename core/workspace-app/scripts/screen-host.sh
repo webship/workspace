@@ -94,6 +94,13 @@ if ! command -v node > /dev/null 2>&1; then
   echo "Install it with:  bash ${ROOT}/core/scripts/install.sh"
   exit 1
 fi
+# The runner loads TypeScript modules from the workspace (host-processes.mts, waiting.mts, session-env.mts): Node.js
+# strips their types itself from 22.18 on, the version the package asks for. An older one would start and fail.
+if ! node -e 'const [a, b] = process.versions.node.split(".").map(Number); process.exit(a > 22 || (a === 22 && b >= 18) ? 0 : 1)' 2> /dev/null; then
+  echo "node $(node --version 2> /dev/null) is too old for the runner: it needs Node.js 22.18 or later."
+  echo "Install a newer one with:  bash ${ROOT}/core/scripts/install.sh"
+  exit 1
+fi
 
 if p="$(runner_pid)"; then
   echo "Already running — pid ${p}."

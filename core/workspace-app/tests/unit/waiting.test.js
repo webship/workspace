@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { waitingState } = require('../../waiting');
+const { waitingState } = require('../../waiting.mts');
 
 // The real footer of a working Claude Code session, captured from a live run.
 const BUSY = ['  Ran 1 shell command',

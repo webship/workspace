@@ -12,7 +12,7 @@
  * Plain node, no dependencies: the host runner requires it too.
  */
 
-const PARENT_SESSION_VARS = [
+export const PARENT_SESSION_VARS = [
   'CLAUDECODE',
   'CLAUDE_CODE_CHILD_SESSION',
   'CLAUDE_CODE_SESSION_ID',
@@ -26,10 +26,9 @@ const PARENT_SESSION_VARS = [
 ];
 
 /** A copy of `env` that a new top-level session can start with. */
-function sessionEnv(env = process.env) {
+export function sessionEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const out = { ...env };
   for (const name of PARENT_SESSION_VARS) delete out[name];
   return out;
 }
 
-module.exports = { PARENT_SESSION_VARS, sessionEnv };

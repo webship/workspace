@@ -29,7 +29,7 @@
  * Conservative on purpose. A badge that cries "waiting" on every row is worse than no
  * badge: it trains you to ignore it. Anything unrecognised is reported as neither.
  */
-function waitingState(tail) {
+export function waitingState(tail: unknown): { waiting: boolean; why: string } {
   const text = String(tail || '');
   if (!text.trim()) return { waiting: false, why: '' };
 
@@ -51,7 +51,7 @@ function waitingState(tail) {
   // by more sentence.
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
   const last = lines.slice(-3);
-  const asksHere = (re) => last.some((l) => re.test(l));
+  const asksHere = (re: RegExp) => last.some((l) => re.test(l));
   // A question that has been ANSWERED is not a question. The two yes/no rules allow a few characters
   // after the bracket because a cursor sits there — and a typed `y` is one character, so
   //
@@ -63,7 +63,7 @@ function waitingState(tail) {
   // So those two ask the LAST line only — an answered prompt always has something after it, if only
   // the shell's own. The rules below keep the three-line window: a numbered choice list and a
   // "press Enter" are drawn with a footer under them.
-  const asksLast = (re) => re.test(lines[lines.length - 1] || '');
+  const asksLast = (re: RegExp) => re.test(lines[lines.length - 1] || '');
 
   if (asksLast(/\((y\/n|y\/N|Y\/n|yes\/no)\)\s*\S{0,3}$/i)) return { waiting: true, why: 'waiting on yes/no' };
   if (asksLast(/\[(y\/N|Y\/n)\]\s*\S{0,3}$/)) return { waiting: true, why: 'waiting on yes/no' };
@@ -82,4 +82,3 @@ function waitingState(tail) {
   return { waiting: false, why: '' };
 }
 
-module.exports = { waitingState };
