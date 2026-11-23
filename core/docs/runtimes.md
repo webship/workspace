@@ -15,7 +15,9 @@ This page says what works today. It is updated as each part is proven on a real 
 | The Tests menu, test users, backup, restore and remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
 | Clone, import a database from the menu, snapshots, add-ons, extra domains, captured mail | Yes | On the way | On the way | On the way | On the way | On the way |
 | A WordPress site (the WordPress plugin): build and install, WP-CLI, test users, the tests, the database, the row, remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
-| The other platform plugins' builders (Laravel, Joomla, …) | Yes | On the way | On the way | On the way | On the way | On the way |
+| A WooCommerce shop, a Joomla site, a phpBB board and a MediaWiki wiki (their plugins): build and install, the tool, test users, the tests, the database, the row, remove | Yes | Yes | Yes (for Joomla the tests and the row were not run there yet) | The same code as Docker, not yet run on a real Podman | On the way | On the way |
+| A Laravel app (the Laravel plugin): build and install, Artisan, test users, the tests, mail, the database, the row, remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
+| The other platform plugins' builders (TYPO3, Magento, …) | Yes | On the way | On the way | On the way | On the way | On the way |
 | The dashboard itself | Yes | Yes | Yes, with limits (below) | On the way | No: it runs on DDEV, Docker Compose or Kubernetes, and builds Lando sites from there | No: it builds Docksal sites from DDEV, Docker Compose or Kubernetes |
 
 "Yes" means it was run on a real build: Drupal 11 built and installed, its front and login pages answering, `drush status` bootstrapping, and the database exported and imported back. For the dashboard rows it means a real site driven in a browser: the row, the menu, stop and start, the tests set up and run, the test users added and cancelled, a backup, a remove and a restore. For WordPress it means the plugin's builder with `--install --add-users`, the front page and a login to the administration, `cmd-tools-wordpress-cli.sh`, the test users added and cancelled, the suite of `cmd-tools-testing.sh` green in the tests container, a mail caught by Mailpit, the database exported and imported back, the row in the dashboard and a remove.
@@ -64,7 +66,7 @@ bash dev/cmd-wordpress-project.sh mysite --install --add-users --runtime docker
 bash dev/cmd-wordpress-project.sh mysite --install --add-users --runtime kubernetes
 ```
 
-WordPress is the first, and the reference: `@webship.co/workspace-wordpress`. The other platform plugins follow it one by one, and each says in its README what was run.
+WordPress is the first, and the reference: `@webship.co/workspace-wordpress`. WooCommerce, Joomla, phpBB, MediaWiki and Laravel build on a runtime too (the table above says where). The other platform plugins follow one by one, and each says in its README what was run.
 
 What the layer gives a plugin:
 
