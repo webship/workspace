@@ -244,7 +244,9 @@ test('the site a plugin\'s CI builds gets an account an installer accepts: the p
   assert.strictEqual(changed[0][0], '  pass: CHANGE_ME');
   const pass = changed[0][1].replace(/^  pass: /, '');
   assert.ok(pass.length >= 12, 'long enough for the installers that ask for 10 or 12 characters');
-  assert.match(pass, /^[a-z0-9-]+$/, 'plain: nothing a shell or YAML reads');
+  // TYPO3's setup asks for an upper and a lower case letter, a digit and a sign (#783).
+  for (const [rule, re] of [['an upper case letter', /[A-Z]/], ['a lower case letter', /[a-z]/], ['a digit', /[0-9]/], ['a sign', /[^A-Za-z0-9]/]]) assert.match(pass, re, rule);
+  assert.match(pass, /^[A-Za-z0-9-]+$/, 'plain: nothing a shell or YAML reads');
   assert.strictEqual(after[shipped.split('\n').indexOf('  pass: CHANGE_ME') - 2], 'account:', 'the account\'s own');
   // A workspace whose owner set a password keeps it.
   fs.writeFileSync(path.join(dir, 'core', 'config', 'settings.yml'), shipped.replace('  pass: CHANGE_ME', '  pass: mine-and-long-enough'));
