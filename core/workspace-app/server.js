@@ -4155,13 +4155,15 @@ function builderArgsHtml(key, script) {
   if (!SCRIPT_RE.test(script) || !findBuilderScripts(dir).includes(script)) return '';
   const args = parseBuilderArgs(dir, script);
   if (!args.length) return '';
+  // Each help is shown whole and wraps (#767): it was cut at 60 or 80 characters, mid-word, into a placeholder or a
+  // line. argparse's own %(default)s and %(choices)s are filled by parseBuilderArgs.
   const rows = args.map((a) => {
     const name = (a.bool ? 'argb:' : 'argv:') + a.flag;
     if (a.bool) {
       return `
         <label class="arg-row" title="${esc(a.help)}">
           <input class="uk-checkbox" type="checkbox" name="${esc(name)}" ${a.def === true ? 'checked' : ''}>
-          <code>${esc(a.flag)}</code> <span class="uk-text-meta">${esc(a.help)}</span>
+          <code>${esc(a.flag)}</code> <span class="uk-text-meta arg-help">${esc(a.help)}</span>
         </label>`;
     }
     // An argument that states its CHOICES gets a list to pick from rather than a box to type a typo
@@ -4178,13 +4180,14 @@ function builderArgsHtml(key, script) {
         <label class="arg-row" title="${esc(a.help)}">
           <code>${esc(a.flag)}</code>
           <select class="uk-select uk-form-small arg-value" name="${esc(name)}">${options}</select>
-          <span class="uk-text-meta">${esc(a.help.slice(0, 80))}</span>
+          <span class="uk-text-meta arg-help">${esc(a.help)}</span>
         </label>`;
     }
     return `
       <label class="arg-row" title="${esc(a.help)}">
         <code>${esc(a.flag)}</code>
-        <input class="uk-input uk-form-small arg-value" type="text" name="${esc(name)}" value="${esc(String(a.def || ''))}" placeholder="${esc(a.help.slice(0, 60))}">
+        <input class="uk-input uk-form-small arg-value" type="text" name="${esc(name)}" value="${esc(String(a.def || ''))}">
+        <span class="uk-text-meta arg-help">${esc(a.help)}</span>
       </label>`;
   }).join('');
   return `

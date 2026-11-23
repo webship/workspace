@@ -59,6 +59,9 @@
 }
 .builder-args .arg-row code { min-width:11.875rem; }
 .builder-args .arg-value { max-width:21.25rem; }
+/* The whole help, wrapping beside the field, or under it on a narrow screen. */
+.builder-args .arg-row { flex-wrap: wrap; }
+.builder-args .arg-help { flex: 1 1 15rem; min-width: 0; overflow-wrap: anywhere; }
 
 /* Hierarchical project-domain alias on running rows */
 /* Launch sits with the hostname it opens, not in the actions row: the row is what you DO to a
