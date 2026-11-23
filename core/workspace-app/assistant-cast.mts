@@ -20,15 +20,37 @@
  * sentence heard again costs nothing.
  */
 
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
+import crypto from 'node:crypto';
+import type { ServerResponse } from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+
+/** settings.yml, as far as the cast reads it. */
+export interface CastSettings {
+  assistant?: {
+    avatars?: unknown[]; avatars_discover?: unknown;
+    avatar_moves?: Record<string, unknown>; avatar_hair?: Record<string, unknown>; avatar_agents?: Record<string, unknown>;
+  };
+  elevenlabs?: { api_key?: unknown; region?: unknown; model_id?: unknown; model?: unknown };
+}
+/** A voice a character names: which engine speaks it, and the voice. */
+interface VoiceDef { engine?: unknown; voice?: unknown }
+/** A character file of an avatar project (`characters/<id>.json`), as far as the cast reads it. */
+export interface Character {
+  name?: unknown; credit?: unknown; model?: unknown; moves?: unknown; agent?: unknown;
+  voiceEn?: VoiceDef; voice?: VoiceDef; fallback?: VoiceDef;
+}
+/** An avatar found in the avatars workspace. */
+export interface FoundAvatar { file: string; name: string; credit: string; project: string; dir: string; character: Character | null }
+/** One avatar of the cast, as the page is given it. */
+export interface CastMember { id: string; name: string; model: string; credit: string; moves: string; hair: string; ownMoves?: string; voice?: string }
+type Fetch = typeof fetch;
 
 const DEFAULT_MODEL = 'eleven_multilingual_v2';
-const CACHE_DIR = path.join(__dirname, '.voice-cache');
+const CACHE_DIR = path.join(import.meta.dirname, '.voice-cache');
 const CACHE_MAX = 400;
 const MAX_TEXT = 600;
-const BASES = {
+const BASES: Record<string, string> = {
   us: 'https://api.us.elevenlabs.io',
   eu: 'https://api.eu.residency.elevenlabs.io',
   in: 'https://api.in.residency.elevenlabs.io',
@@ -37,11 +59,11 @@ const BASES = {
 
 const NAME_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
 // The avatars that ship with the dashboard, in public/avatar/.
-const BUILT_IN = {
+export const BUILT_IN: Record<string, { name: string; model: string; credit: string }> = {
   druplicon: { name: 'Druplicon', model: '/avatar/druplicon.vrm',
     credit: 'Druplicon, the Drupal drop, built in code. Druplicon is licensed under the GPL; Drupal is a registered trademark of Dries Buytaert.' },
 };
-const titleOf = (id) => id.replace(/^osa-/, '').split(/[-_]/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+const titleOf = (id: string): string => id.replace(/^osa-/, '').split(/[-_]/).filter(Boolean).map((w) => w[0]!.toUpperCase() + w.slice(1)).join(' ');
 
 const SET_RE = /^[a-z][a-z0-9-]{0,30}$/;
 const AGENT_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
@@ -54,13 +76,13 @@ const OWN_MOVES_BANNED = /\b(fetch|XMLHttpRequest|WebSocket|EventSource|document
  * The set of moves an avatar does beyond the shared ones (public/assistant-avatar-moves.js), or '':
  * settings.yml `assistant.avatar_moves.<id>`, else the `moves` its character file names.
  */
-function moveSetOf(settings, id, character = null) {
+export function moveSetOf(settings: CastSettings | null | undefined, id: string, character: Character | null = null): string {
   const named = String((((settings || {}).assistant || {}).avatar_moves || {})[id] || (character && typeof character.moves === 'string' ? character.moves : '') || '').trim().replace(/^['"]|['"]$/g, '').toLowerCase();
   return SET_RE.test(named) ? named : '';
 }
 
 /** The hair colour an avatar starts with (settings.yml assistant.avatar_hair.<id>), as #rrggbb, or ''. */
-function hairOf(settings, id) {
+export function hairOf(settings: CastSettings, id: string): string {
   const v = String(((settings.assistant || {}).avatar_hair || {})[id] || '').trim().replace(/^['"]|['"]$/g, '');
   return /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : '';
 }
@@ -69,7 +91,7 @@ function hairOf(settings, id) {
  * The Claude Code agent an avatar brings (settings.yml assistant.avatar_agents.<id>, else the `agent`
  * its character file names), when it is installed for this user; '' keeps the assistant's own agent.
  */
-function agentOf(settings, id, home = process.env.HOME || '', character = null) {
+export function agentOf(settings: CastSettings, id: string, home = process.env.HOME || '', character: Character | null = null): string {
   const name = String(((settings.assistant || {}).avatar_agents || {})[id] || (character && typeof character.agent === 'string' ? character.agent : '') || '').trim();
   return AGENT_RE.test(name) && fs.existsSync(path.join(home, '.claude', 'agents', `${name}.md`)) ? name : '';
 }
@@ -79,9 +101,9 @@ function agentOf(settings, id, home = process.env.HOME || '', character = null) 
  * voice in a character file is never read here: speaking with one spends credits, so it is only ever
  * picked by a person in the panel.
  */
-function voiceOf(character) {
+export function voiceOf(character: Character | null | undefined): string {
   for (const key of ['voiceEn', 'voice', 'fallback']) {
-    const v = character && character[key];
+    const v = character && character[key as 'voiceEn' | 'voice' | 'fallback'];
     if (v && typeof v === 'object' && String(v.engine).toLowerCase() === 'piper' && VOICE_RE.test(String(v.voice || ''))) return String(v.voice);
   }
   return '';
@@ -92,9 +114,9 @@ function voiceOf(character) {
  * `public/custom-moves.json`), or null: `{ file, moves: { name: 'what it is for' } }`. The file is a
  * module the page loads, so it is checked first: inside the project, small, and naming nothing but arithmetic.
  */
-function ownMovesOf(found) {
+export function ownMovesOf(found: FoundAvatar | null): { file: string; moves: Record<string, string> } | null {
   if (!found || !found.dir) return null;
-  let file;
+  let file: string;
   try {
     file = fs.realpathSync(path.join(found.dir, 'public', 'custom-moves.js'));
     if (!file.startsWith(found.dir + path.sep)) return null;
@@ -103,7 +125,7 @@ function ownMovesOf(found) {
     const code = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
     if (OWN_MOVES_BANNED.test(code) || !/export\s+default\b/.test(code)) return null;
   } catch (_) { return null; }
-  const moves = {};
+  const moves: Record<string, string> = {};
   try {
     const list = JSON.parse(fs.readFileSync(path.join(found.dir, 'public', 'custom-moves.json'), 'utf8')).moves;
     for (const m of (Array.isArray(list) ? list : []).slice(0, 60)) {
@@ -116,15 +138,15 @@ function ownMovesOf(found) {
   return { file, moves };
 }
 
-const stamp = (file) => { try { return Math.round(fs.statSync(file).mtimeMs).toString(36); } catch (_) { return '0'; } };
+const stamp = (file: string): string => { try { return Math.round(fs.statSync(file).mtimeMs).toString(36); } catch (_) { return '0'; } };
 
 /** The project folders of the avatars workspace, by name: `{ name, dir }`, `dir` resolved (a project may be a link the owner made). */
-function avatarProjects(root) {
+function avatarProjects(root: string): { name: string; dir: string }[] {
   if (!root) return [];
   const base = path.join(root, 'avatars');
-  let names = [];
+  let names: string[] = [];
   try { names = fs.readdirSync(base, { withFileTypes: true }).filter((e) => (e.isDirectory() || e.isSymbolicLink()) && !e.name.startsWith('.')).map((e) => e.name).sort(); } catch (_) { return []; }
-  const out = [];
+  const out: { name: string; dir: string }[] = [];
   for (const name of names) {
     try { const dir = fs.realpathSync(path.join(base, name)); if (fs.statSync(dir).isDirectory()) out.push({ name, dir }); } catch (_) { /* a broken link */ }
   }
@@ -132,7 +154,7 @@ function avatarProjects(root) {
 }
 
 /** A model file, when it really is inside its own project folder; null for a link or a path that leaves it. */
-function modelInside(file, dir) {
+function modelInside(file: string, dir: string): string | null {
   try {
     const real = fs.realpathSync(file);
     return real.startsWith(dir + path.sep) && /\.vrm$/i.test(real) && fs.statSync(real).isFile() ? real : null;
@@ -140,17 +162,17 @@ function modelInside(file, dir) {
 }
 
 /** An avatar in the avatars workspace: `{ file, name, credit, project, dir, character }`, or null. */
-function findAvatar(id, root) {
+export function findAvatar(id: string, root: string): FoundAvatar | null {
   if (!NAME_RE.test(id) || !root) return null;
   const projects = avatarProjects(root);
   for (const p of projects) {
     for (const stem of [id, `osa-${id}`]) {
-      let c = null;
+      let c: Character | null = null;
       try { c = JSON.parse(fs.readFileSync(path.join(p.dir, 'characters', `${stem}.json`), 'utf8')); } catch (_) { continue; }
       const rel = String((c && c.model) || '').replace(/^\/+/, '');
       if (!/^models\/[\w.-]+\.vrm$/i.test(rel)) continue;
       const file = modelInside(path.join(p.dir, 'public', rel), p.dir);
-      if (file) return { file, name: String(c.name || titleOf(id)).slice(0, 40), credit: String(c.credit || '').slice(0, 400), project: p.name, dir: p.dir, character: c };
+      if (file) return { file, name: String(c!.name || titleOf(id)).slice(0, 40), credit: String(c!.credit || '').slice(0, 400), project: p.name, dir: p.dir, character: c };
     }
   }
   for (const p of projects) {
@@ -163,10 +185,10 @@ function findAvatar(id, root) {
 }
 
 /** The id of every character the avatar projects hold (a `characters/<id>.json` with a model inside its project). */
-function discoverAvatars(root) {
-  const out = [];
+export function discoverAvatars(root: string): string[] {
+  const out: string[] = [];
   for (const p of avatarProjects(root)) {
-    let files = [];
+    let files: string[] = [];
     try { files = fs.readdirSync(path.join(p.dir, 'characters')).filter((f) => f.endsWith('.json')).sort(); } catch (_) { continue; }
     for (const f of files.slice(0, 50)) {
       const id = f.slice(0, -5).toLowerCase();
@@ -181,17 +203,18 @@ function discoverAvatars(root) {
  * then every character found in the avatars workspace (unless `assistant.avatars_discover: false`).
  * Unknown names are left out.
  */
-function avatarCast(settings = {}, root = '') {
+export function avatarCast(settings: CastSettings = {}, root = ''): CastMember[] {
   const a = settings.assistant || {};
   const named = Array.isArray(a.avatars) && a.avatars.length ? a.avatars : ['druplicon'];
   const discover = !(a.avatars_discover === false || String(a.avatars_discover).toLowerCase() === 'false');
-  const out = [];
+  const out: CastMember[] = [];
   for (const raw of [...named, ...(discover ? discoverAvatars(root) : [])]) {
     const id = String(raw || '').trim().toLowerCase();
     if (!NAME_RE.test(id) || id === 'none' || out.some((x) => x.id === id)) continue;
     // The model's link carries its file's time, so a rebuilt model is fetched at once rather than after
     // the hour a browser may keep it.
-    if (BUILT_IN[id]) { out.push({ id, ...BUILT_IN[id], model: `${BUILT_IN[id].model}?v=${stamp(path.join(__dirname, 'public', BUILT_IN[id].model))}`, moves: moveSetOf(settings, id), hair: hairOf(settings, id) }); continue; }
+    const built = BUILT_IN[id];
+    if (built) { out.push({ id, ...built, model: `${built.model}?v=${stamp(path.join(import.meta.dirname, 'public', built.model))}`, moves: moveSetOf(settings, id), hair: hairOf(settings, id) }); continue; }
     const found = findAvatar(id, root);
     if (!found) continue;
     const own = ownMovesOf(found);
@@ -207,7 +230,7 @@ function avatarCast(settings = {}, root = '') {
 }
 
 /** What the assistant is told about one avatar: its set of moves, the moves its project brings, and its agent. */
-function avatarMind(settings, root, id, home = process.env.HOME || '') {
+export function avatarMind(settings: CastSettings, root: string, id: unknown, home = process.env.HOME || ''): { moves: string; ownMoves: Record<string, string>; agent: string } {
   const key = String(id || '').trim().toLowerCase();
   const found = BUILT_IN[key] ? null : findAvatar(key, root);
   const listed = avatarCast(settings, root).some((a) => a.id === key);
@@ -217,7 +240,7 @@ function avatarMind(settings, root, id, home = process.env.HOME || '') {
 }
 
 /** GET /avatar/model/<id>.vrm: only a model of an avatar the panel offers. */
-function serveAvatarModel(res, id, settings, root) {
+export function serveAvatarModel(res: ServerResponse, id: string, settings: CastSettings, root: string) {
   const listed = avatarCast(settings, root).some((a) => a.id === id && !BUILT_IN[a.id]);
   const found = listed ? findAvatar(id, root) : null;
   if (!found) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('No such avatar.'); }
@@ -226,7 +249,7 @@ function serveAvatarModel(res, id, settings, root) {
 }
 
 /** GET /avatar/moves/<id>.js: the moves an offered avatar's project brings, once they passed the check. */
-function serveAvatarMoves(res, id, settings, root) {
+export function serveAvatarMoves(res: ServerResponse, id: string, settings: CastSettings, root: string) {
   const listed = avatarCast(settings, root).some((a) => a.id === id && a.ownMoves);
   const own = listed ? ownMovesOf(findAvatar(id, root)) : null;
   if (!own) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('No moves.'); }
@@ -237,34 +260,34 @@ function serveAvatarMoves(res, id, settings, root) {
 // ---- ElevenLabs ----------------------------------------------------------------------------------
 
 /** The account's key from settings.yml, or '' while it is a placeholder or missing. */
-function elevenKey(settings = {}) {
+export function elevenKey(settings: CastSettings = {}): string {
   const k = String((settings.elevenlabs && settings.elevenlabs.api_key) || '').trim();
   return /^[A-Za-z0-9_.-]{20,}$/.test(k) && !/change/i.test(k) ? k : '';
 }
-const elevenBase = (settings = {}) => process.env.ELEVENLABS_API_BASE
+const elevenBase = (settings: CastSettings = {}): string => process.env.ELEVENLABS_API_BASE
   || BASES[String((settings.elevenlabs && settings.elevenlabs.region) || '').toLowerCase()] || 'https://api.elevenlabs.io';
 
-let voicesMemo = { at: 0, sig: '', list: null };
+let voicesMemo: { at: number; sig: string; list: { id: string; name: string; label: string }[] | null } = { at: 0, sig: '', list: null };
 
 /** The account's voices, `{ id, name, label }`, kept ten minutes. Free: it lists, it does not speak. */
-async function elevenVoices(settings = {}, { fetchImpl = fetch } = {}) {
+export async function elevenVoices(settings: CastSettings = {}, { fetchImpl = fetch }: { fetchImpl?: Fetch } = {}) {
   const key = elevenKey(settings);
   if (!key) return { connected: false, voices: [] };
   const sig = crypto.createHash('sha256').update(key + elevenBase(settings)).digest('hex');
   if (voicesMemo.sig === sig && voicesMemo.list && Date.now() - voicesMemo.at < 600000) return { connected: true, voices: voicesMemo.list };
   const r = await fetchImpl(`${elevenBase(settings)}/v2/voices?page_size=100`, { headers: { 'xi-api-key': key }, signal: AbortSignal.timeout(10000) });
   if (!r.ok) return { connected: true, voices: [], error: r.status === 401 ? 'ElevenLabs rejected the key.' : `ElevenLabs answered ${r.status}.` };
-  const body = await r.json();
+  const body = await r.json() as { voices?: { voice_id?: string; name?: string; labels?: Record<string, string> }[] };
   const list = (body.voices || []).filter((v) => /^[A-Za-z0-9]{16,32}$/.test(String(v.voice_id || ''))).map((v) => {
     const l = v.labels || {};
-    return { id: v.voice_id, name: String(v.name || v.voice_id).slice(0, 60), label: [l.accent, l.gender, l.age].filter(Boolean).join(', ').slice(0, 60) };
+    return { id: String(v.voice_id), name: String(v.name || v.voice_id).slice(0, 60), label: [l.accent, l.gender, l.age].filter(Boolean).join(', ').slice(0, 60) };
   });
   voicesMemo = { at: Date.now(), sig, list };
   return { connected: true, voices: list };
 }
 
 /** The audio of `text` in an ElevenLabs voice, as an mp3 Buffer; from the cache when it was spoken before. */
-async function elevenSpeak(settings = {}, { voice, text }, { fetchImpl = fetch, cacheDir = CACHE_DIR } = {}) {
+export async function elevenSpeak(settings: CastSettings = {}, { voice, text }: { voice: unknown; text: unknown }, { fetchImpl = fetch, cacheDir = CACHE_DIR }: { fetchImpl?: Fetch; cacheDir?: string } = {}): Promise<Buffer> {
   const key = elevenKey(settings);
   if (!key) throw Object.assign(new Error('ElevenLabs is not connected.'), { status: 409 });
   const id = String(voice || '');
@@ -290,4 +313,3 @@ async function elevenSpeak(settings = {}, { voice, text }, { fetchImpl = fetch, 
   return audio;
 }
 
-module.exports = { BUILT_IN, avatarCast, avatarMind, discoverAvatars, moveSetOf, hairOf, agentOf, voiceOf, ownMovesOf, findAvatar, serveAvatarModel, serveAvatarMoves, elevenKey, elevenVoices, elevenSpeak };
