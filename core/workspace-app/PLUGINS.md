@@ -499,6 +499,10 @@ A plugin that listens its own way (a local model, voice activity) sets `window.w
 { hold(on), keep(on), keeping() }`: the dock's Hold to talk button, the Space bar and the Keep listening
 button then call it in place of the browser's recogniser (`capabilities.has('assistant-ear')`). It sends
 the turn itself, and shows the two buttons when the browser has no recogniser of its own.
+With voice input switched off (`assistant.voice_input: false`) the dock calls no ear: the two buttons are
+not there and the Space bar is the page's own. The setting is the person's microphone, whichever engine
+listens. An ear that also listens on its own (voice activity) reads `window.WS_SPEECH.voiceInput` and stays
+quiet when it is `false`.
 
 The events the page already sends are there too: `ws-assistant-working` (`{ on, failed }`),
 `ws-assistant-reply` and `ws-assistant-speech` (`{ type: 'start' | 'word' | 'end', word }`, which the

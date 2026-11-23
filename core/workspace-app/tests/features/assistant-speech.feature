@@ -61,3 +61,30 @@ Feature: Talking to the assistant
     Given I am on "/settings/settings.yml"
      Then "[data-voice-name]" should be attached
       And the voice list should report what this browser has
+
+  # Voice input switched off in the settings (`assistant.voice_input: false`, #760): the voice dock under the
+  # Assistant offers neither Hold to talk nor Keep listening, and holding the Space bar starts nothing. The voice
+  # (mute) button stays: that is voice out. The browser's recogniser is a stand-in that counts the times it is
+  # started and hears nothing, so nothing is ever sent. It changes settings.yml through the Settings page, so it runs
+  # only on a dashboard of its own, and the setting is put back as it was after it.
+  @needs-plain-address @switches-voice-input
+  Scenario: With voice input off the voice dock does not listen
+    Given the browser counts the times it starts listening
+      And voice input is switched off in the settings
+      And I am on "/"
+     Then the voice dock should offer neither Hold to talk nor Keep listening
+      And the voice dock should keep its voice button
+     When I hold the Space bar
+     Then the browser should have started listening 0 times
+      And there should be no JavaScript errors
+
+  # The same dock with voice input on: what the scenario above counts is what would have happened.
+  @needs-plain-address @switches-voice-input
+  Scenario: With voice input on, holding the Space bar listens
+    Given the browser counts the times it starts listening
+      And voice input is switched on in the settings
+      And I am on "/"
+     Then the voice dock should offer Hold to talk and Keep listening
+     When I hold the Space bar
+     Then the browser should have started listening 1 time
+      And there should be no JavaScript errors

@@ -1026,6 +1026,13 @@
   // when the browser has no recogniser.
   const ear = () => { const e = window.wsAssistantEar; return e && typeof e.hold === 'function' && typeof e.keep === 'function' ? e : null; };
   const earKeeps = () => { const e = ear(); return Boolean(e && typeof e.keeping === 'function' && e.keeping()); };
+  // Voice input switched off (settings.yml `assistant.voice_input: false`, #760): the dock listens to nothing, the
+  // browser's recogniser and a plugin's ear alike, since both open the same microphone; the setting is about the
+  // person's microphone, not about which engine listens. The two buttons go (the server draws them hidden, and they
+  // are taken out here so an ear cannot show them again) and the Space bar is the page's own. The voice button
+  // stays: that is voice out (`voice_output`).
+  const voiceIn = !(window.WS_SPEECH && window.WS_SPEECH.voiceInput === false);
+  if (!voiceIn) { micBtn.remove(); keepBtn.remove(); }
   if (!Recognition) { micBtn.hidden = true; keepBtn.hidden = true; }
   const lang = () => (window.WS_SPEECH && window.WS_SPEECH.speechToText && window.WS_SPEECH.speechToText.webSpeech && window.WS_SPEECH.speechToText.webSpeech.language) || 'en-US';
   let rec = null; let heard = ''; let keep = false;
@@ -1034,6 +1041,7 @@
     micBtn.classList.toggle('is-held', on && !keep);
   };
   function listen(on) {
+    if (!voiceIn) return;
     if (ear()) { ear().hold(Boolean(on)); return; }
     if (!Recognition || keep) return;
     if (on && !rec) {
@@ -1061,6 +1069,7 @@
   // Keep listening: every final sentence is sent; recognition restarts when the browser ends it.
   let keepRec = null;
   function keepListening(on) {
+    if (!voiceIn) return;
     if (ear()) { ear().keep(Boolean(on)); return; }
     keep = on;
     keepBtn.setAttribute('aria-pressed', String(on));
@@ -1096,11 +1105,11 @@
   // The Space bar anywhere on the page, unless you are typing or pressing a button with it.
   const typing = (el) => el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(el.tagName) || el.tagName === 'DEEP-CHAT' || el.closest?.('.avatar-note, [contenteditable="true"]'));
   document.addEventListener('keydown', (e) => {
-    if (e.code !== 'Space' || e.repeat || keep || earKeeps() || root.classList.contains('assistant-closed') || typing(document.activeElement)) return;
+    if (!voiceIn || e.code !== 'Space' || e.repeat || keep || earKeeps() || root.classList.contains('assistant-closed') || typing(document.activeElement)) return;
     e.preventDefault();
     listen(true);
   });
-  document.addEventListener('keyup', (e) => { if (e.code === 'Space' && (rec || (ear() && !earKeeps() && !typing(document.activeElement)))) { e.preventDefault(); listen(false); } });
+  document.addEventListener('keyup', (e) => { if (voiceIn && e.code === 'Space' && (rec || (ear() && !earKeeps() && !typing(document.activeElement)))) { e.preventDefault(); listen(false); } });
 
   // ---- Quick replies: answer in one click ------------------------------------------------------
   function send(text) {
