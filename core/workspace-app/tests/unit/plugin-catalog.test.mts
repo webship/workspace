@@ -29,6 +29,20 @@ test('every catalogue entry is an @webship.co/workspace-<name> package, named on
   for (const must of ['dev', 'github', 'upsun', 'lando', 'git', 'ide', 'drupal-modules']) assert.ok(names.includes(must), `${must} is in the catalogue`);
 });
 
+test('the catalogue\'s data is plugin-catalog.json, which the webship-workspace command reads as it is', () => {
+  const file = $path.join(import.meta.dirname, '..', '..', 'plugin-catalog.json');
+  const data = JSON.parse($fs.readFileSync(file, 'utf8')) as { scope: string; families: { id: string; label: string; about: string; plugins: string[][] }[] };
+  assert.deepStrictEqual(Object.keys(data), ['scope', 'families']);
+  assert.strictEqual(data.scope, SCOPE);
+  assert.deepStrictEqual(data.families, FAMILIES);
+  for (const f of data.families) for (const p of f.plugins) assert.strictEqual(p.length, 3, `${f.id}: ${p[0]} is [id, name, a line]`);
+  // The module holds no list of its own, and the command reads the data, not the module.
+  assert.doesNotMatch($fs.readFileSync($path.join(import.meta.dirname, '..', '..', 'plugin-catalog.mts'), 'utf8'), /\['[a-z0-9-]+', '/);
+  const bin = $fs.readFileSync($path.join(import.meta.dirname, '..', '..', '..', 'bin', 'workspace.js'), 'utf8');
+  assert.match(bin, /'workspace-app', 'plugin-catalog\.json'\)/);
+  assert.doesNotMatch(bin, /plugin-catalog\.mts/);
+});
+
 test('the catalogue is rows by family: a name, the line that says what it does and a short id; nothing is cut, and what it needs is not here', () => {
   const { catalogHtml } = $plugins_page as unknown as PluginsPageView;
   const html = catalogHtml(new Set(['@webship.co/workspace-git']));

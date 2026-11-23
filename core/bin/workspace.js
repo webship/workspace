@@ -311,7 +311,9 @@ function writeSettings(dest) {
 }
 
 function catalogText() {
-  const { FAMILIES, SCOPE } = require(path.join(CORE_SRC, 'workspace-app', 'plugin-catalog.mts'));
+  // The catalogue's data, not its module: this command runs from the npm package, under node_modules, where Node.js
+  // runs no TypeScript. What it loads from the package is plain JavaScript or JSON.
+  const { families: FAMILIES, scope: SCOPE } = require(path.join(CORE_SRC, 'workspace-app', 'plugin-catalog.json'));
   const lines = ['What you can add (one npm package each; nothing is installed until you ask):', ''];
   for (const f of FAMILIES) {
     lines.push(`${f.label} — ${f.about}`);

@@ -260,6 +260,11 @@ Why so (checked on Node.js 22.18.0, 24.22.3 and 26.13.1):
   anything (and `export =` is not erasable), so its callers cannot be typed. When nothing CommonJS is left, the
   package can say `"type": "module"` and the files can be renamed `.ts`.
 - `node --test` runs `.test.mts` files as they are; `__dirname` is `import.meta.dirname` in an ES module.
+- **Node.js runs no TypeScript file that lies under `node_modules`.** The dashboard never does: a workspace holds
+  its own copy of the core. The `webship-workspace` command does: it runs from the npm package. So what `core/bin`
+  loads from the package is plain JavaScript or JSON, never a `.mts` file. The plugin catalogue is why its data is
+  `plugin-catalog.json`, which `plugin-catalog.mts` reads and types. `workspace-bin-from-npm.test.js` packs the
+  package, unpacks it under a `node_modules` folder and runs the command from there.
 - The npm package ships `core/workspace-app/*.mts` (the root `package.json` `files`), and `npm run test:unit` runs
   `tests/unit/*.test.mts` with the `.test.js` files. A type `ws` does not ship is written as an interface of what is
   used of it (`KeepaliveSocket` in `terminal-keepalive.mts`), not `any`.
