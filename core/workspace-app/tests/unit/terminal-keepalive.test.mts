@@ -167,10 +167,11 @@ test('a browser that stops answering pings is let go', { skip: !hasScript && 'sc
 /* ------------------------------------------------------------------ the page and the proxy */
 
 test('the page pings, judges a socket by its answer, and re-attaches a dropped window', () => {
-  const page = read('public/terminal.js');
+  // The script as written (src/browser/terminal.ts); public/terminal.js is what esbuild builds from it.
+  const page = read('src/browser/terminal.ts');
   assert.match(page, /const KEEPALIVE_MS = 25000;/);
   assert.match(page, /try \{ sock\.send\(new Uint8Array\(0\)\); \} catch \(_\) \{ return; \}/, 'an empty binary frame');
-  assert.match(page, /if \(typeof e\.data !== 'string' && e\.data\.byteLength === 0\) \{\n\s+if \(e\.target\.__answered\) e\.target\.__answered\(\);\n\s+return;/,
+  assert.match(page, /if \(typeof e\.data !== 'string' && e\.data\.byteLength === 0\) \{\n\s+const sock = e\.target as KeptSocket;\n\s+if \(sock\.__answered\) sock\.__answered\(\);\n\s+return;/,
     'the answer is never written into the terminal');
   assert.match(page, /if \(!answers\) return;\n\s+answerTimer = setTimeout\(\(\) => \{/, 'only a socket that answered before is judged by its silence');
   assert.match(page, /const RETRY_MS = \[1000, 2000, 4000, 8000, 15000, 30000\];/);

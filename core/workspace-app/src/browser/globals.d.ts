@@ -3,12 +3,13 @@
 /** UIkit (vendored), the parts the scripts call. */
 interface UIkitApi {
   dropdown(el: Element): { hide(animate?: boolean): void };
+  modal(el: Element | string): { show(): Promise<unknown>; hide(): Promise<unknown> };
 }
 
 /** htmx (vendored), the parts the scripts call. */
 interface HtmxApi {
   process(el: Element): void;
-  ajax(verb: string, url: string, opts: { target: string; swap: string }): unknown;
+  ajax(verb: string, url: string, opts: { target: string; swap: string }): Promise<unknown>;
 }
 
 interface Window {
@@ -67,3 +68,37 @@ interface WsSuggestApi {
 interface Window {
   wsSuggest?: WsSuggestApi;
 }
+
+/** xterm.js and its addons (vendored under /vendor/xterm/), as far as terminal.ts uses them. */
+interface XtermTerminal {
+  cols: number;
+  rows: number;
+  options: { theme?: Record<string, string>; fontSize?: number; fontFamily?: string };
+  unicode: { activeVersion: string };
+  open(el: HTMLElement): void;
+  write(data: string | Uint8Array): void;
+  focus(): void;
+  dispose(): void;
+  loadAddon(addon: object): void;
+  onData(listener: (data: string) => void): unknown;
+  onBinary(listener: (data: string) => void): unknown;
+  attachCustomKeyEventHandler(handler: (e: KeyboardEvent) => boolean): void;
+  /** Private, read for the size of a cell where the renderer has measured one. */
+  _core?: { _renderService?: { dimensions?: { css?: { cell?: { width: number; height: number } } } } };
+}
+interface XtermFitAddon { fit(): void }
+interface Window {
+  /** xterm.js, once terminal.ts has loaded it (loadXterm). */
+  Terminal: new (options: Record<string, unknown>) => XtermTerminal;
+  FitAddon: { FitAddon: new () => XtermFitAddon };
+  Unicode11Addon?: { Unicode11Addon: new () => object };
+  WebLinksAddon?: { WebLinksAddon: new (handler: (event: MouseEvent, uri: string) => void) => object };
+  /** terminal.ts: the loading of xterm.js, shared by the windows that ask for it at once. */
+  __xtermLoading?: Promise<unknown> | null;
+  /** terminal.ts: open a screen session's terminal window. */
+  openTerminal: (session: string) => void;
+}
+
+/** A timer that is none yet: the browsers' clearTimeout and clearInterval take null (it converts to 0, no timer). */
+declare function clearTimeout(id: number | null | undefined): void;
+declare function clearInterval(id: number | null | undefined): void;
