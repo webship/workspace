@@ -55,10 +55,10 @@ if ! command -v node > /dev/null 2>&1 ; then
   echo "Node.js is needed for this (the dashboard's own runtime)." >&2 ;
   exit 1 ;
 fi
-# The engine (ai-anycli) is the next to become TypeScript, which Node.js strips itself from 22.18 on: the version the
-# package asks for. An older Node.js is refused here first, with the version it needs (as screen-host.sh does, #797).
-if ! node -e 'const [a, b] = process.versions.node.split(".").map(Number); process.exit(a > 22 || (a === 22 && b >= 18) ? 0 : 1)' 2> /dev/null ; then
-  echo "node $(node --version 2> /dev/null) is too old for this: it needs Node.js 22.18 or later." >&2 ;
+# The engine (ai-anycli) is the next to become TypeScript, which Node.js strips itself. The Workspace supports
+# Node.js 24 and 26 (the package's engines): an older one is refused here first, with the version it needs.
+if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 24 ? 0 : 1)' 2> /dev/null ; then
+  echo "node $(node --version 2> /dev/null) is too old for this: it needs Node.js 24 or later." >&2 ;
   echo "Install a newer one with:  bash ${WORKSPACE_SCRIPTS}/install.sh" >&2 ;
   exit 1 ;
 fi

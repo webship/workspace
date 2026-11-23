@@ -1,5 +1,5 @@
 {
-  // The dashboard's type check. Node.js runs the .ts files as they are (type stripping, Node.js >= 22.18),
+  // The dashboard's type check. Node.js runs the .ts files as they are (type stripping, Node.js >= 24),
   // so tsc never writes a file: it only checks. See docs/DEVELOPER-GUIDE.md, "TypeScript".
   "compilerOptions": {
     "noEmit": true,
@@ -10,7 +10,7 @@
     "verbatimModuleSyntax": true,
     "module": "nodenext",
     "moduleResolution": "nodenext",
-    // Node.js 22, the lowest line the engines field accepts.
+    // Node.js 24, the lowest line the engines field accepts.
     "target": "es2024",
     "lib": ["es2024"],
     "types": ["node"],

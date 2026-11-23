@@ -7,7 +7,7 @@
  * no longer read the machine's: what it knows about a session on the machine is what the runner published.
  *
  * Pure, and with no dependencies: the runner loads it on a machine where nothing else of the dashboard is installed,
- * from where it lies in the workspace, with that machine's Node.js (22.18 or later strips the types: screen-host.sh
+ * from where it lies in the workspace, with that machine's Node.js (24 or later, which strips the types: screen-host.sh
  * checks it).
  */
 

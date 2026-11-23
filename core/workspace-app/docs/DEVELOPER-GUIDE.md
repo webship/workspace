@@ -218,8 +218,11 @@ Four things that have taken the app down or hidden a feature:
 
 The dashboard is moving from JavaScript to TypeScript, module by module, and **Node.js runs the `.ts` files as
 they are**: its built-in type stripping removes the types when a file is loaded. There is no build step and no
-`dist/`: a fresh clone starts with `node server.js`, as before. Stripping is on without a flag from Node.js 22.18
-(and 23.6), so the core asks for `>= 22.18`; the dashboard's container (24) and the host (26) run it the same way.
+`dist/`: a fresh clone starts with `node server.js`, as before. The Workspace supports Node.js 24 and 26, the
+stable LTS releases, and nothing older: the core asks for `>= 24` (`engines` in the root `package.json`), CI runs the
+unit tests on 24 and everything else on 26, and the dashboard's container and the host run 26. The floor is written
+in a few places besides `engines` (the two shell scripts that start Node.js, the docs); `node-floor.test.js` holds
+that each of them says the same.
 
 `tsc` only checks: `npm run typecheck` (`tsc -p .`, `noEmit` in `tsconfig.json`), run in CI next to the unit tests.
 The JavaScript files are part of the program (`allowJs`) but not checked (`checkJs: false`) until they are converted.
@@ -246,7 +249,7 @@ const { shq } = require('./shell-quote.mts');
 import { shq } from '../../shell-quote.mts';
 ```
 
-Why so (checked on Node.js 22.18.0, 24.22.3 and 26.13.1):
+Why so (checked on Node.js 24.22.3 and 26.13.1):
 
 - `require('./x')` does not find `x.ts`, `x.mts` or `x.cts` on any of them: **a caller always names the file with
   its extension**, and `allowImportingTsExtensions` lets `tsc` accept that.
@@ -269,7 +272,7 @@ Why so (checked on Node.js 22.18.0, 24.22.3 and 26.13.1):
   `tests/unit/*.test.mts` with the `.test.js` files. A type `ws` does not ship is written as an interface of what is
   used of it (`KeepaliveSocket` in `terminal-keepalive.mts`), not `any`.
 
-A converted module may only use what Node.js 22 has (`target`/`lib` `es2024`, `@types/node` 22).
+A converted module may only use what Node.js 24 has (`target`/`lib` `es2024`, `@types/node` 24).
 
 ### The browser scripts
 

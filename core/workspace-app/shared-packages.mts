@@ -45,5 +45,5 @@ export function sharedPackages(appDir: string = import.meta.dirname): string[] {
 }
 
 
-// Run as a command (`node shared-packages.mts`), not imported. import.meta.main is Node.js 24.2 and later; the core runs on 22.18.
+// Run as a command (`node shared-packages.mts`), not imported. import.meta.main is Node.js 24.2 and later; the core runs from 24.0.18.
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) console.log(sharedPackages(process.argv[2] || import.meta.dirname).join(' '));
