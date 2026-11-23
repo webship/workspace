@@ -1,8 +1,8 @@
 // The actions rail. Collapsed state is remembered, like the theme, because it is
 // a layout preference and having it reset on every navigation would be noise.
-function applyActionsCollapsed(collapsed) {
+function applyActionsCollapsed(collapsed: boolean) {
   document.documentElement.classList.toggle('actions-collapsed', collapsed);
-  const toggle = document.querySelector('.actions-toggle');
+  const toggle = document.querySelector<HTMLElement>('.actions-toggle');
   if (toggle) {
     toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
     toggle.title = collapsed ? 'Expand the actions rail' : 'Collapse the actions rail';
@@ -33,7 +33,7 @@ try {
 } catch (_) { applyActionsCollapsed(true); }
 
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.actions-toggle')) return;
+  if (!(e.target as Element).closest('.actions-toggle')) return;
   const collapsed = !document.documentElement.classList.contains('actions-collapsed');
   applyActionsCollapsed(collapsed);
   if (!railTight()) wsPrefSet('actions-collapsed', collapsed ? '1' : '0');
@@ -42,14 +42,14 @@ document.addEventListener('click', (e) => {
 // outside), and on Escape, with focus back on its toggle when it was in the rail.
 document.addEventListener('click', (e) => {
   if (!railTight() || document.documentElement.classList.contains('actions-collapsed')) return;
-  if (e.target.closest && e.target.closest('.actions-side, .uk-dropdown, .uk-modal, #rail-tip')) return;
+  if ((e.target as Element).closest && (e.target as Element).closest('.actions-side, .uk-dropdown, .uk-modal, #rail-tip')) return;
   applyActionsCollapsed(true);
 });
 // And when keyboard focus moves out of it: Tab past its last tile went on into the page underneath it, and
 // what took focus there (Dev's Build at 1024) was hidden under the open rail (WCAG 2.4.11).
 document.addEventListener('focusin', (e) => {
   if (!railTight() || document.documentElement.classList.contains('actions-collapsed')) return;
-  if (e.target.closest && e.target.closest('.actions-side, .uk-dropdown, .uk-modal, #rail-tip')) return;
+  if ((e.target as Element).closest && (e.target as Element).closest('.actions-side, .uk-dropdown, .uk-modal, #rail-tip')) return;
   applyActionsCollapsed(true);
 });
 document.addEventListener('keydown', (e) => {
@@ -57,7 +57,7 @@ document.addEventListener('keydown', (e) => {
   if (document.querySelector('.uk-modal.uk-open, .uk-dropdown.uk-open')) return;
   const inRail = document.activeElement && document.activeElement.closest && document.activeElement.closest('.actions-side');
   applyActionsCollapsed(true);
-  const toggle = inRail && document.querySelector('.actions-toggle');
+  const toggle = inRail && document.querySelector<HTMLElement>('.actions-toggle');
   if (toggle) toggle.focus();
 });
 
@@ -68,14 +68,14 @@ document.addEventListener('keydown', (e) => {
 (function railTips() {
   const rail = document.getElementById('actions-rail');
   if (!rail) return;
-  rail.querySelectorAll('a.action-btn, button.action-btn').forEach((el) => {
+  rail.querySelectorAll<HTMLElement>('a.action-btn, button.action-btn').forEach((el) => {
     if (el.classList.contains('actions-version')) return;
-    const label = (el.querySelector('.action-label') || {}).textContent;
+    const label = el.querySelector('.action-label')?.textContent;
     if (!label || !label.trim()) return;
     const name = label.replace(/\s+/g, ' ').trim();
     const hint = (el.getAttribute('title') || '').replace(/\s+/g, ' ').trim();
     el.dataset.tipLabel = name;
-    el.dataset.tipGroup = ((el.closest('.actions-group') || {}).dataset || {}).group || '';
+    el.dataset.tipGroup = el.closest<HTMLElement>('.actions-group')?.dataset.group || '';
     if (!el.hasAttribute('aria-label')) el.setAttribute('aria-label', name);
     if (hint && hint !== name) {
       el.dataset.tipHint = hint;
@@ -84,16 +84,16 @@ document.addEventListener('keydown', (e) => {
     el.removeAttribute('title');
   });
 
-  let tip = null;
-  let shownFor = null;
-  let hideTimer = null;
+  let tip: HTMLElement | null = null;
+  let shownFor: Element | null = null;
+  let hideTimer: ReturnType<typeof setTimeout> | null = null;
   const hide = () => { clearTimeout(hideTimer); if (tip) tip.hidden = true; shownFor = null; };
   // The pointer can move onto the tooltip and stay there to read it (WCAG 1.4.13, hoverable): leaving a tile
   // or the tooltip hides it after a moment, and coming onto either of them keeps it.
   const later = () => { clearTimeout(hideTimer); hideTimer = setTimeout(hide, 150); };
   const keep = () => clearTimeout(hideTimer);
-  const onTip = (n) => !!(n && n.closest && n.closest('#rail-tip'));
-  const show = (el) => {
+  const onTip = (n: Element | null) => !!(n && n.closest && n.closest('#rail-tip'));
+  const show = (el: HTMLElement) => {
     if (window.innerWidth < 960 || !el.dataset.tipLabel) return;
     const collapsed = document.documentElement.classList.contains('actions-collapsed');
     const head = collapsed ? el.dataset.tipLabel : '';
@@ -117,9 +117,9 @@ document.addEventListener('keydown', (e) => {
     tip.style.top = `${Math.round(Math.max(8, Math.min(window.innerHeight - t.height - 8, r.top + r.height / 2 - t.height / 2)))}px`;
     shownFor = el;
   };
-  const tile = (e) => e.target && e.target.closest && e.target.closest('#actions-rail a.action-btn, #actions-rail button.action-btn');
+  const tile = (e: { target: EventTarget | null }) => e.target && (e.target as Element).closest && (e.target as Element).closest<HTMLElement>('#actions-rail a.action-btn, #actions-rail button.action-btn');
   rail.addEventListener('mouseover', (e) => { const el = tile(e); if (!el) return; keep(); if (el !== shownFor) show(el); });
-  rail.addEventListener('mouseout', (e) => { if (tile(e) && !onTip(e.relatedTarget)) later(); });
+  rail.addEventListener('mouseout', (e) => { if (tile(e) && !onTip(e.relatedTarget as Element | null)) later(); });
   rail.addEventListener('focusin', (e) => { const el = tile(e); if (el) show(el); });
   rail.addEventListener('focusout', hide);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
@@ -133,7 +133,7 @@ document.addEventListener('keydown', (e) => {
   };
   rail.addEventListener('scroll', fade, { passive: true });
   window.addEventListener('resize', fade);
-  document.addEventListener('click', (e) => { if (e.target.closest('.actions-toggle')) setTimeout(fade, 250); });
+  document.addEventListener('click', (e) => { if ((e.target as Element).closest('.actions-toggle')) setTimeout(fade, 250); });
   fade();
 })();
 

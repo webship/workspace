@@ -23,6 +23,6 @@ test('it stays while the pointer is on the tile or on it, and goes a moment afte
   assert.match(body, /const later = \(\) => \{ clearTimeout\(hideTimer\); hideTimer = setTimeout\(hide, 150\); \};/);
   assert.match(body, /tip\.addEventListener\('mouseenter', keep\);/);
   assert.match(body, /tip\.addEventListener\('mouseleave', \(e\) => \{ if \(!tile\(\{ target: e\.relatedTarget \}\)\) later\(\); \}\);/);
-  assert.match(body, /rail\.addEventListener\('mouseout', \(e\) => \{ if \(tile\(e\) && !onTip\(e\.relatedTarget\)\) later\(\); \}\);/);
+  assert.match(body, /rail\.addEventListener\('mouseout', \(e\) => \{ if \(tile\(e\) && !onTip\(e\.relatedTarget\s*\)\) later\(\); \}\);/);
   assert.match(body, /document\.addEventListener\('keydown', \(e\) => \{ if \(e\.key === 'Escape'\) hide\(\); \}\);/, 'Escape still dismisses it');
 });

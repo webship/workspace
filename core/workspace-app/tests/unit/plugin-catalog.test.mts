@@ -104,7 +104,7 @@ test('a row of the catalogue wraps its line instead of cutting it, and an empty 
   const read = (f: string): string => $fs.readFileSync($path.join(import.meta.dirname, '..', '..', 'public', f), 'utf8');
   assert.match(read('css/components/settings-home.css'), /\.plugin-row-summary \{ white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; \}/);
   assert.ok(!/\.plugin-catalog \.plugin-row-summary \{ white-space: nowrap; \}/.test(read('css/components/plugins-page.css')));
-  assert.match(read('ui.js'), /querySelectorAll\('\.plugin-catalog-section'\)\.forEach\(\(g\) => \{ g\.hidden = /);
+  assert.match(read('ui.js'), /querySelectorAll\s*\('\.plugin-catalog-section'\)\.forEach\(\(g\) => \{ g\.hidden = /);
 });
 
 test('the catalogue offers only what is published: the four names that were never on npm are not in it, and no family is empty', () => {
