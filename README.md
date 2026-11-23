@@ -46,6 +46,8 @@ bash dev/cmd-drupal11-recommended-project.sh mysite --install --runtime docker  
 | Build and install a Drupal site | Yes | Yes | Yes | Yes | Yes | Yes |
 | The dashboard's row, the Tests menu, backups | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
 | A WordPress site (the WordPress plugin's builder, tool and tests) | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
+| A WooCommerce shop, a Joomla site, a phpBB board, a MediaWiki wiki (their plugins) | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | On the way | On the way |
+| A Laravel app (the Laravel plugin) | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
 | The other platform plugins' builders | Yes | On the way | On the way | On the way | On the way | On the way |
 | The dashboard itself | Yes | Yes | Yes, with limits | On the way | No (it builds Lando sites from DDEV, Docker Compose or Kubernetes) | No (the same, for Docksal sites) |
 
