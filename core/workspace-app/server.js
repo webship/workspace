@@ -1338,8 +1338,8 @@ ${actionsHtml || ''}
     </p>
   </div>
 </div>
-<div id="editor-modal" class="uk-modal-container" uk-modal="bg-close: false; esc-close: true">
-  <div class="uk-modal-dialog">
+<div id="editor-modal" class="uk-modal-container" aria-label="Editor" uk-modal="bg-close: false; esc-close: true">
+  <div class="uk-modal-dialog" aria-label="Editor">
     <button class="uk-modal-close-default" type="button" uk-close></button>
     <div class="uk-modal-body" id="editor-modal-body"></div>
   </div>

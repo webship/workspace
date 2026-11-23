@@ -226,11 +226,20 @@ function containEditorModal(open) {
     }
   }
 }
+// The modal is named by what it shows (#811): aria-labelledby on the heading of the content swapped into it, which is
+// given an id when it has none. UIkit puts role="dialog" on the inner .uk-modal-dialog, and it has been seen on
+// #editor-modal itself, so both are named. With no heading, the markup's aria-label ("Editor") is the name.
 function nameEditorModal() {
-  // UIkit puts role="dialog" aria-modal="true" on the inner .uk-modal-dialog, so that is the one that is named.
-  const dialog = document.querySelector('#editor-modal .uk-modal-dialog');
-  const h = dialog && dialog.querySelector('.modal-head h3, h3, h2');
-  if (dialog && h) dialog.setAttribute('aria-label', h.textContent.replace(/\s+/g, ' ').trim());
+  const modal = document.getElementById('editor-modal');
+  if (!modal) return;
+  const h = modal.querySelector('#editor-modal-body .modal-head h3, #editor-modal-body h3, #editor-modal-body h2, #editor-modal-body h1');
+  const heading = h && h.textContent.replace(/\s+/g, ' ').trim() ? h : null;
+  if (heading && !heading.id) heading.id = 'editor-modal-title';
+  for (const el of [modal, modal.querySelector('.uk-modal-dialog')]) {
+    if (!el) continue;
+    if (heading) el.setAttribute('aria-labelledby', heading.id); else el.removeAttribute('aria-labelledby');
+    if (!el.getAttribute('aria-label')) el.setAttribute('aria-label', 'Editor');
+  }
 }
 // Who opened the modal, taken as it starts to open, whichever way it was opened: a button with
 // uk-toggle, a row button that shows it from hx-on::after:request (Clone, Configure DDEV, New screen

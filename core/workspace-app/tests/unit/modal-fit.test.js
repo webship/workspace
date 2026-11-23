@@ -68,7 +68,9 @@ test('the dialog is named, and the page behind it is out of reach while it is op
   assert.match(ui, /el\.inert = true;/);
   assert.match(ui, /el\.inert = el\.dataset\.wasInert === '1';/, 'what was inert before is left as it was');
   assert.match(ui, /el\.id === 'confirm-modal'/, 'the confirm dialog that stacks above it stays reachable');
-  assert.match(ui, /dialog\.setAttribute\('aria-label', h\.textContent/, 'the inner .uk-modal-dialog is the one that is named');
+  // Named by the heading of what it shows (#811), on the inner .uk-modal-dialog and on the modal itself.
+  assert.match(ui, /for \(const el of \[modal, modal\.querySelector\('\.uk-modal-dialog'\)\]\)/, 'the inner .uk-modal-dialog is named, and the modal too');
+  assert.match(ui, /el\.setAttribute\('aria-labelledby', heading\.id\)/);
   assert.match(ui, /containEditorModal\(false\);/);
 });
 
