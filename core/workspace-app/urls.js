@@ -28,7 +28,10 @@ function onHub(host) {
   return name === hub || name.endsWith(`.${hub}`);
 }
 
-/** Absolute hub URLs, or paths on the address the page was asked on. */
+/**
+ * Absolute hub URLs, or paths on the address the page was asked on. True on the hub and outside a request; false
+ * for a request that came in on a plain address. For what builds an address of its own kind (the palette's index).
+ */
 function absolute() {
   const store = requests.getStore();
   return !store || !store.host || onHub(store.host);
@@ -52,4 +55,4 @@ const hereName = () => {
  */
 const cookieDomain = () => (absolute() ? `; Domain=.${hubDomain()}` : '');
 
-module.exports = { HOME_URL, wsUrl, withRequest, onHub, hereName, cookieDomain };
+module.exports = { HOME_URL, wsUrl, withRequest, onHub, absolute, hereName, cookieDomain };

@@ -118,7 +118,7 @@
         if (shown >= 40) return;
         var s = score(p.name, query);
         if (s > 0) {
-          out.push({ group: "Projects", label: p.name, hint: p.ws + (p.ddev ? " · open the site" : " · open the workspace"), url: p.url, score: s });
+          out.push({ group: "Projects", label: p.name, hint: p.ws + (p.site ? " · open the site" : " · open the workspace"), url: p.url, score: s });
           shown += 1;
         }
       });
