@@ -8,7 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { sanitizeSvg, removedSummary } = require('../images-svg-sanitize');
+const { sanitizeSvg, removedSummary } = require('../images-svg-sanitize.mts');
 const { writeRecords } = require('../images-records.mts');
 const { renderPng } = require('../images-render.mts');
 

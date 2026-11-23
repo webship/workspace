@@ -24,7 +24,7 @@ const realHome = os.homedir;
 os.homedir = () => home;
 process.on('exit', () => { os.homedir = realHome; fs.rmSync(home, { recursive: true, force: true }); });
 
-const cs = require('../../claude-sessions');
+const cs = require('../../claude-sessions.mts');
 
 const DIR = '/home/someone/workspace/dev/ha1x00b1';
 const SLUG = '-home-someone-workspace-dev-ha1x00b1';

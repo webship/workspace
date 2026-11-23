@@ -5,9 +5,19 @@
  * No dependencies: the host-side finish step of a Claude Code drawing runs it too.
  */
 
-const DRAWABLE = new Set(['path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'use']);
+/** One tag as parseTag reads it. */
+export interface Tag { close: boolean; name: string; attrs: [string, string][]; self: boolean }
+/** sanitizeSvg's answer: the clean SVG, what was taken out, and the drawing elements kept and lost. */
+export interface Sanitized {
+  svg: string;
+  removed: { elements: Record<string, number>; attributes: number; css: number };
+  drawableLost: number;
+  drawable: number;
+}
 
-const ELEMENTS = new Set([
+export const DRAWABLE = new Set(['path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'use']);
+
+export const ELEMENTS = new Set([
   'svg', 'g', 'defs', 'symbol', 'use', 'title', 'desc', 'metadata', 'style',
   'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'tspan', 'textPath',
   'linearGradient', 'radialGradient', 'stop', 'clipPath', 'mask', 'pattern', 'marker',
@@ -44,10 +54,10 @@ const ATTRS = new Set([
 // An animation may not change these: a link or a handler set by SMIL is a script by another route.
 const UNANIMATABLE = /^(href|xlink:href|on.*|style|class)$/i;
 
-const escAttr = (v) => String(v).replace(/&(?!(#\d+|#x[0-9a-f]+|[a-z]+);)/gi, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+const escAttr = (v: unknown): string => String(v).replace(/&(?!(#\d+|#x[0-9a-f]+|[a-z]+);)/gi, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
 /** CSS with every way out of the file removed. Returns [css, changed]. */
-function cleanCss(css) {
+export function cleanCss(css: string): [string, boolean] {
   const before = css;
   const out = css
     .replace(/@import[^;]*;?/gi, '')
@@ -59,46 +69,46 @@ function cleanCss(css) {
 }
 
 /** An attribute value that refers to something: only a fragment in this file is allowed. */
-function localRef(v) {
+function localRef(v: string): boolean {
   return /^\s*#[A-Za-z_][\w.:-]*\s*$/.test(v);
 }
 
 /** Every tag and the text between them, in order. */
-function tokens(src) {
-  const out = [];
+export function tokens(src: string): string[] {
+  const out: string[] = [];
   const re = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<![^>]*>|<\?[\s\S]*?\?>|<\/?[A-Za-z][^>]*>|[^<]+|</g;
-  let m;
+  let m: RegExpExecArray | null;
   while ((m = re.exec(src))) out.push(m[0]);
   return out;
 }
 
-function parseTag(t) {
+export function parseTag(t: string): Tag | null {
   const m = t.match(/^<(\/?)([A-Za-z][\w:.-]*)([\s\S]*?)(\/?)>$/);
   if (!m) return null;
-  const attrs = [];
+  const attrs: [string, string][] = [];
   const re = /([^\s=/>]+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s>]+))?/g;
-  let a;
-  while ((a = re.exec(m[3]))) attrs.push([a[1], a[2] === undefined ? '' : a[2].replace(/^["']|["']$/g, '')]);
-  return { close: !!m[1], name: m[2], attrs, self: !!m[4] };
+  let a: RegExpExecArray | null;
+  while ((a = re.exec(m[3] ?? ''))) attrs.push([a[1], a[2] === undefined ? '' : a[2].replace(/^["']|["']$/g, '')]);
+  return { close: !!m[1], name: m[2] ?? '', attrs, self: !!m[4] };
 }
 
 /**
  * Sanitise SVG markup. Returns { svg, removed: { elements: {name: n}, attributes: n, css: n }, drawableLost, drawable }.
  * `svg` is '' when there is no <svg> root at all.
  */
-function sanitizeSvg(input) {
+export function sanitizeSvg(input: unknown): Sanitized {
   const src = String(input || '');
   const start = src.search(/<svg[\s>]/i);
   const end = src.lastIndexOf('</svg>');
-  const removed = { elements: {}, attributes: 0, css: 0 };
+  const removed: Sanitized['removed'] = { elements: {}, attributes: 0, css: 0 };
   if (start < 0 || end < start) return { svg: '', removed, drawableLost: 0, drawable: 0 };
-  const parts = [];
-  const stack = []; // the open elements: { name, keep }
+  const parts: string[] = [];
+  const stack: { name: string; keep?: boolean; drop?: boolean }[] = []; // the open elements: { name, keep }
   let dropDepth = 0;
   let drawable = 0;
   let drawableLost = 0;
-  const note = (n) => { removed.elements[n] = (removed.elements[n] || 0) + 1; };
-  const inStyle = () => stack.length && stack[stack.length - 1].name === 'style' && stack[stack.length - 1].keep;
+  const note = (n: string) => { removed.elements[n] = (removed.elements[n] || 0) + 1; };
+  const inStyle = () => stack.length && stack[stack.length - 1]!.name === 'style' && stack[stack.length - 1]!.keep;
   for (const t of tokens(src.slice(start, end + 6))) {
     if (t.startsWith('<!--') || t.startsWith('<?') || (t.startsWith('<!') && !t.startsWith('<![CDATA['))) continue;
     if (!t.startsWith('<') || t.startsWith('<![CDATA[') || t === '<') {
@@ -145,7 +155,7 @@ function sanitizeSvg(input) {
       if (!tag.self) { stack.push({ name, drop: true }); dropDepth += 1; }
       continue;
     }
-    const kept = [];
+    const kept: string[] = [];
     for (const [k, raw] of tag.attrs) {
       const v = raw;
       if (!ATTRS.has(k) && !/^data-[\w-]+$/.test(k)) { removed.attributes += 1; continue; }
@@ -169,20 +179,19 @@ function sanitizeSvg(input) {
     if (!tag.self) stack.push({ name, keep: true });
   }
   while (stack.length) {
-    const open = stack.pop();
+    const open = stack.pop()!;
     if (open.keep) parts.push(`</${open.name}>`);
   }
   return { svg: parts.join(''), removed, drawableLost, drawable };
 }
 
 /** A one-line account of what was removed, or '' when nothing was. */
-function removedSummary(r) {
+export function removedSummary(r: Pick<Sanitized, 'removed'>): string {
   const els = Object.entries(r.removed.elements).map(([k, n]) => `${n} ${k}`);
-  const bits = [];
+  const bits: string[] = [];
   if (els.length) bits.push(`elements: ${els.join(', ')}`);
   if (r.removed.attributes) bits.push(`${r.removed.attributes} attribute${r.removed.attributes === 1 ? '' : 's'}`);
   if (r.removed.css) bits.push(`${r.removed.css} unsafe style rule${r.removed.css === 1 ? '' : 's'}`);
   return bits.join('; ');
 }
 
-module.exports = { sanitizeSvg, removedSummary, cleanCss, tokens, parseTag, DRAWABLE, ELEMENTS };

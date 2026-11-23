@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 
-const { sanitizeSvg, removedSummary } = require('../../images-svg-sanitize');
+const { sanitizeSvg, removedSummary } = require('../../images-svg-sanitize.mts');
 const core = require('../../images-svg-core');
 const svg = require('../../images-svg');
 

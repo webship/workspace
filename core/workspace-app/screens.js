@@ -14,7 +14,7 @@ const { ROOT, loadWorkspaces } = require('./workspaces');
 const { esc } = require('./html.mts');
 const { tildePath, humanTime } = require('./format.mts');
 const { waitingState } = require('./waiting');
-const claudeSessions = require('./claude-sessions');
+const claudeSessions = require('./claude-sessions.mts');
 const claudeArgs = require('./claude-args.mts');
 const screenNotes = require('./screen-notes.mts');
 const hostProcesses = require('./host-processes');
@@ -939,7 +939,7 @@ function termCliHintHtml(session) {
         let dir = '';
         try { dir = fs.readFileSync(path.join(ROOT, '.screens', `${session}.cwd`), 'utf8').trim(); } catch (_) { return ''; }
         let latest;
-        try { [latest] = require('./claude-sessions').sessionsFor(dir, { limit: 1 }); } catch (_) { return ''; }
+        try { [latest] = require('./claude-sessions.mts').sessionsFor(dir, { limit: 1 }); } catch (_) { return ''; }
         if (!latest) return '';
         return `<div><code class="claude-session-id">claude --resume ${esc(latest.id)}</code> <span>— the newest
           Claude Code session in this folder, reopened here on this machine. A CLI session is a local

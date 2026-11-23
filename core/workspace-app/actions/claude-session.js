@@ -9,7 +9,7 @@ const path = require('path');
 const { esc } = require('../html.mts');
 const { hostRunnerUp, hostRunnerRequest } = require('../jobs');
 const { ROOT, isValidWorkspace, workspaceDir } = require('../workspaces');
-const claudeSessions = require('../claude-sessions');
+const claudeSessions = require('../claude-sessions.mts');
 
 const SESSION_RE = /^[a-z0-9][a-zA-Z0-9_.-]*$/;
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;

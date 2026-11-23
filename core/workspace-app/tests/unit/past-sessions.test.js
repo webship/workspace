@@ -45,7 +45,7 @@ process.env.WORKSPACE_ROOT = root;
 process.env.HOME = home;
 
 const notes = require('../../screen-notes.mts');
-const claudeSessions = require('../../claude-sessions');
+const claudeSessions = require('../../claude-sessions.mts');
 const screens = require('../../screens');
 const actions = require('../../actions/screens');
 const { loadWorkspaces } = require('../../workspaces');
