@@ -3,3 +3,6 @@
 
 /** 01-core: the page head's preference store, or its guard (a cookie on the hub domain, then localStorage). */
 declare const wsPrefSet: (name: string, value: string) => void;
+
+/** 01-core: the element an htmx swap put in the page, from its event. */
+declare function swappedEl(e: Event): Element | null;

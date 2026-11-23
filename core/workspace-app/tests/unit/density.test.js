@@ -31,7 +31,7 @@ test('the switch sits beside the page width, on pages that list projects only', 
 });
 
 test('it is a pressed state, remembered like the width, and the caption becomes the tooltip', () => {
-  assert.match(ui, /e\.target\.closest\('\.density-pick'\)/);
+  assert.match(ui, /e\.target\s*\)?\.closest\s*\('\.density-pick'\)/);
   assert.match(ui, /wsPrefSet\('ws-density', density\)/);
   assert.match(ui, /for \(const btn of document\.querySelectorAll\s*\('\.density-pick'\)\)/);
   assert.match(ui, /btn\.title = btn\.title \? `\$\{btn\.title\} · \$\{text\}` : text;/);

@@ -1077,13 +1077,13 @@ document.addEventListener('keydown', (e) => {
 // the list it filters in data-list-find (a selector); the server's reply then replaces the cards, so
 // nothing the page did not have is ever hidden by this. Plugins' lists (Jira's workitems) use it too.
 document.addEventListener('input', (e) => {
-  const box = e.target.closest && e.target.closest('input[data-list-find]');
+  const box = (e.target           ).closest && (e.target           ).closest                  ('input[data-list-find]');
   if (!box) return;
   const words = box.value.toLowerCase().split(/\s+/).filter(Boolean);
-  let host = null;
+  let host                 = null;
   try { host = document.querySelector(box.dataset.listFind || ''); } catch (_) { /* not a selector */ }
   if (!host) return;
-  const cards = [...host.querySelectorAll('[data-find]')];
+  const cards = [...host.querySelectorAll             ('[data-find]')];
   let shown = 0;
   cards.forEach((c) => {
     const hay = c.dataset.find || '';
@@ -1091,7 +1091,7 @@ document.addEventListener('input', (e) => {
     c.hidden = !on;
     if (on) shown += 1;
   });
-  let note = host.querySelector('.list-find-note');
+  let note = host.querySelector             ('.list-find-note');
   if (!note) {
     note = document.createElement('p');
     note.className = 'list-find-note uk-text-meta';
@@ -1104,27 +1104,27 @@ document.addEventListener('input', (e) => {
 // A project's row menus (DDEV, GIT, NODE, COMPOSER, UPSUN and the rest) can hold thirty or seventy entries.
 // A long one folds its groups: the first group and "This project" stay open, the rest open on their
 // heading; a heading that is a sentence stays a note. Every entry is one line, its full text the tooltip.
-function foldDdevMenus(root) {
-  (root && typeof root.querySelectorAll === 'function' ? root : document).querySelectorAll('.act-menu .uk-dropdown:not([data-folded])').forEach((drop) => {
+function foldDdevMenus(root                    ) {
+  (root && typeof root.querySelectorAll === 'function' ? root : document).querySelectorAll             ('.act-menu .uk-dropdown:not([data-folded])').forEach((drop) => {
     const links = drop.querySelectorAll('li > a').length;
     if (!links) return;           // filled later by its own request, folded then
     drop.dataset.folded = '1';
-    drop.querySelectorAll('li > a').forEach((a) => { if (!a.title) a.title = a.textContent.replace(/\s+/g, ' ').trim(); });
+    drop.querySelectorAll                   ('li > a').forEach((a) => { if (!a.title) a.title = (a.textContent || '').replace(/\s+/g, ' ').trim(); });
     const rows = drop.querySelectorAll('li:not(.uk-nav-divider)').length;
     if (links < 8 && rows < 12) return;
-    const heads = [...drop.querySelectorAll('.uk-dropdown-nav > .uk-nav-header')].filter((h) => h.textContent.trim().length <= 40);
+    const heads = [...drop.querySelectorAll             ('.uk-dropdown-nav > .uk-nav-header')].filter((h) => (h.textContent || '').trim().length <= 40);
     let folds = 0;
     heads.forEach((h) => {
-      const rows = [];
+      const rows                = [];
       // A group ends at the next heading or divider; a short one is not worth a fold.
-      for (let n = h.nextElementSibling; n && !n.classList.contains('uk-nav-header') && !n.classList.contains('uk-nav-divider'); n = n.nextElementSibling) rows.push(n);
+      for (let n = h.nextElementSibling                      ; n && !n.classList.contains('uk-nav-header') && !n.classList.contains('uk-nav-divider'); n = n.nextElementSibling                      ) rows.push(n);
       if (rows.length < 3) return;
-      const open = (folds === 0 && rows.length <= 6) || /this project/i.test(h.textContent);
+      const open = (folds === 0 && rows.length <= 6) || /this project/i.test(h.textContent || '');
       folds += 1;
       h.setAttribute('role', 'button');
       h.tabIndex = 0;
       h.classList.add('ddev-fold');
-      const set = (on) => { h.setAttribute('aria-expanded', on ? 'true' : 'false'); rows.forEach((r) => { r.hidden = !on; }); };
+      const set = (on         ) => { h.setAttribute('aria-expanded', on ? 'true' : 'false'); rows.forEach((r) => { r.hidden = !on; }); };
       set(open);
       h.addEventListener('click', (e) => { e.stopPropagation(); set(h.getAttribute('aria-expanded') !== 'true'); });
       h.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); h.click(); } });
@@ -1133,7 +1133,7 @@ function foldDdevMenus(root) {
 }
 document.addEventListener('DOMContentLoaded', () => foldDdevMenus());
 document.body.addEventListener('htmx:after:swap', (e) => {
-  const el = swappedEl(e);
+  const el = swappedEl(e)                      ;
   // A menu whose body just arrived — a row menu loading as it opens, SCREENS on its poll — is the dropdown
   // itself, which the swap left in place with its fold mark while the folded rows went with the old body.
   // Marked unfolded again; folded now if it is open, else by `shown` when it opens.
@@ -1146,7 +1146,7 @@ document.body.addEventListener('htmx:after:swap', (e) => {
 });
 // A menu that opens upwards near the top would sit under the top bar; the page moves down to show it.
 document.addEventListener('shown', (e) => {
-  const d = e.target;
+  const d = e.target                      ;
   if (!d || !d.classList || !d.classList.contains('uk-dropdown') || !d.closest('.project-row')) return;
   foldDdevMenus(d.closest('.act-menu') || d.parentElement);
   const bar = document.querySelector('.toolbar, header');
@@ -1491,10 +1491,10 @@ document.body.addEventListener('chat-cleared', () => { window.location.reload();
 // Applied by the pre-paint script, like the assistant's view: this is the width of the main column, and
 // changing it after the page is drawn moves everything on it.
 document.addEventListener('click', (e) => {
-  const pick = e.target.closest('.page-width-pick');
+  const pick = (e.target           ).closest             ('.page-width-pick');
   if (!pick) return;
   e.preventDefault();
-  const width = pick.dataset.width;
+  const width = pick.dataset.width || '';
   if (!['comfortable', 'wide', 'full'].includes(width)) return;
   document.documentElement.dataset.pageWidth = width;
   wsPrefSet('ws-page-width', width);
@@ -1504,7 +1504,7 @@ document.addEventListener('click', (e) => {
 // Comfortable or compact project rows. The same buttons; compact folds the caption under each one away, and
 // shows it on hover instead. Applied before first paint, like the width.
 document.addEventListener('click', (e) => {
-  const pick = e.target.closest('.density-pick');
+  const pick = (e.target           ).closest             ('.density-pick');
   if (!pick) return;
   e.preventDefault();
   const density = pick.dataset.density === 'compact' ? 'compact' : 'comfortable';
@@ -1514,7 +1514,7 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('click', (e) => {
-  const pick = e.target.closest('.tool-labels-pick');
+  const pick = (e.target           ).closest             ('.tool-labels-pick');
   if (!pick) return;
   e.preventDefault();
   const mode = pick.dataset.toolLabels === 'words' ? 'words' : 'icons';
@@ -1524,12 +1524,12 @@ document.addEventListener('click', (e) => {
 });
 
 // The caption of a button is also its tooltip, so folding it away loses nothing for a pointer.
-function syncRowCaptions(root) {
+function syncRowCaptions(root                    ) {
   for (const wrap of (root && typeof root.querySelectorAll === 'function' ? root : document).querySelectorAll('.act-with-status')) {
     const cap = wrap.querySelector('.act-status');
     const btn = wrap.querySelector('button');
     if (!cap || !btn) continue;
-    const text = cap.textContent.trim();
+    const text = (cap.textContent || '').trim();
     if (text && !(btn.title || '').includes(text)) btn.title = btn.title ? `${btn.title} · ${text}` : text;
   }
 }
@@ -1543,7 +1543,7 @@ const BASE_TITLE = document.title;
 function syncTitleState() {
   const w = document.querySelector('.screens-count .screens-waiting');
   if (!w) { document.title = BASE_TITLE; return; }
-  const n = parseInt(w.textContent.replace(/[^0-9]/g, ''), 10) || 1;
+  const n = parseInt((w.textContent || '').replace(/[^0-9]/g, ''), 10) || 1;
   document.title = `✋ ${n} waiting · ${BASE_TITLE}`;
 }
 document.body.addEventListener('htmx:after:swap', (e) => {
@@ -1650,14 +1650,14 @@ document.addEventListener('htmx:after:settle', markCurrentViews);
 // this deferred file would draw the page one way and reflow it a frame later. This file only
 // CHANGES it. localStorage, like the theme and the rail — and with the same known limit, that it
 // does not cross the workspace subdomains.
-const ASSISTANT_VIEWS = ['sidebar', 'wide', 'float', 'full'];
+const ASSISTANT_VIEWS                         = ['sidebar', 'wide', 'float', 'full'];
 
-function assistantView() {
+function assistantView()         {
   const v = document.documentElement.dataset.assistantView;
-  return ASSISTANT_VIEWS.includes(v) ? v : 'sidebar';
+  return ASSISTANT_VIEWS.includes(v) ? v  : 'sidebar';
 }
 
-function setAssistantView(view) {
+function setAssistantView(view                    ) {
   if (!ASSISTANT_VIEWS.includes(view)) return;
   // Full page is a place, not a layout: switching to it goes there, and the panel on the page you
   // came from would be a second copy of the same conversation.
@@ -1669,7 +1669,7 @@ function setAssistantView(view) {
   document.documentElement.dataset.assistantView = view;
   setAssistantOpen(true);
   document.dispatchEvent(new CustomEvent('assistant-view-changed'));
-  wsPrefSet('ws-assistant-view', view);
+  wsPrefSet('ws-assistant-view', view );
   // Leaving the full-page view has to leave the page too: /assistant has no panel to become a
   // sidebar. Back where you came from, or home when that was somewhere else.
   if (window.location.pathname === '/assistant') {
@@ -1684,14 +1684,14 @@ function setAssistantView(view) {
 function focusAssistantPrompt() {
   requestAnimationFrame(() => {
     const chat = document.getElementById('ws-deep-chat');
-    const input = chat && chat.shadowRoot && chat.shadowRoot.querySelector('#text-input');
+    const input = chat && chat.shadowRoot && chat.shadowRoot.querySelector             ('#text-input');
     if (input) { input.focus(); return; }
-    const panel = document.querySelector('.assistant-side .assistant-panel');
+    const panel = document.querySelector             ('.assistant-side .assistant-panel');
     if (panel) { if (!panel.hasAttribute('tabindex')) panel.tabIndex = -1; panel.focus(); }
   });
 }
 
-function setAssistantOpen(open) {
+function setAssistantOpen(open         ) {
   document.documentElement.classList.toggle('assistant-closed', !open);
   const row = document.querySelector('.actions-assistant');
   if (row) row.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -1701,7 +1701,7 @@ function setAssistantOpen(open) {
 document.addEventListener('click', (e) => {
   // Show it. In the full-page view there is no panel to show — the assistant IS a page there — so this
   // is the way to it; on that page it is already in front of you and there is nothing to do.
-  if (e.target.closest('.assistant-open-pick')) {
+  if ((e.target           ).closest('.assistant-open-pick')) {
     e.preventDefault();
     if (window.location.pathname === '/assistant') return;
     if (assistantView() === 'full') { window.location.href = '/assistant'; return; }
@@ -1710,17 +1710,17 @@ document.addEventListener('click', (e) => {
   }
   // Wider, and back again — one button, because it is one question: how much room does this answer
   // need? Floating has its own size, so there it is the sidebar it widens back into.
-  if (e.target.closest('.assistant-wider')) {
+  if ((e.target           ).closest('.assistant-wider')) {
     e.preventDefault();
     setAssistantView(assistantView() === 'wide' ? 'sidebar' : 'wide');
     return;
   }
-  const pick = e.target.closest('.assistant-view-pick');
+  const pick = (e.target           ).closest             ('.assistant-view-pick');
   if (pick) { e.preventDefault(); setAssistantView(pick.dataset.view); return; }
-  if (e.target.closest('.assistant-hide, .assistant-close-pick')) { e.preventDefault(); setAssistantOpen(false); return; }
+  if ((e.target           ).closest('.assistant-hide, .assistant-close-pick')) { e.preventDefault(); setAssistantOpen(false); return; }
   // The launcher in the corner: the way back in, in every view. In the full-page view there is no
   // panel to show, so it leads to the page instead.
-  if (e.target.closest('.assistant-launcher')) {
+  if ((e.target           ).closest('.assistant-launcher')) {
     e.preventDefault();
     if (assistantView() === 'full') { window.location.href = '/assistant'; return; }
     setAssistantOpen(true);
@@ -1731,8 +1731,8 @@ document.addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
   // A pick closes the menu it was made in — a dropdown left open over the panel it just changed reads
   // as a control that did not take.
-  if (e.target.closest('.assistant-dropdown a') && window.UIkit) {
-    const dd = e.target.closest('.uk-dropdown');
+  if ((e.target           ).closest('.assistant-dropdown a') && window.UIkit) {
+    const dd = (e.target           ).closest('.uk-dropdown');
     if (dd) window.UIkit.dropdown(dd).hide(false);
   }
 });
