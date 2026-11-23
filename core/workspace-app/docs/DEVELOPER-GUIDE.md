@@ -289,7 +289,7 @@ committed: a fresh clone still runs the dashboard with no build step.
 - **A test that reads a script's source** reads the `.ts` (`src/browser/media-player.ts`): the built file has no
   comments and esbuild's formatting. A test that runs a script requires the built `public/<name>.js`.
 - **Not built:** the vendored libraries (`public/vendor/`, `htmx.min.js`, UIkit) stay as they are shipped.
-- **Converted so far:** `narration`, `media-player`, `sortable`, `mic`, `palette`, `suggest`, and `ui.js` split in parts, three of them typed (`06-search-and-focus`, `08-help`, `17-screens-columns`). The other scripts in
+- **Converted so far:** `narration`, `media-player`, `sortable`, `mic`, `palette`, `suggest`, `assistant-avatar-moves` (an ES module the avatar imports: esbuild keeps its `export`, and a script is loaded either by a page or by the module that imports it), and `ui.js` split in parts, three of them typed (`06-search-and-focus`, `08-help`, `17-screens-columns`). The other scripts in
   `public/` are still hand-written JavaScript until their turn. A test that reads a script's source and must work
   for both kinds reads `src/browser/<name>.ts` when there is one, else `public/<name>.js`
   (`board-pointer-and-swaps.test.js`).

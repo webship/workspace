@@ -147,7 +147,7 @@ test('what the assistant is told about an avatar: its set, the moves its project
 test('nothing about a particular character is written in the dashboard: its name, moves and mind come from its project', () => {
   const app = path.join(__dirname, '../..');
   // The sets of moves and the cast name no project of anyone's: a set is described by the build it suits.
-  for (const f of ['assistant-cast.js', 'assistant.js', 'public/assistant-avatar-moves.js']) {
+  for (const f of ['assistant-cast.js', 'assistant.js', 'src/browser/assistant-avatar-moves.ts', 'public/assistant-avatar-moves.js']) {
     assert.ok(!/github\.com\//i.test(fs.readFileSync(path.join(app, f), 'utf8')), `${f} links to no repository`);
   }
   const cast = fs.readFileSync(path.join(app, 'assistant-cast.js'), 'utf8');
@@ -196,7 +196,8 @@ test('a sentence already spoken is played from the cache, never paid for twice',
 test('the sets of moves exist, and the guide set is for work: nothing worn, nothing meant for children', async () => {
   const { AVATAR_MOVE_SETS } = require('../../assistant');
   const { moveSetOf } = require('../../assistant-cast');
-  const src = fs.readFileSync(path.join(__dirname, '../../public/assistant-avatar-moves.js'), 'utf8');
+  // The source, as written (src/browser/assistant-avatar-moves.ts, built into public/ by npm run build:browser).
+  const src = fs.readFileSync(path.join(__dirname, '../../src/browser/assistant-avatar-moves.ts'), 'utf8');
   const defined = [...src.matchAll(/^ {4}([a-z]+): \{$/gm)].map((m) => m[1]);
   assert.deepStrictEqual(Object.keys(AVATAR_MOVE_SETS).sort(), ['clock', 'guide']);
   for (const m of ['kiss', 'hug', 'dab', 'peekaboo', 'love']) assert.ok(!defined.includes(m), `${m} is not a move for work`);
