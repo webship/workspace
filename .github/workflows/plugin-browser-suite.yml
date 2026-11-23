@@ -96,9 +96,10 @@ jobs:
             exit 1
           fi
           # The workspace of the job is a fresh one, and its account's password is the placeholder. An installer
-          # may refuse one that short (Joomla asks for 12 characters, MediaWiki for 10), so the site gets an
-          # account of the job's own: nothing personal, and it never leaves the runner.
-          sed -i '/^account:/,/^[^ #]/s/^  pass: CHANGE_ME$/  pass: ci-webship-workspace/' core/config/settings.yml
+          # may refuse one that short or that plain (Joomla asks for 12 characters, MediaWiki for 10, TYPO3 for an
+          # upper and a lower case letter, a digit and a sign), so the site gets an account of the job's own:
+          # nothing personal, and it never leaves the runner.
+          sed -i '/^account:/,/^[^ #]/s/^  pass: CHANGE_ME$/  pass: Ci-Webship-Workspace-2026/' core/config/settings.yml
           echo "Building in $folder: bash $line"
           cd "$folder"
           # shellcheck disable=SC2086
