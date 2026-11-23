@@ -449,7 +449,7 @@ function init(dirArg, { update = false, flags = {} } = {}) {
   // The host screen runner keeps the code it was started with: one this release changed is restarted when it runs
   // (the sessions keep running), so it does what this dashboard asks of it. An older runner refuses what it does not know.
   if (update) {
-    const runnerFiles = ['scripts/screen-runner.js', 'host-processes.js', 'waiting.js', 'session-env.js'].map((f) => `core/workspace-app/${f}`);
+    const runnerFiles = ['scripts/screen-runner.js', 'host-processes.mts', 'waiting.mts', 'session-env.mts'].map((f) => `core/workspace-app/${f}`);
     const host = path.join(app, 'scripts', 'screen-host.sh');
     if (fs.existsSync(host) && (!shippedBefore || runnerFiles.some((f) => shippedBefore[f] !== shipped.get(f)))) {
       const status = spawnSync('bash', [host, '--status'], { encoding: 'utf8' });

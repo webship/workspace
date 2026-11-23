@@ -514,9 +514,9 @@ async function startInOwnScreen({ session, projectDir, cmdLine, label, logFile }
   try { fs.writeFileSync(logFile, ''); } catch (_) { /* tee creates it */ }
   // Braces group the whole line before the pipe, so every part is logged.
   const inner = `{ ${cmdLine} ; } 2>&1 | tee -a ${JSON.stringify(logFile)}`;
-  // A session of its own: not a child of a Claude Code session that started this dashboard (session-env.js).
+  // A session of its own: not a child of a Claude Code session that started this dashboard (session-env.mts).
   const out = await run('screen', ['-c', SCREENRC, '-dmS', session, 'bash', '-lc', inner], projectDir,
-    { timeoutMs: 30 * 1000, env: require('./session-env').sessionEnv(jobEnv()) });
+    { timeoutMs: 30 * 1000, env: require('./session-env.mts').sessionEnv(jobEnv()) });
   if (!out.ok) return { ok: false, session, why: String(out.stderr || out.stdout).trim().slice(-200) || 'screen refused to start it', where: 'dashboard' };
   return { ok: true, session, label, where: 'dashboard' };
 }

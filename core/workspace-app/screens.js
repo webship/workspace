@@ -13,11 +13,11 @@ const { run } = require('./jobs');
 const { ROOT, loadWorkspaces } = require('./workspaces');
 const { esc } = require('./html.mts');
 const { tildePath, humanTime } = require('./format.mts');
-const { waitingState } = require('./waiting');
+const { waitingState } = require('./waiting.mts');
 const claudeSessions = require('./claude-sessions.mts');
 const claudeArgs = require('./claude-args.mts');
 const screenNotes = require('./screen-notes.mts');
-const hostProcesses = require('./host-processes');
+const hostProcesses = require('./host-processes.mts');
 
 /**
  * The live screen sessions, from two places: screen where the dashboard runs, and the host runner's published list.
@@ -156,7 +156,7 @@ function sessionNeedsInput(session) {
  *
  * It walks DOWN from each session's own screen process: `screen` forks the command, and a Claude Code
  * session is `exec claude …`, so the agent is a descendant rather than the screen process itself
- * (host-processes.js).
+ * (host-processes.mts).
  */
 let psMemo = { at: 0, kids: new Map(), args: new Map() };
 
@@ -743,7 +743,7 @@ const TERM_STYLES = [
   ['dashboard', 'Dashboard style'],
 ];
 
-// What one `ps` line says about an automation browser, and whether a process is in a container: host-processes.js,
+// What one `ps` line says about an automation browser, and whether a process is in a container: host-processes.mts,
 // shared with the host runner, which reads the machine's browsers for the dashboard (its container cannot, #564).
 const { parseBrowserLine, processInContainer } = hostProcesses;
 

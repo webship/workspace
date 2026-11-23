@@ -37,9 +37,9 @@ const path = require('path');
 const { spawn, execFile } = require('child_process');
 const crypto = require('crypto');
 // One copy of the working-vs-waiting rules, shared with the dashboard. No dependencies.
-const { waitingState } = require(path.join(__dirname, '..', 'waiting'));
+const { waitingState } = require(path.join(__dirname, '..', 'waiting.mts'));
 // And of what the process table says about a session or a browser. No dependencies either.
-const { PS_ARGS, parseProcessTable, agentUnder, browsersIn } = require(path.join(__dirname, '..', 'host-processes'));
+const { PS_ARGS, parseProcessTable, agentUnder, browsersIn } = require(path.join(__dirname, '..', 'host-processes.mts'));
 
 // The workspace is two levels up from this script: core/workspace-app/scripts.
 const ROOT = process.env.WORKSPACE_ROOT || path.resolve(__dirname, '..', '..', '..');
@@ -179,9 +179,9 @@ function doVerb(action, payload, done) {
 //
 // Set here rather than in a ~/.screenrc, so a machine needs no dotfile for the
 // dashboard's terminals to be right. `screen -T` states the same TERM for the window.
-// And without the marks of a Claude Code session that started this runner (session-env.js says why): with them, a
+// And without the marks of a Claude Code session that started this runner (session-env.mts says why): with them, a
 // Claude Code screen took itself for that session's child and saved no transcript to read or resume later.
-const SESSION_ENV = { ...require(path.join(__dirname, '..', 'session-env')).sessionEnv(process.env), TERM: 'xterm-256color' };
+const SESSION_ENV = { ...require(path.join(__dirname, '..', 'session-env.mts')).sessionEnv(process.env), TERM: 'xterm-256color' };
 
 // The screen configuration every session started here runs under. It sits beside the dashboard rather
 // than in ~/.screenrc, because it belongs to these sessions and must not change what a person's own

@@ -408,11 +408,11 @@ test('focus follows the person through Read, Back, Forget and Resume', () => {
 test('a session starts clean of the Claude Code session that started the runner or the dashboard', () => {
   // With CLAUDE_CODE_CHILD_SESSION and the rest inherited, Claude Code in a screen took itself for that session's
   // child and saved no transcript: nothing to read and nothing to resume once it was gone.
-  const { sessionEnv, PARENT_SESSION_VARS } = require('../../session-env');
+  const { sessionEnv, PARENT_SESSION_VARS } = require('../../session-env.mts');
   const env = sessionEnv({ PATH: '/bin', HOME: '/h', CLAUDECODE: '1', CLAUDE_CODE_CHILD_SESSION: '1', CLAUDE_CODE_SESSION_ID: 'x',
     CLAUDE_CODE_MESSAGING_SOCKET: '/run/s.sock', CLAUDE_CODE_MESSAGING_TOKEN: 't', CLAUDE_PID: '1', CLAUDE_CODE_USE_BEDROCK: '1', ANTHROPIC_MODEL: 'm' });
   assert.deepStrictEqual(env, { PATH: '/bin', HOME: '/h', CLAUDE_CODE_USE_BEDROCK: '1', ANTHROPIC_MODEL: 'm' }, 'the user\'s own settings stay');
   assert.ok(PARENT_SESSION_VARS.includes('CLAUDE_CODE_CHILD_SESSION'));
-  assert.match(read('scripts/screen-runner.js'), /const SESSION_ENV = \{ \.\.\.require\(path\.join\(__dirname, '\.\.', 'session-env'\)\)\.sessionEnv\(process\.env\), TERM: 'xterm-256color' \};/);
-  assert.match(read('jobs.js'), /\{ timeoutMs: 30 \* 1000, env: require\('\.\/session-env'\)\.sessionEnv\(jobEnv\(\)\) \}/);
+  assert.match(read('scripts/screen-runner.js'), /const SESSION_ENV = \{ \.\.\.require\(path\.join\(__dirname, '\.\.', 'session-env\.mts'\)\)\.sessionEnv\(process\.env\), TERM: 'xterm-256color' \};/);
+  assert.match(read('jobs.js'), /\{ timeoutMs: 30 \* 1000, env: require\('\.\/session-env\.mts'\)\.sessionEnv\(jobEnv\(\)\) \}/);
 });

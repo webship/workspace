@@ -163,7 +163,7 @@ cmp -s "${extracted}/core/workspace-app/scripts/update.sh" "${BASH_SOURCE[0]}" |
 # The host screen runner and what it loads: a runner keeps the code it was started with, so a changed one is restarted
 # below (the sessions keep running). An older runner refuses the verbs it does not know yet.
 runner_changed="no"
-for f in scripts/screen-runner.js host-processes.js waiting.js session-env.js; do
+for f in scripts/screen-runner.js host-processes.mts waiting.mts session-env.mts; do
   cmp -s "${extracted}/core/workspace-app/${f}" "${APP_DIR}/${f}" || runner_changed="yes"
 done
 

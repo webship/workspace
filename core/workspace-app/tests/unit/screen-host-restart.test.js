@@ -29,7 +29,7 @@ test('--restart stops the runner and starts it again, on a new pid, and --stop e
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-host-restart-'));
   const app = path.join(root, 'core', 'workspace-app');
   fs.mkdirSync(path.join(app, 'scripts'), { recursive: true });
-  for (const f of ['scripts/screen-host.sh', 'scripts/screen-runner.js', 'waiting.js', 'session-env.js', 'host-processes.js', 'screenrc']) {
+  for (const f of ['scripts/screen-host.sh', 'scripts/screen-runner.js', 'waiting.mts', 'session-env.mts', 'host-processes.mts', 'screenrc']) {
     fs.copyFileSync(path.join(APP, f), path.join(app, f));
   }
   fs.symlinkSync(path.join(APP, 'node_modules'), path.join(app, 'node_modules'));
@@ -71,14 +71,35 @@ test('--restart stops the runner and starts it again, on a new pid, and --stop e
 test('both updaters restart a running runner that the release changed, and only then', () => {
   const update = fs.readFileSync(path.join(APP, 'scripts', 'update.sh'), 'utf8');
   // What the runner loads: a change to any of them is a change to the runner.
-  assert.match(update, /for f in scripts\/screen-runner\.js host-processes\.js waiting\.js session-env\.js; do/);
+  assert.match(update, /for f in scripts\/screen-runner\.js host-processes\.mts waiting\.mts session-env\.mts; do/);
   assert.match(update, /cmp -s "\$\{extracted\}\/core\/workspace-app\/\$\{f\}" "\$\{APP_DIR\}\/\$\{f\}" \|\| runner_changed="yes"/);
   assert.match(update, /if \[ "\$\{runner_changed\}" = "yes" \] && bash "\$\{APP_DIR\}\/scripts\/screen-host\.sh" --status 2>\/dev\/null \| grep -q '\^Running'; then/);
   assert.match(update, /bash "\$\{APP_DIR\}\/scripts\/screen-host\.sh" --restart/);
   // After the dry run and the prompts-only exits: a check changes nothing.
   assert.ok(update.indexOf('runner_changed}" = "yes" ] &&') > update.indexOf('(dry run — nothing was changed)'));
   const cli = fs.readFileSync(path.join(REPO, 'core', 'bin', 'workspace.js'), 'utf8');
-  assert.match(cli, /\['scripts\/screen-runner\.js', 'host-processes\.js', 'waiting\.js', 'session-env\.js'\]/);
+  assert.match(cli, /\['scripts\/screen-runner\.js', 'host-processes\.mts', 'waiting\.mts', 'session-env\.mts'\]/);
   assert.match(cli, /shippedBefore\[f\] !== shipped\.get\(f\)/, 'only when this release changed it');
   assert.match(cli, /spawnSync\('bash', \[host, '--restart'\]/);
+});
+
+test('the runner refuses a Node.js too old to strip the types of what it loads, and says which it needs', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-host-node-'));
+  const app = path.join(root, 'core', 'workspace-app');
+  fs.mkdirSync(path.join(app, 'scripts'), { recursive: true });
+  fs.copyFileSync(path.join(APP, 'scripts', 'screen-host.sh'), path.join(app, 'scripts', 'screen-host.sh'));
+  const bin = path.join(root, 'bin');
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'screen'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  // A Node.js 20: it answers its version and runs the check, which says no.
+  fs.writeFileSync(path.join(bin, 'node'), '#!/bin/sh\n[ "$1" = "--version" ] && { echo v20.11.0; exit 0; }\n[ "$1" = "-e" ] && exit 1\nexit 0\n', { mode: 0o755 });
+  const r = spawnSync('bash', [path.join(app, 'scripts', 'screen-host.sh'), '--start'], { encoding: 'utf8',
+    env: { ...process.env, PATH: `${bin}${path.delimiter}/usr/bin${path.delimiter}/bin`, WORKSPACE_ROOT: root } });
+  assert.strictEqual(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /node v20\.11\.0 is too old for the runner: it needs Node\.js 22\.18 or later\./);
+  assert.ok(!fs.existsSync(path.join(root, '.screens', '.runner-pid')), 'nothing was started');
+  // And the check itself passes on this Node.js, which runs the suite.
+  const here = spawnSync(process.execPath, ['-e', 'const [a, b] = process.versions.node.split(".").map(Number); process.exit(a > 22 || (a === 22 && b >= 18) ? 0 : 1)']);
+  assert.strictEqual(here.status, 0);
+  fs.rmSync(root, { recursive: true, force: true });
 });
