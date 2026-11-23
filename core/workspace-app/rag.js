@@ -10,7 +10,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 
-const { ROOT, CONFIG_DIR } = require('./workspaces');
+const { ROOT, CONFIG_DIR, hubDomain } = require('./workspaces');
 
 /* ---------------- RAG indexes (Milvus) ---------------- */
 //
@@ -158,12 +158,25 @@ async function ragCollections(instance) {
   return _ragInFlight.get(key);
 }
 
+/**
+ * Where Attu, the Milvus UI, answers for a RAG server: the root of its DDEV project. On the hub that is the hub's
+ * address for it, `https://<instance>.rag.<hub>`, which answers there only; on a plain address (node on a port,
+ * Docker Compose, Kubernetes) it is the project's canonical one, `https://<name>.ddev.site` (#785, as #764 for a
+ * project's Launch).
+ */
+function attuUrl(instance) {
+  const { absolute } = require('./urls');
+  if (absolute()) return `https://${instance}.rag.${hubDomain()}`;
+  const { ddevProjectName } = require('./jobs');
+  return `https://${ddevProjectName(path.join(ROOT, 'rag', instance)) || instance}.ddev.site`;
+}
+
 function ragInvalidate() {
   _ragCache.clear();
   _bindingsAt = 0;
 }
 
 module.exports = {
-  milvusProjectName, milvusRestBase, ragInstances, ragBindings, ragInstanceFor, ragWriteBinding,
+  attuUrl, milvusProjectName, milvusRestBase, ragInstances, ragBindings, ragInstanceFor, ragWriteBinding,
   ragCollectionName, milvusPost, ragCollections, ragInvalidate,
 };
