@@ -219,7 +219,7 @@ document.addEventListener('input', (e) => {
   const items = [...list.querySelectorAll('li')].filter((li) => li.querySelector('.host'));
   let shown = 0;
   items.forEach((li) => {
-    const hit = !q || li.querySelector('.host')!.textContent!.toLowerCase().includes(q);
+    const hit = !q || li.querySelector('.host')!.textContent.toLowerCase().includes(q);
     li.hidden = !hit;
     if (hit) shown += 1;
   });

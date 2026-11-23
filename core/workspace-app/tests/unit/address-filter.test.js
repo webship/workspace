@@ -29,7 +29,7 @@ test('typing narrows the list by host name and says how many are left; Escape em
   const at = ui.indexOf("('.pcard-domains-filter');");
   assert.ok(at > 0, 'no filter handler');
   const block = ui.slice(at - 200, at + 1600);
-  assert.match(block, /li\.querySelector\('\.host'\)\s*\.textContent\s*\.toLowerCase\(\)\.includes\(q\)/, 'by host name');
+  assert.match(block, /li\.querySelector\('\.host'\)\s*\.textContent\.toLowerCase\(\)\.includes\(q\)/, 'by host name');
   assert.match(block, /`\$\{shown\} of \$\{items\.length\} shown\.` : 'Nothing matches\.'/);
   assert.match(block, /if \(!box \|\| !box\.value\) return;[\s\S]{0,80}e\.stopPropagation\(\);/, 'a box with text: Escape empties it and the list stays');
   assert.match(block, /'shown'[\s\S]{0,200}box\.focus\(\)/, 'the box takes focus when the list opens');
