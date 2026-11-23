@@ -61,6 +61,13 @@ Then(/^every tab of the Settings modal should have no accessibility violations, 
     // The rail's Settings opens the modal over the page (a collapsed rail shows it as an icon).
     await this.page.evaluate(() => document.querySelector('a[data-tabmodal-open="/fragments/settings/modal"]').click());
     await this.page.waitForSelector('#editor-modal [role="tab"]', { state: 'visible' });
+    // The content is in and the modal is named by its heading (#811), before anything is checked.
+    await this.page.waitForFunction(() => {
+      const dialog = document.querySelector('#editor-modal .uk-modal-dialog');
+      const id = dialog && dialog.getAttribute('aria-labelledby');
+      const h = id && document.getElementById(id);
+      return !!(h && h.textContent.trim());
+    }, null, { timeout: 20000 });
     const tabs = await this.page.$$eval('#editor-modal [role="tab"]', (all) => all.map((t) => t.dataset.tab));
     assert.ok(tabs.length > 1, 'the Settings modal drew no tabs');
     const out = [];
