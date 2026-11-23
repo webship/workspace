@@ -12,6 +12,8 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
+const { projectOfTmp } = require('./_docksal-tmp');
+const projectOfTmpAtStart = projectOfTmp();
 const SCRIPTS = path.join(__dirname, '..', '..', '..', 'scripts');
 const STACKS = path.join(__dirname, '..', '..', '..', 'config', 'runtimes');
 
@@ -185,4 +187,55 @@ test('no Docksal on the machine: said, not left to the shell', () => {
   const r = run(dir, p, 'ddev start; echo "rc=$?"', { PATH: `${dir}/bin:/usr/bin:/bin` });
   assert.match(r.out, /needs Docksal/);
   assert.match(r.out, /rc=1/);
+});
+
+test('a temporary folder is never a project, whatever .docksal/ it holds; a project below it still is (#772)', () => {
+  const dir = sandbox();
+  // `dir` stands for the machine's temporary folder (TMPDIR), holding what Docksal's fin left in /tmp/.docksal when it
+  // took /tmp for a project. The home folder is elsewhere, so its rule does not apply here, and the workspace is the
+  // repository's (run's WORKSPACE_ROOT), which `dir` is not under.
+  fs.mkdirSync(path.join(dir, '.docksal'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.docksal', 'docksal.env'), 'DOCKSAL_STACK=default\n');
+  fs.writeFileSync(path.join(dir, '.docksal', 'docksal.yml'), '\n');
+  const home = path.join(dir, 'home'); fs.mkdirSync(home);
+  const plain = path.join(dir, 'plain', 'below'); fs.mkdirSync(plain, { recursive: true });
+  const tmp = { TMPDIR: dir, HOME: home };
+  assert.notStrictEqual(run(dir, plain, 'rt_find_project', tmp).status, 0, 'a sandbox under it is no project');
+  assert.match(run(dir, plain, 'runtime_of', tmp).out, /^ddev$/m, 'and a new build in it is not taken for a Docksal one');
+  const { p } = built(dir);
+  assert.match(run(dir, p, 'rt_find_project', tmp).out, /^docksal \S+\/Ds_1$/m, 'a project below it is still found');
+  // The machine's own temporary folders, by name, whatever TMPDIR says.
+  assert.match(run(dir, dir, 'rt_never_a_root /tmp && rt_never_a_root /var/tmp/ && rt_never_a_root /dev/shm && ! rt_never_a_root /tmp/x && ! rt_never_a_root /home/x && echo ok', { TMPDIR: '' }).out, /^ok$/m);
+});
+
+test('a look that starts in the workspace never takes the workspace\'s folder or one above it for a project (#772)', () => {
+  const dir = sandbox();
+  // A folder above the workspace with a .docksal/ of its own, a workspace holding a .ddev/ of its own, and a plain
+  // folder in a workspace folder: none is a project, though each was found before.
+  fs.mkdirSync(path.join(dir, '.docksal'));
+  fs.writeFileSync(path.join(dir, '.docksal', 'docksal.env'), 'DOCKSAL_STACK=default\n');
+  const ws = path.join(dir, 'ws');
+  const plain = path.join(ws, 'dev', 'plain');
+  fs.mkdirSync(plain, { recursive: true });
+  const env = { WORKSPACE_ROOT: ws, HOME: path.join(dir, 'home') };
+  assert.notStrictEqual(run(dir, plain, 'rt_find_project', env).status, 0, 'the folder above the workspace is not its project');
+  assert.notStrictEqual(run(dir, ws, 'rt_find_project', env).status, 0, 'nor is the workspace\'s own folder');
+  fs.mkdirSync(path.join(ws, '.ddev'));
+  fs.writeFileSync(path.join(ws, '.ddev', 'config.yaml'), 'name: the-workspace\n');
+  assert.notStrictEqual(run(dir, plain, 'rt_find_project', env).status, 0, 'a .ddev/ of the workspace\'s own makes no project of it');
+  assert.match(run(dir, plain, 'runtime_of', { ...env, WORKSPACE_RUNTIME: 'docksal' }).out, /^docksal$/m, 'a new build there takes the runtime asked');
+  // A project in the workspace is found from its own folder and from below it, the workspace given with a slash.
+  const p = path.join(ws, 'dev', 'Ds_1');
+  fs.mkdirSync(path.join(p, '.docksal'), { recursive: true });
+  fs.writeFileSync(path.join(p, '.docksal', 'docksal.env'), 'DOCKSAL_STACK=default\n');
+  fs.mkdirSync(path.join(p, 'web'));
+  assert.match(run(dir, path.join(p, 'web'), 'rt_find_project', { ...env, WORKSPACE_ROOT: `${ws}/` }).out, /^docksal \S+\/ws\/dev\/Ds_1$/m);
+  // A look that starts outside the workspace is as it was: the folder above with its .docksal/ is the project.
+  const outside = path.join(dir, 'elsewhere');
+  fs.mkdirSync(outside);
+  assert.match(run(dir, outside, 'rt_find_project', env).out, new RegExp(`^docksal ${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'));
+});
+
+test('/tmp/.docksal is as this file found it: no test above made a project of /tmp (#772)', () => {
+  assert.deepStrictEqual(projectOfTmp(), projectOfTmpAtStart);
 });

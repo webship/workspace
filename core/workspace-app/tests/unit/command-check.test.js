@@ -19,6 +19,8 @@ const APP = path.join(__dirname, '..', '..');
 const SCRIPTS = path.join(APP, '..', 'scripts');
 const BIN = path.join(APP, '..', 'bin', 'workspace.js');
 const check = require('../../command-check');
+const { projectOfTmp } = require('./_docksal-tmp');
+const projectOfTmpAtStart = projectOfTmp();
 
 /** A folder of stand-in commands: name → what it prints for --version (or a function body of its own). */
 function stubPath(commands) {
@@ -316,4 +318,60 @@ esac
   a = ask(docker(root), { WORKSPACE_DASHBOARD_CONTAINER: '' });
   assert.deepStrictEqual([a.state, a.calls.length], ['unchecked', 0]);
   assert.match(a.why, /there is none to ask from here/);
+});
+
+// ---- a version is asked where no tool can take the folder for a project of its own (#772) ----
+
+/** A folder that stands for the machine's /tmp: Docksal's own .docksal/ in it, and a sandbox below. */
+function tmpWithDocksal() {
+  const box = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-docksal-tmp-'));
+  fs.mkdirSync(path.join(box, '.docksal'));
+  const inside = path.join(box, 'sandbox', 'deeper');
+  fs.mkdirSync(inside, { recursive: true });
+  const left = () => ['docksal.env', 'docksal.yml'].filter((f) => fs.existsSync(path.join(box, '.docksal', f)));
+  return { box, inside, left };
+}
+
+/** Run fn with the process in `dir`, the way a test's command runs from its sandbox. */
+function inFolder(dir, fn) {
+  const was = process.cwd();
+  process.chdir(dir);
+  try { return fn(); } finally { process.chdir(was); }
+}
+
+test('a version is asked from the root folder: a tool that looks for its project above finds none (#772)', () => {
+  assert.strictEqual(check.VERSION_CWD, '/');
+  const { box, inside, left } = tmpWithDocksal();
+  // A stand-in for Docksal's fin, which on every call looks up from where it runs for a .docksal/ (that is not the
+  // home folder's) and makes a project of that folder: docksal.env and docksal.yml. It says where it was run.
+  const asked = path.join(box, 'asked-from');
+  const bin = stubPath({ fin: `#!/usr/bin/env bash
+d="$PWD"; while [ "$d" != / ] && [ ! -d "$d/.docksal" ] ; do d="$(dirname "$d")" ; done
+if [ -d "$d/.docksal" ] && [ "$d" != "$HOME" ] ; then echo DOCKSAL_STACK=default > "$d/.docksal/docksal.env" ; echo > "$d/.docksal/docksal.yml" ; fi
+echo "$PWD" >> "${asked}"
+echo "fin version 1.105.0"
+` });
+  // Asked from the sandbox, as it was: the stand-in writes into the folder above, which is what fin did in /tmp.
+  spawnSync(path.join(bin, 'fin'), ['--version'], { cwd: inside, encoding: 'utf8' });
+  assert.deepStrictEqual(left(), ['docksal.env', 'docksal.yml'], 'the stand-in does what fin does');
+  for (const f of left()) fs.unlinkSync(path.join(box, '.docksal', f));
+  fs.unlinkSync(asked);
+  // versionOf, from a process that is in the sandbox.
+  assert.strictEqual(inFolder(inside, () => check.versionOf(path.join(bin, 'fin'))), '1.105.0');
+  assert.deepStrictEqual([...new Set(fs.readFileSync(asked, 'utf8').trim().split('\n'))], ['/'], 'asked from the root folder only');
+  assert.deepStrictEqual(left(), [], 'nothing was written above the sandbox');
+  fs.rmSync(box, { recursive: true, force: true });
+});
+
+test('the real fin, where it is installed, writes nothing above the folder the check runs in (#772)', { skip: !check.findOnPath('fin') && 'Docksal\'s fin is not on this machine' }, () => {
+  // From /tmp itself, where Docksal keeps /tmp/.docksal: the last test of this file finds that as it was.
+  inFolder(path.join(path.sep, 'tmp'), () => check.versionOf(check.findOnPath('fin')));
+  const { box, inside, left } = tmpWithDocksal();
+  inFolder(inside, () => check.versionOf(check.findOnPath('fin')));
+  assert.deepStrictEqual(left(), [], 'fin made no project of the folder above the sandbox');
+  fs.rmSync(box, { recursive: true, force: true });
+});
+
+test('/tmp/.docksal is as this file found it: no version check made a project of /tmp (#772)', () => {
+  assert.deepStrictEqual(projectOfTmp(), projectOfTmpAtStart);
 });

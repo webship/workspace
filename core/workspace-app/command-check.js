@@ -114,11 +114,19 @@ function findOnPath(name, envPath = process.env.PATH || '') {
   return '';
 }
 
+/**
+ * Where a command is asked its version: the root folder, so that a tool which looks for its project above the folder
+ * it is run in finds none. Docksal's fin does that on every call, and makes a project of the first folder above with
+ * a .docksal/ in it, writing docksal.env and docksal.yml there: asked from a sandbox under /tmp it wrote them into
+ * /tmp/.docksal (#772). From the root it looks at /.docksal alone, and a version needs no folder of its own.
+ */
+const VERSION_CWD = path.parse(process.cwd()).root || '/';
+
 /** The version a command reports, or '' — asked the ways commands answer, each with a short time limit. */
 function versionOf(file) {
   for (const arg of ['--version', '-v', '-V', 'version']) {
     let r;
-    try { r = spawnSync(file, [arg], { encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, LC_ALL: 'C' } }); } catch (_) { continue; }
+    try { r = spawnSync(file, [arg], { cwd: VERSION_CWD, encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, LC_ALL: 'C' } }); } catch (_) { continue; }
     if (!r || r.error) continue;
     const m = `${r.stdout || ''}\n${r.stderr || ''}`.match(/\d+\.\d+(?:\.\d+)*(?:[-+~][0-9A-Za-z.]+)?/);
     if (m && (r.status === 0 || arg !== '--version')) return m[0];
@@ -306,7 +314,7 @@ function missingText(reports) {
   return lines.join('\n');
 }
 
-module.exports = { split, commandEntries, findOnPath, versionOf, hintFor, inContainer, dashboardOutsideDdev, checkOwner, checkCore, checkPlugin, checkPlugins,
+module.exports = { split, commandEntries, findOnPath, versionOf, VERSION_CWD, hintFor, inContainer, dashboardOutsideDdev, checkOwner, checkCore, checkPlugin, checkPlugins,
   missingNeeded, missingSuggested, reportText, missingText, rowText, CORE_NEEDS, clearCache: () => { cache.clear(); chosen = null; }, setLocalOnly: (on = true) => { localOnly = !!on; cache.clear(); chosen = null; } };
 
 if (require.main === module) {
