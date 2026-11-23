@@ -13,12 +13,13 @@ const path = require('path');
 
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', '..', f), 'utf8');
 const server = read('server.js');
+// Loaded once: it reads WORKSPACE_APP_LOG on every call, so a test points it at a file of its own with no reload.
+const log = require('../../event-log.mts');
 
 function freshLog() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-log-'));
   process.env.WORKSPACE_APP_LOG = path.join(dir, 'logs', 'dashboard.log');
-  delete require.cache[require.resolve('../../event-log')];
-  return { log: require('../../event-log'), file: process.env.WORKSPACE_APP_LOG };
+  return { log, file: process.env.WORKSPACE_APP_LOG };
 }
 
 test('an event is one JSON line with a time, a level and the event', () => {
@@ -54,12 +55,20 @@ test('the file rotates past its size and keeps a few', () => {
   assert.equal(JSON.parse(fs.readFileSync(file, 'utf8').trim()).event, 'after.rotation');
 });
 
+test('the module keeps no state: each event goes where WORKSPACE_APP_LOG says at that moment', () => {
+  const a = freshLog();
+  log.logEvent('info', 'one');
+  const b = freshLog();
+  log.logEvent('info', 'two');
+  assert.deepStrictEqual(fs.readFileSync(a.file, 'utf8').trim().split('\n').map((l) => JSON.parse(l).event), ['one']);
+  assert.deepStrictEqual(fs.readFileSync(b.file, 'utf8').trim().split('\n').map((l) => JSON.parse(l).event), ['two']);
+});
+
 test('a log that cannot be written never throws', () => {
   const blocker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ws-log-')), 'file');
   fs.writeFileSync(blocker, 'x');
   process.env.WORKSPACE_APP_LOG = path.join(blocker, 'logs', 'dashboard.log');
-  delete require.cache[require.resolve('../../event-log')];
-  assert.doesNotThrow(() => require('../../event-log').logEvent('error', 'x'));
+  assert.doesNotThrow(() => log.logEvent('error', 'x'));
 });
 
 test('a form that names no workspace takes the one its host names', () => {

@@ -9,42 +9,47 @@
  * the one file nobody reviews.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
 
-const MAX_BYTES = 5 * 1024 * 1024;
-const KEEP = 3;
+export const MAX_BYTES = 5 * 1024 * 1024;
+export const KEEP = 3;
 
-function logFile() {
-  return process.env.WORKSPACE_APP_LOG || path.join(__dirname, 'logs', 'dashboard.log');
+/**
+ * Where the log goes: WORKSPACE_APP_LOG, else logs/dashboard.log beside the dashboard. Read on every call, so the
+ * module keeps no state: a test points it at a file of its own by setting the variable, with no reload (an ES module
+ * is not reloaded through require.cache).
+ */
+export function logFile(): string {
+  return process.env.WORKSPACE_APP_LOG || path.join(import.meta.dirname, 'logs', 'dashboard.log');
 }
 
 /** Known secret shapes and `key: value` pairs that name one, replaced before anything is written. */
-function redact(text) {
+export function redact(text: unknown): string {
   return String(text == null ? '' : text)
     .replace(/\b(sk|pk|ghp|gho|ghs|github_pat|xox[abprs]|glpat|AIza)[-_A-Za-z0-9]{12,}/g, '[redacted]')
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi, 'Bearer [redacted]')
     .replace(/\b([A-Za-z_]*(?:password|passwd|token|secret|api[_-]?key)[A-Za-z_]*)(\s*[:=]\s*)("[^"]*"|'[^']*'|\S+)/gi, '$1$2[redacted]');
 }
 
-function clip(text, max = 300) {
+export function clip(text: unknown, max = 300): string {
   const s = redact(text).replace(/\s+/g, ' ').trim();
   return s.length > max ? `${s.slice(0, max)}…` : s;
 }
 
 /** The text of an HTML message, for a log line: tags gone, entities left as they are. */
-function plain(html, max = 240) {
+export function plain(html: unknown, max = 240): string {
   return clip(String(html || '').replace(/<[^>]*>/g, ' '), max);
 }
 
-function rotate(file) {
+function rotate(file: string): void {
   for (let i = KEEP - 1; i >= 1; i--) {
     try { fs.renameSync(`${file}.${i}`, `${file}.${i + 1}`); } catch (_) { /* not there yet */ }
   }
   try { fs.renameSync(file, `${file}.1`); } catch (_) { /* nothing to rotate */ }
 }
 
-function logEvent(level, event, fields = {}) {
+export function logEvent(level: string, event: string, fields: Record<string, unknown> = {}): void {
   const file = logFile();
   const line = JSON.stringify({ time: new Date().toISOString(), level, event, ...fields });
   try {
@@ -56,4 +61,3 @@ function logEvent(level, event, fields = {}) {
   } catch (_) { /* a log must never take an action down with it */ }
 }
 
-module.exports = { logEvent, redact, clip, plain, logFile, MAX_BYTES, KEEP };
