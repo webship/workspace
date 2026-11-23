@@ -1,5 +1,5 @@
 /**
- * Who the avatar can be and which voices it speaks in (assistant-cast.js). What must never drift: the
+ * Who the avatar can be and which voices it speaks in (assistant-cast.mts). What must never drift: the
  * avatars offered are the ones settings.yml names and the characters found in the avatars workspace, a
  * model is only ever served from inside its own avatar project, nothing about a character is written in
  * the dashboard, the ElevenLabs key stays a placeholder until a real one is set, and a sentence already
@@ -11,7 +11,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { avatarCast, avatarMind, discoverAvatars, findAvatar, ownMovesOf, voiceOf, serveAvatarMoves, elevenKey, elevenSpeak, elevenVoices } = require('../../assistant-cast');
+const { avatarCast, avatarMind, discoverAvatars, findAvatar, ownMovesOf, voiceOf, serveAvatarMoves, elevenKey, elevenSpeak, elevenVoices } = require('../../assistant-cast.mts');
 const { assistantSettings, workspaceLanguage } = require('../../speech.mts');
 
 function tree() {
@@ -147,12 +147,12 @@ test('what the assistant is told about an avatar: its set, the moves its project
 test('nothing about a particular character is written in the dashboard: its name, moves and mind come from its project', () => {
   const app = path.join(__dirname, '../..');
   // The sets of moves and the cast name no project of anyone's: a set is described by the build it suits.
-  for (const f of ['assistant-cast.js', 'assistant.js', 'src/browser/assistant-avatar-moves.ts', 'public/assistant-avatar-moves.js']) {
+  for (const f of ['assistant-cast.mts', 'assistant.js', 'src/browser/assistant-avatar-moves.ts', 'public/assistant-avatar-moves.js']) {
     assert.ok(!/github\.com\//i.test(fs.readFileSync(path.join(app, f), 'utf8')), `${f} links to no repository`);
   }
-  const cast = fs.readFileSync(path.join(app, 'assistant-cast.js'), 'utf8');
+  const cast = fs.readFileSync(path.join(app, 'assistant-cast.mts'), 'utf8');
   assert.ok(!/moveSetOf = \(id\)/.test(cast), 'a set of moves is never chosen by an avatar\'s name');
-  assert.deepStrictEqual(Object.keys(require('../../assistant-cast').BUILT_IN), ['druplicon'], 'Druplicon is the one avatar that ships');
+  assert.deepStrictEqual(Object.keys(require('../../assistant-cast.mts').BUILT_IN), ['druplicon'], 'Druplicon is the one avatar that ships');
 });
 
 test('the avatar it starts as is one of the list, or none', () => {
@@ -195,7 +195,7 @@ test('a sentence already spoken is played from the cache, never paid for twice',
 
 test('the sets of moves exist, and the guide set is for work: nothing worn, nothing meant for children', async () => {
   const { AVATAR_MOVE_SETS } = require('../../assistant');
-  const { moveSetOf } = require('../../assistant-cast');
+  const { moveSetOf } = require('../../assistant-cast.mts');
   // The source, as written (src/browser/assistant-avatar-moves.ts, built into public/ by npm run build:browser).
   const src = fs.readFileSync(path.join(__dirname, '../../src/browser/assistant-avatar-moves.ts'), 'utf8');
   const defined = [...src.matchAll(/^ {4}([a-z]+): \{$/gm)].map((m) => m[1]);
@@ -211,7 +211,7 @@ test('the sets of moves exist, and the guide set is for work: nothing worn, noth
 });
 
 test('hair colours and agents come from settings, checked', () => {
-  const { hairOf, agentOf } = require('../../assistant-cast');
+  const { hairOf, agentOf } = require('../../assistant-cast.mts');
   assert.strictEqual(hairOf({ assistant: { avatar_hair: { mascot: '"#0074E0"' } } }, 'mascot'), '#0074e0');
   assert.strictEqual(hairOf({ assistant: { avatar_hair: { x: 'url(evil)' } } }, 'x'), '');
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
