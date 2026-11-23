@@ -13,7 +13,7 @@ const { esc } = require('./html.mts');
 const { CONFIG_DIR, workspaceDir } = require('./workspaces');
 const images = require('./images');
 const providers = require('./images-providers');
-const core = require('./images-svg-core');
+const core = require('./images-svg-core.mts');
 const { writeRecords } = require('./images-records.mts');
 
 const PALETTE_KEYS = ['primary', 'secondary', 'accent', 'dark', 'light'];
