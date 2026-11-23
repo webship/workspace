@@ -50,9 +50,9 @@ test('the two lists offer the counts that suit what they hold', () => {
 });
 
 test('a choice is remembered for the whole dashboard, not one workspace', () => {
-  assert.match(ui, /wsPrefSet\(btn\.dataset\.pref, btn\.dataset\.view\)/,
+  assert.match(ui, /wsPrefSet\(btn\.dataset\.pref\s*, btn\.dataset\.view\s*\)/,
     'through the hub-domain cookie, like the theme');
-  assert.match(ui, /allowed\.includes\(btn\.dataset\.view\)/, 'and only a value we render');
+  assert.match(ui, /allowed\.includes\(btn\.dataset\.view(?: \|\| '')?\)/, 'and only a value we render');
   // The rows arrive in fragments, so the marking has to be redone after a swap.
   assert.match(ui, /document\.addEventListener\('htmx:after:settle', markCurrentViews\)/);
 });

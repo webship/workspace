@@ -18,6 +18,12 @@ interface Window {
   wsPrefSet?: (key: string, value: string) => void;
   /** ui.js: flash the notices that just arrived in `el`. */
   flashResults?: (el: Element) => void;
+  /** ui.js (10-rail-arranged): Commands → Rail's entries carry the group they are in; the form calls it. */
+  navSyncGroups: () => void;
+  /** ui.js (16-new-screen-form): the New screen form's kind, its session name and a prompt template. */
+  screenKindChanged: (form: HTMLFormElement | null) => void;
+  screenNameFollowsTarget: (form: HTMLFormElement | null) => void;
+  screenPromptTemplate: (select: HTMLSelectElement) => void;
 }
 
 /** The Web Speech API's recogniser, as far as the field microphones use it (not in TypeScript's DOM library). */

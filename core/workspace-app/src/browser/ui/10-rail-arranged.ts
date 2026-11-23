@@ -7,9 +7,9 @@
 window.navSyncGroups = function navSyncGroups() {
   const form = document.getElementById('nav-form');
   if (!form) return;
-  for (const entry of form.querySelectorAll('.nav-entry')) {
-    const list = entry.closest('[data-group]');
-    const input = entry.querySelector('input[name="item"]');
+  for (const entry of form.querySelectorAll<HTMLElement>('.nav-entry')) {
+    const list = entry.closest<HTMLElement>('[data-group]');
+    const input = entry.querySelector<HTMLInputElement>('input[name="item"]');
     if (list && input) input.value = `${list.dataset.group}:${entry.dataset.id}`;
   }
 };
@@ -20,7 +20,8 @@ window.navSyncGroups = function navSyncGroups() {
 // says when something moved; that is the moment the values are stale.
 for (const ev of ['moved', 'added', 'removed', 'stop']) {
   document.addEventListener(ev, (e) => {
-    if (e.target && e.target.closest && e.target.closest('#nav-form')) window.navSyncGroups();
+    const t = e.target as Element | null;
+    if (t && t.closest && t.closest('#nav-form')) window.navSyncGroups();
   }, true);
 }
 
@@ -29,7 +30,7 @@ for (const ev of ['moved', 'added', 'removed', 'stop']) {
 // Which layout the workspace cards and the project rows use. The state is on <html> and applied by the
 // pre-paint script; this only changes it, marks the chosen button, and remembers the choice through the
 // shared cookie so it is the same layout on every workspace.
-const VIEW_PREFS = {
+const VIEW_PREFS: Record<string, { attr: string; allowed: string[] }> = {
   'ws-home-view': { attr: 'homeView', allowed: ['list', 'grid-1', 'grid-2', 'grid-3', 'grid-4', 'grid-5', 'grid-6'] },
   'ws-rows-view': { attr: 'rowsView', allowed: ['list', 'grid-1', 'grid-2', 'grid-3'] },
   // A folder of files: a list of names, or a grid of up to six across for a folder of pictures.
@@ -37,27 +38,27 @@ const VIEW_PREFS = {
 };
 
 function markCurrentViews() {
-  for (const btn of document.querySelectorAll('.view-pick')) {
-    const spec = VIEW_PREFS[btn.dataset.pref];
+  for (const btn of document.querySelectorAll<HTMLElement>('.view-pick')) {
+    const spec = VIEW_PREFS[btn.dataset.pref || ''];
     if (!spec) continue;
     const current = document.documentElement.dataset[spec.attr] === btn.dataset.view;
     btn.classList.toggle('is-current', current);
     btn.setAttribute('aria-pressed', current ? 'true' : 'false');
   }
-  for (const btn of document.querySelectorAll('.density-pick')) {
+  for (const btn of document.querySelectorAll<HTMLElement>('.density-pick')) {
     const current = document.documentElement.dataset.density === btn.dataset.density;
     btn.classList.toggle('is-current', current);
     btn.setAttribute('aria-pressed', current ? 'true' : 'false');
   }
   // Words or icons: the browser's own choice, else what the style says (its --pcard-tool-label).
   const styleSays = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--pcard-tool-label')) || 0) > 0 ? 'words' : 'icons';
-  for (const btn of document.querySelectorAll('.tool-labels-pick')) {
+  for (const btn of document.querySelectorAll<HTMLElement>('.tool-labels-pick')) {
     const current = (document.documentElement.dataset.toolLabels || styleSays) === btn.dataset.toolLabels;
     btn.classList.toggle('is-current', current);
     btn.setAttribute('aria-pressed', current ? 'true' : 'false');
   }
   // The page width sits in the same group and is marked the same way.
-  for (const btn of document.querySelectorAll('.page-width-pick')) {
+  for (const btn of document.querySelectorAll<HTMLElement>('.page-width-pick')) {
     const current = document.documentElement.dataset.pageWidth === btn.dataset.width;
     btn.classList.toggle('is-current', current);
     btn.setAttribute('aria-pressed', current ? 'true' : 'false');
@@ -65,13 +66,13 @@ function markCurrentViews() {
 }
 
 document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.view-pick');
+  const btn = (e.target as Element).closest<HTMLElement>('.view-pick');
   if (!btn) return;
   e.preventDefault();
-  const spec = VIEW_PREFS[btn.dataset.pref];
-  if (!spec || !spec.allowed.includes(btn.dataset.view)) return;
+  const spec = VIEW_PREFS[btn.dataset.pref || ''];
+  if (!spec || !spec.allowed.includes(btn.dataset.view || '')) return;
   document.documentElement.dataset[spec.attr] = btn.dataset.view;
-  wsPrefSet(btn.dataset.pref, btn.dataset.view);
+  wsPrefSet(btn.dataset.pref!, btn.dataset.view!);
   markCurrentViews();
 });
 

@@ -6,9 +6,9 @@
 // on every apply, so a panel dragged to the edge of a wide screen is still reachable on a narrow one.
 (function draggableAssistant() {
   const KEY = 'ws-assistant-pos';
-  const panel = () => document.querySelector('.assistant-side');
+  const panel = () => document.querySelector<HTMLElement>('.assistant-side');
 
-  const clamp = (x, y, el) => {
+  const clamp = (x: number, y: number, el: Element): [number, number] => {
     const r = el.getBoundingClientRect();
     // A strip of the panel always has to stay on screen, and the header has to stay reachable.
     const maxX = Math.max(0, window.innerWidth - r.width);
@@ -16,7 +16,7 @@
     return [Math.min(Math.max(0, x), maxX), Math.min(Math.max(0, y), maxY)];
   };
 
-  const place = (x, y) => {
+  const place = (x: number, y: number) => {
     const el = panel();
     if (!el) return;
     const [cx, cy] = clamp(x, y, el);
@@ -26,7 +26,7 @@
     el.style.right = 'auto';
   };
 
-  const stored = () => {
+  const stored = (): { x: unknown; y: unknown } | null => {
     try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) { return null; }
   };
 
@@ -39,14 +39,14 @@
       return;
     }
     const p = stored();
-    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) place(p.x, p.y);
+    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) place(p.x as number, p.y as number);
   }
 
   document.addEventListener('pointerdown', (e) => {
     if (document.documentElement.dataset.assistantView !== 'float') return;
-    const head = e.target.closest('.assistant-side .assistant-head');
-    if (!head || e.target.closest('button, a, input, select, .assistant-dropdown')) return;
-    const el = panel();
+    const head = (e.target as Element).closest<HTMLElement>('.assistant-side .assistant-head');
+    if (!head || (e.target as Element).closest('button, a, input, select, .assistant-dropdown')) return;
+    const el = panel()!;
     const r = el.getBoundingClientRect();
     const dx = e.clientX - r.left;
     const dy = e.clientY - r.top;
@@ -54,7 +54,7 @@
     head.setPointerCapture(e.pointerId);
     el.classList.add('is-dragging');
 
-    const move = (ev) => { moved = true; place(ev.clientX - dx, ev.clientY - dy); };
+    const move = (ev: PointerEvent) => { moved = true; place(ev.clientX - dx, ev.clientY - dy); };
     const up = () => {
       head.removeEventListener('pointermove', move);
       head.removeEventListener('pointerup', up);

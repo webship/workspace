@@ -1565,9 +1565,9 @@ syncTitleState();
 window.navSyncGroups = function navSyncGroups() {
   const form = document.getElementById('nav-form');
   if (!form) return;
-  for (const entry of form.querySelectorAll('.nav-entry')) {
-    const list = entry.closest('[data-group]');
-    const input = entry.querySelector('input[name="item"]');
+  for (const entry of form.querySelectorAll             ('.nav-entry')) {
+    const list = entry.closest             ('[data-group]');
+    const input = entry.querySelector                  ('input[name="item"]');
     if (list && input) input.value = `${list.dataset.group}:${entry.dataset.id}`;
   }
 };
@@ -1578,7 +1578,8 @@ window.navSyncGroups = function navSyncGroups() {
 // says when something moved; that is the moment the values are stale.
 for (const ev of ['moved', 'added', 'removed', 'stop']) {
   document.addEventListener(ev, (e) => {
-    if (e.target && e.target.closest && e.target.closest('#nav-form')) window.navSyncGroups();
+    const t = e.target                  ;
+    if (t && t.closest && t.closest('#nav-form')) window.navSyncGroups();
   }, true);
 }
 
@@ -1587,7 +1588,7 @@ for (const ev of ['moved', 'added', 'removed', 'stop']) {
 // Which layout the workspace cards and the project rows use. The state is on <html> and applied by the
 // pre-paint script; this only changes it, marks the chosen button, and remembers the choice through the
 // shared cookie so it is the same layout on every workspace.
-const VIEW_PREFS = {
+const VIEW_PREFS                                                      = {
   'ws-home-view': { attr: 'homeView', allowed: ['list', 'grid-1', 'grid-2', 'grid-3', 'grid-4', 'grid-5', 'grid-6'] },
   'ws-rows-view': { attr: 'rowsView', allowed: ['list', 'grid-1', 'grid-2', 'grid-3'] },
   // A folder of files: a list of names, or a grid of up to six across for a folder of pictures.
@@ -1595,27 +1596,27 @@ const VIEW_PREFS = {
 };
 
 function markCurrentViews() {
-  for (const btn of document.querySelectorAll('.view-pick')) {
-    const spec = VIEW_PREFS[btn.dataset.pref];
+  for (const btn of document.querySelectorAll             ('.view-pick')) {
+    const spec = VIEW_PREFS[btn.dataset.pref || ''];
     if (!spec) continue;
     const current = document.documentElement.dataset[spec.attr] === btn.dataset.view;
     btn.classList.toggle('is-current', current);
     btn.setAttribute('aria-pressed', current ? 'true' : 'false');
   }
-  for (const btn of document.querySelectorAll('.density-pick')) {
+  for (const btn of document.querySelectorAll             ('.density-pick')) {
     const current = document.documentElement.dataset.density === btn.dataset.density;
     btn.classList.toggle('is-current', current);
     btn.setAttribute('aria-pressed', current ? 'true' : 'false');
   }
   // Words or icons: the browser's own choice, else what the style says (its --pcard-tool-label).
   const styleSays = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--pcard-tool-label')) || 0) > 0 ? 'words' : 'icons';
-  for (const btn of document.querySelectorAll('.tool-labels-pick')) {
+  for (const btn of document.querySelectorAll             ('.tool-labels-pick')) {
     const current = (document.documentElement.dataset.toolLabels || styleSays) === btn.dataset.toolLabels;
     btn.classList.toggle('is-current', current);
     btn.setAttribute('aria-pressed', current ? 'true' : 'false');
   }
   // The page width sits in the same group and is marked the same way.
-  for (const btn of document.querySelectorAll('.page-width-pick')) {
+  for (const btn of document.querySelectorAll             ('.page-width-pick')) {
     const current = document.documentElement.dataset.pageWidth === btn.dataset.width;
     btn.classList.toggle('is-current', current);
     btn.setAttribute('aria-pressed', current ? 'true' : 'false');
@@ -1623,13 +1624,13 @@ function markCurrentViews() {
 }
 
 document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.view-pick');
+  const btn = (e.target           ).closest             ('.view-pick');
   if (!btn) return;
   e.preventDefault();
-  const spec = VIEW_PREFS[btn.dataset.pref];
-  if (!spec || !spec.allowed.includes(btn.dataset.view)) return;
+  const spec = VIEW_PREFS[btn.dataset.pref || ''];
+  if (!spec || !spec.allowed.includes(btn.dataset.view || '')) return;
   document.documentElement.dataset[spec.attr] = btn.dataset.view;
-  wsPrefSet(btn.dataset.pref, btn.dataset.view);
+  wsPrefSet(btn.dataset.pref , btn.dataset.view );
   markCurrentViews();
 });
 
@@ -1744,9 +1745,9 @@ document.addEventListener('click', (e) => {
 // on every apply, so a panel dragged to the edge of a wide screen is still reachable on a narrow one.
 (function draggableAssistant() {
   const KEY = 'ws-assistant-pos';
-  const panel = () => document.querySelector('.assistant-side');
+  const panel = () => document.querySelector             ('.assistant-side');
 
-  const clamp = (x, y, el) => {
+  const clamp = (x        , y        , el         )                   => {
     const r = el.getBoundingClientRect();
     // A strip of the panel always has to stay on screen, and the header has to stay reachable.
     const maxX = Math.max(0, window.innerWidth - r.width);
@@ -1754,7 +1755,7 @@ document.addEventListener('click', (e) => {
     return [Math.min(Math.max(0, x), maxX), Math.min(Math.max(0, y), maxY)];
   };
 
-  const place = (x, y) => {
+  const place = (x        , y        ) => {
     const el = panel();
     if (!el) return;
     const [cx, cy] = clamp(x, y, el);
@@ -1764,7 +1765,7 @@ document.addEventListener('click', (e) => {
     el.style.right = 'auto';
   };
 
-  const stored = () => {
+  const stored = ()                                    => {
     try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) { return null; }
   };
 
@@ -1777,14 +1778,14 @@ document.addEventListener('click', (e) => {
       return;
     }
     const p = stored();
-    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) place(p.x, p.y);
+    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) place(p.x          , p.y          );
   }
 
   document.addEventListener('pointerdown', (e) => {
     if (document.documentElement.dataset.assistantView !== 'float') return;
-    const head = e.target.closest('.assistant-side .assistant-head');
-    if (!head || e.target.closest('button, a, input, select, .assistant-dropdown')) return;
-    const el = panel();
+    const head = (e.target           ).closest             ('.assistant-side .assistant-head');
+    if (!head || (e.target           ).closest('button, a, input, select, .assistant-dropdown')) return;
+    const el = panel() ;
     const r = el.getBoundingClientRect();
     const dx = e.clientX - r.left;
     const dy = e.clientY - r.top;
@@ -1792,7 +1793,7 @@ document.addEventListener('click', (e) => {
     head.setPointerCapture(e.pointerId);
     el.classList.add('is-dragging');
 
-    const move = (ev) => { moved = true; place(ev.clientX - dx, ev.clientY - dy); };
+    const move = (ev              ) => { moved = true; place(ev.clientX - dx, ev.clientY - dy); };
     const up = () => {
       head.removeEventListener('pointermove', move);
       head.removeEventListener('pointerup', up);
@@ -3056,13 +3057,16 @@ document.addEventListener('change', (e) => {
 // Which fieldsets belong to which kind of session. The kind is a radio now rather than a select: three
 // named choices with a line each read better than three words in a dropdown, and the thing being chosen
 // changes what the rest of the form asks.
+/** What a textarea with an Ace editor on it carries (the command field). */
+                                                                                    
+
 window.screenKindChanged = function screenKindChanged(form) {
   if (!form) return;
-  const kind = (form.querySelector('input[name="kind"]:checked') || {}).value || 'shell';
-  for (const el of form.querySelectorAll('[data-claude-only]')) el.hidden = kind !== 'claude';
-  for (const el of form.querySelectorAll('[data-not-claude]')) el.hidden = kind === 'claude';
+  const kind = form.querySelector                  ('input[name="kind"]:checked')?.value || 'shell';
+  for (const el of form.querySelectorAll             ('[data-claude-only]')) el.hidden = kind !== 'claude';
+  for (const el of form.querySelectorAll             ('[data-not-claude]')) el.hidden = kind === 'claude';
   for (const label of form.querySelectorAll('.screen-kind')) {
-    label.classList.toggle('is-on', (label.querySelector('input') || {}).checked === true);
+    label.classList.toggle('is-on', label.querySelector('input')?.checked === true);
   }
 };
 
@@ -3071,8 +3075,8 @@ window.screenKindChanged = function screenKindChanged(form) {
 // that overwrote what was typed would be worse than no default at all.
 window.screenNameFollowsTarget = function screenNameFollowsTarget(form) {
   if (!form) return;
-  const field = form.querySelector('input[name="session"]');
-  const target = form.querySelector('select[name="target"]');
+  const field = form.querySelector                  ('input[name="session"]');
+  const target = form.querySelector                   ('select[name="target"]');
   if (!field || !target) return;
   // The same shape the server fills in: where it runs, then a short id so a second session in the same
   // place is not refused as a name that already exists. The id is kept while only the place changes, so
@@ -3083,7 +3087,7 @@ window.screenNameFollowsTarget = function screenNameFollowsTarget(form) {
     ? `workspace-${tail}`
     : `${value.replace(/^p:([a-z0-9_-]+):(.+)$/, '$1--$2').replace(/^ws:/, '')}--${tail}`)
     .toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-{3,}/g, '--').slice(0, 60);
-  const path = (target.selectedOptions[0] || {}).dataset;
+  const path = target.selectedOptions[0]?.dataset;
   const line = form.querySelector('.screen-where-path code');
   if (line && path && path.path) line.textContent = path.path;
   if (field.value && field.value !== field.dataset.derived) return;   // typed by hand: leave it alone
@@ -3100,7 +3104,7 @@ window.screenPromptTemplate = function screenPromptTemplate(select) {
   const tokens = flags.split(/\s+/).filter(Boolean);
   for (let i = 0; i < tokens.length; i += 1) {
     if (!tokens[i].startsWith('--')) continue;
-    const field = form.querySelector(`[name="arg_${tokens[i].replace(/^--/, '').replace(/[^A-Za-z0-9]+/g, '_')}"]`);
+    const field = form.querySelector                  (`[name="arg_${tokens[i].replace(/^--/, '').replace(/[^A-Za-z0-9]+/g, '_')}"]`);
     if (!field) continue;
     const next = tokens[i + 1];
     if (field.type === 'checkbox') { field.checked = true; continue; }
@@ -3110,7 +3114,7 @@ window.screenPromptTemplate = function screenPromptTemplate(select) {
     .then((r) => r.text())
     .then((t) => {
       const text = t.trim();
-      const field = form.querySelector('textarea[name="command"]');
+      const field = form.querySelector                                                      ('textarea[name="command"]');
       if (!field) return;
       field.value = text;
       if (field._aceEditor) { field._aceEditor.session.setValue(text); field._aceEditor.focus(); } else field.focus();
@@ -3121,7 +3125,7 @@ window.screenPromptTemplate = function screenPromptTemplate(select) {
 // workspace changes — so both the kind toggle and the name default are settled here rather than from an
 // inline handler on an element the swap may have replaced.
 document.body.addEventListener('htmx:after:settle', (e) => {
-  const el = e.target;
+  const el = e.target                  ;
   if (!el || !el.querySelector) return;
   const kinds = el.querySelector('form .screen-kinds') || (el.closest && el.closest('form') && el.matches('.screen-kinds') ? el : null);
   if (kinds) window.screenKindChanged(kinds.closest('form'));

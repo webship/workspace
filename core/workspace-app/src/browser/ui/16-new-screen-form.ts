@@ -3,13 +3,16 @@
 // Which fieldsets belong to which kind of session. The kind is a radio now rather than a select: three
 // named choices with a line each read better than three words in a dropdown, and the thing being chosen
 // changes what the rest of the form asks.
+/** What a textarea with an Ace editor on it carries (the command field). */
+interface AceEditorLike { session: { setValue(text: string): void }; focus(): void }
+
 window.screenKindChanged = function screenKindChanged(form) {
   if (!form) return;
-  const kind = (form.querySelector('input[name="kind"]:checked') || {}).value || 'shell';
-  for (const el of form.querySelectorAll('[data-claude-only]')) el.hidden = kind !== 'claude';
-  for (const el of form.querySelectorAll('[data-not-claude]')) el.hidden = kind === 'claude';
+  const kind = form.querySelector<HTMLInputElement>('input[name="kind"]:checked')?.value || 'shell';
+  for (const el of form.querySelectorAll<HTMLElement>('[data-claude-only]')) el.hidden = kind !== 'claude';
+  for (const el of form.querySelectorAll<HTMLElement>('[data-not-claude]')) el.hidden = kind === 'claude';
   for (const label of form.querySelectorAll('.screen-kind')) {
-    label.classList.toggle('is-on', (label.querySelector('input') || {}).checked === true);
+    label.classList.toggle('is-on', label.querySelector('input')?.checked === true);
   }
 };
 
@@ -18,8 +21,8 @@ window.screenKindChanged = function screenKindChanged(form) {
 // that overwrote what was typed would be worse than no default at all.
 window.screenNameFollowsTarget = function screenNameFollowsTarget(form) {
   if (!form) return;
-  const field = form.querySelector('input[name="session"]');
-  const target = form.querySelector('select[name="target"]');
+  const field = form.querySelector<HTMLInputElement>('input[name="session"]');
+  const target = form.querySelector<HTMLSelectElement>('select[name="target"]');
   if (!field || !target) return;
   // The same shape the server fills in: where it runs, then a short id so a second session in the same
   // place is not refused as a name that already exists. The id is kept while only the place changes, so
@@ -30,7 +33,7 @@ window.screenNameFollowsTarget = function screenNameFollowsTarget(form) {
     ? `workspace-${tail}`
     : `${value.replace(/^p:([a-z0-9_-]+):(.+)$/, '$1--$2').replace(/^ws:/, '')}--${tail}`)
     .toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-{3,}/g, '--').slice(0, 60);
-  const path = (target.selectedOptions[0] || {}).dataset;
+  const path = target.selectedOptions[0]?.dataset;
   const line = form.querySelector('.screen-where-path code');
   if (line && path && path.path) line.textContent = path.path;
   if (field.value && field.value !== field.dataset.derived) return;   // typed by hand: leave it alone
@@ -47,7 +50,7 @@ window.screenPromptTemplate = function screenPromptTemplate(select) {
   const tokens = flags.split(/\s+/).filter(Boolean);
   for (let i = 0; i < tokens.length; i += 1) {
     if (!tokens[i].startsWith('--')) continue;
-    const field = form.querySelector(`[name="arg_${tokens[i].replace(/^--/, '').replace(/[^A-Za-z0-9]+/g, '_')}"]`);
+    const field = form.querySelector<HTMLInputElement>(`[name="arg_${tokens[i].replace(/^--/, '').replace(/[^A-Za-z0-9]+/g, '_')}"]`);
     if (!field) continue;
     const next = tokens[i + 1];
     if (field.type === 'checkbox') { field.checked = true; continue; }
@@ -57,7 +60,7 @@ window.screenPromptTemplate = function screenPromptTemplate(select) {
     .then((r) => r.text())
     .then((t) => {
       const text = t.trim();
-      const field = form.querySelector('textarea[name="command"]');
+      const field = form.querySelector<HTMLTextAreaElement & { _aceEditor?: AceEditorLike }>('textarea[name="command"]');
       if (!field) return;
       field.value = text;
       if (field._aceEditor) { field._aceEditor.session.setValue(text); field._aceEditor.focus(); } else field.focus();
@@ -68,7 +71,7 @@ window.screenPromptTemplate = function screenPromptTemplate(select) {
 // workspace changes — so both the kind toggle and the name default are settled here rather than from an
 // inline handler on an element the swap may have replaced.
 document.body.addEventListener('htmx:after:settle', (e) => {
-  const el = e.target;
+  const el = e.target as Element | null;
   if (!el || !el.querySelector) return;
   const kinds = el.querySelector('form .screen-kinds') || (el.closest && el.closest('form') && el.matches('.screen-kinds') ? el : null);
   if (kinds) window.screenKindChanged(kinds.closest('form'));
