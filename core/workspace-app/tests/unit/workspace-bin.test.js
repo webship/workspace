@@ -101,6 +101,40 @@ test('asking for the help is not an error, and a word the tool does not know is 
   assert.match(unknown.stderr, /there is no "explode" step/);
 });
 
+test('on a Node.js older than the package needs, the command says what it needs and does nothing', () => {
+  const needed = require('../../../../package.json').engines.node.match(/(\d+)\.(\d+)/).slice(1, 3).join('.');
+  const says = new RegExp(`needs Node\\.js ${needed.replace('.', '\\.')} or later: this is Node\\.js 20\\.20\\.2 \\(`);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-old-node-'));
+  const dir = path.join(tmp, 'ws');
+  const old = { WEBSHIP_WORKSPACE_NODE_VERSION: '20.20.2' };
+  try {
+    for (const args of [['catalog'], ['doctor', dir], ['plugin', 'list'], ['init', dir], ['update', dir], ['status', dir], ['frobnicate']]) {
+      const r = run(args, old);
+      assert.strictEqual(r.status, 1, `${args[0]} ends with 1`);
+      assert.match(r.stderr, says, args[0]);
+      assert.match(r.stderr, /Nothing was changed\./, args[0]);
+      assert.doesNotMatch(r.stderr + r.stdout, /SyntaxError|node:internal/, `${args[0]}: no stack trace`);
+      assert.strictEqual(r.stdout, '', `${args[0]} prints nothing else`);
+    }
+    assert.ok(!fs.existsSync(dir), 'init and update made nothing');
+    // The version and the help still answer, also the help of the plugin steps.
+    for (const args of [['--version'], ['version'], ['-v'], [], ['help'], ['--help'], ['-h'], ['plugin', '--help']]) {
+      const r = run(args, old);
+      assert.strictEqual(r.status, 0, `${args.join(' ') || '(nothing)'} still answers`);
+      assert.strictEqual(r.stderr, '');
+    }
+    // One release below the lowest is refused; the lowest itself and newer ones run.
+    const [major, minor] = needed.split('.').map(Number);
+    assert.strictEqual(run(['catalog'], { WEBSHIP_WORKSPACE_NODE_VERSION: `${major}.${minor - 1}.9` }).status, 1);
+    assert.strictEqual(run(['catalog'], { WEBSHIP_WORKSPACE_NODE_VERSION: `v${major - 1}.99.0` }).status, 1);
+    for (const v of [`${major}.${minor}.0`, `${major}.${minor + 1}.0`, `${major + 1}.0.0`, 'v26.13.1']) {
+      const r = run(['catalog'], { WEBSHIP_WORKSPACE_NODE_VERSION: v });
+      assert.strictEqual(r.status, 0, `${v} runs`);
+      assert.match(r.stdout, /@webship\.co\/workspace-/);
+    }
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
 test('plugin, doctor and update are about the workspace they are run in, not ~/workspace', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-where-'));
   const home = path.join(base, 'home');
