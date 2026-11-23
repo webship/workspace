@@ -20,7 +20,8 @@ const { termPaneHtml, termLayerHtml } = require('../../screens');
 
 const app = (f) => fs.readFileSync(path.join(__dirname, '../..', f), 'utf8');
 const server = app('server.js');
-const client = app('public/terminal.js');
+// The script as written (src/browser/terminal.ts); public/terminal.js is what esbuild builds from it.
+const client = app('src/browser/terminal.ts');
 const css = app('public/css/components/terminals.css');
 const screensJs = app('screens.js');
 const screenActions = app('actions/screens.js');
@@ -105,7 +106,7 @@ test('the window remembers where it was put, and is clamped back into view', () 
 });
 
 test('list and grid arrange every open window', () => {
-  assert.match(client, /function arrange\(how\)/);
+  assert.match(client, /function arrange\(how(?:: string)?\)/);
   assert.match(server, /data-term-layout="list"/);
   assert.match(server, /data-term-layout="grid"/);
 });

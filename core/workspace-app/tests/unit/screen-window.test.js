@@ -27,7 +27,8 @@ const jobs = fs.readFileSync(path.join(APP, 'jobs.js'), 'utf8');
 const runner = fs.readFileSync(path.join(APP, 'scripts/screen-runner.js'), 'utf8');
 const actions = fs.readFileSync(path.join(APP, 'actions/screens.js'), 'utf8');
 const screens = fs.readFileSync(path.join(APP, 'screens.js'), 'utf8');
-const terminal = fs.readFileSync(path.join(APP, 'public/terminal.js'), 'utf8');
+// The script as written (src/browser/terminal.ts); public/terminal.js is what esbuild builds from it.
+const terminal = fs.readFileSync(path.join(APP, 'src/browser/terminal.ts'), 'utf8');
 const screenrc = fs.readFileSync(path.join(APP, 'screenrc'), 'utf8');
 
 test('a blank window is repainted until it paints, not once and hopefully', () => {

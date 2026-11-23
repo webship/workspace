@@ -16,7 +16,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 
-const client = fs.readFileSync(path.join(__dirname, '../../public/terminal.js'), 'utf8');
+// The script as written (src/browser/terminal.ts); public/terminal.js is what esbuild builds from it.
+const client = fs.readFileSync(path.join(__dirname, '../../src/browser/terminal.ts'), 'utf8');
 const screens = fs.readFileSync(path.join(__dirname, '../../screens.js'), 'utf8');
 
 test('xterm keeps no scrollback of its own, and says why', () => {
@@ -56,6 +57,6 @@ test('whether it is in copy mode is SCREEN\'s answer, not a hopeful flag', () =>
 
 test('there is a button as well as a wheel', () => {
   assert.match(screens, /term-scrollback/);
-  assert.match(client, /const back = e\.target\.closest\('\.term-scrollback'\);/);
+  assert.match(client, /const back = \(e\.target as Element\)\.closest<HTMLElement>\('\.term-scrollback'\);/);
   assert.match(client, /win\.__scrollBack\(\)/);
 });

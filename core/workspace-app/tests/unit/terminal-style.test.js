@@ -9,7 +9,8 @@ const fs = require('fs');
 const path = require('path');
 
 const PUBLIC = path.join(__dirname, '../../public');
-const client = fs.readFileSync(path.join(PUBLIC, 'terminal.js'), 'utf8');
+// The script as written (src/browser/terminal.ts); public/terminal.js is what esbuild builds from it.
+const client = fs.readFileSync(path.join(PUBLIC, '..', 'src', 'browser', 'terminal.ts'), 'utf8');
 const base = fs.readFileSync(path.join(PUBLIC, 'css/base.css'), 'utf8');
 const css = fs.readFileSync(path.join(PUBLIC, 'css/components/terminals.css'), 'utf8');
 const { TERM_STYLES, termPaneHtml } = require('../../screens.js');
@@ -72,13 +73,13 @@ test('a window never opens taller than the room under its top edge', () => {
 });
 
 test('a click inside a window is only taken by the look menu, because the window itself carries the style', () => {
-  assert.match(client, /closest\('\.term-look-menu \[data-term-style\]'\)/);
-  assert.match(client, /closest\('\.term-look-menu \[data-term-font\]'\)/);
+  assert.match(client, /closest(?:<HTMLElement>)?\('\.term-look-menu \[data-term-style\]'\)/);
+  assert.match(client, /closest(?:<HTMLElement>)?\('\.term-look-menu \[data-term-font\]'\)/);
   assert.doesNotMatch(client, /closest\('\[data-term-style\]'\)/);
 });
 
 test('a terminal opened from the Screens modal closes the modal first, so the keyboard reaches it', () => {
   assert.match(client, /modal && modal\.contains\(open\) && window\.UIkit/);
-  assert.match(client, /window\.UIkit\.modal\(modal\)\.hide\(\)/);
+  assert.match(client, /window\.UIkit!?\.modal\(modal!?\)\.hide\(\)/);
   assert.match(client, /__term\.focus\(\)/);
 });

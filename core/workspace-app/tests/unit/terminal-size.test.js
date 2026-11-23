@@ -19,7 +19,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 
-const client = fs.readFileSync(path.join(__dirname, '../../public/terminal.js'), 'utf8');
+// The script as written (src/browser/terminal.ts); public/terminal.js is what esbuild builds from it.
+const client = fs.readFileSync(path.join(__dirname, '../../src/browser/terminal.ts'), 'utf8');
 const server = fs.readFileSync(path.join(__dirname, '../../server.js'), 'utf8');
 const screens = fs.readFileSync(path.join(__dirname, '../../screens.js'), 'utf8');
 
@@ -45,7 +46,7 @@ test('a window opens at 132x43, clamped to the display', () => {
   assert.match(client, /function defaultPreset\(\) \{ return DEFAULT_PRESET; \}/);
   // From a measured cell, because the font is the user's monospace stack at whatever size the browser
   // gives it — a character width is not something this file can know.
-  assert.match(client, /term\._core\._renderService\.dimensions\.css\.cell/);
+  assert.match(client, /term\._core!?\._renderService!?\.dimensions!?\.css!?\.cell/);
 });
 
 test('a size somebody chose is never overridden', () => {
@@ -86,10 +87,10 @@ test('reset lands on the same size a window opens at', () => {
   // "biggest that fits this display" described the old behaviour and would now be a lie.
   assert.match(screens, /Reset to 132 &times; 43/);
   assert.match(screens, /term-fit/);
-  assert.match(client, /const sizePick = e\.target\.closest\('\[data-term-size\]'\);/);
+  assert.match(client, /const sizePick = \(e\.target as Element\)\.closest<HTMLElement>\('\[data-term-size\]'\);/);
   assert.match(client, /Double-click the title bar puts a window back/);
   // And the stored geometry is forgotten, or it would come back the next time it opens.
-  assert.match(client, /delete all\[win\.dataset\.session\];/);
+  assert.match(client, /delete all\[win\.dataset\.session!?\];/);
 });
 
 test('nothing but a real child may go in termChildren', () => {
