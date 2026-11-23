@@ -118,8 +118,9 @@ test('a prompt template puts its flags on the controls that own them', () => {
 
 test('the kind is three named choices, and it decides what the rest of the form asks', () => {
   assert.match(src, /type="radio" name="kind" value="\$\{value\}"/);
-  assert.match(ui, /for \(const el of form\.querySelectorAll\('\[data-claude-only\]'\)\) el\.hidden = kind !== 'claude';/);
-  assert.match(ui, /for \(const el of form\.querySelectorAll\('\[data-not-claude\]'\)\) el\.hidden = kind === 'claude';/);
+  // (\s* where the part's TypeScript has a type, which ui.js holds as blank space.)
+  assert.match(ui, /for \(const el of form\.querySelectorAll\s*\('\[data-claude-only\]'\)\) el\.hidden = kind !== 'claude';/);
+  assert.match(ui, /for \(const el of form\.querySelectorAll\s*\('\[data-not-claude\]'\)\) el\.hidden = kind === 'claude';/);
 });
 
 test('the form arrives in a modal, so its state is settled on the swap rather than on load', () => {

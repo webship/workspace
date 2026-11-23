@@ -123,7 +123,8 @@ test('the floating panel can be moved, and only that one', () => {
   assert.match(ui, /function draggableAssistant/);
   assert.match(ui, /dataset\.assistantView !== 'float'\) return;/, 'only the floating view is draggable');
   // A drag that began on the close button would close the panel on release.
-  assert.match(ui, /e\.target\.closest\('button, a, input, select, \.assistant-dropdown'\)\) return;/,
+  // (\s* and the bracket where the part's TypeScript has a type, which ui.js holds as blank space.)
+  assert.match(ui, /e\.target\s*\)?\.closest\('button, a, input, select, \.assistant-dropdown'\)\) return;/,
     'the header is the handle, minus its controls');
   assert.match(ui, /const maxX = Math\.max\(0, window\.innerWidth - r\.width\)/, 'it is clamped into the viewport');
   assert.match(ui, /window\.addEventListener\('resize', applyStored\)/,

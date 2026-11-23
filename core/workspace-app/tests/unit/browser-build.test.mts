@@ -70,3 +70,17 @@ test('the .ts parts of ui.js are checked together, as one script\'s parts', () =
   const pkg = JSON.parse(fs.readFileSync(path.join(APP, 'package.json'), 'utf8'));
   assert.match(pkg.scripts.typecheck, /tsc -p src\/browser\/ui\b/, 'npm run typecheck checks them');
 });
+
+test('shared.d.ts declares only what a .js part still declares and a .ts part uses', () => {
+  const dir = path.join(SRC, 'ui');
+  const shared = fs.readFileSync(path.join(dir, 'shared.d.ts'), 'utf8');
+  const names = [...shared.matchAll(/^declare (?:const|function|let|var) ([A-Za-z_$][\w$]*)/gm)].map((m) => m[1]);
+  assert.ok(names.length > 0, 'it declares something');
+  const parts = partsOf(dir).map((f) => ({ f, src: fs.readFileSync(path.join(dir, f), 'utf8') }));
+  for (const name of names) {
+    const declares = new RegExp(`^(?:const|let|var|function) ${name}\\b`, 'm');
+    assert.ok(parts.some((p) => p.f.endsWith('.js') && declares.test(p.src)), `${name}: a .js part declares it`);
+    assert.ok(!parts.some((p) => p.f.endsWith('.ts') && declares.test(p.src)), `${name}: no .ts part declares it (it goes from shared.d.ts then)`);
+    assert.ok(parts.some((p) => p.f.endsWith('.ts') && new RegExp(`\\b${name}\\(`).test(p.src)), `${name}: a .ts part uses it`);
+  }
+});
