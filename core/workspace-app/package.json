@@ -9,7 +9,7 @@
     "test": "npm run test:unit && npm run test:browser",
     "test:unit": "node --test tests/unit/*.test.js tests/unit/*.test.mts $(ls plugins/*/tests/*.test.js 2>/dev/null)",
     "test:browser": "cucumber-js --config cucumber.js",
-    "typecheck": "tsc -p . && tsc -p src/browser",
+    "typecheck": "tsc -p . && tsc -p src/browser && tsc -p src/browser/ui",
     "build:browser": "node scripts/build-browser.mts"
   },
   "dependencies": {

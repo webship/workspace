@@ -9,6 +9,8 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import vm from 'node:vm';
+import { partsOf, stripUiPart } from '../../scripts/ui-parts.mts';
 
 const APP = path.join(import.meta.dirname, '..', '..');
 const SRC = path.join(APP, 'src', 'browser');
@@ -41,14 +43,30 @@ test('the pages load them at the same addresses, and the vendored libraries are 
 
 test('ui.js is its parts one after the other, each a whole script, and nothing between them', () => {
   const dir = path.join(SRC, 'ui');
-  const parts = fs.readdirSync(dir).filter((f) => /\.js$/.test(f)).sort();
+  const parts = partsOf(dir);
   assert.ok(parts.length > 10, `${parts.length} parts`);
-  assert.ok(parts.every((f) => /^\d{2}-[a-z0-9-]+\.js$/.test(f)), 'named NN-<part>.js, so their order is their names');
+  assert.ok(parts.every((f) => /^\d{2}-[a-z0-9-]+\.(js|ts)$/.test(f)), 'named NN-<part>.js or .ts, so their order is their names');
   const built = fs.readFileSync(path.join(APP, 'public', 'ui.js'), 'utf8');
-  const joined = parts.map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('');
-  assert.strictEqual(built.slice(built.indexOf('\n') + 1), joined, 'public/ui.js is the banner, then the parts as they are');
+  const joined = parts.map((f) => stripUiPart(f, fs.readFileSync(path.join(dir, f), 'utf8'))).join('');
+  assert.strictEqual(built.slice(built.indexOf('\n') + 1), joined, 'public/ui.js is the banner, then the parts, a .ts one with its types blanked');
   for (const f of parts) {
-    const r = spawnSync(process.execPath, ['--check', path.join(dir, f)], { encoding: 'utf8' });
-    assert.strictEqual(r.status, 0, `${f} is a whole script: ${r.stderr}`);
+    const source = fs.readFileSync(path.join(dir, f), 'utf8');
+    const code = stripUiPart(f, source);
+    assert.doesNotThrow(() => new vm.Script(code, { filename: f }), `${f} is a whole script`);
+    // A .ts part keeps its lines and its comments in ui.js: only its types are blank.
+    if (f.endsWith('.ts')) {
+      assert.strictEqual(code.split('\n').length, source.split('\n').length, `${f} keeps its lines`);
+      for (const c of source.match(/^\s*\/\/.*$/gm) || []) assert.ok(code.includes(c), `${f} keeps "${c.trim()}"`);
+    }
   }
+});
+
+test('the .ts parts of ui.js are checked together, as one script\'s parts', () => {
+  const ts = partsOf(path.join(SRC, 'ui')).filter((f) => f.endsWith('.ts'));
+  assert.ok(ts.length >= 3, `${ts.length} typed parts`);
+  const config = fs.readFileSync(path.join(SRC, 'ui', 'tsconfig.json'), 'utf8');
+  assert.match(config, /"moduleDetection": "legacy"/, 'scripts that share one scope, as they do in ui.js');
+  assert.match(config, /"include": \["\*\.ts", "\.\.\/globals\.d\.ts"\]/);
+  const pkg = JSON.parse(fs.readFileSync(path.join(APP, 'package.json'), 'utf8'));
+  assert.match(pkg.scripts.typecheck, /tsc -p src\/browser\/ui\b/, 'npm run typecheck checks them');
 });

@@ -14,7 +14,7 @@ import { test } from 'node:test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { parseBuilderArgs, argSourceOf } from '../../builder-args.mts';
+import { parseBuilderArgs, argSourceOf, expandHelp } from '../../builder-args.mts';
 
 const ROOT = path.join(import.meta.dirname, '..', '..', '..', '..');
 const SCRIPTS = path.join(ROOT, 'core', 'scripts');
@@ -113,4 +113,34 @@ test('no default is ever shown as unexpanded shell text', () => {
 test('builders that source through distribution_name are unchanged', () => {
   const flags = parseBuilderArgs(path.join(ROOT, 'dev'), 'cmd-webship11-0-x-project.sh', ROOT).map((x) => x.flag);
   for (const f of ['--install', '--add-users', '--enable', '--php-version']) assert.ok(flags.includes(f), `webship11 lost ${f}`);
+});
+
+test('a help reads as --help prints it: %(default)s and %(choices)s filled, %% a percent sign (#767)', () => {
+  assert.strictEqual(expandHelp('Profile [default %(default)s].', 'standard', []), 'Profile [default standard].');
+  assert.strictEqual(expandHelp('One of %(choices)s, %(default)s first.', '8.3', ['8.3', '8.4']), 'One of 8.3, 8.4, 8.3 first.');
+  assert.strictEqual(expandHelp('[default %(default)s]', true, []), '[default True]');
+  assert.strictEqual(expandHelp('[default %(default)s]', false, []), '[default False]');
+  assert.strictEqual(expandHelp('[default %(default)s]', '', []), '[default ]');
+  assert.strictEqual(expandHelp('100%% of %(dest)s', 'x', []), '100% of %(dest)s', 'any other name is left as it is');
+  // Every builder's every option: nothing of argparse's placeholders is left, and the profile says its default.
+  for (const b of builders()) {
+    for (const a of parseBuilderArgs(b.dir, b.f, ROOT)) {
+      assert.doesNotMatch(a.help, /%\((default|choices)\)s/, `${b.w}/${b.f} ${a.flag}: ${a.help}`);
+    }
+  }
+  const profile = parseBuilderArgs(path.join(ROOT, 'dev'), 'cmd-drupal11-recommended-project.sh', ROOT).find((a) => a.flag === '--profile');
+  assert.ok(profile, 'the Drupal 11 builder takes --profile');
+  assert.match(profile.help, /\[default standard\]/);
+});
+
+test('the Arguments panel shows each help whole, as its title has it, and cuts none (#767)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'core', 'workspace-app', 'server.js'), 'utf8');
+  const fn = src.slice(src.indexOf('function builderArgsHtml('), src.indexOf('function backupRowsHtml('));
+  assert.ok(fn.length > 100, 'builderArgsHtml is where it was');
+  assert.doesNotMatch(fn, /help\.slice\(/, 'no help is cut to a length');
+  assert.doesNotMatch(fn, /placeholder="\$\{esc\(a\.help/, 'and none is put in a placeholder, which the field cuts to its width');
+  // Each of the three kinds of row (a switch, a list, a box) shows the help beside its field.
+  assert.strictEqual((fn.match(/<span class="uk-text-meta arg-help">\$\{esc\(a\.help\)\}<\/span>/g) || []).length, 3);
+  const css = fs.readFileSync(path.join(ROOT, 'core', 'workspace-app', 'public', 'css', 'components', 'mic-on-any-field-that-wants-typing.css'), 'utf8');
+  assert.match(css, /\.builder-args \.arg-help \{[^}]*overflow-wrap: anywhere/, 'a long help wraps');
 });

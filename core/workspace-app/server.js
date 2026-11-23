@@ -110,7 +110,7 @@ const buildOrderPage = require('./build-order-page');
 const { uikitIcons, tablerIcons, iconHtml, isKnownIcon } = require('./icons.mts');
 const { PAGE_SIZES, defaultPageSize, PROJECT_FILTERS, SORTS, defaultSort, readPageState, setPageCookie, paginate, listControlsHtml, listPagerHtml } = require('./lists');
 const { commandBlock } = require('./command-block.mts');
-const { HOME_URL, wsUrl, withRequest, hereName, cookieDomain } = require('./urls');
+const { HOME_URL, wsUrl, withRequest, hereName, cookieDomain, absolute } = require('./urls');
 const { VIDEO_RE, AUDIO_RE, DOC_ARTIFACT_RE, humanTime, humanSize, tildePath } = require('./format.mts');
 const audioVoice = require('./audio-voice');
 const videoEdit = require('./video-edit');
@@ -4027,8 +4027,10 @@ async function projectRowsHtml(key, dir, state) {
     const localSite = canDdev && (isDdev || isRuntime);
     // A runtime's site answers at its own address (a port on this machine, or the cluster node's): that is its
     // link and its Launch. '' while a cluster's node address is not known yet.
-    const hubUrl = isRuntime ? esc(rt.url) : `https://${esc(p)}.${esc(key)}.${hubDomain()}`;
     const ddevUrl = isRuntime ? esc(rt.url) : `https://${esc(ddevName)}.ddev.site`;
+    // A DDEV project's Launch is the hub's address for it on the hub only, where that address answers; on a plain
+    // address (node on a port, Docker Compose, Kubernetes) it is the project's canonical one, the row's own (#764).
+    const hubUrl = isRuntime ? esc(rt.url) : (absolute() ? `https://${esc(p)}.${esc(key)}.${hubDomain()}` : ddevUrl);
     const siteHost = isRuntime ? rt.url.replace(/^https?:\/\//, '') : `${ddevName}.ddev.site`;
     const menuName = isRuntime ? rt.label : 'DDEV';
     const worktree = (() => {
@@ -4167,13 +4169,15 @@ function builderArgsHtml(key, script) {
   if (!SCRIPT_RE.test(script) || !findBuilderScripts(dir).includes(script)) return '';
   const args = parseBuilderArgs(dir, script);
   if (!args.length) return '';
+  // Each help is shown whole and wraps (#767): it was cut at 60 or 80 characters, mid-word, into a placeholder or a
+  // line. argparse's own %(default)s and %(choices)s are filled by parseBuilderArgs.
   const rows = args.map((a) => {
     const name = (a.bool ? 'argb:' : 'argv:') + a.flag;
     if (a.bool) {
       return `
         <label class="arg-row" title="${esc(a.help)}">
           <input class="uk-checkbox" type="checkbox" name="${esc(name)}" ${a.def === true ? 'checked' : ''}>
-          <code>${esc(a.flag)}</code> <span class="uk-text-meta">${esc(a.help)}</span>
+          <code>${esc(a.flag)}</code> <span class="uk-text-meta arg-help">${esc(a.help)}</span>
         </label>`;
     }
     // An argument that states its CHOICES gets a list to pick from rather than a box to type a typo
@@ -4190,13 +4194,14 @@ function builderArgsHtml(key, script) {
         <label class="arg-row" title="${esc(a.help)}">
           <code>${esc(a.flag)}</code>
           <select class="uk-select uk-form-small arg-value" name="${esc(name)}">${options}</select>
-          <span class="uk-text-meta">${esc(a.help.slice(0, 80))}</span>
+          <span class="uk-text-meta arg-help">${esc(a.help)}</span>
         </label>`;
     }
     return `
       <label class="arg-row" title="${esc(a.help)}">
         <code>${esc(a.flag)}</code>
-        <input class="uk-input uk-form-small arg-value" type="text" name="${esc(name)}" value="${esc(String(a.def || ''))}" placeholder="${esc(a.help.slice(0, 60))}">
+        <input class="uk-input uk-form-small arg-value" type="text" name="${esc(name)}" value="${esc(String(a.def || ''))}">
+        <span class="uk-text-meta arg-help">${esc(a.help)}</span>
       </label>`;
   }).join('');
   return `

@@ -9,13 +9,15 @@
  *
  * A folder src/browser/<name>/ is one script in parts (ui.js): its files, in the order of their names
  * (`01-core.js`, `02-…`), are put one after the other into public/<name>.js, so they share one script's
- * scope exactly as the single file did. A `.js` part goes in as it is; a `.ts` part has its types stripped
- * first (esbuild, no bundling).
+ * scope exactly as the single file did. A `.js` part goes in as it is; a `.ts` part has its types stripped in place
+ * by Node.js's own stripper (`stripUiPart`): each type becomes blank space, so the part keeps its comments and its
+ * lines in public/ui.js, and the tests that read ui.js read the code as it is written.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { build, transform } from 'esbuild';
+import { build } from 'esbuild';
+import { partsOf, stripUiPart } from './ui-parts.mts';
 
 const APP = path.join(import.meta.dirname, '..');
 const SRC = path.join(APP, 'src', 'browser');
@@ -37,21 +39,15 @@ const result = await build({
   logLevel: 'warning',
 });
 
-/** One script in parts: its files in name order, a .ts part with its types stripped, one after the other. */
-async function joined(dir: string): Promise<string> {
-  const parts = fs.readdirSync(dir).filter((f) => /\.(js|ts)$/.test(f) && !f.endsWith('.d.ts')).sort();
+/** One script in parts: its files in name order, one after the other. */
+function joined(dir: string): string {
   let text = `${BANNER}\n`;
-  for (const f of parts) {
-    const source = fs.readFileSync(path.join(dir, f), 'utf8');
-    text += f.endsWith('.ts')
-      ? (await transform(source, { loader: 'ts', target: 'es2022', charset: 'utf8', legalComments: 'inline', sourcefile: f })).code
-      : source;
-  }
+  for (const f of partsOf(dir)) text += stripUiPart(f, fs.readFileSync(path.join(dir, f), 'utf8'));
   return text;
 }
 const folders = fs.readdirSync(SRC, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
 const outputs: { path: string; text: string }[] = result.outputFiles.map((f) => ({ path: f.path, text: f.text }));
-for (const name of folders) outputs.push({ path: path.join(OUT, `${name}.js`), text: await joined(path.join(SRC, name)) });
+for (const name of folders) outputs.push({ path: path.join(OUT, `${name}.js`), text: joined(path.join(SRC, name)) });
 
 const stale: string[] = [];
 for (const file of outputs) {
