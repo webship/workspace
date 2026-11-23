@@ -81,7 +81,7 @@ export const DEFAULTS = {
   // The assistant's avatar, shown from the robot icon in its panel's header: the one it starts as, one
   // of `avatars`, or `none` for no avatar and no icon.
   avatar: 'druplicon',
-  // The avatars that can be picked in the panel (assistant-cast.js finds each in the avatars workspace).
+  // The avatars that can be picked in the panel (assistant-cast.mts finds each in the avatars workspace).
   avatars: ['druplicon'],
   // Where the assistant keeps what the team teaches it, relative to the workspace root.
   memory: 'core/workspace-app/.memory',

@@ -10,7 +10,7 @@ const server = read('server.js');
 
 test('a search box keeps its focus, caret and what was typed when its own results replace it', () => {
   assert.match(ui, /function keepTypingThroughSwaps\(\)/);
-  assert.match(ui, /e\.detail && e\.detail\.ctx/);
+  assert.match(ui, /(?:e\.detail|det) && (?:e\.detail|det)\.ctx/);
   assert.match(ui, /field\.focus\(\{ preventScroll: true \}\)/);
   assert.match(ui, /if \(searched !== k\.value\) field\.dispatchEvent\(new KeyboardEvent\('keyup'/);
 });

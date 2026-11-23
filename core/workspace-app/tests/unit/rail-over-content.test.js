@@ -41,7 +41,7 @@ test('there, the toggle opens it without remembering it, and a click outside or 
   assert.match(ui, /applyActionsCollapsed\(wsPref\('actions-collapsed', '1'\) !== '0' \|\| railTight\(\)\)/);
   assert.match(ui, /if \(!railTight\(\)\) wsPrefSet\('actions-collapsed', collapsed \? '1' : '0'\);/, 'opened there, it is not remembered');
   const close = ui.slice(ui.indexOf('// Open over the content, the rail closes'), ui.indexOf('// The rail\'s names and its tooltip'));
-  assert.match(close, /e\.target\.closest\('\.actions-side, \.uk-dropdown, \.uk-modal, #rail-tip'\)\) return;/, 'a menu or a modal it opened is not outside');
+  assert.match(close, /e\.target\s*\)?\.closest\('\.actions-side, \.uk-dropdown, \.uk-modal, #rail-tip'\)\) return;/, 'a menu or a modal it opened is not outside');
   assert.match(close, /e\.key !== 'Escape'/);
   assert.match(close, /if \(document\.querySelector\('\.uk-modal\.uk-open, \.uk-dropdown\.uk-open'\)\) return;/, 'Escape first closes what is open on top');
   assert.match(close, /toggle\.focus\(\)/, 'focus goes back to the toggle');
@@ -54,6 +54,6 @@ test('there, the open rail also closes when keyboard focus moves out of it', () 
   const at = ui.indexOf("document.addEventListener('focusin', (e) => {\n  if (!railTight()");
   assert.ok(at > 0, 'no focusin handler for the rail');
   const body = ui.slice(at, ui.indexOf('});', at));
-  assert.match(body, /e\.target\.closest\('\.actions-side, \.uk-dropdown, \.uk-modal, #rail-tip'\)\) return;/);
+  assert.match(body, /e\.target\s*\)?\.closest\('\.actions-side, \.uk-dropdown, \.uk-modal, #rail-tip'\)\) return;/);
   assert.match(body, /applyActionsCollapsed\(true\);/);
 });

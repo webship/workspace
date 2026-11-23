@@ -677,9 +677,9 @@ document.addEventListener('shown', (e) => {
 
 // The actions rail. Collapsed state is remembered, like the theme, because it is
 // a layout preference and having it reset on every navigation would be noise.
-function applyActionsCollapsed(collapsed) {
+function applyActionsCollapsed(collapsed         ) {
   document.documentElement.classList.toggle('actions-collapsed', collapsed);
-  const toggle = document.querySelector('.actions-toggle');
+  const toggle = document.querySelector             ('.actions-toggle');
   if (toggle) {
     toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
     toggle.title = collapsed ? 'Expand the actions rail' : 'Collapse the actions rail';
@@ -710,7 +710,7 @@ try {
 } catch (_) { applyActionsCollapsed(true); }
 
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.actions-toggle')) return;
+  if (!(e.target           ).closest('.actions-toggle')) return;
   const collapsed = !document.documentElement.classList.contains('actions-collapsed');
   applyActionsCollapsed(collapsed);
   if (!railTight()) wsPrefSet('actions-collapsed', collapsed ? '1' : '0');
@@ -719,14 +719,14 @@ document.addEventListener('click', (e) => {
 // outside), and on Escape, with focus back on its toggle when it was in the rail.
 document.addEventListener('click', (e) => {
   if (!railTight() || document.documentElement.classList.contains('actions-collapsed')) return;
-  if (e.target.closest && e.target.closest('.actions-side, .uk-dropdown, .uk-modal, #rail-tip')) return;
+  if ((e.target           ).closest && (e.target           ).closest('.actions-side, .uk-dropdown, .uk-modal, #rail-tip')) return;
   applyActionsCollapsed(true);
 });
 // And when keyboard focus moves out of it: Tab past its last tile went on into the page underneath it, and
 // what took focus there (Dev's Build at 1024) was hidden under the open rail (WCAG 2.4.11).
 document.addEventListener('focusin', (e) => {
   if (!railTight() || document.documentElement.classList.contains('actions-collapsed')) return;
-  if (e.target.closest && e.target.closest('.actions-side, .uk-dropdown, .uk-modal, #rail-tip')) return;
+  if ((e.target           ).closest && (e.target           ).closest('.actions-side, .uk-dropdown, .uk-modal, #rail-tip')) return;
   applyActionsCollapsed(true);
 });
 document.addEventListener('keydown', (e) => {
@@ -734,7 +734,7 @@ document.addEventListener('keydown', (e) => {
   if (document.querySelector('.uk-modal.uk-open, .uk-dropdown.uk-open')) return;
   const inRail = document.activeElement && document.activeElement.closest && document.activeElement.closest('.actions-side');
   applyActionsCollapsed(true);
-  const toggle = inRail && document.querySelector('.actions-toggle');
+  const toggle = inRail && document.querySelector             ('.actions-toggle');
   if (toggle) toggle.focus();
 });
 
@@ -745,14 +745,14 @@ document.addEventListener('keydown', (e) => {
 (function railTips() {
   const rail = document.getElementById('actions-rail');
   if (!rail) return;
-  rail.querySelectorAll('a.action-btn, button.action-btn').forEach((el) => {
+  rail.querySelectorAll             ('a.action-btn, button.action-btn').forEach((el) => {
     if (el.classList.contains('actions-version')) return;
-    const label = (el.querySelector('.action-label') || {}).textContent;
+    const label = el.querySelector('.action-label')?.textContent;
     if (!label || !label.trim()) return;
     const name = label.replace(/\s+/g, ' ').trim();
     const hint = (el.getAttribute('title') || '').replace(/\s+/g, ' ').trim();
     el.dataset.tipLabel = name;
-    el.dataset.tipGroup = ((el.closest('.actions-group') || {}).dataset || {}).group || '';
+    el.dataset.tipGroup = el.closest             ('.actions-group')?.dataset.group || '';
     if (!el.hasAttribute('aria-label')) el.setAttribute('aria-label', name);
     if (hint && hint !== name) {
       el.dataset.tipHint = hint;
@@ -761,16 +761,16 @@ document.addEventListener('keydown', (e) => {
     el.removeAttribute('title');
   });
 
-  let tip = null;
-  let shownFor = null;
-  let hideTimer = null;
+  let tip                     = null;
+  let shownFor                 = null;
+  let hideTimer                                       = null;
   const hide = () => { clearTimeout(hideTimer); if (tip) tip.hidden = true; shownFor = null; };
   // The pointer can move onto the tooltip and stay there to read it (WCAG 1.4.13, hoverable): leaving a tile
   // or the tooltip hides it after a moment, and coming onto either of them keeps it.
   const later = () => { clearTimeout(hideTimer); hideTimer = setTimeout(hide, 150); };
   const keep = () => clearTimeout(hideTimer);
-  const onTip = (n) => !!(n && n.closest && n.closest('#rail-tip'));
-  const show = (el) => {
+  const onTip = (n                ) => !!(n && n.closest && n.closest('#rail-tip'));
+  const show = (el             ) => {
     if (window.innerWidth < 960 || !el.dataset.tipLabel) return;
     const collapsed = document.documentElement.classList.contains('actions-collapsed');
     const head = collapsed ? el.dataset.tipLabel : '';
@@ -794,9 +794,9 @@ document.addEventListener('keydown', (e) => {
     tip.style.top = `${Math.round(Math.max(8, Math.min(window.innerHeight - t.height - 8, r.top + r.height / 2 - t.height / 2)))}px`;
     shownFor = el;
   };
-  const tile = (e) => e.target && e.target.closest && e.target.closest('#actions-rail a.action-btn, #actions-rail button.action-btn');
+  const tile = (e                                ) => e.target && (e.target           ).closest && (e.target           ).closest             ('#actions-rail a.action-btn, #actions-rail button.action-btn');
   rail.addEventListener('mouseover', (e) => { const el = tile(e); if (!el) return; keep(); if (el !== shownFor) show(el); });
-  rail.addEventListener('mouseout', (e) => { if (tile(e) && !onTip(e.relatedTarget)) later(); });
+  rail.addEventListener('mouseout', (e) => { if (tile(e) && !onTip(e.relatedTarget                  )) later(); });
   rail.addEventListener('focusin', (e) => { const el = tile(e); if (el) show(el); });
   rail.addEventListener('focusout', hide);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
@@ -810,7 +810,7 @@ document.addEventListener('keydown', (e) => {
   };
   rail.addEventListener('scroll', fade, { passive: true });
   window.addEventListener('resize', fade);
-  document.addEventListener('click', (e) => { if (e.target.closest('.actions-toggle')) setTimeout(fade, 250); });
+  document.addEventListener('click', (e) => { if ((e.target           ).closest('.actions-toggle')) setTimeout(fade, 250); });
   fade();
 })();
 
@@ -1241,91 +1241,91 @@ document.addEventListener('shown', (e) => {
 // Settings home and the catalogue: one filter over the base tiles and every plugin row. Words narrow
 // by text, the chips by state. The box is drawn hidden and shown here, so a page with no script
 // offers no filter that does nothing. It is applied again when the plugins are drawn again.
-function settingsSearchApply(root) {
-  const box = root.querySelector('.settings-search');
+function settingsSearchApply(root             ) {
+  const box = root.querySelector             ('.settings-search');
   if (!box) return;
   box.hidden = false;
-  const input = box.querySelector('input[type="search"]');
-  const pressed = box.querySelector('.settings-chip[aria-pressed="true"]');
+  const input = box.querySelector                  ('input[type="search"]');
+  const pressed = box.querySelector             ('.settings-chip[aria-pressed="true"]');
   const show = pressed ? pressed.dataset.show : 'all';
   const words = (input ? input.value : '').toLowerCase().split(/\s+/).filter(Boolean);
-  const matches = (el) => words.every((w) => (el.dataset.find || el.textContent.toLowerCase()).includes(w));
+  const matches = (el             ) => words.every((w) => (el.dataset.find || el.textContent.toLowerCase()).includes(w));
   let rows = 0;
   let total = 0;
-  root.querySelectorAll('.plugin-row').forEach((row) => {
+  root.querySelectorAll             ('.plugin-row').forEach((row) => {
     total += 1;
     const inState = show === 'all' || (show === 'attention' && row.dataset.attention === '1') || (show === 'updates' && row.dataset.update === '1')
       || (show === 'active' && row.dataset.active === '1') || (show === 'inactive' && row.dataset.active === '0');
     row.hidden = !(inState && matches(row));
     if (!row.hidden) rows += 1;
   });
-  root.querySelectorAll('.settings-family').forEach((f) => {
-    const shown = [...f.querySelectorAll('.plugin-row')].filter((r) => !r.hidden);
+  root.querySelectorAll             ('.settings-family').forEach((f) => {
+    const shown = [...f.querySelectorAll             ('.plugin-row')].filter((r) => !r.hidden);
     f.hidden = !shown.length;
     f.querySelectorAll('.plugin-row.is-first-shown').forEach((r) => r.classList.remove('is-first-shown'));
     if (shown.length) shown[0].classList.add('is-first-shown');
-    const count = f.querySelector('.settings-family-count');
+    const count = f.querySelector             ('.settings-family-count');
     if (count) count.textContent = String(shown.length);
   });
   let tiles = 0;
-  root.querySelectorAll('.settings-tile[data-find]').forEach((t) => {
+  root.querySelectorAll             ('.settings-tile[data-find]').forEach((t) => {
     t.hidden = show !== 'all' || !matches(t);
     if (!t.hidden) tiles += 1;
   });
-  root.querySelectorAll('.settings-base, .settings-loose').forEach((g) => { g.hidden = ![...g.querySelectorAll('.settings-tile')].some((t) => !t.hidden); });
-  const plugins = root.querySelector('.settings-plugins');
+  root.querySelectorAll             ('.settings-base, .settings-loose').forEach((g) => { g.hidden = ![...g.querySelectorAll             ('.settings-tile')].some((t) => !t.hidden); });
+  const plugins = root.querySelector             ('.settings-plugins');
   if (plugins) {
     // The chips count what is on the page now, after a step has run.
-    box.querySelectorAll('[data-count]').forEach((c) => { const v = plugins.dataset[`count${c.dataset.count[0].toUpperCase()}${c.dataset.count.slice(1)}`]; if (v !== undefined) c.textContent = v; });
+    box.querySelectorAll             ('[data-count]').forEach((c) => { const v = plugins.dataset[`count${c.dataset.count [0] .toUpperCase()}${c.dataset.count .slice(1)}`]; if (v !== undefined) c.textContent = v; });
     // Updates has a chip of its own, shown once npm has answered and there is one: it never changes another count.
-    const updates = box.querySelector('.settings-chip[data-show="updates"]');
+    const updates = box.querySelector             ('.settings-chip[data-show="updates"]');
     if (updates && plugins.dataset.countUpdates !== undefined) updates.hidden = plugins.dataset.countUpdates === '0' && updates.getAttribute('aria-pressed') !== 'true';
     plugins.hidden = total > 0 && rows === 0;
   }
-  root.querySelectorAll('.plugin-catalog-section').forEach((g) => { g.hidden = ![...g.querySelectorAll('.plugin-row')].some((r) => !r.hidden); });
+  root.querySelectorAll             ('.plugin-catalog-section').forEach((g) => { g.hidden = ![...g.querySelectorAll             ('.plugin-row')].some((r) => !r.hidden); });
   const filtering = words.length > 0 || show !== 'all';
-  const none = root.querySelector('.settings-none');
+  const none = root.querySelector             ('.settings-none');
   if (none) none.hidden = !filtering || rows + tiles > 0;
-  const status = box.querySelector('.settings-search-status');
+  const status = box.querySelector             ('.settings-search-status');
   if (status) {
     const said = !filtering ? '' : rows + tiles === 0 ? 'Nothing matches.'
       : `${rows} plugin${rows === 1 ? '' : 's'}${tiles ? ` and ${tiles} base setting${tiles === 1 ? '' : 's'}` : ''} shown.`;
     if (status.textContent !== said) status.textContent = said;
   }
 }
-function settingsSearchInit() { document.querySelectorAll('.settings-home').forEach(settingsSearchApply); }
+function settingsSearchInit() { document.querySelectorAll             ('.settings-home').forEach(settingsSearchApply); }
 document.addEventListener('input', (e) => {
-  const root = e.target.closest && e.target.closest('.settings-search') && e.target.closest('.settings-home');
+  const root = (e.target           ).closest && (e.target           ).closest('.settings-search') && (e.target           ).closest             ('.settings-home');
   if (root) settingsSearchApply(root);
 });
 document.addEventListener('click', (e) => {
-  const chip = e.target.closest && e.target.closest('.settings-chip');
+  const chip = (e.target           ).closest && (e.target           ).closest             ('.settings-chip');
   if (!chip) return;
-  chip.closest('.settings-chips').querySelectorAll('.settings-chip').forEach((c) => c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'));
-  settingsSearchApply(chip.closest('.settings-home'));
+  chip.closest('.settings-chips') .querySelectorAll('.settings-chip').forEach((c) => c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'));
+  settingsSearchApply(chip.closest             ('.settings-home') );
 });
 // "4 need attention" in the summary presses the chip of the same name: the number is the way to those plugins.
 document.addEventListener('click', (e) => {
-  const link = e.target.closest && e.target.closest('[data-press-chip]');
-  const home = link && link.closest('.settings-home');
-  const chip = home && home.querySelector(`.settings-chip[data-show="${link.dataset.pressChip}"]`);
+  const link = (e.target           ).closest && (e.target           ).closest             ('[data-press-chip]');
+  const home = link && link.closest             ('.settings-home');
+  const chip = home && home.querySelector             (`.settings-chip[data-show="${link.dataset.pressChip}"]`);
   if (!chip) return;
   chip.click();
   chip.focus();
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key !== 'Escape' || !e.target.matches || !e.target.matches('.settings-search input[type="search"]') || !e.target.value) return;
-  e.target.value = '';
-  settingsSearchApply(e.target.closest('.settings-home'));
+  if (e.key !== 'Escape' || !(e.target           ).matches || !(e.target           ).matches('.settings-search input[type="search"]') || !(e.target                    ).value) return;
+  (e.target                    ).value = '';
+  settingsSearchApply((e.target           ).closest             ('.settings-home') );
 });
 // Inside the settings modal the overview's links open the tab of the same thing, not a page behind it.
 document.addEventListener('click', (e) => {
-  const a = e.target.closest && e.target.closest('.tabmodal .settings-home a[href^="/settings/"]');
+  const a = (e.target           ).closest && (e.target           ).closest                   ('.tabmodal .settings-home a[href^="/settings/"]');
   if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button) return;
-  const where = a.getAttribute('href').split(/[?#]/)[0];
+  const where = a.getAttribute('href') .split(/[?#]/)[0];
   const id = where === '/settings/plugins' ? 'plugins'
     : where.startsWith('/settings/plugin/') ? `plugin-${where.slice('/settings/plugin/'.length)}` : decodeURIComponent(where.slice('/settings/'.length));
-  const tab = [...a.closest('.tabmodal').querySelectorAll('.tabmodal-tab')].find((t) => t.dataset.tab === id);
+  const tab = [...a.closest('.tabmodal') .querySelectorAll             ('.tabmodal-tab')].find((t) => t.dataset.tab === id);
   if (!tab) return;
   e.preventDefault();
   tab.click();
@@ -1334,8 +1334,8 @@ document.addEventListener('click', (e) => {
 // A tab's content starts at its top: the pane kept the scroll of the tab before it, so a plugin opened
 // from far down the overview showed its middle.
 document.body.addEventListener('htmx:after:swap', (e) => {
-  const tab = e.target && e.target.closest && e.target.closest('.tabmodal-tab');
-  const pane = tab && tab.closest('.tabmodal').querySelector('.tabmodal-pane');
+  const tab = e.target && (e.target           ).closest && (e.target           ).closest             ('.tabmodal-tab');
+  const pane = tab && tab.closest('.tabmodal') .querySelector             ('.tabmodal-pane');
   if (pane) pane.scrollTop = 0;
 });
 // When a step has run, the part of Settings that shows the plugin is drawn again, and the button that
@@ -1344,11 +1344,11 @@ document.body.addEventListener('htmx:after:swap', (e) => {
 let settingsFocusKey = '';
 let settingsFocusItem = '';
 document.addEventListener('focusin', (e) => {
-  const holder = e.target.closest && e.target.closest('[data-refocus]');
-  settingsFocusKey = holder ? holder.dataset.refocus : '';
+  const holder = (e.target           ).closest && (e.target           ).closest             ('[data-refocus]');
+  settingsFocusKey = holder ? holder.dataset.refocus || '' : '';
   // Which of the holder's buttons it was (Deactivate, not just "one of the three").
-  const item = holder && e.target.closest('[data-refocus-item]');
-  settingsFocusItem = item ? item.dataset.refocusItem : '';
+  const item = holder && (e.target           ).closest             ('[data-refocus-item]');
+  settingsFocusItem = item ? item.dataset.refocusItem || '' : '';
 });
 // Several parts of a plugin's page are drawn again by one step, one after the other: the check waits
 // for the last of them, or focus would be put on a button that the next redraw takes away.
@@ -1357,10 +1357,10 @@ document.body.addEventListener('htmx:after:settle', () => {
   clearTimeout(settingsRefocusTimer);
   settingsRefocusTimer = setTimeout(() => {
     if (!settingsFocusKey || (document.activeElement && document.activeElement !== document.body)) return;
-    const holder = [...document.querySelectorAll('[data-refocus]')].find((el) => el.dataset.refocus === settingsFocusKey);
+    const holder = [...document.querySelectorAll             ('[data-refocus]')].find((el) => el.dataset.refocus === settingsFocusKey);
     if (!holder) return;
-    const same = settingsFocusItem && [...holder.querySelectorAll('[data-refocus-item]')].find((el) => el.dataset.refocusItem === settingsFocusItem);
-    const target = same || holder.querySelector('.plugin-step-item.is-now button, .plugin-step-item.is-now a, .plugin-row-action .uk-button, .plugin-buttons .uk-button') || holder;
+    const same = settingsFocusItem && [...holder.querySelectorAll             ('[data-refocus-item]')].find((el) => el.dataset.refocusItem === settingsFocusItem);
+    const target = same || holder.querySelector             ('.plugin-step-item.is-now button, .plugin-step-item.is-now a, .plugin-row-action .uk-button, .plugin-buttons .uk-button') || holder;
     if (target === holder && !holder.hasAttribute('tabindex')) holder.setAttribute('tabindex', '-1');
     target.focus();
   }, 120);
@@ -1371,39 +1371,40 @@ document.body.addEventListener('htmx:after:settle', settingsSearchInit);
 
 // A settings file: find a key, see a switch say what it is, and know when there is something unsaved.
 document.addEventListener('input', (e) => {
-  const box = e.target.closest && e.target.closest('.settings-find');
+  const box = (e.target           ).closest && (e.target           ).closest                  ('.settings-find');
   if (!box) return;
-  const card = box.closest('.settings-card');
+  const card = box.closest('.settings-card') ;
   const words = box.value.toLowerCase().split(/\s+/).filter(Boolean);
   let shown = 0;
-  card.querySelectorAll('.settings-form .settings-row').forEach((row) => {
+  card.querySelectorAll             ('.settings-form .settings-row').forEach((row) => {
     const on = words.every((w) => row.textContent.toLowerCase().includes(w));
     row.hidden = !on;
     if (on) shown += 1;
   });
-  card.querySelectorAll('.settings-form .settings-group').forEach((g) => {
-    g.hidden = !!words.length && ![...g.querySelectorAll('.settings-row')].some((r) => !r.hidden);
+  card.querySelectorAll             ('.settings-form .settings-group').forEach((g) => {
+    g.hidden = !!words.length && ![...g.querySelectorAll             ('.settings-row')].some((r) => !r.hidden);
   });
-  const none = card.querySelector('.settings-find-none');
+  const none = card.querySelector             ('.settings-find-none');
   if (none) none.hidden = shown > 0 || !words.length;
 });
 document.addEventListener('change', (e) => {
-  const sw = e.target.closest && e.target.closest('.settings-switch');
-  if (sw) { const st = sw.parentElement.querySelector('.settings-switch-state'); if (st) st.textContent = sw.checked ? 'On' : 'Off'; }
+  const sw = (e.target           ).closest && (e.target           ).closest                  ('.settings-switch');
+  if (sw) { const st = sw.parentElement .querySelector('.settings-switch-state'); if (st) st.textContent = sw.checked ? 'On' : 'Off'; }
 });
 ['input', 'change'].forEach((t) => document.addEventListener(t, (e) => {
-  const form = e.target.closest && e.target.closest('.settings-form');
+  const form = (e.target           ).closest && (e.target           ).closest             ('.settings-form');
   // The list editor writes as it goes, so its fields are never unsaved settings.
-  if (!form || e.target.closest('.settings-find, [id^="list-editor"]')) return;
+  if (!form || (e.target           ).closest('.settings-find, [id^="list-editor"]')) return;
   form.dataset.dirty = '1';
-  const d = form.querySelector('.settings-dirty');
+  const d = form.querySelector             ('.settings-dirty');
   if (d) d.hidden = false;
 }));
 document.body.addEventListener('htmx:after:request', (e) => {
-  const form = e.target && e.target.closest && e.target.closest('.settings-form');
-  if (!form || e.target.closest('[id^="list-editor"]')) return;
-  const ok = e.detail && e.detail.ctx && e.detail.ctx.response ? e.detail.ctx.response.status < 400 : true;
-  if (ok) { delete form.dataset.dirty; const d = form.querySelector('.settings-dirty'); if (d) d.hidden = true; }
+  const form = e.target && (e.target           ).closest && (e.target           ).closest             ('.settings-form');
+  if (!form || (e.target           ).closest('[id^="list-editor"]')) return;
+  const det = (e               ).detail;
+    const ok = det && det.ctx && det.ctx.response ? det.ctx.response.status < 400 : true;
+  if (ok) { delete form.dataset.dirty; const d = form.querySelector             ('.settings-dirty'); if (d) d.hidden = true; }
   // On a plugin's own page a save can finish its last step: the state and the steps beside the form are
   // drawn again, so "Needs settings" does not stay on screen over a file that was just filled in.
   if (ok && form.closest('.plugin-page')) document.body.dispatchEvent(new CustomEvent('refresh-projects'));
@@ -3207,9 +3208,10 @@ document.body.addEventListener('htmx:after:settle', (e) => {
 (function () {
   let lastSuggested = '';
   document.body.addEventListener('suggest-project-name', (e) => {
-    const name = typeof e.detail === 'string' ? e.detail : (e.detail && e.detail.value);
+    const d = (e               ).detail;
+    const name = typeof d === 'string' ? d : (d && d.value);
     if (!name) return;
-    document.querySelectorAll('input[data-suggest-name]').forEach((input) => {
+    document.querySelectorAll                  ('input[data-suggest-name]').forEach((input) => {
       const now = input.value.trim();
       if (now !== '' && now !== lastSuggested) return;   // theirs, not ours
       input.value = name;
@@ -3221,7 +3223,7 @@ document.body.addEventListener('htmx:after:settle', (e) => {
 // Who is signed in, when the dashboard asks for Google sign-in: the name and a way out. With sign-in off
 // /auth/me says so and nothing is drawn.
 (function () {
-  var slot = document.getElementById('auth-user');
+  var slot = document.getElementById('auth-user') ;
   if (!slot || !window.fetch) return;
   fetch('/auth/me', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (u) {
     if (!u || !u.enabled || !u.email) return;
@@ -3241,27 +3243,27 @@ document.body.addEventListener('htmx:after:settle', (e) => {
 
 // The image viewer: fit or actual size, and the arrow keys step through the list it was opened from.
 document.addEventListener('click', (e) => {
-  const btn = e.target && e.target.closest ? e.target.closest('[data-img-zoom]') : null;
+  const btn = e.target && (e.target           ).closest ? (e.target           ).closest             ('[data-img-zoom]') : null;
   if (!btn) return;
-  const stage = btn.closest('[data-img-viewer]') && btn.closest('[data-img-viewer]').querySelector('[data-img-stage]');
+  const stage = btn.closest('[data-img-viewer]') && btn.closest('[data-img-viewer]') .querySelector             ('[data-img-stage]');
   if (!stage) return;
   const fit = stage.classList.toggle('is-fit');
   btn.textContent = fit ? 'Actual size' : 'Fit';
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-  const viewer = document.querySelector('#editor-modal.uk-open [data-img-viewer]');
-  if (!viewer || e.target.closest('input, textarea, select, [contenteditable]')) return;
-  const btn = viewer.querySelector(e.key === 'ArrowLeft' ? '[data-img-prev]' : '[data-img-next]');
+  const viewer = document.querySelector             ('#editor-modal.uk-open [data-img-viewer]');
+  if (!viewer || (e.target           ).closest('input, textarea, select, [contenteditable]')) return;
+  const btn = viewer.querySelector             (e.key === 'ArrowLeft' ? '[data-img-prev]' : '[data-img-next]');
   if (!btn) return;
   e.preventDefault();
   btn.click();
 });
 
 // Upload images: each file is its own request with its bytes as the body, then the gallery refreshes.
-async function uploadImages(box, files) {
-  const log = box.querySelector('[data-img-upload-log]');
-  const folder = (box.querySelector('[data-img-upload-folder]') || {}).value || '';
+async function uploadImages(box             , files        ) {
+  const log = box.querySelector             ('[data-img-upload-log]') ;
+  const folder = box.querySelector                  ('[data-img-upload-folder]')?.value || '';
   for (const f of files) {
     const li = document.createElement('li');
     li.textContent = `${f.name}…`;
@@ -3271,55 +3273,55 @@ async function uploadImages(box, files) {
         { method: 'POST', body: f, headers: { 'Content-Type': f.type || 'application/octet-stream' } });
       li.innerHTML = await r.text();
     } catch (err) {
-      li.textContent = `${f.name}: ${err.message}`;
+      li.textContent = `${f.name}: ${(err         ).message}`;
     }
   }
   if (window.htmx) htmx.trigger(document.body, 'refresh-projects');
 }
 document.addEventListener('change', (e) => {
-  const input = e.target && e.target.matches && e.target.matches('[data-img-upload-input]') ? e.target : null;
-  if (input && input.files.length) uploadImages(input.closest('[data-img-upload]'), [...input.files]);
+  const input = e.target && (e.target           ).matches && (e.target           ).matches('[data-img-upload-input]') ? e.target                     : null;
+  if (input && input.files .length) uploadImages(input.closest             ('[data-img-upload]') , [...input.files ]);
 });
 ['dragover', 'dragleave', 'drop'].forEach((type) => document.addEventListener(type, (e) => {
-  const zone = e.target && e.target.closest ? e.target.closest('[data-img-drop]') : null;
+  const zone = e.target && (e.target           ).closest ? (e.target           ).closest             ('[data-img-drop]') : null;
   if (!zone) return;
   e.preventDefault();
   zone.classList.toggle('is-over', type === 'dragover');
-  if (type === 'drop' && e.dataTransfer.files.length) uploadImages(zone.closest('[data-img-upload]'), [...e.dataTransfer.files]);
+  if (type === 'drop' && (e             ).dataTransfer .files.length) uploadImages(zone.closest             ('[data-img-upload]') , [...(e             ).dataTransfer .files]);
 }));
 
 // Choosing a DDEV quickstart fills the fields beside it; each can still be changed.
 document.addEventListener('change', (e) => {
-  const sel = e.target && e.target.closest ? e.target.closest('select[data-ddev-preset]') : null;
+  const sel = e.target && (e.target           ).closest ? (e.target           ).closest                   ('select[data-ddev-preset]') : null;
   if (!sel) return;
   const o = sel.selectedOptions[0];
-  const box = sel.closest('.ddev-options');
+  const box = sel.closest             ('.ddev-options') ;
   if (!o || !o.value || !box) return;
   ['project_type', 'php_version', 'database', 'webserver_type'].forEach((k) => {
-    const f = box.querySelector(`[name="${k}"]`);
+    const f = box.querySelector                  (`[name="${k}"]`);
     const v = o.dataset[k.replace(/_([a-z])/g, (_, c) => c.toUpperCase())];
     if (f && v !== undefined) f.value = v;
   });
-  const root = box.querySelector('[name="docroot"]');
+  const root = box.querySelector                  ('[name="docroot"]');
   if (root) root.value = o.dataset.docroot === '__default' ? '' : (o.dataset.docroot || '');
-  const omit = box.querySelector('[name="omit_db"]');
+  const omit = box.querySelector                  ('[name="omit_db"]');
   if (omit) omit.checked = o.dataset.omitDb === '1';
-  const py = box.querySelector('[name="python"]');
+  const py = box.querySelector                  ('[name="python"]');
   if (py) py.checked = o.dataset.python === '1';
 });
 
 // Deleting a workspace: Enter in a step's field answers that step instead of submitting the settings form around it.
 document.addEventListener('keydown', (e) => {
-  const field = e.key === 'Enter' && e.target.closest && e.target.closest('.ws-delete-step input');
+  const field = e.key === 'Enter' && (e.target           ).closest && (e.target           ).closest                  ('.ws-delete-step input');
   if (!field) return;
   e.preventDefault();
-  const go = field.closest('.ws-delete-step').querySelector('.ws-delete-go');
+  const go = field.closest('.ws-delete-step') .querySelector             ('.ws-delete-go');
   if (go) go.click();
 });
 // Focus the step's field after the swap, and again once the confirm dialog has closed, which hands focus to the body.
 const focusWsDeleteStep = () => {
-  const field = document.querySelector('.ws-delete-step input');
+  const field = document.querySelector                  ('.ws-delete-step input');
   if (field && document.activeElement !== field) field.focus();
 };
 document.body.addEventListener('htmx:after:swap', focusWsDeleteStep);
-document.addEventListener('hidden', (e) => { if (e.target && e.target.id === 'confirm-modal') setTimeout(focusWsDeleteStep, 0); }, true);
+document.addEventListener('hidden', (e) => { if (e.target && (e.target           ).id === 'confirm-modal') setTimeout(focusWsDeleteStep, 0); }, true);

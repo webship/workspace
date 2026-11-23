@@ -1683,7 +1683,7 @@ function assistantHtml({ context = 'home' } = {}) {
         </div>
       </div>
       ${speechAssistantSettings(loadSettings()).avatar === 'none' ? '' : `<div class="assistant-avatar-stage" role="group" aria-label="The assistant's avatar"
-           data-cast="${esc(JSON.stringify({ start: speechAssistantSettings(loadSettings()).avatar, avatars: require('./assistant-cast').avatarCast(loadSettings(), ROOT) }))}">
+           data-cast="${esc(JSON.stringify({ start: speechAssistantSettings(loadSettings()).avatar, avatars: require('./assistant-cast.mts').avatarCast(loadSettings(), ROOT) }))}">
         <canvas class="assistant-avatar-canvas" aria-hidden="true"></canvas>
       </div>
       <div class="assistant-avatar-chips" role="group" aria-label="Quick replies" hidden></div>`}
@@ -8335,16 +8335,16 @@ Summarise what you changed and how to verify it`,
         const sticky = `${wsKey}/${loadWorkspaces()[wsKey].kind === 'files' ? 'items' : 'projects'}`;
         return res.end(await workspacePage(wsKey, readPageState(req, sticky)));
       }
-      // An avatar settings.yml names, read from the avatars workspace where its model lives (assistant-cast.js).
+      // An avatar settings.yml names, read from the avatars workspace where its model lives (assistant-cast.mts).
       const avatarModel = pathname.match(/^\/avatar\/model\/([a-z0-9][a-z0-9_-]{0,62})\.vrm$/);
-      if (avatarModel) return require('./assistant-cast').serveAvatarModel(res, avatarModel[1], loadSettings(), ROOT);
-      // The moves an offered avatar's own project brings, checked before they are served (assistant-cast.js).
+      if (avatarModel) return require('./assistant-cast.mts').serveAvatarModel(res, avatarModel[1], loadSettings(), ROOT);
+      // The moves an offered avatar's own project brings, checked before they are served (assistant-cast.mts).
       const avatarMoves = pathname.match(/^\/avatar\/moves\/([a-z0-9][a-z0-9_-]{0,62})\.js$/);
-      if (avatarMoves) return require('./assistant-cast').serveAvatarMoves(res, avatarMoves[1], loadSettings(), ROOT);
+      if (avatarMoves) return require('./assistant-cast.mts').serveAvatarMoves(res, avatarMoves[1], loadSettings(), ROOT);
       // The ElevenLabs voices the avatar can speak in, once the account is connected; listing them is free.
       if (pathname === '/fragments/assistant/voices') {
         let out;
-        try { out = await require('./assistant-cast').elevenVoices(loadSettings()); } catch (_) { out = { connected: true, voices: [], error: 'ElevenLabs could not be reached.' }; }
+        try { out = await require('./assistant-cast.mts').elevenVoices(loadSettings()); } catch (_) { out = { connected: true, voices: [], error: 'ElevenLabs could not be reached.' }; }
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
         return res.end(JSON.stringify(out));
       }
@@ -8369,7 +8369,7 @@ Summarise what you changed and how to verify it`,
       req.on('end', async () => {
         try {
           const { voice, text } = JSON.parse(raw || '{}');
-          const audio = await require('./assistant-cast').elevenSpeak(loadSettings(), { voice, text });
+          const audio = await require('./assistant-cast.mts').elevenSpeak(loadSettings(), { voice, text });
           res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store', 'Content-Length': audio.length });
           res.end(audio);
         } catch (err) { fail(err.status || 500, err.message || 'Speaking failed.'); }

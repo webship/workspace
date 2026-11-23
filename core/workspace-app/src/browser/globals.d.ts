@@ -10,7 +10,10 @@ interface UIkitApi {
 interface HtmxApi {
   process(el: Element): void;
   ajax(verb: string, url: string, opts: { target: string; swap: string }): Promise<unknown>;
+  trigger(el: Element, name: string, detail?: unknown): void;
 }
+/** htmx, as the vendored script puts it on the page. */
+declare const htmx: HtmxApi;
 
 interface Window {
   UIkit?: UIkitApi;
