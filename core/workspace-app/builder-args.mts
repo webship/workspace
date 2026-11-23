@@ -100,6 +100,19 @@ export function argSourceOf(src: string, root: string): ArgSource | null {
 }
 
 /**
+ * A help text as `--help` prints it (#767): argparse fills `%(default)s` with the option's default and
+ * `%(choices)s` with its choices joined by a comma and a space, and prints `%%` as `%`. Python writes a boolean as
+ * True or False. Any other `%(name)s` is left as it is.
+ */
+export function expandHelp(help: string, def: string | boolean, choices: string[]): string {
+  const value = typeof def === 'boolean' ? (def ? 'True' : 'False') : String(def ?? '');
+  return String(help || '').replace(/%\((default|choices)\)s|%%/g, (m: string, name?: string) => {
+    if (m === '%%') return '%';
+    return name === 'default' ? value : choices.join(', ');
+  });
+}
+
+/**
  * The schema for one builder: [{ flag, bool, def, help }].
  *
  * `def` is the EFFECTIVE default: the arg file's own, expanded from the builder's
@@ -117,10 +130,10 @@ export function parseBuilderArgs(dir: string, script: string, root: string): Bui
     const vars = scriptAssignments(src);
     const text = where.kind === 'inline' ? src : fs.readFileSync(where.file, 'utf8');
     return parseArgparseText(expandDefaults(text, vars)).map((a) => {
-      if (a.bool || a.def) return a;
       const dest = a.flag.replace(/^--/, '').replace(/-/g, '_');
-      const own = vars[dest] ?? vars[`${dest}_default`];
-      return own ? { ...a, def: own } : a;
+      const own = a.bool || a.def ? undefined : vars[dest] ?? vars[`${dest}_default`];
+      const def = own || a.def;
+      return { ...a, def, help: expandHelp(a.help, def, a.choices) };
     });
   } catch (_) {
     return [];
