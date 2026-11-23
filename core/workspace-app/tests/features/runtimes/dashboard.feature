@@ -34,11 +34,11 @@ Feature: The dashboard itself on a plain address
 
   # What the palette goes to is this address's own (#759): a workspace folder is a page of this dashboard, the way its
   # card is, where it used to be the hub's. A workspace with no folder yet (a fresh one) has none to go to, and the
-  # scenario is skipped there with the reason.
+  # scenario is skipped there with the reason. (The folder's page itself is not asked for links to the hub here: a
+  # DDEV project's Launch on it still leads there, #764.)
   @needs-plain-address
   Scenario: The palette opens a workspace folder on that address
     Given I am on "/"
      When I choose the first workspace folder in the palette
      Then I should be on that folder's page of this dashboard
       And the footer should name the address of this dashboard
-      And no link of the page should lead to the hub
