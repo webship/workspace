@@ -22,7 +22,7 @@ function words(file) {
 
 /** Generate SVG: the same checks as the API path; a refused drawing goes back to Claude with the reason. */
 function finishSvg(job, jobFile, svgPath) {
-  const core = require('../images-svg-core');
+  const core = require('../images-svg-core.mts');
   const done = core.finish(fs.readFileSync(svgPath, 'utf8'), { style: job.style, motion: job.motion });
   job.tried = (job.tried || 0) + 1;
   if (!done.ok) {

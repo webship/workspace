@@ -6,7 +6,7 @@ const path = require('path');
 const http = require('http');
 
 const { sanitizeSvg, removedSummary } = require('../../images-svg-sanitize.mts');
-const core = require('../../images-svg-core');
+const core = require('../../images-svg-core.mts');
 const svg = require('../../images-svg');
 
 const GOOD = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400">'
