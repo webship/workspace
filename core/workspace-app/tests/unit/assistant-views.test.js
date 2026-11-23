@@ -110,7 +110,7 @@ test('the full-page view is escapable from an ordinary page', () => {
 test('showing it does not pretend to open a page that is already open', () => {
   // On /assistant the assistant IS the page: writing a closed/open state there set something nobody
   // could see, which then decided the panel on the next ordinary page for no reason the user gave.
-  const handler = ui.slice(ui.indexOf("e.target.closest('.assistant-open-pick')"), ui.indexOf("e.target.closest('.assistant-open-pick')") + 500);
+  const handler = ui.slice(ui.indexOf("closest('.assistant-open-pick')"), ui.indexOf("closest('.assistant-open-pick')") + 500);
   assert.match(handler, /if \(window\.location\.pathname === '\/assistant'\) return;/);
   assert.ok(handler.indexOf("pathname === '/assistant'") < handler.indexOf('setAssistantOpen'),
     'it must return before writing the open state');

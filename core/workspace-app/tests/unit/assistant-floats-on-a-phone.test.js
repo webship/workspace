@@ -47,7 +47,8 @@ test('on a narrow screen it starts closed unless the person chose', () => {
 });
 
 test('the corner launcher gives focus to the prompt it opens', () => {
-  const launcher = ui.slice(ui.indexOf("if (e.target.closest('.assistant-launcher')) {"));
+  // (From the selector: where the part's TypeScript has a type, ui.js holds blank space.)
+  const launcher = ui.slice(ui.indexOf("closest('.assistant-launcher')) {"));
   assert.match(launcher.slice(0, 400), /setAssistantOpen\(true\);\s*focusAssistantPrompt\(\);/);
   assert.match(ui, /chat\.shadowRoot\.querySelector\('#text-input'\)/);
 });

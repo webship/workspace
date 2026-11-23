@@ -12,10 +12,10 @@ document.body.addEventListener('chat-cleared', () => { window.location.reload();
 // Applied by the pre-paint script, like the assistant's view: this is the width of the main column, and
 // changing it after the page is drawn moves everything on it.
 document.addEventListener('click', (e) => {
-  const pick = e.target.closest('.page-width-pick');
+  const pick = (e.target as Element).closest<HTMLElement>('.page-width-pick');
   if (!pick) return;
   e.preventDefault();
-  const width = pick.dataset.width;
+  const width = pick.dataset.width || '';
   if (!['comfortable', 'wide', 'full'].includes(width)) return;
   document.documentElement.dataset.pageWidth = width;
   wsPrefSet('ws-page-width', width);
@@ -25,7 +25,7 @@ document.addEventListener('click', (e) => {
 // Comfortable or compact project rows. The same buttons; compact folds the caption under each one away, and
 // shows it on hover instead. Applied before first paint, like the width.
 document.addEventListener('click', (e) => {
-  const pick = e.target.closest('.density-pick');
+  const pick = (e.target as Element).closest<HTMLElement>('.density-pick');
   if (!pick) return;
   e.preventDefault();
   const density = pick.dataset.density === 'compact' ? 'compact' : 'comfortable';
@@ -35,7 +35,7 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('click', (e) => {
-  const pick = e.target.closest('.tool-labels-pick');
+  const pick = (e.target as Element).closest<HTMLElement>('.tool-labels-pick');
   if (!pick) return;
   e.preventDefault();
   const mode = pick.dataset.toolLabels === 'words' ? 'words' : 'icons';
@@ -45,12 +45,12 @@ document.addEventListener('click', (e) => {
 });
 
 // The caption of a button is also its tooltip, so folding it away loses nothing for a pointer.
-function syncRowCaptions(root) {
+function syncRowCaptions(root?: ParentNode | null) {
   for (const wrap of (root && typeof root.querySelectorAll === 'function' ? root : document).querySelectorAll('.act-with-status')) {
     const cap = wrap.querySelector('.act-status');
     const btn = wrap.querySelector('button');
     if (!cap || !btn) continue;
-    const text = cap.textContent.trim();
+    const text = (cap.textContent || '').trim();
     if (text && !(btn.title || '').includes(text)) btn.title = btn.title ? `${btn.title} · ${text}` : text;
   }
 }
@@ -64,7 +64,7 @@ const BASE_TITLE = document.title;
 function syncTitleState() {
   const w = document.querySelector('.screens-count .screens-waiting');
   if (!w) { document.title = BASE_TITLE; return; }
-  const n = parseInt(w.textContent.replace(/[^0-9]/g, ''), 10) || 1;
+  const n = parseInt((w.textContent || '').replace(/[^0-9]/g, ''), 10) || 1;
   document.title = `✋ ${n} waiting · ${BASE_TITLE}`;
 }
 document.body.addEventListener('htmx:after:swap', (e) => {

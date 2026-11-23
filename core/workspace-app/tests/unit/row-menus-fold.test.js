@@ -8,7 +8,7 @@ const ui = fs.readFileSync(path.join(root, 'public', 'ui.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'public', 'css', 'components', 'ddev-menu.css'), 'utf8');
 
 test('every long row menu folds, not only DDEV', () => {
-  assert.match(ui, /querySelectorAll\('\.act-menu \.uk-dropdown:not\(\[data-folded\]\)'\)/);
+  assert.match(ui, /querySelectorAll\s*\('\.act-menu \.uk-dropdown:not\(\[data-folded\]\)'\)/);
   assert.match(ui, /if \(links < 8 && rows < 12\) return;/);
 });
 

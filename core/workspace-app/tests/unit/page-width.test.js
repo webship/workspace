@@ -42,7 +42,7 @@ test('the control sits with the other layout controls, not in the rail', () => {
     assert.match(fn, new RegExp(`\\['${w}',`), `no way to choose ${w}`);
   }
   assert.ok(!/actions-width/.test(server), 'the rail row is gone');
-  assert.match(ui, /const pick = e\.target\.closest\('\.page-width-pick'\)/);
+  assert.match(ui, /const pick = \(?e\.target\s*\)?\.closest\s*\('\.page-width-pick'\)/);
   assert.match(ui, /wsPrefSet\('ws-page-width', width\)/, 'and it is remembered for the whole dashboard');
 });
 

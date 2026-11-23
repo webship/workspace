@@ -14,14 +14,14 @@ document.addEventListener('htmx:after:settle', markCurrentViews);
 // this deferred file would draw the page one way and reflow it a frame later. This file only
 // CHANGES it. localStorage, like the theme and the rail — and with the same known limit, that it
 // does not cross the workspace subdomains.
-const ASSISTANT_VIEWS = ['sidebar', 'wide', 'float', 'full'];
+const ASSISTANT_VIEWS: (string | undefined)[] = ['sidebar', 'wide', 'float', 'full'];
 
-function assistantView() {
+function assistantView(): string {
   const v = document.documentElement.dataset.assistantView;
-  return ASSISTANT_VIEWS.includes(v) ? v : 'sidebar';
+  return ASSISTANT_VIEWS.includes(v) ? v! : 'sidebar';
 }
 
-function setAssistantView(view) {
+function setAssistantView(view: string | undefined) {
   if (!ASSISTANT_VIEWS.includes(view)) return;
   // Full page is a place, not a layout: switching to it goes there, and the panel on the page you
   // came from would be a second copy of the same conversation.
@@ -33,7 +33,7 @@ function setAssistantView(view) {
   document.documentElement.dataset.assistantView = view;
   setAssistantOpen(true);
   document.dispatchEvent(new CustomEvent('assistant-view-changed'));
-  wsPrefSet('ws-assistant-view', view);
+  wsPrefSet('ws-assistant-view', view!);
   // Leaving the full-page view has to leave the page too: /assistant has no panel to become a
   // sidebar. Back where you came from, or home when that was somewhere else.
   if (window.location.pathname === '/assistant') {
@@ -48,14 +48,14 @@ function setAssistantView(view) {
 function focusAssistantPrompt() {
   requestAnimationFrame(() => {
     const chat = document.getElementById('ws-deep-chat');
-    const input = chat && chat.shadowRoot && chat.shadowRoot.querySelector('#text-input');
+    const input = chat && chat.shadowRoot && chat.shadowRoot.querySelector<HTMLElement>('#text-input');
     if (input) { input.focus(); return; }
-    const panel = document.querySelector('.assistant-side .assistant-panel');
+    const panel = document.querySelector<HTMLElement>('.assistant-side .assistant-panel');
     if (panel) { if (!panel.hasAttribute('tabindex')) panel.tabIndex = -1; panel.focus(); }
   });
 }
 
-function setAssistantOpen(open) {
+function setAssistantOpen(open: boolean) {
   document.documentElement.classList.toggle('assistant-closed', !open);
   const row = document.querySelector('.actions-assistant');
   if (row) row.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -65,7 +65,7 @@ function setAssistantOpen(open) {
 document.addEventListener('click', (e) => {
   // Show it. In the full-page view there is no panel to show — the assistant IS a page there — so this
   // is the way to it; on that page it is already in front of you and there is nothing to do.
-  if (e.target.closest('.assistant-open-pick')) {
+  if ((e.target as Element).closest('.assistant-open-pick')) {
     e.preventDefault();
     if (window.location.pathname === '/assistant') return;
     if (assistantView() === 'full') { window.location.href = '/assistant'; return; }
@@ -74,17 +74,17 @@ document.addEventListener('click', (e) => {
   }
   // Wider, and back again — one button, because it is one question: how much room does this answer
   // need? Floating has its own size, so there it is the sidebar it widens back into.
-  if (e.target.closest('.assistant-wider')) {
+  if ((e.target as Element).closest('.assistant-wider')) {
     e.preventDefault();
     setAssistantView(assistantView() === 'wide' ? 'sidebar' : 'wide');
     return;
   }
-  const pick = e.target.closest('.assistant-view-pick');
+  const pick = (e.target as Element).closest<HTMLElement>('.assistant-view-pick');
   if (pick) { e.preventDefault(); setAssistantView(pick.dataset.view); return; }
-  if (e.target.closest('.assistant-hide, .assistant-close-pick')) { e.preventDefault(); setAssistantOpen(false); return; }
+  if ((e.target as Element).closest('.assistant-hide, .assistant-close-pick')) { e.preventDefault(); setAssistantOpen(false); return; }
   // The launcher in the corner: the way back in, in every view. In the full-page view there is no
   // panel to show, so it leads to the page instead.
-  if (e.target.closest('.assistant-launcher')) {
+  if ((e.target as Element).closest('.assistant-launcher')) {
     e.preventDefault();
     if (assistantView() === 'full') { window.location.href = '/assistant'; return; }
     setAssistantOpen(true);
@@ -95,8 +95,8 @@ document.addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
   // A pick closes the menu it was made in — a dropdown left open over the panel it just changed reads
   // as a control that did not take.
-  if (e.target.closest('.assistant-dropdown a') && window.UIkit) {
-    const dd = e.target.closest('.uk-dropdown');
+  if ((e.target as Element).closest('.assistant-dropdown a') && window.UIkit) {
+    const dd = (e.target as Element).closest('.uk-dropdown');
     if (dd) window.UIkit.dropdown(dd).hide(false);
   }
 });

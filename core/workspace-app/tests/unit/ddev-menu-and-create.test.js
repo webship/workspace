@@ -10,7 +10,7 @@ const css = read('public', 'css', 'components', 'ddev-menu.css');
 const server = read('server.js');
 
 test('the DDEV menu folds its groups, keeps the first and this project open, and is one column', () => {
-  assert.match(ui, /function foldDdevMenus\(root\)/);
+  assert.match(ui, /function foldDdevMenus\(root\s*\)/);
   assert.match(ui, /\/this project\/i\.test/);
   assert.match(ui, /setAttribute\('aria-expanded'/);
   assert.match(css, /\.act-menu-ddev \.ddev-nav-columns \{ column-count: 1; \}/);
