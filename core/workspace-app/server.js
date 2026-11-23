@@ -141,7 +141,7 @@ const { checksCaption, checksDeclaredOf, checksRowsOf } = require('./checks');
 const { testReportPdfHtml } = require('./report-pdf');
 const {
   milvusProjectName, milvusRestBase, ragInstances, ragBindings, ragInstanceFor, ragWriteBinding,
-  ragCollectionName, milvusPost, ragCollections, ragInvalidate,
+  ragCollectionName, milvusPost, ragCollections, ragInvalidate, attuUrl,
 } = require('./rag');
 const {
   run, jobs, runningJobKey, startJob, jobFragment, screenWrap,
@@ -3952,7 +3952,7 @@ async function projectRowsHtml(key, dir, state) {
                      open something in the page rather than navigating away or swapping the output. -->
                 <li><a href hx-get="/fragments/${esc(key)}/rag-search/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML" uk-toggle="target: #editor-modal"><span uk-icon="icon: search; ratio: .7"></span> Search this index</a></li>
                 <li><a href hx-post="/actions/rag-info" ${vals()}><span uk-icon="icon: info; ratio: .7"></span> Chunks, fields and functions</a></li>
-                <li><a href="https://${esc(instance)}.rag.${hubDomain()}" target="_blank" title="Attu, the Milvus UI"><span uk-icon="icon: link-external; ratio: .7"></span> Open ${esc(collection)} in Attu</a></li>` : ''}
+                <li><a href="${esc(attuUrl(instance))}" target="_blank" title="Attu, the Milvus UI"><span uk-icon="icon: link-external; ratio: .7"></span> Open ${esc(collection)} in Attu</a></li>` : ''}
                 <li class="uk-nav-divider"></li>
                 <li><a href hx-post="/actions/rag-mcp-command" ${vals()}><span uk-icon="icon: link; ratio: .7"></span> Connect over MCP…</a></li>
                 <li><a href hx-get="/fragments/${esc(key)}/rag-server/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML" uk-toggle="target: #editor-modal"><span uk-icon="icon: server; ratio: .7"></span> Use another RAG server…</a></li>
