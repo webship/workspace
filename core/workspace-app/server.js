@@ -39,7 +39,7 @@ const {
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const { esc } = require('./html.mts');
 const tabModal = require('./tab-modal.mts');
-const eventLog = require('./event-log');
+const eventLog = require('./event-log.mts');
 const { sourceOf, commandFlags } = require('./workspaces');
 const { ghCliAuth } = require('./github-auth');
 const { repoTree, gitBlobSha } = require('./repo-blobs');
