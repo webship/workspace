@@ -43,12 +43,13 @@ test('the button shows and the list folds only below 640px; the list keeps its c
 });
 
 test('the script: the button opens and folds, a choice folds it and gives the button focus, Escape folds before it closes', () => {
-  assert.match(ui, /const toggle = e\.target\.closest && e\.target\.closest\('\.tabmodal-toggle'\);/);
+  assert.match(ui, /const toggle = \(?e\.target\s*\)?\.closest && \(?e\.target\s*\)?\.closest\('\.tabmodal-toggle'\);/);
   assert.match(ui, /const t = folds\(tm\);\s*if \(t\) fold\(tm, false, t\);/, 'a chosen tab folds the list and focuses the button');
   assert.match(ui, /if \(label\) label\.textContent = tab\.dataset\.label \|\| '';/, 'the button says the tab chosen');
   // Escape, in the capture phase, ahead of the modal's own; a filter with text in it is emptied first.
-  const esc = ui.slice(ui.indexOf("const tm = e.target.closest && e.target.closest('.tabmodal.is-open');") - 200);
-  assert.match(esc, /if \(box && box\.value\) return;\s*e\.preventDefault\(\);\s*e\.stopPropagation\(\);\s*fold\(tm, false, t\);\s*\}, true\);/);
+  // (From the selector: where the part's TypeScript has a type, ui.js holds blank space.)
+  const esc = ui.slice(ui.indexOf("('.tabmodal.is-open');") - 200);
+  assert.match(esc, /if \(box && box\.value\) return;\s*e\.preventDefault\(\);\s*e\.stopPropagation\(\);\s*fold\(tm\s*, false, t\);\s*\}, true\);/);
   // Only where the button is shown: offsetParent is null where CSS hides it, so wider screens are unchanged.
-  assert.match(ui, /const folds = \(tm\) => \{ const t = tm && tm\.querySelector\('\.tabmodal-toggle'\); return t && t\.offsetParent \? t : null; \};/);
+  assert.match(ui, /const folds = \(tm\s*\) => \{ const t = tm && tm\.querySelector\s*\('\.tabmodal-toggle'\); return t && t\.offsetParent \? t : null; \};/);
 });

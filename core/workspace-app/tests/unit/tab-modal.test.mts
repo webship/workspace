@@ -79,7 +79,7 @@ test('a tab that is loading marks its pane busy and says so, and shows nothing o
   assert.match(block, /pane\.setAttribute\('aria-busy', 'true'\)/);
   assert.match(block, /note\.textContent = `Loading \$\{label \|\| 'this tab'\}…`/);
   // (Choosing one also folds the list on a phone, #669: the select and the busy mark stay what they were.)
-  assert.match(block, /if \(tab\) \{\s*const tm = tab\.closest\('\.tabmodal'\);\s*select\(tm, tab\);\s*busy\(tm, tab\.dataset\.label\);/,
+  assert.match(block, /if \(tab\) \{\s*const tm = tab\.closest\s*\('\.tabmodal'\)\s*;\s*select\(tm, tab\);\s*busy\(tm, tab\.dataset\.label\);/,
     'choosing a tab marks its pane busy');
   assert.match(block, /busy\(tm, tab2 \? tab2\.dataset\.label : a\.textContent\.trim\(\)\)/, 'a link inside a pane does too');
   assert.match(block, /'htmx:after:swap'[\s\S]{0,160}removeAttribute\('aria-busy'\)/, 'the content that arrives ends it');
@@ -157,7 +157,7 @@ test('the answer of a tab no longer chosen never lands under the chosen one, and
   const guard = ui.slice(ui.indexOf("document.addEventListener('htmx:before:swap', (e) => {\n    const ctx"));
   assert.ok(guard.length > 0 && guard.length < ui.length, 'no guard on document');
   const body = guard.slice(0, guard.indexOf('});') + 3);
-  assert.match(body, /const src = ctx\.sourceElement \|\| e\.target;/, 'the asker, also once it has left the page');
+  assert.match(body, /const src = ctx\.sourceElement \|\| \(?e\.target\s*\)?;/, 'the asker, also once it has left the page');
   assert.match(body, /tab\.getAttribute\('aria-selected'\) !== 'true'/);
   assert.match(body, /first && tm && tm\.dataset\.chosen === '1'/, 'the first load gives way to a tab chosen before it answered');
   assert.match(body, /e\.preventDefault\(\);/);

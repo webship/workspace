@@ -11,6 +11,8 @@ interface HtmxApi {
   process(el: Element): void;
   ajax(verb: string, url: string, opts: { target: string; swap: string }): Promise<unknown>;
   trigger(el: Element, name: string, detail?: unknown): void;
+  /** The same request, swapped into an element the caller holds rather than one a selector names (the tab modals). */
+  ajax(verb: string, url: string, opts: { target: Element; swap: string }): Promise<unknown>;
 }
 /** htmx, as the vendored script puts it on the page. */
 declare const htmx: HtmxApi;
