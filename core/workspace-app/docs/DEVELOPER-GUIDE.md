@@ -289,7 +289,7 @@ committed: a fresh clone still runs the dashboard with no build step.
 - **A test that reads a script's source** reads the `.ts` (`src/browser/media-player.ts`): the built file has no
   comments and esbuild's formatting. A test that runs a script requires the built `public/<name>.js`.
 - **Not built:** the vendored libraries (`public/vendor/`, `htmx.min.js`, UIkit) stay as they are shipped.
-- **Converted so far:** `narration`, `media-player`, `sortable`, `mic`, `palette`, `suggest`, `terminal` (xterm.js and its addons declared in `globals.d.ts` with what the script uses of them; a pane's own properties typed by an interface that extends the element), and `ui.js` split in parts, nine of them typed (`05-list-filter`, `06-search-and-focus`, `08-help`, `09-page-room`, `10-rail-arranged`, `11-cards`, `12-assistant-shown`, `16-new-screen-form`, `17-screens-columns`). The other scripts in
+- **Converted so far:** `narration`, `media-player`, `sortable`, `mic`, `palette`, `suggest`, `terminal` (xterm.js and its addons declared in `globals.d.ts` with what the script uses of them; a pane's own properties typed by an interface that extends the element), and `ui.js` split in parts, twelve of them typed (`03-rail`, `05-list-filter`, `06-search-and-focus`, `07-settings-search`, `08-help`, `09-page-room`, `10-rail-arranged`, `11-cards`, `12-assistant-shown`, `16-new-screen-form`, `17-screens-columns`, `18-build-name`). The other scripts in
   `public/` are still hand-written JavaScript until their turn. A test that reads a script's source and must work
   for both kinds reads `src/browser/<name>.ts` when there is one, else `public/<name>.js`
   (`board-pointer-and-swaps.test.js`).
@@ -318,7 +318,7 @@ committed: a fresh clone still runs the dashboard with no build step.
   `src/browser/ui/tsconfig.json`: scripts that share one scope (`moduleDetection: legacy`), as they do in `ui.js`,
   with `../globals.d.ts`; `npm run typecheck` runs it. A part declares no new top-level name for its types' sake
   (an `interface` is fine: it leaves nothing behind). A name a `.js` part declares and a `.ts` part uses goes in
-  `src/browser/ui/shared.d.ts` until its part is typed (`wsPrefSet` and `swappedEl`, from `01-core`); a test holds that it goes from
+  `src/browser/ui/shared.d.ts` until its part is typed (`wsPref`, `wsPrefSet` and `swappedEl`, from `01-core`); a test holds that it goes from
   there then. What a part puts on `window` is declared in `src/browser/globals.d.ts` (`navSyncGroups`,
   `screenKindChanged`, `screenNameFollowsTarget`, `screenPromptTemplate`).
 - **Next:** type the other parts one or a few per PR, smallest first and `13-assistant-chat` (680 lines) last.

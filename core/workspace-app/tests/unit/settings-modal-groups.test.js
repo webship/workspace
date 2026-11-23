@@ -30,14 +30,14 @@ test('a file that has no tab of its own any more still opens from an address kep
 
 test('inside the modal a link of the overview opens the tab of the same thing', () => {
   const ui = read('public/ui.js');
-  assert.match(ui, /closest\('\.tabmodal \.settings-home a\[href\^="\/settings\/"\]'\)/);
+  assert.match(ui, /closest\s*\('\.tabmodal \.settings-home a\[href\^="\/settings\/"\]'\)/);
   assert.match(ui, /where\.startsWith\('\/settings\/plugin\/'\) \? `plugin-\$\{/);
   assert.match(ui, /e\.metaKey \|\| e\.ctrlKey/, 'a click that asks for a new tab is left to the browser');
 });
 
 test('a tab opens at its top, whatever the scroll of the tab before it', () => {
   const ui = read('public/ui.js');
-  assert.match(ui, /closest\('\.tabmodal-tab'\);\s*const pane = tab && tab\.closest\('\.tabmodal'\)\.querySelector\('\.tabmodal-pane'\);\s*if \(pane\) pane\.scrollTop = 0;/);
+  assert.match(ui, /closest\s*\('\.tabmodal-tab'\);\s*const pane = tab && tab\.closest\('\.tabmodal'\)\s*\.querySelector\s*\('\.tabmodal-pane'\);\s*if \(pane\) pane\.scrollTop = 0;/);
 });
 
 test('the modal takes focus into the dialog when it opens and gives it back to what opened it', () => {
