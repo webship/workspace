@@ -86,6 +86,9 @@ test('ddev config writes .lando.yml: the lamp recipe, the block, a port of this 
   assert.ok(lando.includes(`- "127.0.0.1:${port}:80"`), 'the site on this machine only');
   assert.ok(lando.includes(`- "127.0.0.1:${mail}:80"`), "Mailpit's page and API on this machine only");
   assert.match(lando, /WEBSHIP_RUNTIME: lando/);
+  // Lando's Apache passes BACKDROP_SETTINGS to the site: valid JSON with nothing in it, not the text of the variable.
+  assert.match(lando, /^ {8}BACKDROP_SETTINGS: "\{\}"$/m);
+  assert.deepStrictEqual(JSON.parse(lando.match(/^ {8}BACKDROP_SETTINGS: "(.*)"$/m)[1]), {});
   assert.match(lando, /creds:\n {6}user: db\n {6}password: db\n {6}database: db/);
   assert.match(lando, /wp-cli\.phar/, 'WP-CLI, as the php stack has it');
   assert.match(lando, /aliases:\n {12}- db\n/, 'the database on the host db too, as on the other runtimes');
