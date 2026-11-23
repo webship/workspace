@@ -10,12 +10,12 @@
 // would last exactly one poll. Kept per browser, like the theme and the page width.
 (function screensColumns() {
   const KEY = 'ws-screens-cols';
-  const read = () => {
-    try { return ['1', '2', '3'].includes(localStorage.getItem(KEY)) ? localStorage.getItem(KEY) : '1'; }
+  const read = (): string => {
+    try { const v = localStorage.getItem(KEY) || ''; return ['1', '2', '3'].includes(v) ? v : '1'; }
     catch (_) { return '1'; }
   };
   function apply() {
-    const list = document.querySelector('.screens-list');
+    const list = document.querySelector<HTMLElement>('.screens-list');
     // The modal only wears the count while it is actually holding the list: it is the one modal in the
     // dashboard, and an editor opened after the screens would otherwise inherit a width chosen for
     // three columns of session cards.
@@ -29,7 +29,7 @@
     list.dataset.cols = cols;
     // The buttons only: the modal itself carries data-screens-cols for its width, and as a match it was
     // being given the primary button's class, which painted the whole overlay brand blue.
-    document.querySelectorAll('button[data-screens-cols]').forEach((b) => {
+    document.querySelectorAll<HTMLButtonElement>('button[data-screens-cols]').forEach((b) => {
       const on = b.dataset.screensCols === cols;
       b.classList.toggle('uk-button-primary', on);
       b.classList.toggle('uk-button-default', !on);
@@ -39,10 +39,10 @@
   document.addEventListener('click', (e) => {
     // The count buttons only. The modal wears data-screens-cols too (for its width): matched here, every
     // click inside the Screens modal was cancelled, and a link in it — "the Screens page" — went nowhere.
-    const btn = e.target.closest('button[data-screens-cols]');
+    const btn = (e.target as Element).closest<HTMLButtonElement>('button[data-screens-cols]');
     if (!btn) return;
     e.preventDefault();
-    try { localStorage.setItem(KEY, btn.dataset.screensCols); } catch (_) { /* private window */ }
+    try { localStorage.setItem(KEY, btn.dataset.screensCols || '1'); } catch (_) { /* private window */ }
     apply();
   });
   document.addEventListener('DOMContentLoaded', apply);

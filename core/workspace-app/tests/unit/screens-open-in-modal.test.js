@@ -72,8 +72,9 @@ test('the asked session is kept fresh by one loader, in the modal and on the pag
 test('a click inside the Screens modal is not cancelled by the column buttons', () => {
   // The modal wears data-screens-cols for its width: a handler that matched it cancelled every click
   // inside the modal, and the link to the Screens page went nowhere.
-  assert.match(ui, /e\.target\.closest\('button\[data-screens-cols\]'\)/);
-  assert.doesNotMatch(ui, /e\.target\.closest\('\[data-screens-cols\]'\)/);
+  // (\s* and the bracket where the part's TypeScript has a type, which ui.js holds as blank space.)
+  assert.match(ui, /e\.target\s*\)?\.closest\s*\('button\[data-screens-cols\]'\)/);
+  assert.doesNotMatch(ui, /e\.target\s*\)?\.closest\s*\('\[data-screens-cols\]'\)/);
 });
 
 // ------------------------------------------------------------ the notices --

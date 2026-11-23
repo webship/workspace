@@ -1,0 +1,21 @@
+{
+  // The type check of ui.js's parts (src/browser/ui/NN-<part>.ts). The build joins the parts, in the order of
+  // their names, into public/ui.js, one classic script: so they are checked as scripts that share one scope (no
+  // forced module detection), and a part may use a name another .ts part declares. A name a part still in .js
+  // declares, and a .ts part uses, is declared in shared.d.ts until its part is converted. See
+  // docs/DEVELOPER-GUIDE.md, "TypeScript".
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "target": "es2022",
+    "lib": ["es2022", "dom", "dom.iterable"],
+    // No Node.js types: these run in a page.
+    "types": [],
+    "moduleDetection": "legacy",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "erasableSyntaxOnly": true,
+    "skipLibCheck": true
+  },
+  "include": ["*.ts", "../globals.d.ts"]
+}
