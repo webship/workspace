@@ -14,7 +14,8 @@
   interface PaletteData {
     workspaces: { key: string; label: string; url: string; kind?: string }[];
     pages: { label: string; hint: string; url: string }[];
-    projects: { name: string; ws: string; url: string; ddev?: boolean }[];
+    /** `site`: the entry opens the project's own site (a DDEV project, or one on another runtime); else its workspace. */
+    projects: { name: string; ws: string; url: string; ddev?: boolean; site?: boolean }[];
   }
   /** A row of the palette: a place to go (url) or something to do (run). */
   interface Item { group: string; label: string; hint: string; url?: string | null; run?: () => void; score: number }
@@ -111,7 +112,7 @@
       d.projects.forEach(function (p) {
         if (shown >= 40) return;
         var s = score(p.name, query);
-        if (s > 0) { out.push({ group: 'Projects', label: p.name, hint: p.ws + (p.ddev ? ' · open the site' : ' · open the workspace'), url: p.url, score: s }); shown += 1; }
+        if (s > 0) { out.push({ group: 'Projects', label: p.name, hint: p.ws + (p.site ? ' · open the site' : ' · open the workspace'), url: p.url, score: s }); shown += 1; }
       });
     }
     actions().forEach(function (a) { var s = score(a.label, query); if (s > 0) out.push({ group: a.group, label: a.label, hint: a.hint, run: a.run, score: s - 5 }); });

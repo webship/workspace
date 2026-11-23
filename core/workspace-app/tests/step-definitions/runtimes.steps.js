@@ -236,3 +236,38 @@ Then('the preference {string} should be {string} in the cookies of this address'
   assert.strictEqual(cookie.domain, new URL(BASE()).hostname, 'the cookie is this address\'s own');
   assert.strictEqual(await this.page.evaluate((n) => window.wsPref(n, ''), name), value);
 });
+
+// The palette on a plain address (#759). What it lists is asked of the dashboard under test, not read from this
+// checkout: the suite also runs against a dashboard made elsewhere (the image on Docker Compose, a pod).
+When('I choose the first workspace folder in the palette', async function () {
+  const res = await this.page.request.get(`${BASE()}/fragments/palette.json`);
+  const { workspaces } = await res.json();
+  if (!workspaces.length) {
+    this.attach('SKIPPED: this workspace has no folder yet (a fresh one), so the palette has none to go to. With a folder '
+      + '(a workspace plugin activated) this is a real test.');
+    return 'skipped';
+  }
+  const [folder] = workspaces;
+  this.paletteFolder = folder;
+  await this.page.keyboard.press('Control+k');
+  await this.page.waitForSelector('#palette:not([hidden])', { timeout: 5000 });
+  await this.page.type('#palette .palette-input', folder.label);
+  await this.page.waitForFunction((want) => {
+    const chosen = document.querySelector('#palette-list [role=option][aria-selected="true"] .palette-label');
+    return !!chosen && chosen.textContent === want;
+  }, folder.label, { timeout: 5000 });
+  // Enter leaves the page for the entry's address; an address that cannot be reached is an error page, not a wait.
+  await Promise.all([
+    this.page.waitForEvent('framenavigated', { timeout: 15000 }).catch(() => null),
+    this.page.keyboard.press('Enter'),
+  ]);
+  await this.page.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {});
+  return undefined;
+});
+
+Then('I should be on that folder\'s page of this dashboard', async function () {
+  const now = new URL(this.page.url());
+  const here = new URL(BASE());
+  assert.strictEqual(now.origin, here.origin, `the palette left this dashboard for ${now.href}`);
+  assert.strictEqual(now.pathname, `/${this.paletteFolder.key}`, `the palette opened ${now.pathname}`);
+});
