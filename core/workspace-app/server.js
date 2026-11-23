@@ -3193,9 +3193,14 @@ async function ddevStatusMap() {
   return _statusCache;
 }
 
-async function refreshDdevStatuses() {
-  if (_statusRefreshing) return _statusRefreshing;
-  _statusRefreshing = (async () => {
+// Each read is numbered: only the latest one asked for is kept, so a read that began before a project changed state
+// and ends after the one asked for since cannot put the old state back.
+let _statusReads = 0;
+
+async function refreshDdevStatuses({ again = false } = {}) {
+  if (_statusRefreshing && !again) return _statusRefreshing;
+  const read = ++_statusReads;
+  const reading = (async () => {
   const result = await run('ddev', ['list', '--json-output'], ROOT, { timeoutMs: 60 * 1000 });
   const map = {};
   try {
@@ -3212,12 +3217,19 @@ async function refreshDdevStatuses() {
       if (p.approot) map[`@${p.approot}`] = row;
     }
   } catch (_) { /* leave empty on parse/daemon errors — rows fall back to "unknown" */ }
-  _statusCache = map;
-  _statusCacheAt = Date.now();
+  if (read === _statusReads) {
+    _statusCache = map;
+    _statusCacheAt = Date.now();
+  }
   return map;
   })();
-  try { return await _statusRefreshing; } finally { _statusRefreshing = null; }
+  _statusRefreshing = reading;
+  try { return await reading; } finally { if (_statusRefreshing === reading) _statusRefreshing = null; }
 }
+
+/** A session that changed a DDEV project's state ended (#766): what is kept is out of date. It is read again now,
+ *  past any read that began before, and the answer is waited for. */
+function ddevStatusesChanged() { return refreshDdevStatuses({ again: true }); }
 
 // A readable name for one report of a project: the module or directory it belongs to, since a
 // Drupal tree carries one reports directory per module that ships tests.
@@ -7844,6 +7856,9 @@ Summarise what you changed and how to verify it`,
           const done = await require('./screens').sessionDone(m[1]);
           // A verb that ended may have started or stopped a site on Docker Compose, Podman or Kubernetes.
           if (done) projectRuntime.invalidate();
+          // …or a DDEV project (#766): DDEV's list is read again before the page is told, so the rows it redraws show
+          // the state the verb left, not the list kept from before it.
+          if (done && require('./jobs').changedDdevState(m[1])) await ddevStatusesChanged();
           if (done) res.setHeader('HX-Trigger', 'refresh-projects');
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
           return res.end(done ? '' : require('./jobs').sessionWatchHtml(m[1]));
