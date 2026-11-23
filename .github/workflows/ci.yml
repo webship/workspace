@@ -80,8 +80,9 @@ jobs:
         run: npm run build:browser -- --check
 
   node-22:
-    # 22: the lowest Node.js line the engines field accepts (">=22.18"), which the README and getting-started promise.
-    name: the command line and the unit tests on Node.js 22
+    # 24: the lowest Node.js line the engines field accepts (">=24"), which the README and getting-started promise; the
+    # other jobs run on 26, so CI covers both supported lines.
+    name: the command line and the unit tests on Node.js 24
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -90,7 +91,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
           cache-dependency-path: core/workspace-app/package-lock.json
       # ffmpeg and ffprobe: the media tests (video editing, voiceover, audio) skip themselves without them.

@@ -37,20 +37,22 @@ const { spawnSync } = require('child_process');
 
 const PKG_ROOT = path.resolve(__dirname, '..', '..');   // the package: core/, README.md, LICENSE
 
-// Node.js runs the core's TypeScript files as they are from the version in the package's `engines` on (22.18). On an
+// Node.js runs the core's TypeScript files as they are; the Workspace supports the Node.js the package's `engines` names (24
+// and 26, the stable LTS releases), and nothing older. On an
 // older one the first of them fails with a SyntaxError that names no cause, and `update` would skip a step in silence.
 // So the Node.js this runs on is checked here, before anything of the core is loaded, and a command that would do
 // something says what is needed and does nothing. The version and the help still answer.
+/** The lowest Node.js the package's `engines` names (">=24", or one with a minor such as ">=24.1"), or null. */
 function nodeNeeded() {
   let engines = '';
   try { engines = String((require(path.join(PKG_ROOT, 'package.json')).engines || {}).node || ''); } catch (_) { /* no package.json: no check */ }
-  const m = engines.match(/(\d+)\.(\d+)/);
-  return m ? [Number(m[1]), Number(m[2])] : null;
+  const m = engines.match(/(\d+)(?:\.(\d+))?/);
+  return m ? { major: Number(m[1]), minor: Number(m[2] || 0), text: m[2] ? `${m[1]}.${m[2]}` : m[1] } : null;
 }
 function nodeTooOld(version, needed) {
   const m = String(version).match(/^v?(\d+)\.(\d+)/);
   if (!m || !needed) return false;
-  return Number(m[1]) < needed[0] || (Number(m[1]) === needed[0] && Number(m[2]) < needed[1]);
+  return Number(m[1]) < needed.major || (Number(m[1]) === needed.major && Number(m[2]) < needed.minor);
 }
 {
   const asked = process.argv.slice(2);
@@ -58,7 +60,7 @@ function nodeTooOld(version, needed) {
   const needed = nodeNeeded();
   const running = process.env.WEBSHIP_WORKSPACE_NODE_VERSION || process.versions.node;
   if (!answersAnyway && nodeTooOld(running, needed)) {
-    process.stderr.write(`Webship Workspace needs Node.js ${needed.join('.')} or later: this is Node.js ${running} (${process.execPath}).\nInstall a newer Node.js (https://nodejs.org/en/download), then run the command again. Nothing was changed.\n`);
+    process.stderr.write(`Webship Workspace needs Node.js ${needed.text} or later: this is Node.js ${running} (${process.execPath}).\nInstall a newer Node.js (https://nodejs.org/en/download), then run the command again. Nothing was changed.\n`);
     process.exit(1);
   }
 }

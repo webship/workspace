@@ -91,15 +91,16 @@ test('the runner refuses a Node.js too old to strip the types of what it loads, 
   const bin = path.join(root, 'bin');
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(bin, 'screen'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
-  // A Node.js 20: it answers its version and runs the check, which says no.
-  fs.writeFileSync(path.join(bin, 'node'), '#!/bin/sh\n[ "$1" = "--version" ] && { echo v20.11.0; exit 0; }\n[ "$1" = "-e" ] && exit 1\nexit 0\n', { mode: 0o755 });
+  // A Node.js 22: it answers its version and runs the check, which says no.
+  fs.writeFileSync(path.join(bin, 'node'), '#!/bin/sh\n[ "$1" = "--version" ] && { echo v22.20.0; exit 0; }\n[ "$1" = "-e" ] && exit 1\nexit 0\n', { mode: 0o755 });
   const r = spawnSync('bash', [path.join(app, 'scripts', 'screen-host.sh'), '--start'], { encoding: 'utf8',
     env: { ...process.env, PATH: `${bin}${path.delimiter}/usr/bin${path.delimiter}/bin`, WORKSPACE_ROOT: root } });
   assert.strictEqual(r.status, 1, r.stdout + r.stderr);
-  assert.match(r.stdout, /node v20\.11\.0 is too old for the runner: it needs Node\.js 22\.18 or later\./);
+  assert.match(r.stdout, /node v22\.20\.0 is too old for the runner: it needs Node\.js 24 or later\./);
   assert.ok(!fs.existsSync(path.join(root, '.screens', '.runner-pid')), 'nothing was started');
-  // And the check itself passes on this Node.js, which runs the suite.
-  const here = spawnSync(process.execPath, ['-e', 'const [a, b] = process.versions.node.split(".").map(Number); process.exit(a > 22 || (a === 22 && b >= 18) ? 0 : 1)']);
+  // And the script's own check passes on this Node.js, which runs the suite.
+  const check = fs.readFileSync(path.join(APP, 'scripts', 'screen-host.sh'), 'utf8').match(/node -e '([^']+)'/)[1];
+  const here = spawnSync(process.execPath, ['-e', check]);
   assert.strictEqual(here.status, 0);
   fs.rmSync(root, { recursive: true, force: true });
 });

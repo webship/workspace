@@ -102,7 +102,9 @@ test('asking for the help is not an error, and a word the tool does not know is 
 });
 
 test('on a Node.js older than the package needs, the command says what it needs and does nothing', () => {
-  const needed = require('../../../../package.json').engines.node.match(/(\d+)\.(\d+)/).slice(1, 3).join('.');
+  // ">=24", or one with a minor (">=24.1"): the CLI says it as engines writes it.
+  const [, majorText, minorText] = require('../../../../package.json').engines.node.match(/(\d+)(?:\.(\d+))?/);
+  const needed = minorText ? `${majorText}.${minorText}` : majorText;
   const says = new RegExp(`needs Node\\.js ${needed.replace('.', '\\.')} or later: this is Node\\.js 20\\.20\\.2 \\(`);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-old-node-'));
   const dir = path.join(tmp, 'ws');
@@ -124,8 +126,9 @@ test('on a Node.js older than the package needs, the command says what it needs 
       assert.strictEqual(r.stderr, '');
     }
     // One release below the lowest is refused; the lowest itself and newer ones run.
-    const [major, minor] = needed.split('.').map(Number);
-    assert.strictEqual(run(['catalog'], { WEBSHIP_WORKSPACE_NODE_VERSION: `${major}.${minor - 1}.9` }).status, 1);
+    const major = Number(majorText); const minor = Number(minorText || 0);
+    const below = minor > 0 ? `${major}.${minor - 1}.9` : `${major - 1}.99.9`;
+    assert.strictEqual(run(['catalog'], { WEBSHIP_WORKSPACE_NODE_VERSION: below }).status, 1);
     assert.strictEqual(run(['catalog'], { WEBSHIP_WORKSPACE_NODE_VERSION: `v${major - 1}.99.0` }).status, 1);
     for (const v of [`${major}.${minor}.0`, `${major}.${minor + 1}.0`, `${major + 1}.0.0`, 'v26.13.1']) {
       const r = run(['catalog'], { WEBSHIP_WORKSPACE_NODE_VERSION: v });
