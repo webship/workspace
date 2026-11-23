@@ -1631,6 +1631,9 @@ function assistantHtml({ context = 'home' } = {}) {
     : '✨ Prompt mode: Auto — the agent decides';
   const pickerLabel = isSettings ? `Prompt mode — ${scopeLabel}`
     : scope ? `Prompt mode — ${scopeLabel} commands` : 'Prompt mode';
+  // Voice input switched off (assistant.voice_input: false, #760): the dock's Hold to talk and Keep listening are
+  // drawn hidden, so they never show before the dock's script takes them out (public/assistant-avatar-ui.js).
+  const listenHidden = speechAssistantSettings(loadSettings()).voiceInput ? '' : ' hidden';
   const panel = `
     <div class="uk-card uk-card-default assistant-panel">
       <div class="assistant-head">
@@ -1704,8 +1707,8 @@ function assistantHtml({ context = 'home' } = {}) {
                    style="width:100%;height:100%;border:none;background-color:transparent;"></deep-chat>
         ${speechAssistantSettings(loadSettings()).avatar === 'none' ? '' : `<div class="assistant-dock" role="group" aria-label="Voice">
           <button type="button" class="dock-btn dock-voice" aria-pressed="true" title="The voice is on: click to mute it" aria-label="The voice is on: click to mute it"></button>
-          <button type="button" class="dock-btn dock-talk" title="Hold to talk, or hold the Space bar"><span class="dock-talk-icon"></span><span>Hold to talk</span> <kbd>Space</kbd></button>
-          <button type="button" class="dock-btn dock-mic" aria-pressed="false" title="Keep listening: what you say is sent" aria-label="Keep listening: what you say is sent"></button>
+          <button type="button" class="dock-btn dock-talk" title="Hold to talk, or hold the Space bar"${listenHidden}><span class="dock-talk-icon"></span><span>Hold to talk</span> <kbd>Space</kbd></button>
+          <button type="button" class="dock-btn dock-mic" aria-pressed="false" title="Keep listening: what you say is sent" aria-label="Keep listening: what you say is sent"${listenHidden}></button>
         </div>`}
       </div>
     </div>`;

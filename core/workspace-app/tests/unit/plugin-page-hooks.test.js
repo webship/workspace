@@ -104,8 +104,9 @@ test('the page offers the assistant to a plugin\'s script: send a turn, add to i
 test('the dock\'s talk buttons and the Space bar go to a plugin\'s ear when one is set, and to the browser\'s recogniser otherwise', () => {
   const src = fs.readFileSync(path.join(APP, 'public', 'assistant-avatar-ui.js'), 'utf8');
   assert.match(src, /const ear = \(\) => \{ const e = window\.wsAssistantEar;/);
-  assert.match(src, /function listen\(on\) \{\n    if \(ear\(\)\) \{ ear\(\)\.hold\(Boolean\(on\)\); return; \}\n    if \(!Recognition \|\| keep\) return;/);
-  assert.match(src, /function keepListening\(on\) \{\n    if \(ear\(\)\) \{ ear\(\)\.keep\(Boolean\(on\)\); return; \}/);
+  // Voice input switched off stops both first (voice-dock-off.test.mts, #760).
+  assert.match(src, /function listen\(on\) \{\n    if \(!voiceIn\) return;\n    if \(ear\(\)\) \{ ear\(\)\.hold\(Boolean\(on\)\); return; \}\n    if \(!Recognition \|\| keep\) return;/);
+  assert.match(src, /function keepListening\(on\) \{\n    if \(!voiceIn\) return;\n    if \(ear\(\)\) \{ ear\(\)\.keep\(Boolean\(on\)\); return; \}/);
   assert.match(src, /keepListening\(ear\(\) \? !earKeeps\(\) : !keep\)/);
   assert.ok(fs.readFileSync(path.join(APP, 'PLUGINS.md'), 'utf8').includes('window.wsAssistantEar'));
 });

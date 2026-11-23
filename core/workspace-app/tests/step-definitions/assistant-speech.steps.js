@@ -155,3 +155,94 @@ Then(/^the voice list should report what this browser has$/, async function () {
   assert.ok(state.options > 1 || state.warns,
     `only the default option and no explanation of why: "${state.note}"`);
 });
+
+/* ---------------- the voice dock and voice input (#760) ---------------- */
+
+const { Given, When, After } = require('@cucumber/cucumber');
+
+const BASE = () => process.env.LAUNCH_URL || 'https://workspace.ddev.site';
+const MIC_SWITCH = '.settings-row:has(> .settings-key > label:text-is("Microphone")) input.settings-switch';
+
+Given(/^the browser counts the times it starts listening$/, async function () {
+  // Before the page loads, so the dock finds it. It hears nothing, so a turn is never sent.
+  await this.context.addInitScript(() => {
+    window.wsListenStarts = 0;
+    class Counted { start() { window.wsListenStarts += 1; } stop() { if (this.onend) setTimeout(() => this.onend(), 0); } }
+    for (const name of ['SpeechRecognition', 'webkitSpeechRecognition']) Object.defineProperty(window, name, { value: Counted, configurable: true, writable: true });
+  });
+});
+
+/** Turn the Microphone switch of settings.yml on or off through the Settings page, as a person does. Answers what it was. */
+async function setVoiceInput(page, on) {
+  await page.goto(`${BASE()}/settings/settings.yml`, { waitUntil: 'domcontentloaded' });
+  const box = page.locator(MIC_SWITCH).first();
+  await box.waitFor({ state: 'attached', timeout: 15000 });
+  const was = await box.isChecked();
+  if (was !== on) {
+    await box.evaluate((el, want) => { el.checked = want; el.dispatchEvent(new Event('change', { bubbles: true })); }, on);
+    const saved = page.waitForResponse((r) => r.url().endsWith('/actions/save-settings'), { timeout: 15000 });
+    await page.locator('.settings-save button[type="submit"]').first().click();
+    const res = await saved;
+    assert.strictEqual(res.status(), 200, 'the settings were saved');
+    assert.match(await res.text(), /Saved/);
+  }
+  return was;
+}
+
+Given(/^voice input is switched (on|off) in the settings$/, async function (state) {
+  const was = await setVoiceInput(this.page, state === 'on');
+  if (this.voiceInputWas === undefined) this.voiceInputWas = was;
+});
+
+// Put it back as it was, passed or failed.
+After({ tags: '@switches-voice-input' }, async function () {
+  if (this.voiceInputWas === undefined || !this.page) return;
+  await setVoiceInput(this.page, this.voiceInputWas);
+});
+
+/** The dock's buttons as the page has them: 'shown', 'hidden' or 'gone'. */
+async function dockButtons(page) {
+  await page.waitForFunction(() => !!document.querySelector('.assistant-dock'), null, { timeout: 15000 }).catch(() => {});
+  // The dock's script runs deferred: what it does to the buttons is done once the page has loaded.
+  await page.waitForLoadState('load');
+  return page.evaluate(() => {
+    const state = (sel) => {
+      const el = document.querySelector(`.assistant-dock ${sel}`);
+      if (!el) return 'gone';
+      return !el.hidden && getComputedStyle(el).display !== 'none' ? 'shown' : 'hidden';
+    };
+    return { dock: !!document.querySelector('.assistant-dock'), talk: state('.dock-talk'), keep: state('.dock-mic'), voice: state('.dock-voice') };
+  });
+}
+
+Then(/^the voice dock should offer neither Hold to talk nor Keep listening$/, async function () {
+  const d = await dockButtons(this.page);
+  if (!d.dock) return 'skipped';   // no avatar here (assistant.avatar: none): there is no dock to check
+  assert.notStrictEqual(d.talk, 'shown', 'Hold to talk is offered');
+  assert.notStrictEqual(d.keep, 'shown', 'Keep listening is offered');
+  return undefined;
+});
+
+Then(/^the voice dock should offer Hold to talk and Keep listening$/, async function () {
+  const d = await dockButtons(this.page);
+  if (!d.dock) return 'skipped';
+  assert.deepStrictEqual([d.talk, d.keep], ['shown', 'shown']);
+  return undefined;
+});
+
+Then(/^the voice dock should keep its voice button$/, async function () {
+  assert.strictEqual((await dockButtons(this.page)).voice, 'shown', 'the voice (mute) button is voice out, and stays');
+});
+
+When(/^I hold the Space bar$/, async function () {
+  // Nowhere to type: the page itself has the key.
+  await this.page.evaluate(() => { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); });
+  await this.page.keyboard.down('Space');
+  await this.page.waitForTimeout(300);
+  await this.page.keyboard.up('Space');
+  await this.page.waitForTimeout(200);
+});
+
+Then(/^the browser should have started listening (\d+) times?$/, async function (n) {
+  assert.strictEqual(await this.page.evaluate(() => window.wsListenStarts), Number(n));
+});
