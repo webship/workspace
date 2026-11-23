@@ -8,7 +8,7 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const model = require('../../settings-model.mts');
-const page = require('../../settings-plugin-page');
+const page = require('../../settings-plugin-page.mts');
 
 const none = { needs: [], suggests: [], unmet: [], problems: [] };
 const make = (name, manifest, step, more = {}) => {

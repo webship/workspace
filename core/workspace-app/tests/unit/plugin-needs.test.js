@@ -378,7 +378,7 @@ test('--list and the Plugins page say what each plugin needs, whether it is met,
   assert.match(list, /wp .*required · next: activate\n\s+needs: one of dev, test \(not here; dev is the one added\) · ai-agents \(not here\) {3}suggests: graph \(not here\)/);
   assert.match(list, /broken .*\n\s+problem: needs: must be a list of plugin names/);
   // Each plugin's own page in Settings (the Plugins page used to carry a card per plugin).
-  const pages = () => node(t, 'const m=require("./settings-model.mts"),pg=require("./settings-plugin-page");const g=m.groupByFamily(require("./plugins-page").rows()).flatMap((f)=>f.plugins);const known=new Set(g.map((p)=>p.name));console.log(g.map((p)=>"PLUGIN-PAGE "+pg.pluginPageHtml(p,{known,files:[]})).join(""))');
+  const pages = () => node(t, 'const m=require("./settings-model.mts"),pg=require("./settings-plugin-page.mts");const g=m.groupByFamily(require("./plugins-page").rows()).flatMap((f)=>f.plugins);const known=new Set(g.map((p)=>p.name));console.log(g.map((p)=>"PLUGIN-PAGE "+pg.pluginPageHtml(p,{known,files:[]})).join(""))');
   const page = () => node(t, 'console.log(require("./plugins-page").pluginsPageHtml())');
   let html = pages();
   const card = (h, label) => h.split('PLUGIN-PAGE ').find((c) => c.includes(`<h2 class="plugin-head-name">${label}</h2>`)) || '';

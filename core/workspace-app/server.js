@@ -6370,7 +6370,7 @@ async function onRequest(req, res) {
         if (pm) {
           const want = new URL(req.url, 'http://localhost').searchParams.get('file') || '';
           const data = await settingsPluginData(pm[1], want);
-          const pluginPage = require('./settings-plugin-page');
+          const pluginPage = require('./settings-plugin-page.mts');
           res.writeHead(data ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' });
           return res.end(await settingsPage('plugin', readPageState(req), { fragment: isFragment(req),
             pluginName: data ? (data.plugin.manifest.label || data.plugin.name) : pm[1],
@@ -6383,7 +6383,7 @@ async function onRequest(req, res) {
           // section while it has no form yet (it asks only then, so a form being typed in is never replaced).
           const part = new URL(req.url, 'http://localhost').searchParams.get('part') || 'status';
           const data = await settingsPluginData(ps[1], '', { form: part === 'settings' });
-          const pluginPage = require('./settings-plugin-page');
+          const pluginPage = require('./settings-plugin-page.mts');
           res.writeHead(data ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' });
           return res.end(!data ? '' : part === 'after' ? pluginPage.afterHtml(data.plugin, data)
             : part === 'settings' ? pluginPage.settingsSectionHtml(data.plugin, data) : pluginPage.statusHtml(data.plugin, { ...data, fragment: isFragment(req) }));

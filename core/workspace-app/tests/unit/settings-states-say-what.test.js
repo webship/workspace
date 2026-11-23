@@ -58,7 +58,7 @@ test('the keys on the placeholder are read from the file, nested ones dotted, co
 });
 
 test('the plugin page says it at the top, with the way to the install hint', () => {
-  const { statusHtml } = require('../../settings-plugin-page');
+  const { statusHtml } = require('../../settings-plugin-page.mts');
   const p = row('lando', 3, { commands: [cmd('lando', 'missing')], family: 'containers', label: 'Lando', placed: { installed: true }, loaded: true });
   p.state = model.stateOf(p);
   const html = statusHtml(p);

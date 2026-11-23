@@ -3,7 +3,7 @@
  *
  * `rows()` is every plugin package the dashboard can see with the step it is at, what it needs and
  * who needs it; the Settings home and a plugin's own page draw from it (settings-home.mts,
- * settings-plugin-page.js). The page itself is the box that requires a package, the catalogue by
+ * settings-plugin-page.mts). The page itself is the box that requires a package, the catalogue by
  * family, and the commands the core needs on this machine. The four steps are exactly
  * core/scripts/plugins.sh's verbs — every button runs that script as a job, so the button and the
  * command line cannot disagree.

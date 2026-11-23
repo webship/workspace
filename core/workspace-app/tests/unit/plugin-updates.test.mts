@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import * as updates from '../../plugin-updates.mts';
 import * as $settings_home from '../../settings-home.mts';
 import * as $settings_model from '../../settings-model.mts';
-import $settings_plugin_page from '../../settings-plugin-page.js';
+import * as $settings_plugin_page from '../../settings-plugin-page.mts';
 
 /** What this test uses of the Settings modules, which are not TypeScript yet. */
 interface SettingsHomeView {

@@ -9,7 +9,7 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const model = require('../../settings-model.mts');
-const page = require('../../settings-plugin-page');
+const page = require('../../settings-plugin-page.mts');
 const { installedPlugins } = require('../../plugin-manifest.mts');
 
 const NOTES = path.join(__dirname, '..', '..', 'plugins', 'workspace-notes', 'package.json');
