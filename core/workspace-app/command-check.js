@@ -1,3 +1,4 @@
+// Stays JavaScript: webship-workspace (core/bin/workspace.js) loads it from the package under node_modules, where Node.js strips no types.
 /**
  * The commands the workspace needs on this machine: found, with the version, or missing, with how to
  * install it. It reports; it never installs anything and never uses sudo.

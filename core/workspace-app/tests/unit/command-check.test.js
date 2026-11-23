@@ -375,3 +375,10 @@ test('the real fin, where it is installed, writes nothing above the folder the c
 test('/tmp/.docksal is as this file found it: no version check made a project of /tmp (#772)', () => {
   assert.deepStrictEqual(projectOfTmp(), projectOfTmpAtStart);
 });
+
+test('command-check.js says at its top why it stays JavaScript, and the CLI loads it by that name', () => {
+  const src = fs.readFileSync(path.join(APP, 'command-check.js'), 'utf8');
+  assert.match(src.split('\n')[0], /^\/\/ Stays JavaScript: .*node_modules/, 'the first line says why');
+  assert.ok(!fs.existsSync(path.join(APP, 'command-check.mts')), 'and there is no .mts of it');
+  assert.match(fs.readFileSync(BIN, 'utf8'), /'workspace-app', 'command-check\.js'\)/, 'webship-workspace requires the .js');
+});
