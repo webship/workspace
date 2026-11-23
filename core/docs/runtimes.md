@@ -55,6 +55,8 @@ A project's runtime is what its folder holds:
 - **Docksal:** `.docksal/docksal.env` (the stack, the docroot, the images, the database) and `.docksal/docksal.yml`, with the same `x-webship:` block. You can run it without the Workspace: `fin project start`.
 - **Kubernetes:** the same `compose.yaml`, plus `k8s/` (a `kustomization.yaml` and the manifests: a namespace `ws-<name>`, Deployments and Services for the web, the database and the mail catcher, a volume claim for the database). You can apply it yourself: `kubectl apply -k k8s`.
 
+The Workspace looks for these from a folder up to the workspace's own folder, never above it, and never takes a temporary folder (`/tmp`, `/var/tmp`, `/dev/shm`, `TMPDIR`) for a project.
+
 Each has a web service (Apache and PHP with Composer and WP-CLI), a MariaDB database and a Mailpit mail catcher.
 
 ## Platform plugins
@@ -118,7 +120,7 @@ A Docksal site is a `.docksal/` folder the Workspace writes: Docksal's default s
 - **The address is a host name:** `http://<name>.docksal.site`, answered by Docksal's proxy (on its own address, `192.168.64.100`, not DDEV's `127.0.0.1`). The mailbox is `http://mail.<name>.docksal.site`, and the tests container reaches both.
 - **PHP runs in `cli`.** DDEV's `web` is Docksal's `cli`: `ddev exec`, `ddev composer`, `ddev drush` and `ddev wp` run there, as Docksal's user (yours); `ddev exec -s db` runs in `db`.
 - **Commands go through `docker exec -i`** on the project's container: `fin exec` gives a command no stdin, and an import is a dump piped in. Starting, stopping, `ssh` (`fin bash`) and removing go through `fin`.
-- **A `.docksal/` of your own** (one the Workspace did not write) is a Docksal project too, after `.ddev/` and a `.lando.yml`; `ddev config` leaves it as it is, and its row keeps the DOCKSAL menu of the Docksal plugin. The home folder is never one: `~/.docksal` is Docksal's own settings.
+- **A `.docksal/` of your own** (one the Workspace did not write) is a Docksal project too, after `.ddev/` and a `.lando.yml`; `ddev config` leaves it as it is, and its row keeps the DOCKSAL menu of the Docksal plugin. The home folder is never one: `~/.docksal` is Docksal's own settings. Nor is `/tmp`: `/tmp/.docksal` is Docksal's too, a folder per project for its ssh-agent socket.
 
 Proven on Docksal 1.19.0 (fin 1.118.0): the same list as Lando's above, for a Drupal 11 site and a WordPress site.
 

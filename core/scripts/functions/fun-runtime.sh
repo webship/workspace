@@ -27,11 +27,27 @@ function rt_meta_file() {
   echo compose.yaml ;
 }
 
+# A folder that is never a project's root: the machine's temporary folders, which every process shares (#772).
+# /tmp/.docksal is Docksal's own (a folder per project for its ssh-agent socket), and Docksal's `fin` makes a project
+# of the first folder above where it runs that has a .docksal/: run from a sandbox under /tmp it wrote docksal.env and
+# docksal.yml into /tmp/.docksal, and every sandbox under /tmp became part of "the Docksal project /tmp".
+function rt_never_a_root() {
+  case "${1%/}" in /tmp|/var/tmp|/dev/shm) return 0 ;; esac
+  [ -n "${TMPDIR:-}" ] && [ "${1%/}" = "${TMPDIR%/}" ] ;
+}
+
 # The project's root and runtime, looking up from a folder: "<runtime> <root>", or nothing.
 function rt_find_project() {
-  local d="${1:-$PWD}" f ;
+  local d="${1:-$PWD}" f top="" ;
   d="$(cd "${d}" 2>/dev/null && pwd)" || return 1 ;
-  while [ -n "${d}" ] && [ "${d}" != "/" ] ; do
+  # A look that starts in the workspace ends below the workspace's folder: that folder and every folder above it (the
+  # home folder, /tmp for a workspace made there) are not under the workspace, and no project's root (#772).
+  if [ -n "${WORKSPACE_ROOT:-}" ] ; then
+    top="$(cd "${WORKSPACE_ROOT}" 2>/dev/null && pwd)" ;
+    case "${d}/" in "${top}"/*) ;; *) top="" ;; esac
+  fi
+  while [ -n "${d}" ] && [ "${d}" != "/" ] && [ "${d}" != "${top}" ] ; do
+    if rt_never_a_root "${d}" ; then d="$(dirname "${d}")" ; continue ; fi
     # The x-webship block first: only the Workspace writes it, on a build that is not DDEV's, and a project template
     # may ship a .ddev/ of its own (drupal/webship_project does), which must not turn that build into a DDEV one.
     for f in "${RT_META_FILES[@]}" ; do

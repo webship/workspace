@@ -18,6 +18,8 @@ const { spawnSync } = require('child_process');
 const REPO = path.join(__dirname, '..', '..', '..', '..');
 const has = (cmd) => !spawnSync(cmd, ['--version'], { encoding: 'utf8' }).error;
 const NO_TRACE = /ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING|SyntaxError|node:internal/;
+const { projectOfTmp } = require('./_docksal-tmp');
+const projectOfTmpAtStart = projectOfTmp();
 
 test('from the installed package the command runs: catalog, init, update and doctor', { skip: !(has('npm') && has('tar')) && 'npm and tar are needed' }, () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-from-npm-'));
@@ -32,8 +34,11 @@ test('from the installed package the command runs: catalog, init, update and doc
     const pkg = path.join(scope, 'workspace');
     const bin = path.join(pkg, 'core', 'bin', 'workspace.js');
     assert.ok(fs.existsSync(path.join(pkg, 'core', 'workspace-app', 'plugin-catalog.json')), 'the package ships the catalogue\'s data');
+    // HOME is the sandbox's: `doctor` with no workspace named reads ~/workspace, and it must not reach the machine's own
+    // (it ran that workspace's command check and its plugins' commands, Docksal's fin among them, from this sandbox
+    // under /tmp: #772).
     const run = (args, cwd = tmp) => spawnSync(process.execPath, [bin, ...args], { cwd, encoding: 'utf8',
-      env: { ...process.env, WEBSHIP_WORKSPACE_SKIP_NPM: '1', WEBSHIP_WORKSPACE_SKIP_DDEV: '1', WORKSPACE_PLUGINS_NO_RESTART: '1', WORKSPACE_ROOT: '', WORKSPACE_PATH: '', WORKSPACE_SCRIPTS: '', WORKSPACE_CONFIG: '' } });
+      env: { ...process.env, HOME: tmp, WEBSHIP_WORKSPACE_SKIP_NPM: '1', WEBSHIP_WORKSPACE_SKIP_DDEV: '1', WORKSPACE_PLUGINS_NO_RESTART: '1', WORKSPACE_ROOT: '', WORKSPACE_PATH: '', WORKSPACE_SCRIPTS: '', WORKSPACE_CONFIG: '' } });
 
     const catalog = run(['catalog']);
     assert.doesNotMatch(catalog.stderr, NO_TRACE);
@@ -69,4 +74,8 @@ test('the command loads no TypeScript file of the package', () => {
       assert.doesNotMatch(line, /\.[mc]?ts['"]/, `${file}: ${line.trim()}`);
     }
   }
+});
+
+test('/tmp/.docksal is as this file found it: doctor checked no machine\'s workspace from /tmp (#772)', () => {
+  assert.deepStrictEqual(projectOfTmp(), projectOfTmpAtStart);
 });

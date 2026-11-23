@@ -334,6 +334,12 @@ the reason where there is none). CI runs the Docker ones against a small compose
 (`@needs-plain-address`: skipped on the hub). CI runs it three times: against node on a port, against the
 dashboard's image on Docker Compose, and against its pod on a kind cluster.
 
+**A test keeps to its own sandbox.** It makes its folders with `fs.mkdtempSync(path.join(os.tmpdir(), …))`, and
+a command it runs that reads `~` gets a home folder of the test's own: `webship-workspace doctor` with no workspace
+named reads `~/workspace`, the machine's own. `/tmp/.docksal` is Docksal's: a test file that runs `fin`, or a command
+that does, checks at its end that it is as it was (`tests/unit/_docksal-tmp.js`). On your machine, run the suite with
+a `TMPDIR` of its own: `T=$(mktemp -d) && TMPDIR=$T npm run test:unit; rm -rf "${T:?}"`.
+
 **A test that needs machine state skips with the reason**, at run time, rather than failing or being
 excluded — see `tests/step-definitions/preconditions.steps.js`. A suite with permanent red in it stops
 being read, which is how this one drifted for weeks without anyone noticing it could not even launch a
