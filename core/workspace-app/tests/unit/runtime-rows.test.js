@@ -170,6 +170,28 @@ test('Kubernetes and Podman rows: K8S and PODMAN, the node address with the Node
   assert.match(pod, /<span class="state-word">Stopped<\/span>/);
 });
 
+/** GET a path with the Host a browser on that address sends: the hub's own, or a plain address. */
+const asHost = (host, p) => new Promise((resolve, reject) => {
+  const u = new URL(base);
+  const req = require('http').request({ host: u.hostname, port: u.port, path: p, headers: { Host: host } }, (res) => {
+    let body = ''; res.on('data', (d) => { body += d; }); res.on('end', () => resolve({ status: res.statusCode, html: body }));
+  });
+  req.on('error', reject);
+  req.end();
+});
+
+test('a DDEV row\'s Launch: the canonical address on a plain address, the hub\'s on the hub (#764)', async () => {
+  const launch = (html, name) => (rowOf(html, name).match(/pcard-launch" href="([^"]+)"/) || [])[1];
+  const plain = (await text('/fragments/dev/projects')).html;
+  assert.strictEqual(launch(plain, 'ddev-site'), 'https://ddev-site.ddev.site', 'on a plain address: the address beside its name');
+  const hub = await asHost('dev.workspace.ddev.site', '/fragments/dev/projects');
+  assert.strictEqual(hub.status, 200);
+  assert.strictEqual(launch(hub.html, 'ddev-site'), 'https://ddev-site.dev.workspace.ddev.site', 'on the hub: the hub\'s address, as before');
+  // A runtime's site keeps its own address on both.
+  assert.strictEqual(launch(plain, 'dock-site'), 'http://127.0.0.1:41001');
+  assert.strictEqual(launch(hub.html, 'dock-site'), 'http://127.0.0.1:41001');
+});
+
 test('a DDEV row, a plain folder and a hand-written compose project are the rows they were', async () => {
   const { html } = await text('/fragments/dev/projects');
   const ddev = rowOf(html, 'ddev-site');
