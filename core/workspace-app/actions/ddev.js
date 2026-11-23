@@ -18,8 +18,19 @@ const { humanSize, humanTime } = require('../format.mts');
 const { ROOT, loadWorkspaces, workspaceDir } = require('../workspaces');
 const {
   run, jobFragment, runningJobKey, startJob, ddevProjectName, listProjects,
-  startInScreen, screenStartedHtml, screenAction,
+  startInScreen, screenStartedHtml, screenAction, changesDdevState,
 } = require('../jobs');
+
+/**
+ * A session that changes the project's state (start, stop, restart) is watched: the page hears when it is done, and
+ * by then DDEV's list has been read again, so the row shows the state the verb left (#766). It used to reload the
+ * page as its notice left, six seconds in, when the verb had often not ended and the list kept was the old one.
+ */
+function watchedIfItChangesState(started, changes) {
+  if (!started.ok || !changes) return started;
+  changesDdevState(started.session);
+  return { ...started, watch: true };
+}
 const {
   milvusProjectName, ragInstances, ragBindings, ragInstanceFor, ragWriteBinding,
   ragCollectionName, milvusPost, ragCollections, ragInvalidate,
@@ -47,7 +58,7 @@ async function ddev_start({ form, res, send, workspace, pathname }) {
     // concurrent starts is what left the machine with no router and every workspace URL
     // dead. See serialiseRouter() in ../ddev.js.
     const cmdLine = serialiseRouter(`ddev ${args.join(' ')}`);
-    const started = await startInScreen({ workspace, project: projectName, projectDir, verb, cmdLine, label: `ddev ${verb}` });
+    const started = watchedIfItChangesState(await startInScreen({ workspace, project: projectName, projectDir, verb, cmdLine, label: `ddev ${verb}` }), true);
     return send(screenStartedHtml(started, `ddev ${verb}`, projectName), started.ok ? 200 : (started.already ? 409 : 500));
 }
 
@@ -136,7 +147,7 @@ async function ddev_verb({ form, res, send, workspace, pathname }) {
     // Every DDEV command runs detached in a screen named after the project: no
     // toast to follow the user around, and the row's SCREENS group lists it.
     const verb = pathname.replace('/actions/ddev-', '');
-    const started = await startInScreen({ workspace, project: projectName, projectDir, verb, cmdLine: line, label: act.label });
+    const started = watchedIfItChangesState(await startInScreen({ workspace, project: projectName, projectDir, verb, cmdLine: line, label: act.label }), touchesRouter(args));
     return send(screenStartedHtml(started, act.label, projectName), started.ok ? 200 : (started.already ? 409 : 500));
 }
 

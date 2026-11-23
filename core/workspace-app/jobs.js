@@ -538,6 +538,21 @@ function screensLink(session) {
  *  changed (`refresh-projects`). For a step whose result the page it was pressed on must show: the
  *  session is detached, so nothing else would tell that page. It stays in the output area while
  *  the notice beside it goes to the top and fades. */
+// The sessions that change a DDEV project's state (start, stop, restart), until the page that watches one hears it
+// is done (#766). DDEV's states come from one `ddev list` the dashboard keeps (server.js ddevStatusMap); when such a
+// session ends that list is out of date, and it is read again before the page is told, so the row it redraws shows
+// the state the verb left. Held in memory, like the page's watcher: a dashboard restarted in between reads the list
+// again on its own within 15 seconds.
+const ddevChanging = new Set();
+function changesDdevState(session) {
+  if (!session) return;
+  ddevChanging.add(session);
+  // A watcher that never asks (its page closed) leaves its name here; the oldest go first.
+  while (ddevChanging.size > 100) ddevChanging.delete(ddevChanging.values().next().value);
+}
+/** Whether the session ended was one of them; true once, so a second watcher for it reads nothing again. */
+function changedDdevState(session) { return ddevChanging.delete(session); }
+
 function sessionWatchHtml(session) {
   return `<span hidden class="session-watch" hx-get="/fragments/session-done/${encodeURIComponent(session)}" hx-trigger="every 2s" hx-swap="outerHTML"></span>`;
 }
@@ -597,7 +612,7 @@ module.exports = {
   SCREENRC, screenCmd,
   screenWrap,
   run, jobs, runningJobKey, startJob, stopJob, jobFragment,
-  startInScreen, startInOwnScreen, stopOwnScreen, ownScreenUp, screenStartedHtml, screensLink, sessionWatchHtml, screenSessionName, screenAction, addRunner,
+  startInScreen, startInOwnScreen, stopOwnScreen, ownScreenUp, screenStartedHtml, screensLink, sessionWatchHtml, changesDdevState, changedDdevState, screenSessionName, screenAction, addRunner,
   hostRunner, hostRunnerCall, hostRunnerUp, hostRunnerRequest, hostRunnerAsk, hostSessionsFile,
   // Not job machinery, but they travelled inside the same span of server.js and every
   // caller of them also calls the runner. They move properly in the next split.
