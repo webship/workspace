@@ -98,6 +98,8 @@ interface Window {
   WebLinksAddon?: { WebLinksAddon: new (handler: (event: MouseEvent, uri: string) => void) => object };
   /** terminal.ts: the loading of xterm.js, shared by the windows that ask for it at once. */
   __xtermLoading?: Promise<unknown> | null;
+  /** Ace, the code editor (vendored under /vendor/ace/), once a ui.js part has loaded it. */
+  ace?: AceApi;
   /** terminal.ts: open a screen session's terminal window. */
   openTerminal: (session: string) => void;
 }
@@ -105,3 +107,24 @@ interface Window {
 /** A timer that is none yet: the browsers' clearTimeout and clearInterval take null (it converts to 0, no timer). */
 declare function clearTimeout(id: number | null | undefined): void;
 declare function clearInterval(id: number | null | undefined): void;
+
+/** Ace (vendored under /vendor/ace/), as far as the editors use it. */
+interface AceSession {
+  setMode(mode: string): void; setValue(text: string): void; getValue(): string; getLine(row: number): string;
+  setUseSoftTabs(on: boolean): void; setTabSize(size: number): void; on(event: 'change', listener: () => void): void;
+}
+interface AceEditor {
+  session: AceSession; $options?: Record<string, unknown>;
+  setTheme(theme: string): void; setShowPrintMargin(on: boolean): void; setOption(name: string, value: unknown): void;
+  setOptions(options: Record<string, unknown>): void; commands: { addCommand(command: object): void };
+  on(event: 'paste', listener: (ev: { text: string }) => void): void; resize(): void;
+}
+interface AceCompleter {
+  identifierRegexps: RegExp[];
+  getCompletions(editor: AceEditor, session: AceSession, pos: { row: number; column: number }, prefix: string, callback: (error: null, list: object[]) => void): void;
+}
+interface AceApi {
+  edit(host: HTMLElement): AceEditor;
+  require(name: string): { addCompleter(completer: AceCompleter): void } | undefined;
+  config: { set(name: string, value: string): void; setModuleUrl(module: string, url: string): void };
+}

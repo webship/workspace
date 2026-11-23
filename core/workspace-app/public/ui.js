@@ -439,16 +439,21 @@ document.body.addEventListener('click', (e) => {
 // ---------------------------------------------------------------- mentions --
 // One fetch per source, cached: the list changes when someone installs an agent,
 // not between keystrokes.
-const _mentionCache = new Map();
-function mentionsFor(url) {
+/** One completion offered after @ or / : an item of the workspace, and where it is. */
+                                                                                     
+/** A textarea an Ace editor stands in for: it keeps the value the form submits, and its editor. */
+                                                                    
+
+const _mentionCache = new Map                          ();
+function mentionsFor(url        ) {
   if (!_mentionCache.has(url)) {
     _mentionCache.set(url, fetch(url).then((r) => r.json()).catch(() => []));
   }
   return _mentionCache.get(url);
 }
 
-function attachMentions(ace, editor, url) {
-  let tools;
+function attachMentions(ace        , editor           , url        ) {
+  let tools                               ;
   try { tools = ace.require('ace/ext/language_tools'); } catch (_) { return; }
   if (!tools) return;
   editor.setOptions({ enableBasicAutocompletion: true, enableLiveAutocompletion: true });
@@ -456,11 +461,11 @@ function attachMentions(ace, editor, url) {
   // fields cannot offer different things: "@" for agents and skills, "/" for commands and
   // skills. It used to be "@" only, and it inserted `@"name (kind)"` — a shape neither the
   // CLI nor the assistant understands, so what you picked was not what you could send.
-  let items = { '@': [], '/': [] };
-  const load = (trigger) => fetch(`${url}${url.includes('?') ? '&' : '?'}trigger=${encodeURIComponent(trigger)}`,
+  let items                            = { '@': [], '/': [] };
+  const load = (trigger        ) => fetch(`${url}${url.includes('?') ? '&' : '?'}trigger=${encodeURIComponent(trigger)}`,
     { headers: { Accept: 'application/json' } })
     .then((r) => (r.ok ? r.json() : []))
-    .then((list) => { items[trigger] = list || []; })
+    .then((list                  ) => { items[trigger] = list || []; })
     .catch(() => { /* no completions; the editor still edits */ });
   load('@');
   load('/');
@@ -470,7 +475,7 @@ function attachMentions(ace, editor, url) {
     identifierRegexps: [/[@/a-zA-Z0-9_.-]/],
     getCompletions(ed, session, pos, prefix, callback) {
       const line = session.getLine(pos.row).slice(0, pos.column);
-      let best = null;
+      let best                                                        = null;
       for (const trigger of ['@', '/']) {
         const at = line.lastIndexOf(trigger);
         if (at === -1) continue;
@@ -482,17 +487,18 @@ function attachMentions(ace, editor, url) {
         if (!best || at > best.at) best = { trigger, at, typed: typed.toLowerCase() };
       }
       if (!best) return callback(null, []);
-      const hits = (items[best.trigger] || [])
-        .filter((m) => m.name.toLowerCase().includes(best.typed))
+      const found = best;
+      const hits = (items[found.trigger] || [])
+        .filter((m) => m.name.toLowerCase().includes(found.typed))
         .slice(0, 40)
         .map((m, _i, arr) => ({
           // The trigger and the name — plus the kind when the name alone is ambiguous.
           // A few items exist as both an agent and a skill and are not interchangeable.
-          caption: `${best.trigger}${m.name}${arr.filter((o) => o.name === m.name).length > 1 ? ` (${m.kind})` : ''}`,
-          value: `${best.trigger}${m.name}${arr.filter((o) => o.name === m.name).length > 1 ? ` (${m.kind})` : ''}`,
+          caption: `${found.trigger}${m.name}${arr.filter((o) => o.name === m.name).length > 1 ? ` (${m.kind})` : ''}`,
+          value: `${found.trigger}${m.name}${arr.filter((o) => o.name === m.name).length > 1 ? ` (${m.kind})` : ''}`,
           meta: `${m.kind} · ${m.where}`,
           docHTML: m.description
-            ? `<div style="max-width:38rem;white-space:normal">${m.description.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</div>`
+            ? `<div style="max-width:38rem;white-space:normal">${m.description.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }                          )[c] )}</div>`
             : undefined,
           score: m.where === 'this project' ? 1000 : m.where === 'installed' ? 500 : 100,
         }));
@@ -501,23 +507,23 @@ function attachMentions(ace, editor, url) {
   });
 }
 
-let acePromise = null;
+let acePromise                         = null;
 function loadAce() {
   if (acePromise) return acePromise;
   acePromise = new Promise((resolve, reject) => {
     const el = document.createElement('script');
     el.src = '/vendor/ace/ace.js';
     el.onload = () => {
-      window.ace.config.set('basePath', '/vendor/ace');
+      window.ace .config.set('basePath', '/vendor/ace');
       // Ace resolves worker and mode files itself from basePath; only the yaml worker
       // is vendored, so the others must not be reached for.
-      window.ace.config.setModuleUrl('ace/mode/yaml_worker', '/vendor/ace/worker-yaml.js');
+      window.ace .config.setModuleUrl('ace/mode/yaml_worker', '/vendor/ace/worker-yaml.js');
       // The completion extension is part of loading Ace, not a race beside it:
       // an editor that mounts first would find no completer to register with.
       const lt = document.createElement('script');
       lt.src = '/vendor/ace/ext-language_tools.js';
-      lt.onload = () => resolve(window.ace);
-      lt.onerror = () => resolve(window.ace);   // no completions, still an editor
+      lt.onload = () => resolve(window.ace );
+      lt.onerror = () => resolve(window.ace );   // no completions, still an editor
       document.head.appendChild(lt);
     };
     el.onerror = reject;
@@ -526,7 +532,7 @@ function loadAce() {
   return acePromise;
 }
 
-const ACE_MODES = { sh: 'sh', yaml: 'yaml', yml: 'yaml', markdown: 'markdown', md: 'markdown' };
+const ACE_MODES                         = { sh: 'sh', yaml: 'yaml', yml: 'yaml', markdown: 'markdown', md: 'markdown' };
 
 function aceTheme() {
   // settings.yml's style.editor_theme can pin the editor independently of the page:
@@ -539,10 +545,10 @@ function aceTheme() {
   return dark ? 'ace/theme/tomorrow_night' : 'ace/theme/textmate';
 }
 
-function attachAce(root) {
+function attachAce(root                    ) {
   // A swap can name a target that is not an element (a polling card replaces itself); there is nothing to attach to then.
   if (root && typeof root.querySelectorAll !== 'function') return;
-  const fields = (root && typeof root.querySelectorAll === 'function' ? root : document).querySelectorAll('textarea[data-ace]:not([data-ace-ready])');
+  const fields = (root && typeof root.querySelectorAll === 'function' ? root : document).querySelectorAll             ('textarea[data-ace]:not([data-ace-ready])');
   if (!fields.length) return;
   // Claim each field NOW, synchronously, before awaiting the loader — the guard above
   // is only honest if it is set before anything can await. Both `htmx:after:swap` and
@@ -554,7 +560,7 @@ function attachAce(root) {
   fields.forEach((ta) => { ta.dataset.aceReady = '1'; });
   loadAce().then((ace) => {
     fields.forEach((ta) => {
-      const mode = ACE_MODES[ta.dataset.ace] || 'sh';
+      const mode = ACE_MODES[ta.dataset.ace || ''] || 'sh';
       // data-ace-single: one line (a command line) — no Enter, no gutter, and a pasted line break becomes a space.
       // readonly: code shown on a page, to read and copy, not to type into.
       const single = ta.dataset.aceSingle === '1';
@@ -564,7 +570,7 @@ function attachAce(root) {
       // A short field (a prompt, a few steps) gets a short editor: the 260px
       // floor is for the file editors, not for a form row. A one-line editor sizes itself.
       if (!single) host.style.height = `${ta.rows <= 8 ? Math.max(90, ta.rows * 19) : Math.max(260, Math.min(620, ta.rows * 19))}px`;
-      ta.parentNode.insertBefore(host, ta);
+      ta.parentNode .insertBefore(host, ta);
       ta.style.display = 'none';               // kept in the DOM: it is what submits
 
       const editor = ace.edit(host);
@@ -603,17 +609,17 @@ function attachAce(root) {
 // does not exist in htmx 4. `after:settle` is the event that names the element that was swapped: `after:swap` reports
 // the element that MADE the request, which here is the button inside the modal.
 document.body.addEventListener('htmx:after:settle', (e) => {
-  if (!e.target || e.target.id !== 'row-actions-editor') return;
+  if (!e.target || (e.target           ).id !== 'row-actions-editor') return;
   if (window.UIkit && document.querySelector('#editor-modal.uk-open')) window.UIkit.modal('#editor-modal').hide();
 });
 
 document.addEventListener('DOMContentLoaded', () => attachAce());
 // Start AI's prompt gets Ace only once Start AI is ticked, so a workspace page does not load the editor for nothing.
 document.addEventListener('change', (e) => {
-  const box = e.target && e.target.matches && e.target.matches('input[name="ai_after"]') ? e.target : null;
+  const box = e.target && (e.target           ).matches && (e.target           ).matches('input[name="ai_after"]') ? e.target                     : null;
   if (!box || !box.checked) return;
   const form = box.closest('form');
-  const ta = form && form.querySelector('textarea[data-ace-on-demand]:not([data-ace])');
+  const ta = form && form.querySelector                     ('textarea[data-ace-on-demand]:not([data-ace])');
   if (!ta) return;
   ta.dataset.ace = ta.dataset.aceOnDemand;
   attachAce(form);
@@ -623,9 +629,9 @@ document.body.addEventListener('htmx:after:settle', (e) => attachAce(swappedEl(e
 
 // Follow the theme toggle, since the editor paints its own background.
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.theme-toggle')) return;
+  if (!(e.target           ).closest('.theme-toggle')) return;
   setTimeout(() => {
-    document.querySelectorAll('textarea[data-ace-ready]').forEach((ta) => {
+    document.querySelectorAll             ('textarea[data-ace-ready]').forEach((ta) => {
       if (ta._aceEditor) ta._aceEditor.setTheme(aceTheme());
     });
   }, 50);
@@ -635,14 +641,14 @@ document.addEventListener('click', (e) => {
 // as you type, the line under the box says what is left, Escape empties the box before it closes the list,
 // and the box takes focus when the list opens, so a keyboard goes straight to it.
 document.addEventListener('input', (e) => {
-  const box = e.target.closest && e.target.closest('.pcard-domains-filter');
+  const box = (e.target           ).closest && (e.target           ).closest                  ('.pcard-domains-filter');
   if (!box) return;
-  const list = box.closest('.pcard-domains');
+  const list = box.closest('.pcard-domains') ;
   const q = box.value.trim().toLowerCase();
   const items = [...list.querySelectorAll('li')].filter((li) => li.querySelector('.host'));
   let shown = 0;
   items.forEach((li) => {
-    const hit = !q || li.querySelector('.host').textContent.toLowerCase().includes(q);
+    const hit = !q || li.querySelector('.host') .textContent.toLowerCase().includes(q);
     li.hidden = !hit;
     if (hit) shown += 1;
   });
@@ -651,7 +657,7 @@ document.addEventListener('input', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  const box = e.target.closest && e.target.closest('.pcard-domains-filter');
+  const box = (e.target           ).closest && (e.target           ).closest                  ('.pcard-domains-filter');
   if (!box || !box.value) return;
   e.preventDefault();
   e.stopPropagation();
@@ -659,7 +665,8 @@ document.addEventListener('keydown', (e) => {
   box.dispatchEvent(new Event('input', { bubbles: true }));
 }, true);
 document.addEventListener('shown', (e) => {
-  const box = e.target && e.target.classList && e.target.classList.contains('pcard-domains') && e.target.querySelector('.pcard-domains-filter');
+  const t = e.target                  ;
+  const box = t && t.classList && t.classList.contains('pcard-domains') && t.querySelector                  ('.pcard-domains-filter');
   if (box) box.focus();
 });
 // UIkit marks every dropdown's toggle aria-haspopup="true", which is a menu button. The "+N" of a project's
@@ -667,11 +674,11 @@ document.addEventListener('shown', (e) => {
 // it) and aria-controls (server.js). UIkit sets the attribute when it connects the dropdown, before or after
 // this runs, on load and after every swap, so it is taken off whenever it is set.
 (function addressListIsADisclosure() {
-  const strip = (el) => {
+  const strip = (el         ) => {
     if (el.matches && el.matches('.pcard-count[aria-controls]') && el.hasAttribute('aria-haspopup')) el.removeAttribute('aria-haspopup');
   };
   document.querySelectorAll('.pcard-count[aria-controls]').forEach(strip);
-  new MutationObserver((records) => records.forEach((r) => strip(r.target)))
+  new MutationObserver((records) => records.forEach((r) => strip(r.target           )))
     .observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['aria-haspopup'] });
 })();
 
