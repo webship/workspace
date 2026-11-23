@@ -9,7 +9,7 @@ interface UIkitApi {
 /** htmx (vendored), the parts the scripts call. */
 interface HtmxApi {
   process(el: Element): void;
-  ajax(verb: string, url: string, opts: { target: string; swap: string }): Promise<unknown>;
+  ajax(verb: string, url: string, opts: { target: string; swap: string; values?: Record<string, unknown> }): Promise<unknown>;
   trigger(el: Element, name: string, detail?: unknown): void;
 }
 /** htmx, as the vendored script puts it on the page. */

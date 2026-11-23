@@ -2516,19 +2516,19 @@ document.addEventListener('click', (e) => {
 // and awkward for a single step, and neither is a substitute for the other. The order is posted
 // once, on drop, rather than as a run of swaps.
 document.addEventListener('dragstart', (e) => {
-  const item = e.target.closest && e.target.closest('.ws-item');
+  const item = (e.target           ).closest && (e.target           ).closest             ('.ws-item');
   if (!item) return;
   item.classList.add('is-dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', item.dataset.ws || '');
+  e.dataTransfer .effectAllowed = 'move';
+  e.dataTransfer .setData('text/plain', item.dataset.ws || '');
 });
 
 document.addEventListener('dragover', (e) => {
-  const list = e.target.closest && e.target.closest('.ws-list');
+  const list = (e.target           ).closest && (e.target           ).closest('.ws-list');
   if (!list) return;
   e.preventDefault();
   const dragging = list.querySelector('.ws-item.is-dragging');
-  const over = e.target.closest('.ws-item');
+  const over = (e.target           ).closest('.ws-item');
   if (!dragging || !over || over === dragging) return;
   const box = over.getBoundingClientRect();
   const after = e.clientY > box.top + box.height / 2;
@@ -2536,13 +2536,13 @@ document.addEventListener('dragover', (e) => {
 });
 
 document.addEventListener('dragend', (e) => {
-  const item = e.target.closest && e.target.closest('.ws-item');
+  const item = (e.target           ).closest && (e.target           ).closest             ('.ws-item');
   if (!item) return;
   item.classList.remove('is-dragging');
-  const editor = item.closest('#list-editor');
+  const editor = item.closest             ('#list-editor');
   const list = item.closest('.ws-list');
   if (!editor || !list) return;
-  const order = [...list.querySelectorAll('.ws-item')].map((li) => li.dataset.ws).join(',');
+  const order = [...list.querySelectorAll             ('.ws-item')].map((li) => li.dataset.ws).join(',');
   htmx.ajax('POST', '/actions/list-order', {
     target: '#list-editor',
     swap: 'outerHTML',
@@ -2554,21 +2554,21 @@ document.addEventListener('dragend', (e) => {
 // after the agent creates/starts/launches something, it can steer the page —
 // open the new site in a tab and/or navigate to the relevant workspace page.
 document.body.addEventListener('assistant-directive', (e) => {
-  const d = e.detail || {};
+  const d                                       = (e               ).detail || {};
   if (d.open) window.open(d.open, '_blank', 'noopener');
-  if (d.navigate) setTimeout(() => { location.href = d.navigate; }, 900);
+  if (d.navigate) setTimeout(() => { location.href = d.navigate ; }, 900);
 });
 
 // Global "system is working" indicator: count in-flight HTMX requests and
 // toggle html.htmx-busy, which shows the top progress bar + Working… pill.
 let activeRequests = 0;
-const isJobPoll = (e) => e.detail?.elt?.id?.startsWith('job-');
+const isJobPoll = (e       ) => (e                                         ).detail?.elt?.id?.startsWith('job-');
 document.addEventListener('htmx:before:request', (e) => {
   if (isJobPoll(e)) return; // 1s job polls would make the bar flicker forever
   activeRequests += 1;
   document.documentElement.classList.add('htmx-busy');
 });
-const requestDone = (e) => {
+const requestDone = (e       ) => {
   if (isJobPoll(e)) return;
   activeRequests = Math.max(0, activeRequests - 1);
   if (activeRequests === 0) document.documentElement.classList.remove('htmx-busy');
@@ -2592,10 +2592,10 @@ setInterval(() => {
 
 // Keep live terminal boxes scrolled to the newest output line.
 document.addEventListener('htmx:after:swap', (e) => {
-  const el = swappedEl(e);
-  const pres = [];
-  if (el.classList?.contains('terminal')) pres.push(...el.querySelectorAll('.terminal-pre'));
-  el.querySelectorAll?.('.terminal .terminal-pre').forEach((p) => pres.push(p));
+  const el = swappedEl(e) ;
+  const pres                = [];
+  if (el.classList?.contains('terminal')) pres.push(...el.querySelectorAll             ('.terminal-pre'));
+  el.querySelectorAll?.             ('.terminal .terminal-pre').forEach((p) => pres.push(p));
   pres.forEach((p) => { p.scrollTop = p.scrollHeight; });
 });
 
@@ -2610,7 +2610,7 @@ document.addEventListener('htmx:after:swap', (e) => {
 
 // Dark mode toggle (light is the default; choice persists in localStorage).
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.theme-toggle')) return;
+  if (!(e.target           ).closest('.theme-toggle')) return;
   const dark = document.documentElement.classList.toggle('dark');
   wsPrefSet('ws-theme', dark ? 'dark' : 'light');
 });
@@ -2619,10 +2619,10 @@ document.addEventListener('click', (e) => {
 // phrase into the box and hands focus back, so the prompt stays the one place
 // you type. It never runs anything by itself.
 document.addEventListener('change', (e) => {
-  const picker = e.target.closest('.command-picker');
+  const picker = (e.target           ).closest                   ('.command-picker');
   if (!picker || !picker.value) return;
   const form = picker.closest('form');
-  const input = form && form.querySelector('input[name="message"]');
+  const input = form && form.querySelector                  ('input[name="message"]');
   if (!input) return;
   const [workspace, file] = picker.value.split('/');
   const phrase = `Run ${file} in ${workspace}: `;
@@ -2648,18 +2648,18 @@ document.addEventListener('change', (e) => {
 //     it exactly as typing it would.
 document.addEventListener('click', (e) => {
   const path = typeof e.composedPath === 'function' ? e.composedPath() : [e.target];
-  const hit = (cls) => path.find((n) => n && n.classList && n.classList.contains(cls));
+  const hit = (cls        ) => path.find((n) => n && (n           ).classList && (n           ).classList.contains(cls));
   const run = hit('plan-run');
   const keep = hit('plan-keep');
   if (!run && !keep) return;
-  const chat = document.getElementById('ws-deep-chat');
+  const chat = document.getElementById('ws-deep-chat')                                                                        ;
   if (!chat) return;
   if (keep) {
-    const input = chat.shadowRoot && chat.shadowRoot.querySelector('#text-input');
+    const input = chat.shadowRoot && chat.shadowRoot.querySelector             ('#text-input');
     if (input) input.focus();
     return;
   }
-  const card = path.find((n) => n && n.classList && n.classList.contains('plan-card'));
+  const card = path.find((n) => n && (n           ).classList && (n           ).classList.contains('plan-card'))                       ;
   if (card) card.classList.add('plan-card-done');
   // Both spellings: deep-chat has taken a plain string and an object across versions, and a
   // card that quietly does nothing is exactly the failure this is fixing.
@@ -2671,23 +2671,23 @@ document.addEventListener('click', (e) => {
 // refreshes the preview beside it — the value has to match a file in public/ exactly, so
 // picking beats typing, which is why these fields have no microphone.
 document.body.addEventListener('click', (e) => {
-  const close = e.target.closest('.image-choices-close');
-  if (close) { close.closest('.image-picker').innerHTML = ''; return; }
-  const tile = e.target.closest('[data-pick-image]');
+  const close = (e.target           ).closest('.image-choices-close');
+  if (close) { close.closest('.image-picker') .innerHTML = ''; return; }
+  const tile = (e.target           ).closest             ('[data-pick-image]');
   if (!tile) return;
-  const field = document.getElementById(tile.dataset.pickTarget);
+  const field = document.getElementById(tile.dataset.pickTarget )                           ;
   if (!field) return;
-  field.value = tile.dataset.pickImage;
+  field.value = tile.dataset.pickImage ;
   field.dispatchEvent(new Event('input', { bubbles: true }));
   const preview = field.closest('.image-field')?.querySelector('.image-preview');
   if (preview) preview.innerHTML = `<img src="/${tile.dataset.pickImage}" alt="">`;
-  tile.closest('.image-picker').innerHTML = '';
+  tile.closest('.image-picker') .innerHTML = '';
   field.focus();
 });
 
 // The grip lives inside the card, which is a link: a click that lands on it must not navigate.
 document.addEventListener('click', (e) => {
-  const grip = e.target.closest('.ws-card-handle');
+  const grip = (e.target           ).closest('.ws-card-handle');
   if (!grip) return;
   e.preventDefault();
   e.stopPropagation();
@@ -2696,7 +2696,7 @@ document.addEventListener('click', (e) => {
 document.body.addEventListener('htmx:before:swap', (e) => {
   const el = swappedEl(e);
   if (el && el.id === 'editor-modal-body') {
-    el.querySelectorAll('video, audio').forEach((m) => { try { m.pause(); } catch (_) { /* gone */ } });
+    el.querySelectorAll                  ('video, audio').forEach((m) => { try { m.pause(); } catch (_) { /* gone */ } });
   }
 });
 
@@ -2709,7 +2709,7 @@ function jobViewsToWindow() {
   if (!body) return;
   document.querySelectorAll('#webship-workspace-output .job-view, #settings-output .job-view').forEach((view) => {
     body.replaceChildren(view);
-    try { window.UIkit.modal('#editor-modal').show(); } catch (_) { /* no modal on this page: it stays readable in place */ }
+    try { window.UIkit .modal('#editor-modal').show(); } catch (_) { /* no modal on this page: it stays readable in place */ }
   });
 }
 document.body.addEventListener('htmx:after:swap', jobViewsToWindow);
