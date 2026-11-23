@@ -59,7 +59,8 @@ test('the fragments are served, and the modal closes on the event that names wha
   assert.match(src, /rowLayout\.addRowFormHtml\(\) : rowLayout\.addButtonFormHtml\(\)/);
 
   const ui = fs.readFileSync(path.join(APP, 'public', 'ui.js'), 'utf8');
-  const at = ui.indexOf("e.target.id !== 'row-actions-editor'");
+  // (From the id: where the part's TypeScript has a type, ui.js holds blank space.)
+  const at = ui.indexOf(".id !== 'row-actions-editor'");
   assert.ok(at > 0, 'nothing closes the modal when the editor comes back');
   const handler = ui.slice(ui.lastIndexOf('document.body.addEventListener', at), ui.indexOf('});', at));
   assert.match(handler, /htmx:after:settle/, "after:swap names the element that MADE the request in htmx 4, not the swapped one");

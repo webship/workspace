@@ -25,10 +25,11 @@ test('the list of addresses has a filter from nine on, named for the project, wi
 
 test('typing narrows the list by host name and says how many are left; Escape empties the box before it closes the list', () => {
   const ui = read('public', 'ui.js');
-  const at = ui.indexOf("const box = e.target.closest && e.target.closest('.pcard-domains-filter');");
+  // (From the selector: where the part's TypeScript has a type, ui.js holds blank space.)
+  const at = ui.indexOf("('.pcard-domains-filter');");
   assert.ok(at > 0, 'no filter handler');
   const block = ui.slice(at - 200, at + 1600);
-  assert.match(block, /li\.querySelector\('\.host'\)\.textContent\.toLowerCase\(\)\.includes\(q\)/, 'by host name');
+  assert.match(block, /li\.querySelector\('\.host'\)\s*\.textContent\s*\.toLowerCase\(\)\.includes\(q\)/, 'by host name');
   assert.match(block, /`\$\{shown\} of \$\{items\.length\} shown\.` : 'Nothing matches\.'/);
   assert.match(block, /if \(!box \|\| !box\.value\) return;[\s\S]{0,80}e\.stopPropagation\(\);/, 'a box with text: Escape empties it and the list stays');
   assert.match(block, /'shown'[\s\S]{0,200}box\.focus\(\)/, 'the box takes focus when the list opens');
