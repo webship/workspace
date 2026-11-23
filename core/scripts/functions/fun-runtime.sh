@@ -313,9 +313,10 @@ PHP
 # `composer create-project <pkg> [.]` into a folder that already holds the runtime's files: as DDEV does, the project
 # is created in a scratch folder in the container and copied in, so compose.yaml and .webship/ stay. As on DDEV, a
 # create-project that names no folder makes the project in the project root, not in a folder named after the package
-# (`ddev composer create-project codeigniter4/appstarter`). A folder other than "." is Composer's, as it is given.
+# (`ddev composer create-project codeigniter4/appstarter`). A folder other than "." is Composer's, as it is given:
+# nothing is copied then, and the command ends with Composer's own exit code (#761).
 function rt_create_project_cmd() {
-  local args=() a positional=0 skip=0 after_package=-1 ;
+  local args=() a positional=0 skip=0 after_package=-1 scratch=0 ;
   for a in "$@" ; do
     if [ ${skip} -eq 1 ] ; then args+=("${a}") ; skip=0 ; continue ; fi
     case "${a}" in
@@ -325,12 +326,17 @@ function rt_create_project_cmd() {
     esac
     positional=$(( positional + 1 )) ;
     # create-project, the package, then the folder: "." is the project root.
-    if [ ${positional} -eq 3 ] && [ "${a}" = "." ] ; then args+=("/tmp/webship-create") ; else args+=("${a}") ; fi
+    if [ ${positional} -eq 3 ] && [ "${a}" = "." ] ; then args+=("/tmp/webship-create") ; scratch=1 ; else args+=("${a}") ; fi
     [ ${positional} -eq 2 ] && after_package=${#args[@]} ;
   done
   # No folder named: the project root, as DDEV takes it.
-  if [ ${positional} -eq 2 ] ; then args=("${args[@]:0:${after_package}}" "/tmp/webship-create" "${args[@]:${after_package}}") ; fi
-  printf 'rm -rf /tmp/webship-create && composer %s && cp -a /tmp/webship-create/. "$PWD"/ && rm -rf /tmp/webship-create' "$(printf '%q ' "${args[@]}")" ;
+  if [ ${positional} -eq 2 ] ; then args=("${args[@]:0:${after_package}}" "/tmp/webship-create" "${args[@]:${after_package}}") ; scratch=1 ; fi
+  # The scratch folder is copied into the project root; a folder of the caller's own is where Composer made it.
+  if [ ${scratch} -eq 1 ] ; then
+    printf 'rm -rf /tmp/webship-create && composer %s && cp -a /tmp/webship-create/. "$PWD"/ && rm -rf /tmp/webship-create' "$(printf '%q ' "${args[@]}")" ;
+  else
+    printf 'composer %s' "$(printf '%q ' "${args[@]}")" ;
+  fi
 }
 
 # --- The tests container ---------------------------------------------------------------------------------------

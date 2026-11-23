@@ -409,3 +409,34 @@ test('ddev composer create-project with no folder on Docker Compose runs in the 
   const exec = r.calls.find((c) => c.includes('create-project'));
   assert.match(exec, /composer create-project codeigniter4\/appstarter \/tmp\/webship-create --no-interaction +&& cp -a \/tmp\/webship-create\/\. "\$PWD"\//);
 });
+
+test('composer create-project into a named folder is Composer\'s alone: nothing is copied, and its exit code is the answer (#761)', () => {
+  const dir = sandbox();
+  const line = (args) => run(dir, dir, `rt_create_project_cmd ${args}`).out;
+  // A folder of the caller's own: no scratch folder, no copy, no clean-up.
+  assert.strictEqual(line('create-project codeigniter4/appstarter sub --no-interaction'), 'composer create-project codeigniter4/appstarter sub --no-interaction ');
+  assert.strictEqual(line('create-project a/b sub 1.0'), 'composer create-project a/b sub 1.0 ');
+  assert.strictEqual(line('create-project -s dev a/b sub'), 'composer create-project -s dev a/b sub ');
+  // The project root, named or not, still goes through the scratch folder and is copied in.
+  for (const root of ['create-project a/b .', 'create-project a/b']) {
+    assert.strictEqual(line(root), 'rm -rf /tmp/webship-create && composer create-project a/b /tmp/webship-create  && cp -a /tmp/webship-create/. "$PWD"/ && rm -rf /tmp/webship-create', root);
+  }
+  // Run as the web container runs it, with Composer replaced: the command ends with Composer's own exit code.
+  const work = path.join(dir, 'work'); fs.mkdirSync(work);
+  const ran = (code) => run(dir, work, `composer() { mkdir -p "$3" ; return ${code} ; } ; eval "$(rt_create_project_cmd create-project a/b sub --no-interaction)" ; echo "exit $?"`);
+  assert.match(ran(0).out, /^exit 0$/m);
+  assert.deepStrictEqual(fs.readdirSync(work), ['sub'], 'the project is where Composer made it, and nothing else was written');
+  assert.match(ran(3).out, /^exit 3$/m);
+  assert.doesNotMatch(ran(0).out, /cannot stat/);
+});
+
+test('ddev composer create-project into a named folder on Docker Compose hands Composer the folder as given (#761)', () => {
+  const dir = sandbox();
+  const p = path.join(dir, 'ci2'); fs.mkdirSync(p);
+  run(dir, p, 'RUNTIME=docker ddev config --project-type=php --docroot=public --project-name=ci2 --auto');
+  const r = run(dir, p, 'ddev composer create-project codeigniter4/appstarter sub --no-interaction ; echo "exit $?"');
+  const exec = r.calls.find((c) => c.includes('create-project'));
+  assert.match(exec, /^docker compose exec -T -u www-data -w \/var\/www\/html web bash -c composer create-project codeigniter4\/appstarter sub --no-interaction ?$/);
+  assert.doesNotMatch(exec, /webship-create|cp -a/);
+  assert.match(r.out, /^exit 0$/m);
+});
