@@ -195,12 +195,14 @@ function rt_stack() {
     # The stack adds its layer with a shell and apt-get (Debian, Ubuntu) or apk (Alpine): an image with neither is
     # refused here, before anything is written, not half-way through a build.
     local cli=docker rc ; [ "${found%% *}" = podman ] && cli=podman ;
-    "${cli}" run --rm --entrypoint /bin/sh "${version}" -c 'command -v apt-get || command -v apk' > /dev/null 2>&1 ; rc=$? ;
+    # 3 is the probe's own answer for neither: a shell's `command -v` gives 127 for a missing command, as ${cli} does
+    # for a missing shell, and 125 is ${cli}'s own for an image it cannot run.
+    "${cli}" run --rm --entrypoint /bin/sh "${version}" -c 'command -v apt-get > /dev/null || command -v apk > /dev/null || exit 3' > /dev/null 2>&1 ; rc=$? ;
     case "${rc}" in
       0) ;;
-      125) echo "rt_stack: image ${version} could not be run to see what it is built on (is the name right, and can ${cli} pull it?)." >&2 ; return 1 ;;
+      3) echo "rt_stack: image ${version} has neither apt-get (Debian, Ubuntu) nor apk (Alpine), which the generic stack adds its layer with (webship/workspace#841). Build the application's image FROM one of those, or build on DDEV." >&2 ; return 1 ;;
       126|127) echo "rt_stack: image ${version} has no shell (a distroless image?): the generic stack adds its layer with apt-get (Debian, Ubuntu) or apk (Alpine) (webship/workspace#841). Build the application's image FROM one of those, or build on DDEV." >&2 ; return 1 ;;
-      *) echo "rt_stack: image ${version} has neither apt-get (Debian, Ubuntu) nor apk (Alpine), which the generic stack adds its layer with (webship/workspace#841). Build the application's image FROM one of those, or build on DDEV." >&2 ; return 1 ;;
+      *) echo "rt_stack: image ${version} could not be run to see what it is built on (is the name right, and can ${cli} pull it?)." >&2 ; return 1 ;;
     esac
   fi
   rt_meta_set stack generic "${root}" && rt_meta_set language "${lang}" "${root}" && rt_meta_set language_version "\"${version}\"" "${root}" || return 1 ;
@@ -699,16 +701,15 @@ function rt_pg_import() {
     "${dbx}" psql -U db -d postgres -qc 'DROP DATABASE IF EXISTS db_webship_import' > /dev/null 2>&1 ;
     echo "import-db: the dump stopped on an error: the project's database is untouched." >&2 ; return 1 ;
   fi
-  # The import is whole: it takes the place of db. db takes no new connection from here: an application's server, a
-  # pool above all, would otherwise connect again between the closing of its connections and the rename. Then its
-  # connections are closed, and the two renames are one transaction, both or neither. A connection that was starting
-  # as db closed can still be there for the renames, which then wait for it and fail: the closing and the renames are
-  # tried again. On failure db is opened again, as it was.
-  "${dbx}" psql -U db -d postgres -qc 'ALTER DATABASE db ALLOW_CONNECTIONS false' > /dev/null \
-    || { echo "import-db: db could not be closed to new connections for the swap: it is untouched (the dump is in db_webship_import)." >&2 ; return 1 ; } ;
+  # The import is whole: it takes the place of db. db takes no new connection first: an application's server, a pool
+  # above all, would otherwise connect again between the closing of its connections and the rename. Then its
+  # connections are closed, and the two renames are one transaction, both or neither. One session does it all, so db
+  # is closed for the milliseconds of the swap. A connection that was starting as db closed can still be there for
+  # the renames, which then wait for it and fail: the swap is tried again. On failure db is opened again, as it was.
   local try swapped= ;
   for try in 1 2 3 ; do
     "${dbx}" psql -U db -d postgres -v ON_ERROR_STOP=1 -q > /dev/null 2>&1 <<'SQL' && { swapped=1 ; break ; }
+ALTER DATABASE db ALLOW_CONNECTIONS false;
 SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'db' AND pid <> pg_backend_pid();
 BEGIN;
 ALTER DATABASE db RENAME TO db_webship_old;

@@ -172,10 +172,8 @@ test('a PostgreSQL import checks the dump, the client and the database first, go
   assert.strictEqual(ok.status, 0, ok.out);
   const order = ok.calls.map((c) => c.replace(/^docker compose .* exec -T db /, ''));
   assert.ok(order.indexOf('psql --version') < order.findIndex((c) => /CREATE DATABASE db_webship_import/.test(c)), 'the client asked before anything is made');
-  const closed = ok.calls.findIndex((c) => /psql -U db -d postgres -qc ALTER DATABASE db ALLOW_CONNECTIONS false$/.test(c));
-  assert.ok(closed > order.findIndex((c) => /db_webship_import -v ON_ERROR_STOP=1/.test(c)), 'db is closed to new connections once the dump is in, before the swap');
   assert.strictEqual(read(dir, 'stdin.log').match(/RENAME TO db_webship_old/g).length, 1, 'one swap');
-  assert.match(read(dir, 'stdin.log'), /SELECT pg_terminate_backend\(pid\) FROM pg_stat_activity WHERE datname = 'db' AND pid <> pg_backend_pid\(\);\nBEGIN;\nALTER DATABASE db RENAME TO db_webship_old;\nALTER DATABASE db_webship_import RENAME TO db;\nCOMMIT;/, 'the connections closed, then both renames in one transaction');
+  assert.match(read(dir, 'stdin.log'), /\nALTER DATABASE db ALLOW_CONNECTIONS false;\nSELECT pg_terminate_backend\(pid\) FROM pg_stat_activity WHERE datname = 'db' AND pid <> pg_backend_pid\(\);\nBEGIN;\nALTER DATABASE db RENAME TO db_webship_old;\nALTER DATABASE db_webship_import RENAME TO db;\nCOMMIT;/, 'in one session: db closed to new connections, its connections closed, then both renames in one transaction');
   assert.ok(ok.calls.some((c) => /DROP DATABASE IF EXISTS db_webship_old/.test(c)), 'the old database goes after');
   assert.ok(!ok.calls.some((c) => /ALLOW_CONNECTIONS true/.test(c)), 'the new db takes connections as made');
   // A swap that fails: tried three times, then db, as it was, is opened again, and the import says so.
@@ -211,12 +209,12 @@ test('rt_stack image: a pinned image that can take the stack\'s layer (a shell, 
     assert.match(r.out, /a pinned image, please \(name:tag or name@sha256:\.\.\., never latest\)/, image);
     assert.ok(!r.calls.some((c) => /^docker run/.test(c)), `${image}: nothing is run for an image that is not pinned`);
   }
-  for (const [rc, why] of [['1', /image busybox:1\.37 has neither apt-get \(Debian, Ubuntu\) nor apk \(Alpine\), which the generic stack adds its layer with \(webship\/workspace#841\)/], ['127', /image busybox:1\.37 has no shell \(a distroless image\?\)/], ['125', /image busybox:1\.37 could not be run to see what it is built on \(is the name right, and can docker pull it\?\)/]]) {
+  for (const [rc, why] of [['3', /image busybox:1\.37 has neither apt-get \(Debian, Ubuntu\) nor apk \(Alpine\), which the generic stack adds its layer with \(webship\/workspace#841\)/], ['127', /image busybox:1\.37 has no shell \(a distroless image\?\)/], ['1', /image busybox:1\.37 could not be run to see what it is built on \(is the name right, and can docker pull it\?\)/], ['125', /image busybox:1\.37 could not be run to see what it is built on \(is the name right, and can docker pull it\?\)/]]) {
     fs.writeFileSync(path.join(dir, 'probe-rc'), rc);
     const r = run(dir, p, 'rt_stack image busybox:1.37');
     assert.strictEqual(r.status, 1, rc);
     assert.match(r.out, why, rc);
-    assert.ok(r.calls.includes('docker run --rm --entrypoint /bin/sh busybox:1.37 -c command -v apt-get || command -v apk'), r.calls.join('\n'));
+    assert.ok(r.calls.includes('docker run --rm --entrypoint /bin/sh busybox:1.37 -c command -v apt-get > /dev/null || command -v apk > /dev/null || exit 3'), r.calls.join('\n'));
     assert.strictEqual(read(p, 'compose.yaml'), before, `${rc}: nothing is written`);
   }
   fs.unlinkSync(path.join(dir, 'probe-rc'));
@@ -229,7 +227,7 @@ test('rt_stack image: a pinned image that can take the stack\'s layer (a shell, 
   const digest = `acme/app@sha256:${'a'.repeat(64)}`;
   const pod = run(dir, q, `rt_stack image ${digest}`);
   assert.strictEqual(pod.status, 0, pod.out);
-  assert.ok(pod.calls.includes(`podman run --rm --entrypoint /bin/sh ${digest} -c command -v apt-get || command -v apk`), pod.calls.join('\n'));
+  assert.ok(pod.calls.includes(`podman run --rm --entrypoint /bin/sh ${digest} -c command -v apt-get > /dev/null || command -v apk > /dev/null || exit 3`), pod.calls.join('\n'));
 });
 
 test('the generic stack takes the layer with apt-get or apk, and an image with neither stops the build with why', () => {
