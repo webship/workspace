@@ -265,6 +265,9 @@ ${userns}    environment:
         condition: service_healthy
   db:
     image: mariadb:${db}
+    # DDEV's character set and collation, whatever the version: from 11.x on MariaDB's own default collation is one
+    # an installer may not take (Moodle: "unicode"), and a site's database is the same on every runtime.
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_general_ci"]
     environment:
       MARIADB_DATABASE: db
       MARIADB_USER: db
@@ -602,6 +605,8 @@ spec:
       containers:
         - name: db
           image: mariadb:${db}
+          # DDEV's character set and collation, whatever the version (the same as compose.yaml's db service).
+          args: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_general_ci"]
           env:
             - {name: MARIADB_DATABASE, value: db}
             - {name: MARIADB_USER, value: db}
@@ -1046,6 +1051,9 @@ function rt_docksal_host() {
 }
 
 # Writes .docksal/docksal.env and .docksal/docksal.yml for a project.
+# The release of Docksal's MariaDB image for a version: 11.x is only in 1.5 (there is no docksal/mariadb:11.4-1.4).
+function rt_docksal_db_tag() { case "$1" in 11.*) echo 1.5 ;; *) echo 1.4 ;; esac ; }
+
 function rt_docksal_write() {
   local root="$1" name="$2" type="$3" docroot="$4" php="$5" db="$6" platform="${7:-}" ;
   local safe="${name,,}" ; safe="${safe//_/-}" ; safe="${safe//[^-a-z0-9]/}" ;
@@ -1057,7 +1065,7 @@ COMPOSE_PROJECT_NAME=${safe}
 VIRTUAL_HOST=${safe}.docksal.site
 DOCROOT=${docroot:-.}
 CLI_IMAGE=docksal/cli:php${php}-3.10
-DB_IMAGE=docksal/mariadb:${db}-1.4
+DB_IMAGE=docksal/mariadb:${db}-$(rt_docksal_db_tag "${db}")
 MYSQL_ROOT_PASSWORD=root
 MYSQL_USER=db
 MYSQL_PASSWORD=db
