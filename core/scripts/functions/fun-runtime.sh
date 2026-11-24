@@ -1414,6 +1414,104 @@ services:
 YAML
 }
 
+# A generic stack on Lando (#841): no recipe. appserver runs the application's server, from the stack's own image
+# (.webship/runtime: the language's image and what the application adds), start.sh first (#850). The database is
+# PostgreSQL as a service of the official image, as on the other runtimes, or Lando's own MariaDB, on the host db
+# either way, with db/db/db; Lando's Mailpit answers on the host mail, where the stack's sendmail sends.
+function rt_lando_generic_write() {
+  local root="$1" name="$2" type="$3" docroot="$4" php="$5" db="$6" port="$7" platform="${8:-}" mail_port="${9:-}" ;
+  local lang="${RT_STACK_LANG:-}" lang_version="${RT_STACK_VERSION:-}" serve_port="${RT_SERVE_PORT:-}" ;
+  local db_wait="${RT_DB_WAIT:-300}" serve_grace="${RT_SERVE_GRACE:-1800}" app stack_lines="" database="" mail_ports="" ;
+  [[ "${db_wait}" =~ ^[0-9]+$ ]] || db_wait=300 ; [[ "${serve_grace}" =~ ^[0-9]+$ ]] || serve_grace=1800 ;
+  app="${name,,}" ; app="${app//[^a-z0-9]/}" ;
+  [ -n "${lang}" ] && stack_lines="${stack_lines}"$'\n  language: '"${lang}" ;
+  [ -n "${lang_version}" ] && stack_lines="${stack_lines}"$'\n  language_version: "'"${lang_version}"'"' ;
+  [ -n "${serve_port}" ] && stack_lines="${stack_lines}"$'\n  serve_port: '"${serve_port}" ;
+  stack_lines="${stack_lines}"$'\n  db_wait: '"${db_wait}"$'\n  serve_grace: '"${serve_grace}" ;
+  rt_generic_runtime "${root}" "${db}" ;
+  case "${db}" in
+    none) ;;
+    postgres:*)
+      local v="${db#postgres:}" data=/var/lib/postgresql/data ;
+      [ "${v%%.*}" -ge 18 ] 2>/dev/null && data=/var/lib/postgresql ;
+      database="
+  database:
+    # PostgreSQL ${v}, the official image as on the other runtimes (not Lando's own postgres type): db/db/db.
+    type: compose
+    services:
+      image: postgres:${v}
+      command: docker-entrypoint.sh postgres
+      environment:
+        POSTGRES_DB: db
+        POSTGRES_USER: db
+        POSTGRES_PASSWORD: db
+      volumes:
+        - db:${data}
+      networks:
+        default:
+          aliases:
+            - db
+    volumes:
+      db:" ;;
+    *)
+      database="
+  database:
+    type: mariadb:${db}
+    creds:
+      user: db
+      password: db
+      database: db
+    overrides:
+      networks:
+        default:
+          aliases:
+            - db" ;;
+  esac
+  [ -n "${mail_port}" ] && mail_ports=$'\n      # The mailbox, on this machine only (MAIL_URL).\n      ports:\n        - "127.0.0.1:'"${mail_port}"$':80"' ;
+  cat > "${root}/.lando.yml" <<YAML
+# Written by the Webship Workspace (its lando runtime, webship/workspace#729 and #841). Run it with: lando start
+name: ${name}
+x-webship:${platform:+
+  platform: ${platform}}
+  runtime: lando
+  stack: generic${stack_lines}
+  type: ${type}
+  docroot: "${docroot}"
+  php: "${php}"
+  database: "${db}"
+  port: ${port}${mail_port:+
+  mail_port: ${mail_port}}
+services:
+  appserver:
+    # The application's own server (rt_serve), as the host user, from the app's root, once its database takes
+    # connections (start.sh, #850).
+    type: lando
+    services:
+      build:
+        context: ./.webship/runtime
+        args:
+          BASE_IMAGE: "$(rt_stack_image "${lang}" "${lang_version}")"
+          UID: "$(id -u)"
+          GID: "$(id -g)"
+      image: webship-${app}-web
+      command: runuser -u www-data -- bash /app/.webship/runtime/start.sh
+      environment:
+        WEBSHIP_RUNTIME: lando
+        WEBSHIP_PORT: "${port}"
+        WEBSHIP_DB_WAIT: "${db_wait}"
+      ports:
+        - "127.0.0.1:${port}:${serve_port:-8000}"${database}
+  mailpit:
+    type: mailpit
+    overrides:${mail_ports}
+      # The stack's sendmail sends to the host mail, as on the other runtimes.
+      networks:
+        default:
+          aliases:
+            - mail
+YAML
+}
+
 # The containers of a Lando app, by the label Lando gives them: its folder.
 function rt_lando_containers() { docker ps ${2:+-a} -q --filter "label=io.lando.root=$1" 2> /dev/null ; }
 
@@ -1455,18 +1553,34 @@ function rt_lando() {
       if [ -f "${root}/.lando.yml" ] && ! grep -q '^x-webship:' "${root}/.lando.yml" ; then
         echo "${root}/.lando.yml is the project's own: the Workspace leaves it as it is." ; return 0 ;
       fi
-      local name type docroot php db port platform mail_port daemons a ;
+      local name type docroot php db port platform mail_port daemons a stack="" ;
+      local RT_STACK_LANG RT_STACK_VERSION RT_SERVE_PORT RT_DB_WAIT RT_SERVE_GRACE ;
       if [ -f "${root}/.lando.yml" ] ; then
         name="$(rt_name "${root}")" ; type="$(rt_meta type "${root}")" ; docroot="$(rt_meta docroot "${root}")" ;
         php="$(rt_meta php "${root}")" ; db="$(rt_meta database "${root}")" ; port="$(rt_meta port "${root}")" ;
         platform="$(rt_meta platform "${root}")" ; mail_port="$(rt_meta mail_port "${root}")" ; daemons="$(rt_meta daemons "${root}")" ;
+        # A generic stack's language, server, database wait and grace (#841, #850) stay when the file is written again.
+        stack="$(rt_meta stack "${root}")" ; RT_STACK_LANG="$(rt_meta language "${root}")" ; RT_STACK_VERSION="$(rt_meta language_version "${root}")" ;
+        RT_SERVE_PORT="$(rt_meta serve_port "${root}")" ; RT_DB_WAIT="$(rt_meta db_wait "${root}")" ; RT_SERVE_GRACE="$(rt_meta serve_grace "${root}")" ;
       fi
+      RT_DB_WAIT="${WEBSHIP_DB_WAIT:-${RT_DB_WAIT}}" ; RT_SERVE_GRACE="${WEBSHIP_SERVE_GRACE:-${RT_SERVE_GRACE}}" ;
       for a in "$@" ; do
         case "${a}" in
           --project-name=*) name="${a#*=}" ;; --project-type=*) type="${a#*=}" ;; --docroot=*) docroot="${a#*=}" ;;
-          --php-version=*) php="${a#*=}" ;; --database=*) db="${a#*=}" ; db="${db#*:}" ;;
+          # PostgreSQL by its name and version, which the PostgreSQL plugin reads (#841); MariaDB as its version.
+          --php-version=*) php="${a#*=}" ;; --database=postgres:*) db="${a#*=}" ;; --database=*) db="${a#*=}" ; db="${db#*:}" ;;
+          --omit-containers=*db*) db=none ;;
+          --webserver-type=generic) stack=generic ;; --webserver-type=*) stack=php ;;
         esac
       done
+      if [ "${stack}" = generic ] ; then
+        RT_STACK_LANG="${RT_STACK_LANG}" RT_STACK_VERSION="${RT_STACK_VERSION}" RT_SERVE_PORT="${RT_SERVE_PORT}" RT_DB_WAIT="${RT_DB_WAIT}" RT_SERVE_GRACE="${RT_SERVE_GRACE}" \
+          rt_lando_generic_write "${root}" "${name:-$(basename "${root}")}" "${type:-generic}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" ;
+        echo "Wrote .lando.yml for lando (generic, $(case "${db:-10.11}" in none) echo 'no database' ;; postgres:*) echo "PostgreSQL ${db#postgres:}" ;; *) echo "MariaDB ${db:-10.11}" ;; esac)): $(rt_url "${root}")" ;
+        return 0 ;
+      fi
+      # The php stack has MariaDB: PostgreSQL there is a generic stack's, so far (#841).
+      case "${db}" in postgres:*|none) echo "Lando's php stack has MariaDB: ${db} is a generic stack's (--webserver-type=generic), so far (webship/workspace#841)." >&2 ; return 1 ;; esac
       rt_lando_write "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" "${daemons}" ;
       echo "Wrote .lando.yml for lando (${type:-php}, PHP ${php:-8.3}, MariaDB ${db:-10.11}): $(rt_url "${root}")" ;;
     start|restart)
@@ -1474,6 +1588,8 @@ function rt_lando() {
       # A Landofile the Workspace wrote again (a new docroot, PHP or database) is applied with a rebuild: Lando's
       # start keeps the containers as they were made.
       local landofile_sum ; landofile_sum="$(cat "${root}/.lando.yml" "${root}/.webship/runtime/lando-port.conf" "${root}/.webship/runtime/lando-clients.sh" 2> /dev/null | md5sum | cut -c1-32)" ;
+      # A generic stack's image (its Dockerfile, with what the application adds) and its start are its own (#841).
+      [ "$(rt_meta stack "${root}")" = generic ] && landofile_sum="$(cat "${root}/.lando.yml" "${root}/.webship/runtime/Dockerfile" "${root}/.webship/runtime/start.sh" 2> /dev/null | md5sum | cut -c1-32)" ;
       local rc=0 ;
       if [ -n "$(rt_lando_containers "${root}" all)" ] && [ "$(cat "${root}/.webship/runtime/lando.sum" 2> /dev/null)" != "${landofile_sum}" ] && grep -q '^x-webship:' "${root}/.lando.yml" ; then
         ( cd "${root}" && rt_lando_cli rebuild -y ) || rc=$? ;
@@ -1525,20 +1641,42 @@ function rt_lando() {
       if [ "${svc}" = tests ] ; then rt_tests_run lando "${root}" "${PWD}" "${line}" ; return $? ; fi
       # DDEV's service names are Lando's appserver and database.
       case "${svc}" in web) svc=appserver ;; db) svc=database ;; mail) svc=mailpit ;; esac ;
-      if [ "${svc}" = appserver ] ; then rt_lando_x "${root}" appserver bash -c "cd '${workdir}' && ${line}" ;
+      if [ "${svc}" = appserver ] && [ "$(rt_meta stack "${root}")" = generic ] ; then
+        # A generic stack's commands run as www-data, the host user, as its server does (#841).
+        ( cd "${root}" && rt_lando_cli exec appserver --user www-data -- bash -c "cd '${workdir}' && ${line}" ) ;
+      elif [ "${svc}" = appserver ] ; then rt_lando_x "${root}" appserver bash -c "cd '${workdir}' && ${line}" ;
       else rt_lando_x "${root}" "${svc}" bash -c "${line}" ; fi ;;
     ssh)
       if [ -t 0 ] ; then ( cd "${root}" && rt_lando_cli ssh ) ;
       else rt_lando_x "${root}" appserver bash ; fi ;;
-    mysql) rt_lando_x "${root}" database bash -c "${dbcmd} $(printf '%q ' "$@")" ;;
-    export-db)
-      local file ; file="$(rt_file_arg "$@")" ;
-      if [ -n "${file}" ] ; then rt_lando_x "${root}" database bash -c "${dumpcmd}" | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
-      else rt_lando_x "${root}" database bash -c "${dumpcmd}" | gzip ; fi ;;
-    import-db)
-      local file ; file="$(rt_file_arg "$@")" ;
-      [ -f "${file}" ] || { echo "No such file: ${file}" >&2 ; return 1 ; } ;
-      case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | rt_lando_x "${root}" database bash -c "${dbcmd}" ;;
+    psql|mysql|export-db|import-db)
+      # The project's database decides the client (#841): PostgreSQL (a generic stack's), MariaDB as before, or none.
+      local dbase ; dbase="$(rt_meta database "${root}")" ;
+      ldbx() { rt_lando_x "${root}" database "$@" ; } ;
+      case "${dbase}" in
+        none) echo "This project has no database." >&2 ; return 1 ;;
+        postgres:*) case "${verb}" in
+          mysql) echo "The database of this project is PostgreSQL: ddev psql." >&2 ; return 1 ;;
+          psql) ldbx psql -U db -d db "$@" ;;
+          export-db)
+            local file ; file="$(rt_file_arg "$@")" ;
+            if [ -n "${file}" ] ; then ldbx pg_dump -U db --no-owner --no-privileges db | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
+            else ldbx pg_dump -U db --no-owner --no-privileges db | gzip ; fi ;;
+          import-db) rt_pg_import "$(rt_file_arg "$@")" ldbx ;;
+        esac ;;
+        *) case "${verb}" in
+          psql) echo "The database of this project is MariaDB: ddev mysql." >&2 ; return 1 ;;
+          mysql) rt_lando_x "${root}" database bash -c "${dbcmd} $(printf '%q ' "$@")" ;;
+          export-db)
+            local file ; file="$(rt_file_arg "$@")" ;
+            if [ -n "${file}" ] ; then rt_lando_x "${root}" database bash -c "${dumpcmd}" | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
+            else rt_lando_x "${root}" database bash -c "${dumpcmd}" | gzip ; fi ;;
+          import-db)
+            local file ; file="$(rt_file_arg "$@")" ;
+            [ -f "${file}" ] || { echo "No such file: ${file}" >&2 ; return 1 ; } ;
+            case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | rt_lando_x "${root}" database bash -c "${dbcmd}" ;;
+        esac ;;
+      esac ;;
     launch) echo "$(rt_url "${root}")${1:-}" ;;
     logs) ( cd "${root}" && rt_lando_cli logs -s appserver ) | tail -n "${LOG_LINES:-200}" ;;
     version|--version|-v) echo "the Webship Workspace's lando runtime (no DDEV), lando $(rt_lando_cli version 2>/dev/null)" ;;
@@ -1649,6 +1787,115 @@ services:
 YAML
 }
 
+# A generic stack on Docksal (#841), the way Docksal runs an app that serves itself (its node stack): cli is the stack's
+# own image (.webship/runtime: the language's and what the application adds) and runs the application's server, start.sh
+# first (#850), behind Docksal's proxy on its port. Docksal's proxy routes to a healthy container only: the stack's
+# probe (#850) is cli's healthcheck, and passes before the server first answers, while a build makes the app. The
+# database is PostgreSQL, the official image as on the other runtimes, or Docksal's MariaDB, on the host db, db/db/db.
+function rt_docksal_generic_write() {
+  local root="$1" name="$2" type="$3" docroot="$4" php="$5" db="$6" platform="${7:-}" ;
+  local lang="${RT_STACK_LANG:-}" lang_version="${RT_STACK_VERSION:-}" serve_port="${RT_SERVE_PORT:-}" ;
+  local db_wait="${RT_DB_WAIT:-300}" serve_grace="${RT_SERVE_GRACE:-1800}" stack_lines="" database="" volumes="" db_env="" ;
+  [[ "${db_wait}" =~ ^[0-9]+$ ]] || db_wait=300 ; [[ "${serve_grace}" =~ ^[0-9]+$ ]] || serve_grace=1800 ;
+  local safe="${name,,}" ; safe="${safe//_/-}" ; safe="${safe//[^-a-z0-9]/}" ;
+  [ -n "${lang}" ] && stack_lines="${stack_lines}"$'\n  language: '"${lang}" ;
+  [ -n "${lang_version}" ] && stack_lines="${stack_lines}"$'\n  language_version: "'"${lang_version}"'"' ;
+  [ -n "${serve_port}" ] && stack_lines="${stack_lines}"$'\n  serve_port: '"${serve_port}" ;
+  stack_lines="${stack_lines}"$'\n  db_wait: '"${db_wait}"$'\n  serve_grace: '"${serve_grace}" ;
+  rt_generic_runtime "${root}" "${db}" ;
+  case "${db}" in
+    none) ;;
+    postgres:*)
+      local v="${db#postgres:}" data=/var/lib/postgresql/data ;
+      [ "${v%%.*}" -ge 18 ] 2>/dev/null && data=/var/lib/postgresql ;
+      database="
+  # PostgreSQL ${v}, the official image as on the other runtimes: db/db/db. Docksal's containers are known by their
+  # hostname, as its own services say theirs: without it db is not a name on the project's network.
+  db:
+    hostname: db
+    image: postgres:${v}
+    environment:
+      - POSTGRES_DB=db
+      - POSTGRES_USER=db
+      - POSTGRES_PASSWORD=db
+    volumes:
+      - db:${data}
+    healthcheck:
+      test: [\"CMD-SHELL\", \"pg_isready -U db -d db\"]
+      interval: 5s
+      timeout: 5s
+      retries: 60"
+      volumes=$'\nvolumes:\n  db:' ;;
+    *)
+      db_env="
+DB_IMAGE=docksal/mariadb:${db}-$(rt_docksal_db_tag "${db}")
+MYSQL_ROOT_PASSWORD=root
+MYSQL_USER=db
+MYSQL_PASSWORD=db
+MYSQL_DATABASE=db"
+      database="
+  # Docksal's MariaDB, as the php stack has it: db/db/db.
+  db:
+    extends:
+      file: \${HOME}/.docksal/stacks/services.yml
+      service: db" ;;
+  esac
+  mkdir -p "${root}/.docksal" ;
+  cat > "${root}/.docksal/docksal.env" <<ENV
+# Written by the Webship Workspace (its docksal runtime, webship/workspace#730 and #841). Run it with: fin project start
+DOCKSAL_STACK=node
+COMPOSE_PROJECT_NAME=${safe}
+VIRTUAL_HOST=${safe}.docksal.site
+DOCROOT=${docroot:-.}${db_env}
+ENV
+  cat > "${root}/.docksal/docksal.yml" <<YAML
+# Written by the Webship Workspace (its docksal runtime, webship/workspace#730 and #841), beside docksal.env.
+x-webship:${platform:+
+  platform: ${platform}}
+  runtime: docksal
+  name: ${name}
+  stack: generic${stack_lines}
+  type: ${type}
+  docroot: "${docroot}"
+  php: "${php}"
+  database: "${db}"
+  host: ${safe}.docksal.site
+services:
+  cli:
+    # The application's own server (rt_serve), as the host user, from the project's root, once its database takes
+    # connections (start.sh, #850), behind Docksal's proxy on its port.
+    image: webship-${safe}-web
+    build:
+      context: \${PROJECT_ROOT}/.webship/runtime
+      args:
+        BASE_IMAGE: "$(rt_stack_image "${lang}" "${lang_version}")"
+        UID: "$(id -u)"
+        GID: "$(id -g)"
+    command: ["runuser", "-u", "www-data", "--", "bash", "/var/www/.webship/runtime/start.sh"]
+    environment:
+      - WEBSHIP_RUNTIME=docksal
+      - WEBSHIP_DB_WAIT=${db_wait}
+      - WEBSHIP_SERVE_GRACE=${serve_grace}
+    labels:
+      - io.docksal.user=www-data
+      - io.docksal.virtual-port=${serve_port:-8000}
+    expose:
+      - "${serve_port:-8000}"
+    # Docksal's proxy routes to a healthy container only: the stack's probe (#850), which passes before the server
+    # first answers.
+    healthcheck:
+      test: ["CMD", "bash", "/var/www/.webship/runtime/probe.sh", "${serve_port:-8000}"]
+      interval: 5s
+      timeout: 10s
+      retries: 3${database}
+  # Mailpit: the stack's sendmail sends to the host mail, and its page is http://mail.${safe}.docksal.site (MAIL_URL).
+  mail:
+    extends:
+      file: \${HOME}/.docksal/stacks/services.yml
+      service: mail${volumes}
+YAML
+}
+
 # The pool file of a Docksal project: each `key = value` of its .webship/php/*.ini as php_value, read by php-fpm before
 # Docksal's own pool settings (php-fpm keeps the first value of each), so the web server has the project's (rt_php_ini).
 function rt_docksal_fpm() {
@@ -1677,7 +1924,8 @@ function rt_docksal_x() {
   local root="$1" svc="$2" cid user=() ; shift 2 ;
   cid="$(rt_docksal_cid "${root}" "${svc}")" ;
   [ -n "${cid}" ] || { echo "The ${svc} container of $(rt_docksal_project "${root}") is not running: ddev start (fin project start) first." >&2 ; return 1 ; } ;
-  [ "${svc}" = cli ] && user=(-u docker) ;
+  # A generic stack's cli is the stack's own image: its user is www-data, the host user (#841).
+  [ "${svc}" = cli ] && { if [ "$(rt_meta stack "${root}")" = generic ] ; then user=(-u www-data) ; else user=(-u docker) ; fi ; } ;
   docker exec -i "${user[@]}" "${cid}" "$@" ;
 }
 
@@ -1698,18 +1946,34 @@ function rt_docksal() {
       if [ -d "${root}/.docksal" ] && ! grep -q '^x-webship:' "${root}/.docksal/docksal.yml" 2> /dev/null ; then
         echo "${root}/.docksal/ is the project's own: the Workspace leaves it as it is." ; return 0 ;
       fi
-      local name type docroot php db platform daemons a ;
+      local name type docroot php db platform daemons a stack="" ;
+      local RT_STACK_LANG RT_STACK_VERSION RT_SERVE_PORT RT_DB_WAIT RT_SERVE_GRACE ;
       if [ -f "${root}/.docksal/docksal.yml" ] ; then
         name="$(rt_name "${root}")" ; type="$(rt_meta type "${root}")" ; docroot="$(rt_meta docroot "${root}")" ;
         php="$(rt_meta php "${root}")" ; db="$(rt_meta database "${root}")" ; platform="$(rt_meta platform "${root}")" ;
         daemons="$(rt_meta daemons "${root}")" ;
+        # A generic stack's language, server, database wait and grace (#841, #850) stay when the files are written again.
+        stack="$(rt_meta stack "${root}")" ; RT_STACK_LANG="$(rt_meta language "${root}")" ; RT_STACK_VERSION="$(rt_meta language_version "${root}")" ;
+        RT_SERVE_PORT="$(rt_meta serve_port "${root}")" ; RT_DB_WAIT="$(rt_meta db_wait "${root}")" ; RT_SERVE_GRACE="$(rt_meta serve_grace "${root}")" ;
       fi
+      RT_DB_WAIT="${WEBSHIP_DB_WAIT:-${RT_DB_WAIT}}" ; RT_SERVE_GRACE="${WEBSHIP_SERVE_GRACE:-${RT_SERVE_GRACE}}" ;
       for a in "$@" ; do
         case "${a}" in
           --project-name=*) name="${a#*=}" ;; --project-type=*) type="${a#*=}" ;; --docroot=*) docroot="${a#*=}" ;;
-          --php-version=*) php="${a#*=}" ;; --database=*) db="${a#*=}" ; db="${db#*:}" ;;
+          # PostgreSQL by its name and version, which the PostgreSQL plugin reads (#841); MariaDB as its version.
+          --php-version=*) php="${a#*=}" ;; --database=postgres:*) db="${a#*=}" ;; --database=*) db="${a#*=}" ; db="${db#*:}" ;;
+          --omit-containers=*db*) db=none ;;
+          --webserver-type=generic) stack=generic ;; --webserver-type=*) stack=php ;;
         esac
       done
+      if [ "${stack}" = generic ] ; then
+        RT_STACK_LANG="${RT_STACK_LANG}" RT_STACK_VERSION="${RT_STACK_VERSION}" RT_SERVE_PORT="${RT_SERVE_PORT}" RT_DB_WAIT="${RT_DB_WAIT}" RT_SERVE_GRACE="${RT_SERVE_GRACE}" \
+          rt_docksal_generic_write "${root}" "${name:-$(basename "${root}")}" "${type:-generic}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${platform}" ;
+        echo "Wrote .docksal/ for docksal (generic, $(case "${db:-10.11}" in none) echo 'no database' ;; postgres:*) echo "PostgreSQL ${db#postgres:}" ;; *) echo "MariaDB ${db:-10.11}" ;; esac)): $(rt_url "${root}")" ;
+        return 0 ;
+      fi
+      # The php stack has MariaDB: PostgreSQL there is a generic stack's, so far (#841).
+      case "${db}" in postgres:*|none) echo "Docksal's php stack has MariaDB: ${db} is a generic stack's (--webserver-type=generic), so far (webship/workspace#841)." >&2 ; return 1 ;; esac
       rt_docksal_write "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${platform}" "${daemons}" ;
       echo "Wrote .docksal/ for docksal (${type:-php}, PHP ${php:-8.3}, MariaDB ${db:-10.11}): $(rt_url "${root}")" ;;
     start|restart)
@@ -1717,6 +1981,9 @@ function rt_docksal() {
       # `fin project start` brings up what docksal.env and docksal.yml say now, so a project written again is
       # applied by a start; a restart stops first.
       [ "${verb}" = restart ] && { ( cd "${root}" && rt_fin project stop ) || return 1 ; } ;
+      # A generic stack's image is built again first, from what the application adds now (rt_web_build); `fin project
+      # start` would keep the image it made (#841).
+      if [ "$(rt_meta stack "${root}")" = generic ] ; then ( cd "${root}" && rt_fin docker-compose build cli ) || return 1 ; fi
       ( cd "${root}" && rt_fin project start ) || return 1 ;
       case "$(rt_meta type "${root}")" in drupal*) rt_drupal_settings "${root}" db ;; esac ;
       echo "Running on docksal: $(rt_url "${root}")" ;;
@@ -1730,6 +1997,8 @@ function rt_docksal() {
       [ -n "${root}" ] || return 1 ;
       case "${1:-}" in -j|--json-output)
         local up=stopped ; [ -n "$(rt_docksal_cid "${root}" web)" ] && [ -n "$(rt_docksal_cid "${root}" cli)" ] && up=running ;
+        # A generic stack has no web: its server runs in cli (#841).
+        [ "$(rt_meta stack "${root}")" = generic ] && [ -n "$(rt_docksal_cid "${root}" cli)" ] && up=running ;
         rt_describe_json "$(rt_name "${root}")" "${up}" "$(rt_url "${root}")" docksal ; return 0 ;;
       esac
       echo "$(rt_name "${root}") on docksal: $(rt_url "${root}")" ; ( cd "${root}" && rt_fin project status ) ;;
@@ -1761,17 +2030,37 @@ function rt_docksal() {
     ssh)
       if [ -t 0 ] ; then ( cd "${root}" && rt_fin bash ) ;
       else rt_docksal_x "${root}" cli bash ; fi ;;
-    mysql) rt_docksal_x "${root}" db bash -c "${dbcmd} $(printf '%q ' "$@")" ;;
-    export-db)
-      local file ; file="$(rt_file_arg "$@")" ;
-      if [ -n "${file}" ] ; then rt_docksal_x "${root}" db bash -c "${dumpcmd}" | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
-      else rt_docksal_x "${root}" db bash -c "${dumpcmd}" | gzip ; fi ;;
-    import-db)
-      local file ; file="$(rt_file_arg "$@")" ;
-      [ -f "${file}" ] || { echo "No such file: ${file}" >&2 ; return 1 ; } ;
-      case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | rt_docksal_x "${root}" db bash -c "${dbcmd}" ;;
+    psql|mysql|export-db|import-db)
+      # The project's database decides the client (#841): PostgreSQL (a generic stack's), MariaDB as before, or none.
+      local dbase ; dbase="$(rt_meta database "${root}")" ;
+      ddbx() { rt_docksal_x "${root}" db "$@" ; } ;
+      case "${dbase}" in
+        none) echo "This project has no database." >&2 ; return 1 ;;
+        postgres:*) case "${verb}" in
+          mysql) echo "The database of this project is PostgreSQL: ddev psql." >&2 ; return 1 ;;
+          psql) ddbx psql -U db -d db "$@" ;;
+          export-db)
+            local file ; file="$(rt_file_arg "$@")" ;
+            if [ -n "${file}" ] ; then ddbx pg_dump -U db --no-owner --no-privileges db | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
+            else ddbx pg_dump -U db --no-owner --no-privileges db | gzip ; fi ;;
+          import-db) rt_pg_import "$(rt_file_arg "$@")" ddbx ;;
+        esac ;;
+        *) case "${verb}" in
+          psql) echo "The database of this project is MariaDB: ddev mysql." >&2 ; return 1 ;;
+          mysql) rt_docksal_x "${root}" db bash -c "${dbcmd} $(printf '%q ' "$@")" ;;
+          export-db)
+            local file ; file="$(rt_file_arg "$@")" ;
+            if [ -n "${file}" ] ; then rt_docksal_x "${root}" db bash -c "${dumpcmd}" | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
+            else rt_docksal_x "${root}" db bash -c "${dumpcmd}" | gzip ; fi ;;
+          import-db)
+            local file ; file="$(rt_file_arg "$@")" ;
+            [ -f "${file}" ] || { echo "No such file: ${file}" >&2 ; return 1 ; } ;
+            case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | rt_docksal_x "${root}" db bash -c "${dbcmd}" ;;
+        esac ;;
+      esac ;;
     launch) echo "$(rt_url "${root}")${1:-}" ;;
-    logs) local cid ; cid="$(rt_docksal_cid "${root}" web)" ; [ -n "${cid}" ] && docker logs --tail "${LOG_LINES:-200}" "${cid}" 2>&1 ;;
+    # A generic stack's server runs in cli; the php stack's web server in web.
+    logs) local cid ; if [ "$(rt_meta stack "${root}")" = generic ] ; then cid="$(rt_docksal_cid "${root}" cli)" ; else cid="$(rt_docksal_cid "${root}" web)" ; fi ; [ -n "${cid}" ] && docker logs --tail "${LOG_LINES:-200}" "${cid}" 2>&1 ;;
     version|--version|-v) echo "the Webship Workspace's docksal runtime (no DDEV), $(rt_fin version 2>/dev/null | tr '\n' ' ')" ;;
     *) echo "The docksal runtime cannot run 'ddev ${verb}' (webship/workspace#730)." >&2 ; return 1 ;;
   esac

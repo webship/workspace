@@ -206,6 +206,31 @@ test('the folder is kept while Docker still holds something of the project', () 
   assert.ok(!r.calls.some((c) => /image rm/.test(c)), 'the image stays while its containers do');
 });
 
+test('removing a Lando or Docksal site of a hyphenated or underscored name: the image its runtime file names goes, and no other name is tried', () => {
+  for (const [name, runtime, file, text, image] of [
+    ['django-proof', 'lando', '.lando.yml', 'name: django-proof\nx-webship:\n  runtime: lando\n  stack: generic\n  type: generic\n  database: "postgres:16"\n  port: 41010\nservices:\n  appserver:\n    type: lando\n    services:\n      image: webship-djangoproof-web\n', 'webship-djangoproof-web'],
+    ['my_site', 'docksal', '.docksal/docksal.yml', 'x-webship:\n  runtime: docksal\n  name: my_site\n  stack: generic\n  type: generic\n  database: "postgres:16"\n  host: my-site.docksal.site\nservices:\n  cli:\n    image: webship-my-site-web\n', 'webship-my-site-web'],
+  ]) {
+    const root = sandbox();
+    for (const cli of ['lando', 'fin']) fs.writeFileSync(path.join(root, 'bin', cli), `#!/usr/bin/env bash\necho "${cli} $*" >> "${root}/calls.log"\n`, { mode: 0o755 });
+    const files = { [file]: text };
+    if (runtime === 'docksal') files['.docksal/docksal.env'] = 'DOCKSAL_STACK=node\nCOMPOSE_PROJECT_NAME=my-site\n';
+    const site = project(root, name, files);
+    const r = run(root, `remove_project ${name}; echo "status $?"`, { functions: REMOVE });
+    assert.match(r.out, /status 0$/m, `${runtime}: ${r.out}`);
+    assert.ok(!fs.existsSync(site), `${runtime}: the folder is gone`);
+    const removed = r.calls.filter((c) => /image rm/.test(c));
+    assert.deepStrictEqual(removed, [`docker image rm ${image}`], `${runtime}: the image its file names, and only that one`);
+  }
+  // A runtime file that names no image of the Workspace's (Lando's php stack runs Lando's own): the fallback, as before.
+  const root = sandbox();
+  for (const cli of ['lando', 'fin']) fs.writeFileSync(path.join(root, 'bin', cli), `#!/usr/bin/env bash\necho "${cli} $*" >> "${root}/calls.log"\n`, { mode: 0o755 });
+  project(root, 'php-lando', { '.lando.yml': 'name: php-lando\nx-webship:\n  runtime: lando\n  stack: php\n  type: drupal\n  database: "10.11"\n  port: 41011\nrecipe: lamp\n' });
+  const r = run(root, 'remove_project php-lando; echo "status $?"', { functions: REMOVE });
+  assert.match(r.out, /status 0$/m, r.out);
+  assert.deepStrictEqual(r.calls.filter((c) => /image rm/.test(c)), ['docker image rm webship-php-lando-web']);
+});
+
 test('removing a Kubernetes site: the namespace goes, the image leaves Docker and the kind node; a backup is taken when asked', () => {
   const root = sandbox({ kubectl: 'case "$*" in *"get deploy web"*) printf 1 ;; *"get nodes"*) printf 172.18.0.2 ;; esac' });
   const site = project(root, 'k1', { 'compose.yaml': compose('k1', 'kubernetes', 30081) });

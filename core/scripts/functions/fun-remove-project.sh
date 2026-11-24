@@ -269,10 +269,24 @@ function remove_runtime_project() {
   fi
 
   # The image the project's web container was built from: nothing else uses it. On a kind cluster it was loaded
-  # into the node too.
-  "${engine}" image rm "webship-${name}-web" > /dev/null 2>&1 || true ;
+  # into the node too. Its name is the one the project's own runtime file says, read before the folder goes: Lando
+  # keeps only a-z0-9 of a name and Docksal turns _ into -, so `webship-${name}-web` is only the fallback. The other
+  # runtimes' forms are never tried: webship-mysite-web can be another project's.
+  local image="" files f ;
+  case "${rt}" in
+    lando) files=("${dir}/.lando.yml") ;;
+    docksal) files=("${dir}/.docksal/docksal.yml") ;;
+    kubernetes) files=("${dir}/k8s/stack.yaml" "${dir}/compose.yaml") ;;
+    *) files=("${dir}/compose.yaml") ;;
+  esac
+  for f in "${files[@]}" ; do
+    [ -f "${f}" ] && image="$(sed -n "s/^ *image: *[\"']\{0,1\}\(webship-[a-z0-9_.-]*-web\)[\"']\{0,1\} *\$/\1/p" "${f}" | head -1)" ;
+    [ -n "${image}" ] && break ;
+  done
+  image="${image:-webship-${name}-web}" ;
+  "${engine}" image rm "${image}" > /dev/null 2>&1 || true ;
   if [ "${rt}" == 'kubernetes' ] ; then
-    case "$(rt_kctx)" in kind-*) docker exec "${RT_KIND_CLUSTER}-control-plane" crictl rmi "docker.io/library/webship-${name}-web:latest" > /dev/null 2>&1 || true ;; esac
+    case "$(rt_kctx)" in kind-*) docker exec "${RT_KIND_CLUSTER}-control-plane" crictl rmi "docker.io/library/${image}:latest" > /dev/null 2>&1 || true ;; esac
   fi
 
   remove_project_writable "${dir}" ;
