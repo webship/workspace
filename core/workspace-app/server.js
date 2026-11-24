@@ -34,7 +34,7 @@ const {
   builderLabel,
   invalidateWorkspaces,
   commandDescription,
-  commandTitle, appVersion, exposureRisk,} = require('./workspaces');
+  commandTitle, appVersion, appVersionInfo, exposureRisk,} = require('./workspaces');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const { esc } = require('./html.mts');
@@ -4583,7 +4583,8 @@ function pageActionsHtml(context) {
     // in it". `topbar: 'start'` is a default placement and holds only until someone arranges it in
     // Settings → Navigation; without one it falls back into Go, where the things you look up live.
     (() => {
-      const v = appVersion();
+      const info = appVersionInfo();
+      const v = info.version;
       // What is SHOWN is the number, because that is the answer to the question. What the entry is
       // CALLED is "Current local version" — the name has to say which version it is, since a machine
       // can be behind the latest release and the number alone does not say whether it is. It is the
@@ -4591,15 +4592,21 @@ function pageActionsHtml(context) {
       // than as a thing you can move.
       const shown = v || 'version unknown';
       const label = 'Current local version';
-      const title = v
-        ? `Current local version: Webship Workspace ${v} — the release THIS machine runs, from core/workspace-app/.app-version. The latest release may be newer; core/workspace-app/scripts/update.sh --check says.`
-        : 'This tree carries no version stamp, so the local version cannot be told. It is written by core/scripts/install.sh, core/scripts/sync-tooling.sh --pull, core/workspace-app/scripts/update.sh and core/scripts/release.sh.';
+      // A git checkout with no stamp says what git says, and says that it came from git: at a release
+      // tag that is the release, past one it is the tag, the commits since and the commit.
+      const title = !v
+        ? 'This tree carries no version stamp, so the local version cannot be told. It is written by core/scripts/install.sh, core/scripts/sync-tooling.sh --pull, core/workspace-app/scripts/update.sh and core/scripts/release.sh.'
+        : info.from === 'git'
+          ? `Current local version: Webship Workspace ${v}, from git (git describe --tags): this tree is a git checkout with no version stamp${info.exact ? ', at a release tag' : ', past its release tag'}.`
+          : `Current local version: Webship Workspace ${v} — the release THIS machine runs, from core/workspace-app/.app-version. The latest release may be newer; core/workspace-app/scripts/update.sh --check says.`;
       // The release page for this tag, from `sources: tooling:` rather than a hardcoded github.com URL:
       // a fork, a mirror or a self-hosted GitLab has to land on its own. With no stamp there is no
-      // release to point at, so it stays plain text rather than a link to nowhere.
+      // release to point at, so it stays plain text rather than a link to nowhere; nor does a git
+      // checkout past its release tag, whose commits are in no release.
       const host = sourceOf('tooling', 'host', 'github.com');
       const repo = sourceOf('tooling', 'repo', '');
-      const href = v && repo ? `https://${host}/${repo}/releases/tag/${encodeURIComponent(v)}` : '';
+      const tag = info.tag;
+      const href = tag && repo ? `https://${host}/${repo}/releases/tag/${encodeURIComponent(tag)}` : '';
       const inner = `<span uk-icon="icon: tag; ratio: .8"></span><span class="action-label">${esc(shown)}</span>`;
       // Whether anything newer exists is a NETWORK question, so it arrives on its own rather than in
       // the page: every render would otherwise wait on api.github.com, and a machine with no route to
@@ -7832,7 +7839,8 @@ Summarise what you changed and how to verify it`,
     const repo = sourceOf('tooling', 'repo', '');
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     return res.end(await versionCheck.updateHintHtml({
-      current: appVersion(), repo, host: sourceOf('tooling', 'host', 'github.com'), esc,
+      // Only an installed tree is updated with the updater: a git checkout is updated with git.
+      current: appVersionInfo().from === 'stamp' ? appVersion() : '', repo, host: sourceOf('tooling', 'host', 'github.com'), esc,
     }));
   }
 
