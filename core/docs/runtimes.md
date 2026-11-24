@@ -19,7 +19,7 @@ This page says what works today. It is updated as each part is proven on a real 
 | A Laravel app (the Laravel plugin): build and install, Artisan, test users, the tests, mail, the database, the row, remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
 | The other platform plugins' builders (TYPO3, Magento, …) | Yes | On the way | On the way | On the way | On the way | On the way |
 | The DATABASE menu of a MariaDB site (the MariaDB plugin): the console, tables and sizes, export and import | Yes | Yes (the console shows no prompt) | Yes (the console shows no prompt) | The same code as Docker, not yet run on a real Podman | Not yet run | Not yet run |
-| The DATABASE menu of a MySQL or PostgreSQL site (their plugins) | Yes | On the way: the layer builds MariaDB only | On the way | On the way | On the way | On the way |
+| The DATABASE menu of a MySQL or PostgreSQL site (their plugins) | Yes | PostgreSQL: yes (a generic stack, #841); MySQL: on the way, the layer builds MariaDB | On the way | On the way | On the way | On the way |
 | The DATABASE menu of a site's SQLite files (the SQLite plugin): tables and sizes, copies out and back | Yes, with the console | Yes (no console yet) | Yes (no console yet) | The same code as Docker, not yet run on a real Podman | Not yet run | Not yet run |
 | A web admin from the DATABASE menu (Adminer, phpMyAdmin) | Yes: DDEV's official add-ons | On the way | On the way | On the way | On the way | On the way |
 | The dashboard itself | Yes | Yes | Yes, with limits (below) | On the way | No: it runs on DDEV, Docker Compose or Kubernetes, and builds Lando sites from there | No: it builds Docksal sites from DDEV, Docker Compose or Kubernetes |
@@ -85,7 +85,7 @@ What the layer gives a plugin:
 
 What a plugin changes, what it must never do and the checklist to prove it are in [plugins-on-runtimes.md](plugins-on-runtimes.md).
 
-Two stacks so far: the `php` stack (Apache, PHP, MariaDB), and a generic one for an application in another language, which brings its own language and version (Python, Node.js, Java, .NET, Ruby, Go, or an image of its own), its own server and PostgreSQL, MariaDB or no database (webship/workspace#841): on Docker Compose, Podman and Kubernetes so far, Lando and Docksal next. On DDEV a project of any language builds as before, with DDEV's own images and its generic web server. A service of a platform's own (OpenSearch, Redis) still builds on DDEV only.
+Two stacks so far: the `php` stack (Apache, PHP, MariaDB), and a generic one for an application in another language, which brings its own language and version (Python, Node.js, Java, .NET, Ruby, Go, or an image of its own), its own server and PostgreSQL, MariaDB or no database (webship/workspace#841): on every runtime: Docker Compose, Podman, Kubernetes, Lando and Docksal. On DDEV a project of any language builds as before, with DDEV's own images and its generic web server. A service of a platform's own (OpenSearch, Redis) still builds on DDEV only.
 
 A generic stack's server starts once the project's database takes connections, and on Kubernetes a server that stops answering is restarted (webship/workspace#850). Two settings, taken from the environment of `ddev config` and kept in the `x-webship` block:
 
