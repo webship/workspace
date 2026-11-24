@@ -135,7 +135,7 @@ async function mailPanelHtml({ workspace, project, base, q = '' }) {
     <div class="editor-card">
       <h3 class="uk-margin-small-bottom">Mail from ${esc(project)}
         <span class="uk-badge">${info.total}</span>${info.unread ? ` <span class="uk-label uk-label-warning">${info.unread} unread</span>` : ''}</h3>
-      <p class="uk-text-meta">DDEV captures every mail this project sends instead of delivering it, so this is
+      <p class="uk-text-meta">The project's Mailpit captures every mail it sends instead of delivering it, so this is
         where a password reset, a webform notification or a cron warning actually went. Nothing here has left
         the machine.</p>
 
