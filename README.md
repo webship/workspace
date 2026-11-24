@@ -1,13 +1,14 @@
 # Webship Workspace
 
-A container-based development workspace with a web dashboard, for Webship projects: Drupal, Drupal CMS, the Webship products, and whatever else your folders hold. The core ships **empty**. Everything else is a plugin you add when you need it.
+A container-based development workspace with a web dashboard, for Webship projects: Drupal, Drupal CMS, the Webship products, and whatever else your folders hold. Each project brings its own language and version in its own containers: PHP, Python, Node.js, Java, .NET, Ruby, Go and more. The core ships **empty**. Everything else is a plugin you add when you need it.
 
 ![The core, its families and the plugins](core/docs/architecture.svg)
 
 ## Install
 
 ```bash
-# 1. Node.js 24 or 26 (the stable LTS releases; 26 is the one to install), Docker, and DDEV (https://ddev.readthedocs.io)
+# 1. Node.js 24 or 26 for the Workspace itself (the stable LTS releases; 26 is the one to install; your projects use
+#    their own languages), Docker, and DDEV (https://ddev.readthedocs.io)
 # 2. The workspace, from npm
 npm install -g @webship.co/workspace
 webship-workspace init ~/workspace       # the core, an empty settings file, the dashboard started
