@@ -152,12 +152,12 @@ test('the database: export, import and mysql in the db container, what is piped 
   const file = path.join(dir, 'out.sql.gz');
   const e = run(dir, p, `ddev export-db --file=${file}; echo "rc=$?"`);
   assert.match(e.out, /rc=0/);
-  assert.match(e.calls.find((c) => c.startsWith('docker exec')), /^docker exec -i id-db bash -c mysqldump -u"\$\{MYSQL_USER:-user\}"/);
+  assert.match(e.calls.find((c) => c.startsWith('docker exec')), /^docker exec -i id-db bash -c "\$\(command -v mariadb-dump \|\| echo mysqldump\)" -u"\$\{MYSQL_USER:-user\}"/);
   assert.match(spawnSync('bash', ['-c', `gunzip -c ${file}`], { encoding: 'utf8' }).stdout, /CREATE TABLE t/);
   fs.unlinkSync(path.join(dir, 'dump'));
   const i = run(dir, p, `ddev import-db --file=${file}; echo "rc=$?"`);
   assert.ok(i.calls.includes('stdin: CREATE TABLE t (a int);'), i.calls.join(' | '));
-  assert.match(i.calls.find((c) => c.startsWith('docker exec')), /^docker exec -i id-db bash -c mysql -u"\$\{MYSQL_USER/);
+  assert.match(i.calls.find((c) => c.startsWith('docker exec')), /^docker exec -i id-db bash -c "\$\(command -v mariadb \|\| echo mysql\)" -u"\$\{MYSQL_USER/);
   assert.match(run(dir, p, `ddev export-db --file=${dir}/empty.sql.gz; echo "rc=$?"`).out, /rc=1/, 'an export that wrote nothing fails');
 });
 

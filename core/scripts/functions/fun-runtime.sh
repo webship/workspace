@@ -926,8 +926,9 @@ function rt_lando() {
   rt_lando_bin || { echo "The lando runtime needs Lando (https://docs.lando.dev/install/): no lando on PATH or in ~/.local/bin." >&2 ; return 1 ; } ;
   case ":${PATH}:" in *":${HOME}/.local/bin:"*) ;; *) [ -d "${HOME}/.local/bin" ] && PATH="${PATH}:${HOME}/.local/bin" ;; esac
   # The database of the app: the Workspace's (db), or a Landofile's own, read from the service.
-  local dbcmd='mysql -u"${MARIADB_USER:-${MYSQL_USER:-db}}" -p"${MARIADB_PASSWORD:-${MYSQL_PASSWORD:-db}}" "${MARIADB_DATABASE:-${MYSQL_DATABASE:-db}}"' ;
-  local dumpcmd='mysqldump -u"${MARIADB_USER:-${MYSQL_USER:-db}}" -p"${MARIADB_PASSWORD:-${MYSQL_PASSWORD:-db}}" "${MARIADB_DATABASE:-${MYSQL_DATABASE:-db}}"' ;
+  # The clients by MariaDB's own names where the image has them: from 11.x on, an image may have no mysql or mysqldump.
+  local dbcmd='"$(command -v mariadb || echo mysql)" -u"${MARIADB_USER:-${MYSQL_USER:-db}}" -p"${MARIADB_PASSWORD:-${MYSQL_PASSWORD:-db}}" "${MARIADB_DATABASE:-${MYSQL_DATABASE:-db}}"' ;
+  local dumpcmd='"$(command -v mariadb-dump || echo mysqldump)" -u"${MARIADB_USER:-${MYSQL_USER:-db}}" -p"${MARIADB_PASSWORD:-${MYSQL_PASSWORD:-db}}" "${MARIADB_DATABASE:-${MYSQL_DATABASE:-db}}"' ;
   case "${verb}" in
     config)
       [ "${1:-}" = global ] && return 0 ;
@@ -1116,8 +1117,9 @@ function rt_docksal() {
   [ -n "${root}" ] && rel="${PWD#${root}}" ;
   local workdir="/var/www${rel}" ;
   command -v "${WORKSPACE_FIN_BIN:-fin}" > /dev/null 2>&1 || { echo "The docksal runtime needs Docksal (https://docs.docksal.io/getting-started/setup/): no fin on PATH." >&2 ; return 1 ; } ;
-  local dbcmd='mysql -u"${MYSQL_USER:-user}" -p"${MYSQL_PASSWORD:-user}" "${MYSQL_DATABASE:-default}"' ;
-  local dumpcmd='mysqldump -u"${MYSQL_USER:-user}" -p"${MYSQL_PASSWORD:-user}" "${MYSQL_DATABASE:-default}"' ;
+  # The clients by MariaDB's own names where the image has them: from 11.x on, an image may have no mysql or mysqldump.
+  local dbcmd='"$(command -v mariadb || echo mysql)" -u"${MYSQL_USER:-user}" -p"${MYSQL_PASSWORD:-user}" "${MYSQL_DATABASE:-default}"' ;
+  local dumpcmd='"$(command -v mariadb-dump || echo mysqldump)" -u"${MYSQL_USER:-user}" -p"${MYSQL_PASSWORD:-user}" "${MYSQL_DATABASE:-default}"' ;
   case "${verb}" in
     config)
       [ "${1:-}" = global ] && return 0 ;
