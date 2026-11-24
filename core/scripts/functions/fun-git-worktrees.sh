@@ -31,6 +31,12 @@ function git_worktree_role() {
   local dir="${1:-}" common toplevel
   [ -n "${dir}" ] && [ -d "${dir}" ] || { echo 'none' ; return 0 ; }
   git -C "${dir}" rev-parse --git-dir > /dev/null 2>&1 || { echo 'none' ; return 0 ; }
+  # Only the top folder of a checkout (or of a worktree) is one. Inside a checkout git answers for the
+  # ENCLOSING repository: in a workspace installed with `git clone`, every project folder that is not its
+  # own repository would be taken for the workspace's checkout, its "other worktree" the clone's top folder
+  # and its unpushed and dirty counts the clone's own, so every remove of it was refused.
+  toplevel="$(git -C "${dir}" rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "${toplevel}" ] && [ "${toplevel}" == "$(cd "${dir}" && pwd -P)" ] || { echo 'none' ; return 0 ; }
 
   # In a linked worktree the git dir sits INSIDE the primary's .git as
   # worktrees/<name>, so the two paths differ. In the primary they are the same.

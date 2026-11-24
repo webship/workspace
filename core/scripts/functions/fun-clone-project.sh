@@ -42,13 +42,17 @@
 ## the database always travels through a dump.
 ################################################################################
 
-# Is this directory inside a git checkout? True for a normal clone (.git is a
+# Is this directory a git checkout? True for a normal clone (.git is a
 # directory) AND for a worktree (.git is a file pointing at the real one), which
 # is the case that matters: a worktree of a worktree is legal and useful.
+# False for a folder INSIDE a checkout, where git answers for the enclosing
+# repository: in a workspace installed with `git clone`, a worktree "of" a project
+# folder that is not its own repository would be a worktree of the whole workspace.
 function project_has_git() {
-  local dir="${1:-}"
-  [ -n "${dir}" ] || return 1
-  git -C "${dir}" rev-parse --git-dir > /dev/null 2>&1
+  local dir="${1:-}" toplevel
+  [ -n "${dir}" ] && [ -d "${dir}" ] || return 1
+  toplevel="$(git -C "${dir}" rev-parse --show-toplevel 2>/dev/null)" || return 1
+  [ -n "${toplevel}" ] && [ "${toplevel}" == "$(cd "${dir}" && pwd -P)" ]
 }
 
 # The docroot a project's own .ddev/config.yaml declares, or the empty string.

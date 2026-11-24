@@ -134,7 +134,9 @@ test('the dashboard offers the worktree only for a git checkout', () => {
   // The git questions live in git-info.mts now (shared with the GIT plugin through api.lib); the forms stay in server.js.
   const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', '..', 'git-info.mts'), 'utf8');
   assert.match(server, /function projectHasGit/);
-  assert.match(server, /rev-parse', '--git-dir'/);
+  // The TOP folder of a checkout, not any folder inside one: a workspace installed with git clone encloses them all.
+  assert.match(server, /rev-parse', '--show-toplevel'/);
+  assert.match(server, /fs\.realpathSync\(top\) === fs\.realpathSync\(dir\)/);
   // The control is absent, not disabled, when there is no repository.
   assert.match(server, /projectHasGit\(srcDir\) \? `/);
   // And the endpoint refuses the flag rather than trusting the form.
@@ -247,4 +249,116 @@ test('the dashboard asks git the same questions the script does', () => {
   assert.match(server, /This is the main git checkout/);
   assert.match(server, /This holds work that is nowhere else/);
   assert.match(server, /form\.force === 'yes' \? ' --force' : ''/);
+});
+
+/* --- a workspace that is itself a git checkout --------------------------------
+ * A workspace that is a git clone of webship/workspace (a contributor's, or the one the
+ * plugins' CI checks out with actions/checkout) holds every project folder INSIDE a
+ * checkout, and git answers `rev-parse` there for the enclosing repository. Only the top
+ * folder of a checkout (or of a worktree) is one: a site that is not its own repository
+ * was refused as "the MAIN checkout" of the workspace, and --worktree would have added a
+ * worktree of the whole workspace. A workspace made by `webship-workspace init` is a copy,
+ * not a checkout.
+ */
+
+const REMOVE = path.join(ROOT, 'core', 'scripts', 'functions', 'fun-remove-project.sh');
+
+/** The removal guard, as cmd-tools-remove.sh runs it: its exit code and what it printed. */
+function guard(dir) {
+  const r = spawnSync('bash', ['-c', `source ${JSON.stringify(GUARDS)} ; source ${JSON.stringify(REMOVE)} ; `
+    + `FORCE= remove_project_worktree_guard ${JSON.stringify(dir)} ${JSON.stringify(path.basename(dir))}`],
+  { encoding: 'utf8' });
+  return { status: r.status, out: `${r.stdout || ''}${r.stderr || ''}` };
+}
+
+/**
+ * A workspace in a temp dir, installed with `git clone` (pushed to its origin, the
+ * built projects untracked in it, as in a real clone) or as plain folders, with
+ * three project folders in dev/: a site that is not a repository, a project that
+ * is its own clone, and a worktree of that one holding a commit that is nowhere else.
+ */
+function makeWorkspace(asClone) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wsg-'));
+  const ws = path.join(tmp, 'workspace');
+  fs.mkdirSync(path.join(ws, 'dev'), { recursive: true });
+  const git = (dir, ...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8' });
+  const init = (dir) => {
+    execFileSync('git', ['init', '-q', '-b', 'main', dir]);
+    git(dir, 'config', 'user.email', 't@t'); git(dir, 'config', 'user.name', 'T');
+  };
+  const commitAll = (dir, message) => { git(dir, 'add', '-A'); git(dir, 'commit', '-qm', message); };
+  if (asClone) {
+    const origin = path.join(tmp, 'origin.git');
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', origin]);
+    init(ws);
+    fs.writeFileSync(path.join(ws, 'README.md'), 'workspace');
+    fs.writeFileSync(path.join(ws, 'dev', 'cmd-tools-remove.sh'), '#!/usr/bin/env bash');
+    commitAll(ws, 'the workspace');
+    git(ws, 'remote', 'add', 'origin', origin);
+    git(ws, 'push', '-q', 'origin', 'main');
+    git(ws, 'branch', '-q', '--set-upstream-to=origin/main', 'main');
+  }
+  const site = path.join(ws, 'dev', 'site');
+  fs.mkdirSync(site);
+  fs.writeFileSync(path.join(site, 'index.php'), '<?php');
+  const own = path.join(ws, 'dev', 'own');
+  fs.mkdirSync(own);
+  init(own);
+  fs.writeFileSync(path.join(own, 'a'), 'a');
+  commitAll(own, 'its own repository');
+  const side = path.join(ws, 'dev', 'own-side');
+  git(own, 'worktree', 'add', '-q', '-b', 'side', side);
+  fs.writeFileSync(path.join(side, 'b'), 'b');
+  commitAll(side, 'work on the side');
+  return { tmp, ws, site, own, side };
+}
+
+const hasGit = (dir) => withFunctions(`project_has_git ${JSON.stringify(dir)} && echo yes || echo no`);
+const roleOf = (dir) => withGuards(`git_worktree_role ${JSON.stringify(dir)}`);
+
+test('in a workspace installed with git clone, a project folder that is not its own repository is not a checkout', () => {
+  const { tmp, ws, site } = makeWorkspace(true);
+  try {
+    assert.strictEqual(hasGit(site), 'no', 'no worktree is offered of it: it would be a worktree of the workspace');
+    assert.strictEqual(roleOf(site), 'none');
+    assert.strictEqual(withGuards(`git_worktree_summary ${JSON.stringify(site)}`), '');
+    const removal = guard(site);
+    assert.strictEqual(removal.status, 0, removal.out);
+    assert.strictEqual(removal.out, '', 'the remove of a site goes ahead without a word about git');
+    // The clone's own top folder is still a checkout, and still refused: its untracked projects are work.
+    assert.strictEqual(hasGit(ws), 'yes');
+    assert.strictEqual(roleOf(ws), 'plain');
+    const top = guard(ws);
+    assert.strictEqual(top.status, 1);
+    assert.match(top.out, /REFUSING to remove workspace: it holds work that is nowhere else/);
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+for (const asClone of [true, false]) {
+  test(`a project that is its own repository keeps its refusals (${asClone ? 'in a workspace clone' : 'in a workspace that is not a checkout'})`, () => {
+    const { tmp, own, side } = makeWorkspace(asClone);
+    try {
+      assert.strictEqual(hasGit(own), 'yes');
+      assert.strictEqual(hasGit(side), 'yes');
+      assert.strictEqual(roleOf(own), 'primary');
+      assert.strictEqual(roleOf(side), 'linked');
+      const main = guard(own);
+      assert.strictEqual(main.status, 1);
+      assert.match(main.out, /REFUSING to remove own: it is the MAIN checkout/);
+      const worktree = guard(side);
+      assert.strictEqual(worktree.status, 1);
+      assert.match(worktree.out, /REFUSING to remove own-side: it holds work that is nowhere else/);
+    } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+  });
+}
+
+test('in a workspace that is not a git checkout, a site is no checkout, as before', () => {
+  const { tmp, ws, site } = makeWorkspace(false);
+  try {
+    assert.strictEqual(hasGit(site), 'no');
+    assert.strictEqual(roleOf(site), 'none');
+    assert.strictEqual(hasGit(ws), 'no');
+    assert.strictEqual(roleOf(ws), 'none');
+    assert.deepStrictEqual(guard(site), { status: 0, out: '' });
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
