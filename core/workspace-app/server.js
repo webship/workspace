@@ -3290,6 +3290,7 @@ function runtimeMenuItemsHtml({ key, p, meta, gates, rt }) {
           ${running ? `<li data-entry="shell"><a href hx-post="/actions/runtime-shell" ${vals()}
                  title="A shell in the web container, in a screen session: open it in Screens and type"><span uk-icon="icon: code; ratio: .7"></span> Shell in the web container</a></li>` : ''}
           ${url && running ? `<li data-entry="open the site"><a href="${esc(url)}" target="_blank" rel="noopener"><span uk-icon="icon: link-external; ratio: .7"></span> Open the site</a></li>` : ''}
+          ${ddevMail.menuItemHtml({ workspace: key, project: p, running, mailpit: projectRuntime.mailUrlOf(rt.project) })}
           ${drupal && running ? `<li class="uk-nav-divider"></li>
           <li class="uk-nav-header">drupal</li>
           <li><a href hx-post="/actions/runtime-drush-status" ${vals()}><span uk-icon="icon: info; ratio: .7"></span> Drush status</a></li>
@@ -3298,6 +3299,9 @@ function runtimeMenuItemsHtml({ key, p, meta, gates, rt }) {
           <li class="uk-nav-divider"></li>
           <li class="uk-nav-header">database</li>
           ${running ? `<li><a href hx-post="/actions/runtime-export-db" ${vals()}><span uk-icon="icon: database; ratio: .7"></span> Export the database</a></li>` : ''}
+          ${running && rt.project.database !== 'none' ? `<li data-entry="import"><a href hx-get="/fragments/projects/import-db/${encodeURIComponent(key)}/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
+                 hx-on::after:request="UIkit.modal('#editor-modal').show()"
+                 title="Put a database back from a dump this workspace holds, after an export of the one it replaces"><span uk-icon="icon: push; ratio: .7"></span> Import a database…</a></li>` : ''}
           ${canBackup ? `<li data-entry="back up"><a href hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Back up this ${esc(meta.noun)}</a></li>
           <li><a href="${wsUrl(key, '/backups')}"><span uk-icon="icon: album; ratio: .7"></span> Backups for this workspace</a></li>` : ''}
           <li class="uk-nav-divider"></li>
@@ -3308,7 +3312,7 @@ function runtimeMenuItemsHtml({ key, p, meta, gates, rt }) {
                  hx-on::after:request="UIkit.modal('#editor-modal').show()"
                  title="Asks about a backup, then confirms, then removes"><span uk-icon="icon: trash; ratio: .7"></span> Remove the project…</a></li>` : ''}
           <li class="uk-nav-divider"></li>
-          <li data-entry="not yet"><span class="uk-text-meta runtime-not-yet">Not on ${esc(title)} yet: clone, import a database, snapshots, add-ons, extra domains and captured mail. They are DDEV's for now (webship/workspace#694).${status === 'unknown' ? ` The state could not be read: is ${rt.runtime === 'kubernetes' ? 'the cluster' : rt.runtime} answering?` : ''}</span></li>`;
+          <li data-entry="not yet"><span class="uk-text-meta runtime-not-yet">Not on ${esc(title)} yet: clone, snapshots, add-ons and extra domains. They are DDEV's for now (webship/workspace#694).${status === 'unknown' ? ` The state could not be read: is ${rt.runtime === 'kubernetes' ? 'the cluster' : rt.runtime} answering?` : ''}</span></li>`;
 }
 
 /**
@@ -7371,7 +7375,10 @@ async function onRequest(req, res) {
         if (im && isValidWorkspace(im[1]) && NAME_RE.test(im[2])) {
           const [, iWs, iProj] = im;
           const iDir = path.join(workspaceDir(iWs), iProj);
-          if (!fs.existsSync(path.join(iDir, '.ddev', 'config.yaml'))) {
+          // A DDEV project, or one on another runtime with a database (webship/workspace#859): its layer imports.
+          const iRt = projectRuntime.readProject(iDir);
+          const onRuntime = projectRuntime.isRuntimeProject(iRt) && iRt.database !== 'none';
+          if (!onRuntime && !fs.existsSync(path.join(iDir, '.ddev', 'config.yaml'))) {
             res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
             return res.end('<div class="msg error">Not a DDEV project — there is no database to import into.</div>');
           }
@@ -7379,6 +7386,7 @@ async function onRequest(req, res) {
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
           return res.end(ddevImport.importPanelHtml({
             workspace: iWs, project: iProj, backupsDir: iMeta.backupsDir, backupsLabel: tildePath(iMeta.backupsDir),
+            runtime: onRuntime ? iRt.runtime : '',
           }));
         } }
       // A project's captured mail. The feature owns its path, its panel and its lookup; this asks

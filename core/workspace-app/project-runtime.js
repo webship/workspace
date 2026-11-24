@@ -83,7 +83,9 @@ function readProject(projectDir) {
     if (!block || !RUNTIMES_OF[file].includes(block.runtime)) continue;
     const name = block.name || (text.match(/^name:\s*["']?([\w.-]+)/m) || [])[1] || path.basename(root);
     const out = { runtime: block.runtime, name, root, port: /^\d+$/.test(block.port || '') ? block.port : '',
-      type: block.type || '', docroot: block.docroot || '', platform: block.platform || '', namespace: block.runtime === 'kubernetes' ? `ws-${name}` : '' };
+      type: block.type || '', docroot: block.docroot || '', platform: block.platform || '', namespace: block.runtime === 'kubernetes' ? `ws-${name}` : '',
+      // The mailbox's own port (rt_mail_url) and the project's database (a MariaDB version, postgres:<v>, none).
+      mailPort: /^\d+$/.test(block.mail_port || '') ? block.mail_port : '', database: block.database || '' };
     // Docksal's proxy answers for the project's host name, not a port.
     if (block.runtime === 'docksal') out.host = /^[a-z0-9.-]+$/.test(block.host || '') ? block.host : '';
     return out;
@@ -138,6 +140,22 @@ function urlOf(project) {
     return ip ? `http://${ip.includes(':') ? `[${ip}]` : ip}:${project.port}` : '';
   }
   return `http://127.0.0.1:${project.port}`;
+}
+
+/**
+ * The mailbox of a project on another runtime, as rt_mail_url says it: its own port on this machine (Docker Compose,
+ * Podman, Lando), the node's address and that port on Kubernetes, Docksal's mail.<host> on its proxy. Read from the
+ * project's runtime file, never from a request.
+ */
+function mailUrlOf(project) {
+  if (!project || !RUNTIMES.includes(project.runtime)) return '';
+  if (project.runtime === 'docksal') return project.host ? `http://mail.${project.host}` : '';
+  if (!project.mailPort) return '';
+  if (project.runtime === 'kubernetes') {
+    const ip = nodeIp();
+    return ip ? `http://${ip.includes(':') ? `[${ip}]` : ip}:${project.mailPort}` : '';
+  }
+  return `http://127.0.0.1:${project.mailPort}`;
 }
 
 /* ---------------- states ---------------- */
@@ -306,6 +324,6 @@ function invalidate(root) {
 }
 
 module.exports = {
-  RUNTIMES, LABELS, TITLES, ICONS, kubeContext, webshipBlock, readProject, isRuntimeProject, urlOf, nodeIp,
+  RUNTIMES, LABELS, TITLES, ICONS, kubeContext, webshipBlock, readProject, isRuntimeProject, urlOf, mailUrlOf, nodeIp,
   statesFor, stateOf, invalidate, verbLine, composeState, podmanState, deployState, landoState, docksalState, META_FILES, BUILDS_NO_IMAGE,
 };

@@ -81,7 +81,7 @@ test('a folder is what it carries: DDEV, the runtime its compose.yaml names, or 
 
   assert.deepStrictEqual(rt.readProject(ddev), { runtime: 'ddev', name: 'my-ddev', root: ddev, port: '', type: 'drupal11', docroot: 'web', platform: '', namespace: '' });
   assert.strictEqual(rt.readProject(unnamed).name, 'no-name-here', "DDEV's own default name");
-  assert.deepStrictEqual(rt.readProject(docker), { runtime: 'docker', name: 'shop', root: docker, port: '41167', type: 'drupal', docroot: 'web', platform: '', namespace: '' });
+  assert.deepStrictEqual(rt.readProject(docker), { runtime: 'docker', name: 'shop', root: docker, port: '41167', type: 'drupal', docroot: 'web', platform: '', namespace: '', mailPort: '', database: '10.11' });
   assert.strictEqual(rt.readProject(podman).runtime, 'podman');
   assert.deepStrictEqual([rt.readProject(kube).runtime, rt.readProject(kube).namespace, rt.readProject(kube).port], ['kubernetes', 'ws-kube1', '30081']);
   assert.strictEqual(rt.readProject(plainCompose).runtime, 'none', 'a compose file the Workspace did not write');
@@ -102,6 +102,24 @@ test('the address: ddev.site for DDEV, the port on this machine for Docker and P
   assert.strictEqual(rt.urlOf({ runtime: 'podman', name: 'a', port: '41200' }), 'http://127.0.0.1:41200');
   assert.strictEqual(rt.urlOf({ runtime: 'docker', name: 'a', port: '' }), '', 'no port, no link');
   assert.strictEqual(rt.urlOf({ runtime: 'none' }), '');
+});
+
+test('the mailbox (#859): its own port on this machine for Docker, Podman and Lando, Docksal\'s mail.<host>; none without one, none for DDEV here', () => {
+  assert.strictEqual(rt.mailUrlOf({ runtime: 'docker', name: 'a', mailPort: '42001' }), 'http://127.0.0.1:42001');
+  assert.strictEqual(rt.mailUrlOf({ runtime: 'podman', name: 'a', mailPort: '42002' }), 'http://127.0.0.1:42002');
+  assert.strictEqual(rt.mailUrlOf({ runtime: 'lando', name: 'a', mailPort: '42003' }), 'http://127.0.0.1:42003');
+  assert.strictEqual(rt.mailUrlOf({ runtime: 'docksal', name: 'a', host: 'my-site.docksal.site' }), 'http://mail.my-site.docksal.site');
+  assert.strictEqual(rt.mailUrlOf({ runtime: 'docksal', name: 'a', host: '' }), '');
+  assert.strictEqual(rt.mailUrlOf({ runtime: 'docker', name: 'a', mailPort: '' }), '', 'no port, no mailbox');
+  assert.strictEqual(rt.mailUrlOf({ runtime: 'ddev', name: 'a' }), '', 'DDEV\'s mailbox is DDEV\'s listing\'s');
+  assert.strictEqual(rt.mailUrlOf({ runtime: 'none' }), '');
+  // readProject reads the mailbox's port and the database from the x-webship block.
+  const box = sandbox();
+  const p = box.site('mp', { 'compose.yaml': 'name: mp\nx-webship:\n  runtime: docker\n  stack: generic\n  database: "postgres:16"\n  port: 41001\n  mail_port: 42009\nservices:\n  web:\n    image: webship-mp-web\n' });
+  const project = rt.readProject(p);
+  assert.strictEqual(project.mailPort, '42009');
+  assert.strictEqual(project.database, 'postgres:16');
+  assert.strictEqual(rt.mailUrlOf(project), 'http://127.0.0.1:42009');
 });
 
 test('the menu label says the runtime: DOCKER, PODMAN, K8S', () => {
@@ -249,7 +267,7 @@ test('lando: a .lando.yml the Workspace wrote is a Lando project; one of the pro
   const both = box.site('b', { 'compose.yaml': COMPOSE('b1', 'docker', 41904), '.lando.yml': landofile('b1', 41905) });
   // The block of a runtime in the file of another is none.
   const wrong = box.site('w', { '.lando.yml': landofile('w1', 41906).replace('runtime: lando', 'runtime: docker') });
-  assert.deepStrictEqual(rt.readProject(lando), { runtime: 'lando', name: 'wp-l1', root: lando, port: '41901', type: 'wordpress', docroot: '', platform: 'wordpress', namespace: '' });
+  assert.deepStrictEqual(rt.readProject(lando), { runtime: 'lando', name: 'wp-l1', root: lando, port: '41901', type: 'wordpress', docroot: '', platform: 'wordpress', namespace: '', mailPort: '41902', database: '10.11' });
   assert.strictEqual(rt.readProject(own).runtime, 'none');
   assert.strictEqual(rt.readProject(shipped).runtime, 'lando');
   assert.strictEqual(rt.readProject(both).runtime, 'docker');
@@ -282,7 +300,7 @@ test('docksal: a .docksal/ the Workspace wrote is a Docksal project, at its host
   const own = box.site('own', { '.docksal/docksal.env': 'DOCKSAL_STACK=default\n' });
   const bad = box.site('bad', { '.docksal/docksal.yml': yml('b', 'x"; rm -rf /') });
   const shipped = box.site('s', { '.docksal/docksal.yml': yml('s', 's.docksal.site'), '.ddev/config.yaml': 'name: s\n' });
-  assert.deepStrictEqual(rt.readProject(ds), { runtime: 'docksal', name: 'Ds_1', root: ds, port: '', type: 'drupal', docroot: 'web', platform: '', namespace: '', host: 'ds-1.docksal.site' });
+  assert.deepStrictEqual(rt.readProject(ds), { runtime: 'docksal', name: 'Ds_1', root: ds, port: '', type: 'drupal', docroot: 'web', platform: '', namespace: '', mailPort: '', database: '10.11', host: 'ds-1.docksal.site' });
   assert.strictEqual(rt.urlOf(rt.readProject(ds)), 'http://ds-1.docksal.site');
   assert.strictEqual(rt.readProject(own).runtime, 'none', "one of the project's own keeps the Docksal plugin's menu");
   assert.strictEqual(rt.urlOf(rt.readProject(bad)), '', 'a host name that is not one: no link');

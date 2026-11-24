@@ -63,7 +63,9 @@ export function findDump(backupsDir: string, name: unknown): Dump | null {
 }
 
 /** The panel: what there is to import, and what importing one will do. */
-export function importPanelHtml({ workspace, project, backupsDir, backupsLabel }: { workspace: string; project: string; backupsDir: string; backupsLabel: string }): string {
+export function importPanelHtml({ workspace, project, backupsDir, backupsLabel, runtime = '' }: { workspace: string; project: string; backupsDir: string; backupsLabel: string; runtime?: string }): string {
+  // DDEV's import, or a runtime's (webship/workspace#859): the runtime layer imports, after an export into the backups.
+  const action = runtime ? '/actions/runtime-import-db' : '/actions/ddev-import-db';
   const dumps = listDumps(backupsDir);
   const vals = (extra: Record<string, string>): string => esc(JSON.stringify({ workspace, projectName: project, ...extra }));
   const rows = dumps.map((d) => `
@@ -72,7 +74,7 @@ export function importPanelHtml({ workspace, project, backupsDir, backupsLabel }
         <span class="import-name">${esc(d.name)}</span>
         <span class="uk-text-meta import-meta">${esc(humanTime(d.mtime))} · ${esc(humanSize(d.size))}</span>
         <span class="import-actions">
-          <button class="uk-button uk-button-primary uk-button-small arm-step" hx-post="/actions/ddev-import-db"
+          <button class="uk-button uk-button-primary uk-button-small arm-step" hx-post="${action}"
             hx-vals='${vals({ dump: d.name, confirm: 'yes' })}' hx-target="#webship-workspace-output" hx-swap="innerHTML"
             hx-trigger="confirmed-remove" title="Replace this project's database with ${esc(d.name)}">Import</button>
         </span>
@@ -83,8 +85,11 @@ export function importPanelHtml({ workspace, project, backupsDir, backupsLabel }
     <div class="editor-card">
       <h3 class="uk-margin-small-bottom">Import a database into ${esc(project)}</h3>
       <p class="uk-text-meta">Importing <strong>replaces</strong> every table in this project's database.
-        A snapshot is taken first, in the same command — so if the snapshot fails nothing is imported, and
-        if the import is wrong the snapshot is one click away under <em>Snapshots</em>.</p>
+        ${runtime
+    ? `The database is exported into this list first, in the same command — so if the export fails nothing is
+        imported, and if the import is wrong the export is here to import back.`
+    : `A snapshot is taken first, in the same command — so if the snapshot fails nothing is imported, and
+        if the import is wrong the snapshot is one click away under <em>Snapshots</em>.`}</p>
       ${dumps.length
     ? `<ul class="uk-list uk-list-divider import-list">${rows}</ul>`
     : '<p class="uk-text-meta">No database dumps in this workspace yet. <em>Export the database</em> writes one here, and so does a project backup.</p>'}

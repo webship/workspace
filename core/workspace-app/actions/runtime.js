@@ -15,6 +15,8 @@ const { loadWorkspaces, workspaceDir } = require('../workspaces');
 const { startInScreen, screenStartedHtml } = require('../jobs');
 const { NAME_RE } = require('../validate.mts');
 const projectRuntime = require('../project-runtime');
+const ddevImport = require('../ddev-import.mts');
+const { shq } = require('../shell-quote.mts');
 
 /**
  * `needsRunning` is refused when the runtime says the site is stopped, not attempted. `destructive` needs the
@@ -73,9 +75,63 @@ async function runtime_verb({ form, send, workspace, pathname }) {
   return send(screenStartedHtml(answer, label, projectName), started.ok ? 200 : (started.already ? 409 : 500));
 }
 
-const routes = {};
+// The before-import exports this process has named: two imports in one second never share a name, even before the
+// first one's export is on disk.
+const pickedBeforeImport = new Set();
+
+/**
+ * Where the export taken before an import goes: stamped to the second, and never a file that exists, the dump being
+ * imported (importing a before-import export to undo an import must not overwrite it with the state it undoes), or a
+ * name this process already gave out. -2, -3… until the name is new. Chosen here, before the line is built.
+ */
+function beforeImportPath(backupsDir, projectName, dumpName, now = new Date()) {
+  const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  for (let n = 1; ; n += 1) {
+    const name = `${projectName}--db--before-import-${stamp}${n > 1 ? `-${n}` : ''}.sql.gz`;
+    const full = path.join(backupsDir, name);
+    if (name !== dumpName && !fs.existsSync(full) && !pickedBeforeImport.has(full)) {
+      pickedBeforeImport.add(full);
+      return full;
+    }
+  }
+}
+
+/**
+ * Put a database back into a project on another runtime (webship/workspace#859), as DDEV's import does: the dump is
+ * named by its basename and looked up in the workspace's own backups, so no path from a browser reaches a command
+ * line. Runtimes have no snapshot, so the database is exported into the backups first, in the same line with `&&`:
+ * if the export fails nothing is imported. The runtime layer's import-db does the rest (for PostgreSQL #846's safe
+ * import, which leaves the database as it was unless the whole dump went in).
+ */
+async function runtime_import_db({ form, send, workspace }) {
+  const projectName = String(form.projectName || '');
+  if (!NAME_RE.test(projectName)) return send('<div class="msg error">Invalid project name.</div>', 400);
+  const projectDir = path.join(workspaceDir(workspace), projectName);
+  const project = projectRuntime.readProject(projectDir);
+  if (!projectRuntime.isRuntimeProject(project)) return send('<div class="msg error">Not a project on another runtime than DDEV.</div>', 400);
+  if (project.database === 'none') return send(`<div class="msg error">${esc(projectName)} has no database.</div>`, 400);
+  if (form.confirm !== 'yes') return send('<div class="msg error">Importing replaces every table in the database — it needs confirmation.</div>', 400);
+  projectRuntime.invalidate(projectDir);
+  if (await projectRuntime.stateOf(project) === 'stopped') return send(`<div class="msg error">${esc(projectName)} is not running: start it first.</div>`, 400);
+  const backupsDir = loadWorkspaces()[workspace].backupsDir;
+  const dump = ddevImport.findDump(backupsDir, form.dump);
+  if (!dump) return send('<div class="msg error">No such dump in this workspace\'s backups.</div>', 404);
+  const before = beforeImportPath(backupsDir, projectName, dump.name);
+  const exportLine = projectRuntime.verbLine(['export-db', shq(`--file=${before}`)]);
+  const importLine = projectRuntime.verbLine(['import-db', shq(`--file=${path.join(backupsDir, dump.name)}`)]);
+  if (!exportLine || !importLine) return send('<div class="msg error">Not run: the workspace path has characters a shell line cannot carry safely.</div>', 400);
+  const cmdLine = `echo "Exporting the database first…" && ${exportLine} && echo "Importing ${dump.name.replace(/[^\w.-]/g, '_')}…" && ${importLine}`
+    + ` && echo "Imported. The database as it was is ${path.basename(before)}, in this workspace's backups."`;
+  const label = `${project.runtime} import-db ${dump.name}`;
+  const started = await startInScreen({ workspace, project: projectName, projectDir, verb: 'import-db', cmdLine, label });
+  return send(screenStartedHtml(started, label, projectName), started.ok ? 200 : (started.already ? 409 : 500));
+}
+
+const routes = { '/actions/runtime-import-db': runtime_import_db };
 for (const route of Object.keys(RUNTIME_ACTIONS)) routes[route] = runtime_verb;
 
 module.exports = routes;
-// Not a route: the table, for the menu and the tests (server.js spreads this module into its actions by path).
+// Not routes: the table, for the menu and the tests, and the before-import name, for the tests (server.js spreads
+// this module into its actions by path).
 Object.defineProperty(module.exports, 'RUNTIME_ACTIONS', { value: RUNTIME_ACTIONS, enumerable: false });
+Object.defineProperty(module.exports, 'beforeImportPath', { value: beforeImportPath, enumerable: false });
