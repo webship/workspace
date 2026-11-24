@@ -2,7 +2,7 @@
 
 The Webship Workspace is container-based (DDEV by default). A site can also be built on Docker Compose, on Podman, on a Kubernetes cluster, on Lando or on Docksal: `--runtime docker|podman|kubernetes|lando|docksal` on its builder. This page says what a platform plugin (`@webship.co/workspace-<p>`) changes to build there, and how to prove it. It is written from the reference plugin, `@webship.co/workspace-wordpress`, where every line below was run on real sites. `<p>` is the plugin's name, `<P>` the platform's written name.
 
-It fits a platform that runs on **PHP, Apache and MariaDB** as it is. A platform on Node.js, Python, Java, .NET or Ruby, or one that needs PostgreSQL, MySQL, a search engine or a service of its own, needs a stack the core does not have yet: see "What does not fit yet".
+It fits a platform on **PHP, Apache and MariaDB** as it is (the `php` stack), and an application in **another language** (Python, Node.js, Java, .NET, Ruby, Go, or an image of its own) with **PostgreSQL**, **MariaDB** or no database: see "An application in another language" (webship/workspace#841). What does not fit yet is at the end.
 
 ## How it works
 
@@ -184,11 +184,35 @@ In a throwaway workspace under your home folder (a kind cluster mounts `/home` o
 
 Keep the logs. Write down the numbers: the seconds of each build, the scenarios and steps of each run.
 
+## An application in another language
+
+An application that serves itself (Django, Next.js, Spring Boot, ASP.NET Core, …) builds on DDEV as a generic project: `ddev config --project-type=generic --webserver-type=generic`, a `.ddev/web-build/Dockerfile.<name>` with its language, its server as a `web_extra_daemons` entry and `web_extra_exposed_ports` to its port. On another runtime its builder keeps that `ddev config` and says three more things after it, before the first start (webship/workspace#841):
+
+```bash
+ddev config --project-type=generic --webserver-type=generic --database=postgres:16 --project-name=<name>
+rt_stack python 3.13                                 # the language and the version the application chooses (never latest)
+rt_web_build uv <<'EOF'                              # what it adds to the stack's image, a Dockerfile fragment
+RUN pip install --no-cache-dir uv==0.13.7
+EOF
+rt_serve 8000 '.venv/bin/python mysite/manage.py runserver 0.0.0.0:8000'   # its own server, and the port it listens on
+```
+
+| | What the layer does |
+| --- | --- |
+| `--webserver-type=generic` | A generic stack: no Apache, no PHP. The web image is the language's own (`core/config/runtimes/generic/Dockerfile`) with git, curl, the clients of MariaDB and PostgreSQL, msmtp as `sendmail` to the stack's Mailpit, and `www-data` as the host user |
+| `rt_stack <language> <version>` | `python` → `python:<v>-slim-bookworm`, `node` → `node:<v>-bookworm-slim`, `java` → `eclipse-temurin:<v>-jdk`, `dotnet` → `mcr.microsoft.com/dotnet/sdk:<v>`, `ruby` → `ruby:<v>-slim-bookworm`, `go` → `golang:<v>-bookworm`; `image <name>:<tag>` (or `<name>@sha256:…`, never `latest`) for an image of the application's own, on a Debian, Ubuntu or Alpine base: the stack adds its layer with a shell and `apt-get` or `apk`, so `rt_stack` runs the image once to see which it has, and refuses an image with neither, or with no shell (a distroless one), before anything is written. The version is the application's: read it from its own files where it has one (`.python-version`, `.nvmrc`, `engines`), never the Workspace's Node.js floor |
+| `rt_web_build <name>` | `.webship/runtime/web-build/Dockerfile.<name>`, added to the image after the stack's own |
+| `rt_serve <port> <command>` | `.webship/runtime/serve.sh`, which the web container runs as the host user from the project's root; the project's address goes to that port (Docker Compose and Podman: `127.0.0.1:<port>:<serve port>`; Kubernetes: the NodePort's `targetPort`) |
+| `--database=postgres:<v>` | `postgres:<v>` as the `db` service (`db`/`db`/`db`, its data where its version keeps it); `ddev psql`, and `export-db` / `import-db` with `pg_dump` and `psql`. The PostgreSQL plugin reads the block's `database: "postgres:<v>"` |
+| `--omit-containers=db` | No database |
+
+The three calls are kept in the `x-webship` block (`stack: generic`, `language`, `language_version`, `serve_port`), so they stay when the files are written again; on DDEV they do nothing, and the plugin's own `.ddev` files are DDEV's way. A PostgreSQL import is checked before anything is touched: the dump is read and must be PostgreSQL's and whole (pg_dump's own last line, `-- PostgreSQL database dump complete`, at its end), the client and the database are asked separately, the dump goes into a database of its own, and only a whole import takes the place of `db`. For that swap `db` takes no new connection (`ALLOW_CONNECTIONS false`), so an application's server, a pool above all, cannot connect again between the closing of its connections and the rename; the two renames are one transaction, both or neither, tried three times; on failure `db` is opened again, as it was. Anything short of a whole import fails, and says so, with the project's database as it was. Removing a project removes what it built (its containers, its volume, its image), never the language's base image. So far on Docker Compose, Podman and Kubernetes; Lando and Docksal follow.
+
 ## What does not fit yet
 
-- **A database that is not MariaDB** (PostgreSQL, MySQL 8, SQLite in a file is fine): the `php` stack has one database service. The MySQL and PostgreSQL plugins already read a block that names one (`database: "postgres:16"`), for the day the layer builds it.
+- **MySQL 8 as a project's database**, and PostgreSQL on Lando and Docksal (SQLite in a file is fine): the layer renders MariaDB and, on Docker Compose, Podman and Kubernetes, PostgreSQL.
 - **A service of the platform's own** (OpenSearch for Magento, Redis, a database's web admin such as Adminer): a DDEV add-on or a `docker-compose.<name>.yaml` in `.ddev/` has no equivalent yet. PHP settings of the project's own and a task in the web container's image (a cron loop, a queue worker) do fit: `rt_php_ini` and `rt_daemon` above.
-- **A platform that is not PHP** (Node.js, Python, Java, .NET, Ruby): it needs a stack of its own under `core/config/runtimes/`, and a `stack:` the layer can render. Until then it builds on DDEV only.
+- **An application in another language on Lando or Docksal:** the generic stack renders on Docker Compose, Podman and Kubernetes so far; on Lando and Docksal it builds on DDEV only, until #841's next step.
 
 A builder that does not fit yet must not build a `php` stack by accident, when the workspace's `container.runtime` names another runtime. It says so and stops, before `ddev config`:
 
