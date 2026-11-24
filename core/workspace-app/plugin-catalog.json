@@ -119,6 +119,17 @@
       ]
     },
     {
+      "id": "databases",
+      "label": "Databases",
+      "about": "The DATABASE menu of a project: a console, tables and sizes, export and import, a web admin, per engine.",
+      "plugins": [
+        ["mariadb", "MariaDB", "A console, tables and sizes, export and import, Adminer and phpMyAdmin for MariaDB"],
+        ["mysql", "MySQL", "A console, tables and sizes, export and import, Adminer and phpMyAdmin for MySQL"],
+        ["postgresql", "PostgreSQL", "psql, tables and sizes, export and import with pg_dump, and Adminer for PostgreSQL"],
+        ["sqlite", "SQLite", "The SQLite files of a project: sqlite3, tables and sizes, copies out and back"]
+      ]
+    },
+    {
       "id": "features",
       "label": "Features",
       "about": "A menu, a page or a service the base does not carry.",

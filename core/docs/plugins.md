@@ -39,6 +39,7 @@ Plugins that do the same job for different services share a base package, so a p
 - **Hosting** — `@webship.co/workspace-hosting`: one button per provider, with environments and live URLs, get the database and files, deploy, logs, activities and the console. Providers: upsun, acquia, digitalocean, cpanel, aws, azure, godaddy.
 - **Forges** — `@webship.co/workspace-forge`: the repository, open issues and pull or merge requests, a request from the current branch, the clone option, and the credential the dashboard uses for the host. Providers: github, gitlab, bitbucket.
 - **Container runtimes** — `@webship.co/workspace-container`: a menu for projects on Docker Compose, Lando, Docksal, Podman or Kubernetes.
+- **Databases** — `@webship.co/workspace-database`: the DATABASE menu on every project row whose database an engine recognises: a console in a screen, tables and sizes, export to the backups folder and import from it, and a web admin on DDEV. Engines: mariadb, mysql, postgresql, sqlite.
 - **Platforms** — one plugin per platform: its builder and tools (`cmd-<platform>-project.sh`, `cmd-tools-<platform>-cli.sh`), its default accounts, its step pack wired into the testing setup, and its AI agents, placed in the AI Agents folder. `workspace-wordpress` is the first.
 - **Workspace folders** — the folder itself as a plugin: its settings file, its commands, its docs. Activating one lists it on the dashboard.
 

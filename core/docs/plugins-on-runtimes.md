@@ -186,8 +186,8 @@ Keep the logs. Write down the numbers: the seconds of each build, the scenarios 
 
 ## What does not fit yet
 
-- **A database that is not MariaDB** (PostgreSQL, MySQL 8, SQLite in a file is fine): the `php` stack has one database service.
-- **A service of the platform's own** (OpenSearch for Magento, Redis): a DDEV add-on or a `docker-compose.<name>.yaml` in `.ddev/` has no equivalent yet. PHP settings of the project's own and a task in the web container's image (a cron loop, a queue worker) do fit: `rt_php_ini` and `rt_daemon` above.
+- **A database that is not MariaDB** (PostgreSQL, MySQL 8, SQLite in a file is fine): the `php` stack has one database service. The MySQL and PostgreSQL plugins already read a block that names one (`database: "postgres:16"`), for the day the layer builds it.
+- **A service of the platform's own** (OpenSearch for Magento, Redis, a database's web admin such as Adminer): a DDEV add-on or a `docker-compose.<name>.yaml` in `.ddev/` has no equivalent yet. PHP settings of the project's own and a task in the web container's image (a cron loop, a queue worker) do fit: `rt_php_ini` and `rt_daemon` above.
 - **A task beside the web server on Lando or Docksal:** `rt_daemon` says it does not run there yet.
 - **A platform that is not PHP** (Node.js, Python, Java, .NET, Ruby): it needs a stack of its own under `core/config/runtimes/`, and a `stack:` the layer can render. Until then it builds on DDEV only.
 

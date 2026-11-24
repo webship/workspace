@@ -532,7 +532,7 @@ Settings groups plugins by family and shows, for each, one state and the one act
 
 | Manifest key | What it is |
 | --- | --- |
-| `family` | One of `platforms`, `folders`, `ai`, `hosting`, `forges`, `containers`, `features`. Another value is ignored. |
+| `family` | One of `platforms`, `folders`, `ai`, `hosting`, `forges`, `containers`, `databases`, `features`. Another value is ignored. |
 | `summary` | One line, up to 160 characters, shown under the plugin's name. |
 
 Both are optional and read only by a dashboard with `capabilities.has('settings-family')`; an older
@@ -565,6 +565,7 @@ plugin itself (no manifest) and the dashboard never sees it.
 
 | Forges (`github`, `gitlab`, `bitbucket`) | `@webship.co/workspace-forge` — `registerForge(api, forge)` | the credential the dashboard uses for the host (`api.addForge`, which `github-auth.js` asks before the legacy `git.github` block), the row menu on every project whose git remote is at the host (repository, open issues and pull or merge requests, open one from the branch in a terminal, clone URL), the repository chip, the New-folder clone option | a `ForgeProvider`: the host, the CLI, how a remote URL reads, the pages, the issue and request lists, the clone URL |
 | Container runtimes (`docker`, `lando`, `docksal`, `podman`, `kubernetes`) | `@webship.co/workspace-container` — `registerContainer(api, runtime)` | the row menu on every project the runtime recognises (its verbs as terminal sessions in the project, grouped, with the site link), the up/down caption answered after the row is drawn, the New-folder init option | a `ContainerRuntime`: how a folder is detected as a project, the CLI, how to tell whether it is up, the verbs and their commands |
+| Databases (`mariadb`, `mysql`, `postgresql`, `sqlite`) | `@webship.co/workspace-database` — `registerDatabase(api, engine)` | one DATABASE row menu for every engine, with a section per database the project has (the server of DDEV, of the runtime layer or of a compose file of the project's own, or a SQLite file), the caption answered after the row is drawn, the tables-and-sizes modal, the import form of the backups folder's dumps, the tool verbs as screen sessions, the web admins (DDEV's official add-ons) and the `/<engine>-admin/<tool>/<ws>/<project>` jump, the assistant's context | a `DatabaseEngine`: how the project's databases of that engine are found, its `cmd-tools-<engine>.sh` and client, its web admins, the entries it offers and what does not fit where, the dump's extension |
 
 `@webship.co/workspace-upsun` is the reference provider: `register(api)` is one line, the facts are
 in `src/lib/provider.ts`, and the bash tool, compose file, host install, settings template and theme

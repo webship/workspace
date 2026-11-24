@@ -17,10 +17,12 @@ test('a plugin is placed by what it says, then by what it is, then by the catalo
   assert.strictEqual(model.familyOf(plugin('upsun')), 'hosting');
   assert.strictEqual(model.familyOf(plugin('github')), 'forges');
   assert.strictEqual(model.familyOf(plugin('lando')), 'containers');
+  assert.strictEqual(model.familyOf(plugin('mariadb', { family: 'databases' })), 'databases', 'the database engines say their family');
+  assert.strictEqual(model.familyOf(plugin('sqlite')), 'databases', 'and the catalogue says it too');
   assert.strictEqual(model.familyOf(plugin('some-cms', { commands: { files: ['commands/cmd-some-cms-project.sh'] } })), 'platforms', 'it ships a builder and is not a folder');
   assert.strictEqual(model.familyOf(plugin('new-folder', { workspace: { key: 'things' } })), 'folders', 'a folder the catalogue does not list');
   assert.strictEqual(model.familyOf(plugin('never-heard-of')), 'features');
-  assert.deepStrictEqual(model.FAMILIES.map((f) => f.id), ['platforms', 'folders', 'ai', 'hosting', 'forges', 'containers', 'features']);
+  assert.deepStrictEqual(model.FAMILIES.map((f) => f.id), ['platforms', 'folders', 'ai', 'hosting', 'forges', 'containers', 'databases', 'features']);
 });
 
 test('the line under a plugin is its own summary, else the catalogue line, else the start of its description', () => {

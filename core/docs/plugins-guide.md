@@ -4,7 +4,7 @@ The base ships empty. Every folder, platform, hosting provider and feature you s
 
 ## Find a plugin
 
-- **In the dashboard:** Settings → Add a plugin. The catalogue is grouped by family (Platforms, Workspace folders, Hosting providers, Git forges, Container runtimes, Features) and has a filter. Each card says what the plugin does and has an **Add** button. A plugin that is already here shows its step, and **Update to** a newer version when there is one.
+- **In the dashboard:** Settings → Add a plugin. The catalogue is grouped by family (Platforms, Workspace folders, Hosting providers, Git forges, Container runtimes, Databases, Features) and has a filter. Each card says what the plugin does and has an **Add** button. A plugin that is already here shows its step, and **Update to** a newer version when there is one.
 - **In a terminal:** `webship-workspace catalog` lists the same plugins with their families.
 
 ## Add one
@@ -41,6 +41,7 @@ webship-workspace plugin configure wordpress               # only when it has se
 | Hosting providers | A button on each project row (UPSUN, ACQUIA and the others): environments and live sites, get the database and files, deploy, logs. |
 | Git forges | On a project whose remote is on that host: the repository, the issues, and the pull or merge requests. |
 | Container runtimes | A menu on projects with a compose file, a `.lando.yml`, a `.docksal/` folder, a `Containerfile` or Kubernetes manifests. |
+| Databases | The DATABASE button on each project row whose database the engine recognises (MariaDB, MySQL, PostgreSQL, a SQLite file): a console, tables and sizes, export and import, and a web admin on DDEV. |
 | Features | Their own button or page: GIT, IDE, JIRA, Screens, Graph, RAG, the assistant's avatar, Google Drive and the others. |
 
 Settings → **Buttons** sets which buttons a project row shows, and in what order. The switches above a folder's projects show the tools with their words or as icons, a choice your browser keeps.

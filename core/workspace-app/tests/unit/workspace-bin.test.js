@@ -38,8 +38,9 @@ test('init makes an empty workspace: the core, the lean settings, nothing else',
 test('the catalogue names every family with its npm packages, and plugin refuses an unknown verb', () => {
   const r = run(['catalog']);
   assert.strictEqual(r.status, 0);
-  for (const f of ['Workspace folders', 'Hosting providers', 'Git forges', 'Container runtimes']) assert.match(r.stdout, new RegExp(f));
+  for (const f of ['Workspace folders', 'Hosting providers', 'Git forges', 'Container runtimes', 'Databases']) assert.match(r.stdout, new RegExp(f));
   assert.match(r.stdout, /@webship\.co\/workspace-github/);
+  assert.match(r.stdout, /@webship\.co\/workspace-postgresql/);
   const bad = run(['plugin', 'explode', 'x']);
   assert.strictEqual(bad.status, 1);
   const none = run(['plugin', 'list'], { WORKSPACE_ROOT: fs.mkdtempSync(path.join(os.tmpdir(), 'ws-none-')) });
