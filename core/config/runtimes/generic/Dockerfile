@@ -7,9 +7,19 @@
 ARG BASE_IMAGE=debian:bookworm-slim
 FROM ${BASE_IMAGE}
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends git unzip curl ca-certificates less procps \
-      mariadb-client postgresql-client msmtp-mta \
-  && rm -rf /var/lib/apt/lists/* \
+# The layer, with the base's own package manager: apt-get (Debian, Ubuntu) or apk (Alpine). An image with neither (a
+# distroless one) cannot take it: the build says so and stops.
+RUN if command -v apt-get > /dev/null ; then \
+      apt-get update && apt-get install -y --no-install-recommends git unzip curl ca-certificates less procps \
+        mariadb-client postgresql-client msmtp-mta \
+      && rm -rf /var/lib/apt/lists/* ; \
+    elif command -v apk > /dev/null ; then \
+      apk add --no-cache bash git unzip curl ca-certificates less procps shadow runuser \
+        mariadb-client postgresql-client msmtp \
+      && ln -sf /usr/bin/msmtp /usr/sbin/sendmail ; \
+    else \
+      echo "The generic stack adds its layer with apt-get (Debian, Ubuntu) or apk (Alpine): this image has neither (webship/workspace#841). Build the application's image FROM one of those, or build on DDEV." >&2 ; exit 1 ; \
+    fi \
   && printf 'account default\nhost mail\nport 1025\nfrom noreply@example.com\n' > /etc/msmtprc
 ARG UID=1000
 ARG GID=1000

@@ -671,6 +671,11 @@ function rt_pg_import() {
     *) head="$(head -c 4096 "${file}")" ;;
   esac
   grep -q 'PostgreSQL database dump' <<< "${head}" || { echo "import-db: ${file} is not a PostgreSQL dump (pg_dump's plain SQL): the database is untouched." >&2 ; return 1 ; } ;
+  # A whole gzip can still hold a dump cut short (a pg_dump that stopped while gzip finished): pg_dump ends every whole
+  # dump with its own last line, which psql would not miss.
+  local tail ;
+  case "${file}" in *.gz) tail="$(gunzip -c "${file}" | tail -c 4096)" ;; *) tail="$(tail -c 4096 "${file}")" ;; esac
+  grep -q -- '-- PostgreSQL database dump complete' <<< "${tail}" || { echo "import-db: ${file} is a PostgreSQL dump cut short (it does not end with pg_dump's 'PostgreSQL database dump complete'): the database is untouched." >&2 ; return 1 ; } ;
   "${dbx}" psql --version > /dev/null 2>&1 || { echo "import-db: no psql in the database's container: the database is untouched." >&2 ; return 1 ; } ;
   "${dbx}" psql -U db -d postgres -tAc 'SELECT 1' 2> /dev/null | grep -q '^1$' || { echo "import-db: the database does not answer: it is untouched." >&2 ; return 1 ; } ;
   "${dbx}" psql -U db -d postgres -q -c 'SET client_min_messages = warning' -c 'DROP DATABASE IF EXISTS db_webship_import' > /dev/null && "${dbx}" psql -U db -d postgres -qc 'CREATE DATABASE db_webship_import OWNER db' > /dev/null \
@@ -679,13 +684,28 @@ function rt_pg_import() {
     "${dbx}" psql -U db -d postgres -qc 'DROP DATABASE IF EXISTS db_webship_import' > /dev/null 2>&1 ;
     echo "import-db: the dump stopped on an error: the project's database is untouched." >&2 ; return 1 ;
   fi
-  # The import is whole: it takes the place of db, the connections to db closed first.
-  "${dbx}" psql -U db -d postgres -v ON_ERROR_STOP=1 -q > /dev/null <<'SQL' || { echo "import-db: the imported database could not take the place of db (the dump is in db_webship_import)." >&2 ; return 1 ; }
+  # The import is whole: it takes the place of db. db takes no connection from the start of the swap (an application's
+  # server, a pool above all, would connect again between the closing of its connections and the rename), then its
+  # connections are closed, and the two databases change names.
+  if ! "${dbx}" psql -U db -d postgres -v ON_ERROR_STOP=1 -q > /dev/null <<'SQL' ; then
+ALTER DATABASE db ALLOW_CONNECTIONS false;
 SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'db' AND pid <> pg_backend_pid();
 ALTER DATABASE db RENAME TO db_webship_old;
 ALTER DATABASE db_webship_import RENAME TO db;
-DROP DATABASE db_webship_old;
 SQL
+    # Put the project's database back as it was: under its name, open to connections again.
+    "${dbx}" psql -U db -d postgres -q > /dev/null 2>&1 <<'SQL'
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'db') AND EXISTS (SELECT 1 FROM pg_database WHERE datname = 'db_webship_old') THEN
+    EXECUTE 'ALTER DATABASE db_webship_old RENAME TO db';
+  END IF;
+END $$;
+ALTER DATABASE db ALLOW_CONNECTIONS true;
+SQL
+    echo "import-db: the imported database could not take the place of db: db is as it was, open again (the dump is in db_webship_import)." >&2 ; return 1 ;
+  fi
+  # The old database goes: it takes no connection, and none is left to it.
+  "${dbx}" psql -U db -d postgres -qc 'DROP DATABASE IF EXISTS db_webship_old' > /dev/null ;
 }
 
 function rt_compose() {

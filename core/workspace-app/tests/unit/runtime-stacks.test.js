@@ -21,7 +21,7 @@ function sandbox() {
   fs.mkdirSync(bin);
   for (const cli of ['docker', 'podman', 'ddev', 'kind']) {
     // A database's container answers `psql --version` and `SELECT 1`; a dump that says STOP fails as psql would.
-    fs.writeFileSync(path.join(bin, cli), `#!/usr/bin/env bash\necho "${cli} $*" >> "${dir}/calls.log"\nif [ -t 0 ] ; then : ; else in="$(cat)" ; [ -n "$in" ] && printf '%s\\n' "$in" >> "${dir}/stdin.log" ; fi\ncase "$*" in *"psql --version"*) echo "psql (PostgreSQL) 16" ;; *"SELECT 1"*) echo 1 ;; esac\n[ -f "${dir}/fail-import" ] && [[ "$*" == *db_webship_import*ON_ERROR_STOP* ]] && exit 3\ntrue\n`, { mode: 0o755 });
+    fs.writeFileSync(path.join(bin, cli), `#!/usr/bin/env bash\necho "${cli} $*" >> "${dir}/calls.log"\nin=""\nif [ -t 0 ] ; then : ; else in="$(cat)" ; [ -n "$in" ] && printf '%s\\n' "$in" >> "${dir}/stdin.log" ; fi\ncase "$*" in *"psql --version"*) echo "psql (PostgreSQL) 16" ;; *"SELECT 1"*) echo 1 ;; esac\n[ -f "${dir}/fail-import" ] && [[ "$*" == *db_webship_import*ON_ERROR_STOP* ]] && exit 3\n[ -f "${dir}/fail-swap" ] && [[ "$in" == *"ALLOW_CONNECTIONS false"* ]] && exit 3\ntrue\n`, { mode: 0o755 });
   }
   fs.writeFileSync(path.join(bin, 'kubectl'), `#!/usr/bin/env bash\necho "kubectl $*" >> "${dir}/calls.log"\ncase "$*" in *"get nodes"*) printf 172.18.0.2 ;; esac\n`, { mode: 0o755 });
   return dir;
@@ -146,9 +146,12 @@ test('a PostgreSQL import checks the dump, the client and the database first, go
   const p = app(dir, 'docker', 'imp', { calls: false });
   const dumps = path.join(dir, 'dumps'); fs.mkdirSync(dumps);
   const plain = (name, body) => { const f = path.join(dumps, name); fs.writeFileSync(f, body); return f; };
-  const good = plain('good.sql', '--\n-- PostgreSQL database dump\n--\nCREATE TABLE t (a int);\n');
+  const good = plain('good.sql', '--\n-- PostgreSQL database dump\n--\nCREATE TABLE t (a int);\n--\n-- PostgreSQL database dump complete\n--\n');
   const touched = (calls) => calls.some((c) => /RENAME|DROP DATABASE db_webship_old/.test(c)) || fs.existsSync(path.join(dir, 'stdin.log')) && /ALTER DATABASE db RENAME/.test(read(dir, 'stdin.log'));
-  for (const [f, why] of [[plain('empty.sql', ''), /missing or empty/], [plain('other.sql', 'CREATE TABLE t (a int);\n'), /not a PostgreSQL dump/], [plain('broken.sql.gz', 'not gzip'), /not a whole gzip file/]]) {
+  // A whole gzip of a dump that stopped half-way: it passes gunzip -t and the header, and must still be refused.
+  const cut = path.join(dumps, 'cut.sql.gz');
+  fs.writeFileSync(cut, require('zlib').gzipSync('--\n-- PostgreSQL database dump\n--\nCREATE TABLE t (a int);\nCOPY t (a) FROM stdin;\n1\n'));
+  for (const [f, why] of [[plain('empty.sql', ''), /missing or empty/], [plain('other.sql', 'CREATE TABLE t (a int);\n'), /not a PostgreSQL dump/], [plain('broken.sql.gz', 'not gzip'), /not a whole gzip file/], [cut, /a PostgreSQL dump cut short \(it does not end with pg_dump's 'PostgreSQL database dump complete'\)/]]) {
     if (fs.existsSync(path.join(dir, 'stdin.log'))) fs.unlinkSync(path.join(dir, 'stdin.log'));
     const r = run(dir, p, `ddev import-db --file=${f}`);
     assert.strictEqual(r.status, 1, f);
@@ -169,5 +172,22 @@ test('a PostgreSQL import checks the dump, the client and the database first, go
   assert.strictEqual(ok.status, 0, ok.out);
   const order = ok.calls.map((c) => c.replace(/^docker compose .* exec -T db /, ''));
   assert.ok(order.indexOf('psql --version') < order.findIndex((c) => /CREATE DATABASE db_webship_import/.test(c)), 'the client asked before anything is made');
-  assert.match(read(dir, 'stdin.log'), /ALTER DATABASE db RENAME TO db_webship_old;\nALTER DATABASE db_webship_import RENAME TO db;\nDROP DATABASE db_webship_old;/, 'a whole import takes db\'s place');
+  assert.match(read(dir, 'stdin.log'), /ALTER DATABASE db ALLOW_CONNECTIONS false;\nSELECT pg_terminate_backend\(pid\) FROM pg_stat_activity WHERE datname = 'db' AND pid <> pg_backend_pid\(\);\nALTER DATABASE db RENAME TO db_webship_old;\nALTER DATABASE db_webship_import RENAME TO db;/, 'db takes no connection from the start of the swap, which a pool could otherwise win');
+  assert.ok(ok.calls.some((c) => /DROP DATABASE IF EXISTS db_webship_old/.test(c)), 'the old database goes after');
+  // A swap that fails: db is put back under its name, open to connections again, and the import says so.
+  fs.writeFileSync(path.join(dir, 'fail-swap'), '');
+  fs.unlinkSync(path.join(dir, 'stdin.log'));
+  const swap = run(dir, p, `ddev import-db --file=${good}`);
+  assert.strictEqual(swap.status, 1);
+  assert.match(swap.out, /could not take the place of db: db is as it was, open again/);
+  assert.match(read(dir, 'stdin.log'), /EXECUTE 'ALTER DATABASE db_webship_old RENAME TO db';[\s\S]*\nALTER DATABASE db ALLOW_CONNECTIONS true;/);
+  assert.ok(!swap.calls.some((c) => /DROP DATABASE IF EXISTS db_webship_old/.test(c)), 'nothing is dropped after a failed swap');
+});
+
+test('the generic stack takes the layer with apt-get or apk, and an image with neither stops the build with why', () => {
+  const dockerfile = read(STACKS, 'generic', 'Dockerfile');
+  assert.match(dockerfile, /if command -v apt-get > \/dev\/null ; then/);
+  assert.match(dockerfile, /elif command -v apk > \/dev\/null ; then \\\n {6}apk add --no-cache bash git unzip curl ca-certificates less procps shadow runuser/);
+  assert.match(dockerfile, /ln -sf \/usr\/bin\/msmtp \/usr\/sbin\/sendmail/, 'Alpine\'s msmtp as sendmail too');
+  assert.match(dockerfile, /this image has neither \(webship\/workspace#841\)[^"]*" >&2 ; exit 1/);
 });
