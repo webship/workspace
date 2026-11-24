@@ -85,7 +85,7 @@ What the layer gives a plugin:
 
 What a plugin changes, what it must never do and the checklist to prove it are in [plugins-on-runtimes.md](plugins-on-runtimes.md).
 
-The `php` stack is the only one so far: Apache, PHP and MariaDB. A platform on Node.js, Python, Java or .NET, or one that needs PostgreSQL or a service of its own, still builds on DDEV only.
+The `php` stack is the only one the layer builds so far: Apache, PHP and MariaDB. On DDEV a project of any language builds today, with DDEV's own images and its generic web server. A platform on Python, Node.js, Java, .NET, Ruby or Go, or one that needs PostgreSQL or a service of its own, gets the other runtimes with the language stacks of #841.
 
 ## In the dashboard
 
