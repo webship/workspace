@@ -379,6 +379,10 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   // bbPress: the plugin's assets, or the forums' wrapper; WordPress is found beside it (2026-11-22).
   assert.ok(hits('<link rel="stylesheet" href="/wp-content/plugins/bbpress/templates/default/css/bbpress.min.css?ver=2.6.22">').includes('bbpress'));
   assert.ok(hits('<div id="bbpress-forums" class="bbpress-wrapper">').includes('bbpress'));
+  // LearnPress: the plugin's assets, or the page data it prints on every page; WordPress is found beside it (2026-11-24).
+  assert.ok(hits("<link rel='stylesheet' id='learnpress-block-css' href='/wp-content/plugins/learnpress/assets/css/learnpress-block.min.css?ver=4.5.0' media='all' />").includes('learnpress'));
+  assert.ok(hits('<script id="lp-global-js-extra">\nvar lpData = {"site_url":"https:\\/\\/example.com"};\n</script>').includes('learnpress'));
+  assert.ok(!hits('<p>Read the lpDataset notes.</p>').includes('learnpress'), 'a word that only starts like it is not the plugin');
   // Mautic: the variables of its pages, on the login page the front page leads to (2026-11-24); not the tracking
   // script, which a site that only uses Mautic loads too.
   assert.deepStrictEqual(hits('<script>\n    var mauticBasePath    = \'\';\n    var mauticAjaxUrl     = "/s/ajax";\n</script>'), ['mautic']);
