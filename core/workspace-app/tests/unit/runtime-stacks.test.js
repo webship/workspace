@@ -21,7 +21,7 @@ function sandbox() {
   fs.mkdirSync(bin);
   for (const cli of ['docker', 'podman', 'ddev', 'kind']) {
     // A database's container answers `psql --version` and `SELECT 1`; a dump that says STOP fails as psql would.
-    fs.writeFileSync(path.join(bin, cli), `#!/usr/bin/env bash\necho "${cli} $*" >> "${dir}/calls.log"\nin=""\nif [ -t 0 ] ; then : ; else in="$(cat)" ; [ -n "$in" ] && printf '%s\\n' "$in" >> "${dir}/stdin.log" ; fi\ncase "$*" in *"psql --version"*) echo "psql (PostgreSQL) 16" ;; *"SELECT 1"*) echo 1 ;; esac\n[ -f "${dir}/fail-import" ] && [[ "$*" == *db_webship_import*ON_ERROR_STOP* ]] && exit 3\n[ -f "${dir}/fail-swap" ] && [[ "$in" == *"ALLOW_CONNECTIONS false"* ]] && exit 3\n[ -f "${dir}/fail-restore" ] && [[ "$in" == *"ALLOW_CONNECTIONS true"* ]] && exit 3\n[ -f "${dir}/fail-drop" ] && [[ "$*" == *"DROP DATABASE IF EXISTS db_webship_old"* ]] && exit 3\n[ -f "${dir}/probe-rc" ] && [[ "$*" == *"--entrypoint /bin/sh"* ]] && exit "$(cat "${dir}/probe-rc")"\ntrue\n`, { mode: 0o755 });
+    fs.writeFileSync(path.join(bin, cli), `#!/usr/bin/env bash\necho "${cli} $*" >> "${dir}/calls.log"\nin=""\nif [ -t 0 ] ; then : ; else in="$(cat)" ; [ -n "$in" ] && printf '%s\\n' "$in" >> "${dir}/stdin.log" ; fi\ncase "$*" in *"psql --version"*) echo "psql (PostgreSQL) 16" ;; *"SELECT 1"*) echo 1 ;; esac\n[ -f "${dir}/fail-import" ] && [[ "$*" == *db_webship_import*ON_ERROR_STOP* ]] && exit 3\n[ -f "${dir}/fail-swap" ] && [[ "$in" == *"RENAME TO db_webship_old"* ]] && exit 3\n[ -f "${dir}/fail-restore" ] && [[ "$*" == *"ALLOW_CONNECTIONS true"* ]] && exit 3\n[ -f "${dir}/fail-drop" ] && [[ "$*" == *"DROP DATABASE IF EXISTS db_webship_old"* ]] && exit 3\n[ -f "${dir}/probe-rc" ] && [[ "$*" == *"--entrypoint /bin/sh"* ]] && exit "$(cat "${dir}/probe-rc")"\ntrue\n`, { mode: 0o755 });
   }
   fs.writeFileSync(path.join(bin, 'kubectl'), `#!/usr/bin/env bash\necho "kubectl $*" >> "${dir}/calls.log"\ncase "$*" in *"get nodes"*) printf 172.18.0.2 ;; esac\n`, { mode: 0o755 });
   return dir;
@@ -172,21 +172,26 @@ test('a PostgreSQL import checks the dump, the client and the database first, go
   assert.strictEqual(ok.status, 0, ok.out);
   const order = ok.calls.map((c) => c.replace(/^docker compose .* exec -T db /, ''));
   assert.ok(order.indexOf('psql --version') < order.findIndex((c) => /CREATE DATABASE db_webship_import/.test(c)), 'the client asked before anything is made');
-  assert.match(read(dir, 'stdin.log'), /ALTER DATABASE db ALLOW_CONNECTIONS false;\nSELECT pg_terminate_backend\(pid\) FROM pg_stat_activity WHERE datname = 'db' AND pid <> pg_backend_pid\(\);\nALTER DATABASE db RENAME TO db_webship_old;\nALTER DATABASE db_webship_import RENAME TO db;/, 'db takes no connection from the start of the swap, which a pool could otherwise win');
+  const closed = ok.calls.findIndex((c) => /psql -U db -d postgres -qc ALTER DATABASE db ALLOW_CONNECTIONS false$/.test(c));
+  assert.ok(closed > order.findIndex((c) => /db_webship_import -v ON_ERROR_STOP=1/.test(c)), 'db is closed to new connections once the dump is in, before the swap');
+  assert.strictEqual(read(dir, 'stdin.log').match(/RENAME TO db_webship_old/g).length, 1, 'one swap');
+  assert.match(read(dir, 'stdin.log'), /SELECT pg_terminate_backend\(pid\) FROM pg_stat_activity WHERE datname = 'db' AND pid <> pg_backend_pid\(\);\nBEGIN;\nALTER DATABASE db RENAME TO db_webship_old;\nALTER DATABASE db_webship_import RENAME TO db;\nCOMMIT;/, 'the connections closed, then both renames in one transaction');
   assert.ok(ok.calls.some((c) => /DROP DATABASE IF EXISTS db_webship_old/.test(c)), 'the old database goes after');
-  // A swap that fails: db is put back under its name, open to connections again, and the import says so.
+  assert.ok(!ok.calls.some((c) => /ALLOW_CONNECTIONS true/.test(c)), 'the new db takes connections as made');
+  // A swap that fails: tried three times, then db, as it was, is opened again, and the import says so.
   fs.writeFileSync(path.join(dir, 'fail-swap'), '');
   fs.unlinkSync(path.join(dir, 'stdin.log'));
   const swap = run(dir, p, `ddev import-db --file=${good}`);
   assert.strictEqual(swap.status, 1);
-  assert.match(swap.out, /could not take the place of db: db is as it was, open again/);
-  assert.match(read(dir, 'stdin.log'), /EXECUTE 'ALTER DATABASE db_webship_old RENAME TO db';[\s\S]*\nALTER DATABASE db ALLOW_CONNECTIONS true;/);
+  assert.match(swap.out, /could not take the place of db \(three tries\): db is as it was, open again \(the dump is in db_webship_import\)/);
+  assert.strictEqual(read(dir, 'stdin.log').match(/RENAME TO db_webship_old/g).length, 3, 'three tries');
+  assert.ok(swap.calls.some((c) => /psql -U db -d postgres -qc ALTER DATABASE db ALLOW_CONNECTIONS true$/.test(c)), 'db is opened again');
   assert.ok(!swap.calls.some((c) => /DROP DATABASE IF EXISTS db_webship_old/.test(c)), 'nothing is dropped after a failed swap');
-  // A swap that fails, and db cannot be put back either: the import does not say it is as it was.
+  // A swap that fails, and db cannot be opened again either: the import does not say it is as it was, and says how.
   fs.writeFileSync(path.join(dir, 'fail-restore'), '');
   const lost = run(dir, p, `ddev import-db --file=${good}`);
   assert.strictEqual(lost.status, 1);
-  assert.match(lost.out, /and db could not be put back by itself: see the databases db, db_webship_old and db_webship_import/);
+  assert.match(lost.out, /and db could not be opened again by itself: ddev psql -d postgres -c 'ALTER DATABASE db ALLOW_CONNECTIONS true'/);
   assert.doesNotMatch(lost.out, /db is as it was/);
   for (const f of ['fail-swap', 'fail-restore']) fs.unlinkSync(path.join(dir, f));
   // A swap that worked is not failed by the old database's removal: the import is done, and it says what is left.

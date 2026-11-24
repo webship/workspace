@@ -699,25 +699,27 @@ function rt_pg_import() {
     "${dbx}" psql -U db -d postgres -qc 'DROP DATABASE IF EXISTS db_webship_import' > /dev/null 2>&1 ;
     echo "import-db: the dump stopped on an error: the project's database is untouched." >&2 ; return 1 ;
   fi
-  # The import is whole: it takes the place of db. db takes no connection from the start of the swap (an application's
-  # server, a pool above all, would connect again between the closing of its connections and the rename), then its
-  # connections are closed, and the two databases change names.
-  if ! "${dbx}" psql -U db -d postgres -v ON_ERROR_STOP=1 -q > /dev/null <<'SQL' ; then
-ALTER DATABASE db ALLOW_CONNECTIONS false;
+  # The import is whole: it takes the place of db. db takes no new connection from here: an application's server, a
+  # pool above all, would otherwise connect again between the closing of its connections and the rename. Then its
+  # connections are closed, and the two renames are one transaction, both or neither. A connection that was starting
+  # as db closed can still be there for the renames, which then wait for it and fail: the closing and the renames are
+  # tried again. On failure db is opened again, as it was.
+  "${dbx}" psql -U db -d postgres -qc 'ALTER DATABASE db ALLOW_CONNECTIONS false' > /dev/null \
+    || { echo "import-db: db could not be closed to new connections for the swap: it is untouched (the dump is in db_webship_import)." >&2 ; return 1 ; } ;
+  local try swapped= ;
+  for try in 1 2 3 ; do
+    "${dbx}" psql -U db -d postgres -v ON_ERROR_STOP=1 -q > /dev/null 2>&1 <<'SQL' && { swapped=1 ; break ; }
 SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'db' AND pid <> pg_backend_pid();
+BEGIN;
 ALTER DATABASE db RENAME TO db_webship_old;
 ALTER DATABASE db_webship_import RENAME TO db;
+COMMIT;
 SQL
-    # Put the project's database back as it was: under its name, open to connections again.
-    "${dbx}" psql -U db -d postgres -v ON_ERROR_STOP=1 -q > /dev/null 2>&1 <<'SQL' || { echo "import-db: the imported database could not take the place of db, and db could not be put back by itself: see the databases db, db_webship_old and db_webship_import (ddev psql -l); the dump is in db_webship_import." >&2 ; return 1 ; }
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'db') AND EXISTS (SELECT 1 FROM pg_database WHERE datname = 'db_webship_old') THEN
-    EXECUTE 'ALTER DATABASE db_webship_old RENAME TO db';
-  END IF;
-END $$;
-ALTER DATABASE db ALLOW_CONNECTIONS true;
-SQL
-    echo "import-db: the imported database could not take the place of db: db is as it was, open again (the dump is in db_webship_import)." >&2 ; return 1 ;
+  done
+  if [ -z "${swapped}" ] ; then
+    "${dbx}" psql -U db -d postgres -qc 'ALTER DATABASE db ALLOW_CONNECTIONS true' > /dev/null 2>&1 \
+      || { echo "import-db: the imported database could not take the place of db, and db could not be opened again by itself: ddev psql -d postgres -c 'ALTER DATABASE db ALLOW_CONNECTIONS true' (the dump is in db_webship_import)." >&2 ; return 1 ; } ;
+    echo "import-db: the imported database could not take the place of db (three tries): db is as it was, open again (the dump is in db_webship_import)." >&2 ; return 1 ;
   fi
   # The old database goes: it takes no connection, and none is left to it.
   "${dbx}" psql -U db -d postgres -qc 'DROP DATABASE IF EXISTS db_webship_old' > /dev/null 2>&1 \
