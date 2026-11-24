@@ -28,7 +28,9 @@ async function context(deps, form, workspace) {
   const projectName = String(form.projectName || '');
   if (!NAME_RE.test(projectName)) return { error: 'Invalid project name.' };
   const projectDir = path.join(workspaceDir(workspace), projectName);
-  if (!ddevProjectName(projectDir)) return { error: 'Not a DDEV project.' };
+  // A DDEV project, or one on another runtime (webship/workspace#859): its stack has a Mailpit too.
+  const projectRuntime = require('../project-runtime');
+  if (!ddevProjectName(projectDir) && !projectRuntime.isRuntimeProject(projectRuntime.readProject(projectDir))) return { error: 'Not a DDEV project.' };
   const base = await deps.mailpitFor(workspace, projectName);
   if (!base) return { error: 'This project has no Mailpit — it is probably not running.' };
   return { projectName, base };

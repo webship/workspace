@@ -13,7 +13,8 @@ This page says what works today. It is updated as each part is proven on a real 
 | Export and import the database | Yes | Yes | Yes | Yes | Yes | Yes |
 | The site's row in the dashboard: state, link, menus | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
 | The Tests menu, test users, backup, restore and remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
-| Clone, import a database from the menu, snapshots, add-ons, extra domains, captured mail | Yes | On the way | On the way | On the way | On the way | On the way |
+| Import a database from the menu, the mail a site captured | Yes | Yes | Yes | Yes | Yes | Yes |
+| Clone, snapshots, add-ons, extra domains | Yes | On the way | On the way | On the way | On the way | On the way |
 | A WordPress site (the WordPress plugin): build and install, WP-CLI, test users, the tests, the database, the row, remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
 | A WooCommerce shop, a Joomla site, a phpBB board and a MediaWiki wiki (their plugins): build and install, the tool, test users, the tests, the database, the row, remove | Yes | Yes | Yes (for Joomla the tests and the row were not run there yet) | The same code as Docker, not yet run on a real Podman | On the way | On the way |
 | A Laravel app (the Laravel plugin): build and install, Artisan, test users, the tests, mail, the database, the row, remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
@@ -107,7 +108,10 @@ A site on Docker Compose, Podman, Kubernetes, Lando or Docksal has the row a DDE
 - **Test users**, **backup**, **restore** from the Backups page and **remove** work as on DDEV. Remove takes the runtime's side down first (the containers and the database volume, or the namespace), then the image built for the site, then the folder.
 - The state is read from `docker compose ls`, `podman ps`, `kubectl get deploy` and, for Lando and Docksal, their containers by the labels that name the folder (`docker ps`), each with a timeout. A runtime that does not answer shows **unknown**, and the page does not wait for it.
 
-What is not there yet is said in the menu instead of offered: clone, importing a database, snapshots, add-ons, extra domains and captured mail.
+- **The mail it captured** opens the panel a DDEV row opens: the messages the site sent, read, deleted or cleared there, from the stack's Mailpit at the address the project's runtime file names (webship/workspace#859).
+- **Import a database…** lists the dumps this workspace holds. It exports the site's database into the backups first, in the same command, since a runtime has no snapshot, then imports through the runtime layer (for PostgreSQL #846's safe import).
+
+What is not there yet is said in the menu instead of offered: clone, snapshots, add-ons and extra domains.
 
 ## Podman
 

@@ -54,7 +54,11 @@ function mailpitFor(statusMap) {
       // The same rule the row's status uses: an entry whose approot is some other directory is a
       // stale registration, not this project.
       const entry = byPath || (byName && (!byName.approot || byName.approot === projectPath) ? byName : null);
-      return entry && entry.status === 'running' ? (entry.mailpit || '') : '';
+      if (entry) return entry.status === 'running' ? (entry.mailpit || '') : '';
+      // A project on another runtime (webship/workspace#859): its stack's Mailpit, where its runtime file says.
+      const projectRuntime = require('./project-runtime');
+      const rt = projectRuntime.readProject(projectPath);
+      return projectRuntime.isRuntimeProject(rt) ? projectRuntime.mailUrlOf(rt) : '';
     } catch (_) {
       return '';
     }

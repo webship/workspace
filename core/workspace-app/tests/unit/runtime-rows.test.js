@@ -31,7 +31,7 @@ const free = () => new Promise((resolve) => {
   s.listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => resolve(port)); });
 });
 
-const compose = (name, runtime, port) => `name: ${name}\nx-webship:\n  runtime: ${runtime}\n  stack: php\n  type: drupal\n  docroot: "web"\n  php: "8.3"\n  database: "10.11"\n  port: ${port}\nservices:\n  web:\n    image: webship-${name}-web\n`;
+const compose = (name, runtime, port, mailPort = '') => `name: ${name}\nx-webship:\n  runtime: ${runtime}\n  stack: php\n  type: drupal\n  docroot: "web"\n  php: "8.3"\n  database: "10.11"\n  port: ${port}\n${mailPort ? `  mail_port: ${mailPort}\n` : ''}services:\n  web:\n    image: webship-${name}-web\n`;
 const dev = (...p) => path.join(root, 'dev', ...p);
 const standIn = (name, body) => fs.writeFileSync(path.join(bin, name), `#!/usr/bin/env bash\n${body}\n`, { mode: 0o755 });
 
@@ -46,7 +46,7 @@ before(async () => {
   // A site on each runtime, a DDEV one, a plain folder, and a compose project the Workspace did not write.
   for (const [name, runtime, port] of [['dock-site', 'docker', 41001], ['pod-site', 'podman', 41002], ['kube-site', 'kubernetes', 30081]]) {
     fs.mkdirSync(dev(name, 'web'), { recursive: true });
-    fs.writeFileSync(dev(name, 'compose.yaml'), compose(name === 'kube-site' ? 'kube1' : name, runtime, port));
+    fs.writeFileSync(dev(name, 'compose.yaml'), compose(name === 'kube-site' ? 'kube1' : name, runtime, port, name === 'dock-site' ? 42001 : ''));
   }
   fs.writeFileSync(dev('dock-site', 'composer.json'), JSON.stringify({ name: 'acme/dock-site', require: { 'drupal/core': '^11' } }));
   fs.writeFileSync(dev('dock-site', 'composer.lock'), '{}');
@@ -208,7 +208,7 @@ test('a DDEV row, a plain folder and a hand-written compose project are the rows
   }
 });
 
-test('the runtime menu lists start or stop, restart, describe, logs, a shell and delete; DDEV-only things are said, not offered', async () => {
+test('the runtime menu lists start or stop, restart, describe, logs, a shell, the mail it captured, an import and delete; what is DDEV\'s alone is said, not offered', async () => {
   const dock = await text('/fragments/row-menu/runtime/dev/dock-site');
   assert.strictEqual(dock.status, 200);
   assert.match(dock.html, /<li class="uk-nav-header" data-group="project">dock-site · Docker Compose<\/li>/);
@@ -218,13 +218,17 @@ test('the runtime menu lists start or stop, restart, describe, logs, a shell and
   assert.match(dock.html, /<a href="http:\/\/127\.0\.0\.1:41001" target="_blank" rel="noopener">[\s\S]*?Open the site<\/a>/);
   assert.match(dock.html, /hx-post="\/actions\/backup"/);
   assert.match(dock.html, /\/fragments\/projects\/remove-form\/dev\/dock-site/);
-  assert.match(dock.html, /Not on Docker Compose yet: clone, import a database, snapshots, add-ons, extra domains and captured mail/);
+  assert.match(dock.html, /Not on Docker Compose yet: clone, snapshots, add-ons and extra domains\./, 'only what is still DDEV\'s (#859)');
+  // The mail it captured (#859): the panel a DDEV row opens, fed from the mailbox the project's runtime file names.
+  assert.match(dock.html, /hx-get="\/fragments\/projects\/mail\/dev\/dock-site"[\s\S]*?Mail it captured \(Mailpit\)…<\/a>/);
+  // An import, where the project has a database: the panel of a dump this workspace holds.
+  assert.match(dock.html, /<li data-entry="import"><a href hx-get="\/fragments\/projects\/import-db\/dev\/dock-site"[\s\S]*?Import a database…<\/a>/);
   assert.doesNotMatch(dock.html, /\/actions\/ddev-|ddev-config|hostnames|snapshots\/dev|addons\/dev|clone-form/, 'nothing of the DDEV menu');
 
   const kube = await text('/fragments/row-menu/runtime/dev/kube-site');
   assert.match(kube.html, /data-group="project">kube1 · Kubernetes · ws-kube1<\/li>/);
   assert.match(kube.html, /hx-post="\/actions\/runtime-start"/);
-  assert.doesNotMatch(kube.html, /runtime-shell|runtime-export-db|Open the site/, 'stopped: nothing that needs it running');
+  assert.doesNotMatch(kube.html, /runtime-shell|runtime-export-db|Open the site|Mail it captured|Import a database/, 'stopped: nothing that needs it running');
   assert.match(kube.html, /Delete the namespace \(keeps the files\)/);
 
   for (const name of ['ddev-site', 'plain-folder', 'hand-compose']) {
@@ -371,4 +375,61 @@ test('the test users and the platform of a runtime project are read from its com
   const odd = path.join(root, 'odd'); fs.mkdirSync(odd);
   fs.writeFileSync(path.join(odd, 'compose.yaml'), compose('odd', 'docker', 1).replace('type: drupal', 'type: "word;rm -rf"'));
   assert.strictEqual(platform.platformOfProject(odd), '');
+});
+
+test('a runtime site\'s import (#859): the panel of this workspace\'s dumps, an export into the backups first, then the layer\'s import; what must not run does not', async () => {
+  const backups = path.join(root, 'backups', 'dev');
+  fs.mkdirSync(backups, { recursive: true });
+  fs.writeFileSync(path.join(backups, 'dock-site--db--2026-11-24-10-00.sql.gz'), 'x');
+  const panel = await text('/fragments/projects/import-db/dev/dock-site');
+  assert.strictEqual(panel.status, 200, panel.html);
+  assert.match(panel.html, /hx-post="\/actions\/runtime-import-db"/, 'the runtime\'s import, not DDEV\'s');
+  assert.match(panel.html, /The database is exported into this list first, in the same command/);
+  assert.doesNotMatch(panel.html, /snapshot/i, 'a runtime has no snapshot');
+  assert.match(panel.html, /dock-site--db--2026-11-24-10-00\.sql\.gz/);
+  const before = screenLines().length;
+  const noConfirm = await post('/actions/runtime-import-db', { workspace: 'dev', projectName: 'dock-site', dump: 'dock-site--db--2026-11-24-10-00.sql.gz' });
+  assert.strictEqual(noConfirm.status, 400);
+  assert.match(noConfirm.html, /it needs confirmation/);
+  for (const dump of ['../../etc/passwd', 'missing.sql.gz', '/tmp/x.sql']) {
+    const r = await post('/actions/runtime-import-db', { workspace: 'dev', projectName: 'dock-site', dump, confirm: 'yes' });
+    assert.strictEqual(r.status, 404, dump);
+    assert.match(r.html, /No such dump in this workspace's backups\./);
+  }
+  const stopped = await post('/actions/runtime-import-db', { workspace: 'dev', projectName: 'kube-site', dump: 'dock-site--db--2026-11-24-10-00.sql.gz', confirm: 'yes' });
+  assert.match(stopped.html, /kube-site is not running: start it first\./);
+  assert.strictEqual(screenLines().length, before, 'nothing was started');
+  const ok = await post('/actions/runtime-import-db', { workspace: 'dev', projectName: 'dock-site', dump: 'dock-site--db--2026-11-24-10-00.sql.gz', confirm: 'yes' });
+  assert.strictEqual(ok.status, 200, ok.html);
+  assert.match(ok.html, /<code>docker import-db dock-site--db--2026-11-24-10-00\.sql\.gz<\/code> started on <strong>dock-site<\/strong>/);
+  const line = lastLine();
+  const exportAt = line.indexOf(`' export-db '--file=${backups}/dock-site--db--before-import-`);
+  const importAt = line.indexOf(`' import-db '--file=${backups}/dock-site--db--2026-11-24-10-00.sql.gz'`);
+  assert.ok(exportAt > 0 && importAt > exportAt, line);
+  assert.match(line.slice(exportAt, importAt), / && /, 'the import runs only if the export did');
+});
+
+test('a runtime site\'s mail (#859): the panel a DDEV row opens, from the mailbox its runtime file names', async () => {
+  // A stand-in Mailpit on a port of its own, which only this site's runtime file names.
+  const http = require('http');
+  const box = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    if (req.url.startsWith('/api/v1/info')) return res.end(JSON.stringify({ Messages: 1, Unread: 1, Version: 'stand-in' }));
+    return res.end(JSON.stringify({ messages: [{ ID: 'm1', From: { Address: 'site@example.com' }, To: [{ Address: 'someone@example.com' }], Subject: 'From the runtime mailbox', Created: new Date().toISOString(), Read: false }], messages_count: 1, total: 1 }));
+  });
+  await new Promise((resolve) => box.listen(0, '127.0.0.1', resolve));
+  try {
+    fs.mkdirSync(dev('mail-site', 'web'), { recursive: true });
+    fs.writeFileSync(dev('mail-site', 'compose.yaml'), compose('mail-site', 'docker', 41009, box.address().port));
+    const mail = await text('/fragments/projects/mail/dev/mail-site');
+    assert.strictEqual(mail.status, 200);
+    assert.match(mail.html, /Mail from mail-site/);
+    assert.match(mail.html, /From the runtime mailbox/, 'the messages of its own mailbox');
+    // A site whose file names no mailbox says so, and reaches none.
+    const none = await text('/fragments/projects/mail/dev/kube-site');
+    assert.match(none.html, /This project has no Mailpit URL/);
+  } finally {
+    box.close();
+    fs.rmSync(dev('mail-site'), { recursive: true, force: true });
+  }
 });
