@@ -140,8 +140,8 @@ rt_daemon cron "bash /var/www/html/.webship/moodle-cron.sh"      # a name, and t
 | | DDEV | Docker Compose, Podman | Kubernetes | Lando | Docksal |
 | --- | --- | --- | --- | --- | --- |
 | `rt_php_ini <name>` | `.ddev/php/<name>.ini`, DDEV's own folder | `.webship/php/<name>.ini` | the same | the same | the same |
-| Read by | DDEV | the web container (`PHP_INI_SCAN_DIR`), for Apache and the command line, after the stack's own settings | the web pod, the same | the appserver, the same | `cli`, where PHP runs, the same |
-| `rt_daemon <name> <command>` | `.ddev/config.daemon-<name>.yaml` (`web_extra_daemons`) | `.webship/daemons/<name>.sh`, declared in the `x-webship` block (`daemons:`); the project's `daemons` service runs every task as the web server's user, with the web service's image, code and settings | the same script; a second container of the web pod, `daemons` | not yet: a line says so, and the build goes on | not yet: the same |
+| Read by | DDEV | the web container (`PHP_INI_SCAN_DIR`), for Apache and the command line, after the stack's own settings | the web pod, the same | the appserver, the same | `cli`, where PHP runs, the same; for php-fpm also a pool file of the project's, read before Docksal's own pool settings (`.webship/runtime/docksal-fpm.conf`), which would win over ini files |
+| `rt_daemon <name> <command>` | `.ddev/config.daemon-<name>.yaml` (`web_extra_daemons`) | `.webship/daemons/<name>.sh`, declared in the `x-webship` block (`daemons:`); the project's `daemons` service runs every task as the web server's user, with the web service's image, code and settings | the same script; a second container of the web pod, `daemons` | the same script; the appserver runs the tasks after each start (`events: post-start`), once, as the web server's user | the same script; a program of `cli`'s supervisor, where PHP runs, as the project's user |
 
 A task is a command that does not end (a loop, a worker); its folder is the project's root in the container. The settings are read when PHP starts: written after a start, they need `ddev restart`. A builder that keeps its own DDEV files can call the two helpers on the other runtimes only, so its DDEV build stays what it was.
 
@@ -188,7 +188,6 @@ Keep the logs. Write down the numbers: the seconds of each build, the scenarios 
 
 - **A database that is not MariaDB** (PostgreSQL, MySQL 8, SQLite in a file is fine): the `php` stack has one database service. The MySQL and PostgreSQL plugins already read a block that names one (`database: "postgres:16"`), for the day the layer builds it.
 - **A service of the platform's own** (OpenSearch for Magento, Redis, a database's web admin such as Adminer): a DDEV add-on or a `docker-compose.<name>.yaml` in `.ddev/` has no equivalent yet. PHP settings of the project's own and a task in the web container's image (a cron loop, a queue worker) do fit: `rt_php_ini` and `rt_daemon` above.
-- **A task beside the web server on Lando or Docksal:** `rt_daemon` says it does not run there yet.
 - **A platform that is not PHP** (Node.js, Python, Java, .NET, Ruby): it needs a stack of its own under `core/config/runtimes/`, and a `stack:` the layer can render. Until then it builds on DDEV only.
 
 A builder that does not fit yet must not build a `php` stack by accident, when the workspace's `container.runtime` names another runtime. It says so and stops, before `ddev config`:

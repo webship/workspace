@@ -131,13 +131,17 @@ function rt_php_ini() {
   found="$(rt_find_project "${2:-$PWD}")" || { echo "rt_php_ini: no project in ${2:-$PWD} (run it after 'ddev config')." >&2 ; return 1 ; } ;
   root="${found#* }" ; dir="${root}/.webship/php" ;
   [ "${found%% *}" = ddev ] && dir="${root}/.ddev/php" ;
-  mkdir -p "${dir}" && cat > "${dir}/${name}.ini" ;
+  mkdir -p "${dir}" && cat > "${dir}/${name}.ini" || return 1 ;
+  # Docksal's pool settings win over ini files for the web server: its pool file says the project's again.
+  [ "${found%% *}" = docksal ] && rt_docksal_fpm "${root}" ;
+  return 0 ;
 }
 
 # A task kept running beside the web server, in the web container's image with the project's code and settings
 # (webship/workspace#825): a platform's cron, a queue worker. On DDEV a web_extra_daemons entry in
 # .ddev/config.daemon-<name>.yaml; on Docker Compose and Podman the project's `daemons` service, on Kubernetes a second
-# container of the web pod, each running .webship/daemons/<name>.sh as the web server's user. The task is declared
+# container of the web pod, on Lando the appserver after each start, on Docksal a program of cli's supervisor, each
+# running .webship/daemons/<name>.sh as the web server's user. The task is declared
 # in the x-webship block (`daemons:`), so it stays when the files are written again. Run it after `ddev config`.
 function rt_daemon() {
   local name="$1" command="${2:-}" found rt root file list ;
@@ -154,9 +158,6 @@ web_extra_daemons:
 YAML
     return 0 ;
   fi
-  case "${rt}" in
-    lando|docksal) echo "(${rt}: a task beside the web server is not on ${rt} yet, so '${name}' does not run there: webship/workspace#825)" ; return 0 ;;
-  esac
   mkdir -p "${root}/.webship/daemons" ;
   printf '#!/usr/bin/env bash\n# Written by the Webship Workspace (rt_daemon, webship/workspace#825): kept running beside the web server.\n%s\n' "${command}" > "${root}/.webship/daemons/${name}.sh" ;
   file="${root}/$(rt_meta_file "${root}")" ; list="$(rt_meta daemons "${root}")" ;
@@ -903,8 +904,8 @@ function rt_lando_app() { local n ; n="$(rt_name "$1")" ; n="${n,,}" ; echo "${n
 
 # Writes .lando.yml (and the Apache file that lets the site reach itself at its own address) for a project.
 function rt_lando_write() {
-  local root="$1" name="$2" type="$3" docroot="$4" php="$5" db="$6" port="$7" platform="${8:-}" mail_port="${9:-}" ;
-  local webroot="/app${docroot:+/${docroot}}" mail_ports="" ;
+  local root="$1" name="$2" type="$3" docroot="$4" php="$5" db="$6" port="$7" platform="${8:-}" mail_port="${9:-}" daemons="${10:-}" ;
+  local webroot="/app${docroot:+/${docroot}}" mail_ports="" events="" ;
   # The mailbox, on this machine only: the tests of the site read the mail it sent there (MAIL_URL).
   [ -n "${mail_port}" ] && mail_ports=$'\n    # The mailbox, on this machine only (MAIL_URL).\n    overrides:\n      ports:\n        - "127.0.0.1:'"${mail_port}"$':80"' ;
   mkdir -p "${root}/.webship/runtime" ;
@@ -932,6 +933,23 @@ for b in mysql mariadb mysqldump mariadb-dump ; do
   chmod +x "/usr/local/sbin/${b}"
 done
 SH
+  # The tasks beside the web server (rt_daemon): in the appserver, after each start, as the web server's user. A lock
+  # keeps them to one set when Lando starts an app that already runs.
+  if [ -n "${daemons}" ] ; then
+    cat > "${root}/.webship/runtime/lando-daemons.sh" <<'SH'
+# Written by the Webship Workspace's lando runtime: the project's tasks (rt_daemon), kept running beside the web server.
+# Lando runs it after each start (events: post-start); the lock, held while they run, keeps them to one set.
+exec 9> /tmp/webship-daemons.lock
+flock -n 9 || exit 0
+run='' ; [ "$(id -u)" = 0 ] && run='runuser -u www-data --'
+nohup setsid ${run} bash -c 'for f in /app/.webship/daemons/*.sh ; do [ -f "$f" ] && bash "$f" & done ; wait' < /dev/null > /tmp/webship-daemons.log 2>&1 &
+SH
+    events=$'
+events:
+  post-start:
+    # The tasks beside the web server (rt_daemon).
+    - appserver: bash /app/.webship/runtime/lando-daemons.sh' ;
+  fi
   cat > "${root}/.lando.yml" <<YAML
 # Written by the Webship Workspace (its lando runtime, webship/workspace#729). Run it with: lando start
 name: ${name}
@@ -944,7 +962,8 @@ x-webship:${platform:+
   php: "${php}"
   database: "${db}"
   port: ${port}${mail_port:+
-  mail_port: ${mail_port}}
+  mail_port: ${mail_port}}${daemons:+
+  daemons: ${daemons}}
 recipe: lamp
 config:
   webroot: "${docroot:-.}"
@@ -987,7 +1006,7 @@ services:
   mailpit:
     type: mailpit
     mailFrom:
-      - appserver${mail_ports}
+      - appserver${mail_ports}${events}
 YAML
 }
 
@@ -1032,11 +1051,11 @@ function rt_lando() {
       if [ -f "${root}/.lando.yml" ] && ! grep -q '^x-webship:' "${root}/.lando.yml" ; then
         echo "${root}/.lando.yml is the project's own: the Workspace leaves it as it is." ; return 0 ;
       fi
-      local name type docroot php db port platform mail_port a ;
+      local name type docroot php db port platform mail_port daemons a ;
       if [ -f "${root}/.lando.yml" ] ; then
         name="$(rt_name "${root}")" ; type="$(rt_meta type "${root}")" ; docroot="$(rt_meta docroot "${root}")" ;
         php="$(rt_meta php "${root}")" ; db="$(rt_meta database "${root}")" ; port="$(rt_meta port "${root}")" ;
-        platform="$(rt_meta platform "${root}")" ; mail_port="$(rt_meta mail_port "${root}")" ;
+        platform="$(rt_meta platform "${root}")" ; mail_port="$(rt_meta mail_port "${root}")" ; daemons="$(rt_meta daemons "${root}")" ;
       fi
       for a in "$@" ; do
         case "${a}" in
@@ -1044,7 +1063,7 @@ function rt_lando() {
           --php-version=*) php="${a#*=}" ;; --database=*) db="${a#*=}" ; db="${db#*:}" ;;
         esac
       done
-      rt_lando_write "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" ;
+      rt_lando_write "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" "${daemons}" ;
       echo "Wrote .lando.yml for lando (${type:-php}, PHP ${php:-8.3}, MariaDB ${db:-10.11}): $(rt_url "${root}")" ;;
     start|restart)
       [ -n "${root}" ] || { echo "No lando project here." >&2 ; return 1 ; } ;
@@ -1152,8 +1171,36 @@ function rt_docksal_host() {
 function rt_docksal_db_tag() { case "$1" in 11.*) echo 1.5 ;; *) echo 1.4 ;; esac ; }
 
 function rt_docksal_write() {
-  local root="$1" name="$2" type="$3" docroot="$4" php="$5" db="$6" platform="${7:-}" ;
-  local safe="${name,,}" ; safe="${safe//_/-}" ; safe="${safe//[^-a-z0-9]/}" ;
+  local root="$1" name="$2" type="$3" docroot="$4" php="$5" db="$6" platform="${7:-}" daemons="${8:-}" ;
+  local safe="${name,,}" ; safe="${safe//_/-}" ; safe="${safe//[^-a-z0-9]/}" mount="" ;
+  # The tasks beside the web server (rt_daemon): a program of cli's supervisor, where PHP runs, as the project's user.
+  if [ -n "${daemons}" ] ; then
+    mkdir -p "${root}/.webship/runtime" ;
+    cat > "${root}/.webship/runtime/docksal-daemons.sh" <<'SH'
+# Written by the Webship Workspace's docksal runtime: the project's tasks (rt_daemon), run by cli's supervisor.
+for f in /var/www/.webship/daemons/*.sh ; do [ -f "$f" ] && bash "$f" & done
+wait
+SH
+    # A script, not a command line: the supervisor reads " ;" as the start of a comment.
+    cat > "${root}/.webship/runtime/docksal-daemons.conf" <<'CONF'
+; Written by the Webship Workspace's docksal runtime: the project's tasks (rt_daemon), kept running beside the web
+; server in cli, where PHP runs, as the project's user; its supervisor starts them again when they stop.
+[program:webship-daemons]
+command = runuser -u docker -- bash /var/www/.webship/runtime/docksal-daemons.sh
+directory = /var/www
+autorestart = true
+stdout_logfile = /var/log/supervisor/webship-daemons-stdout
+stderr_logfile = /var/log/supervisor/webship-daemons-stderr
+CONF
+    mount=$'
+      # The tasks beside the web server (rt_daemon), a program of its supervisor.
+      - ${PROJECT_ROOT}/.webship/runtime/docksal-daemons.conf:/etc/supervisor/conf.d/webship-daemons.conf:ro' ;
+  fi
+  # The project's own PHP settings (rt_php_ini) for the web server too: Docksal's pool sets some with php_value
+  # (zz-php-fpm.conf: memory_limit, max_input_vars), which win over ini files. A pool file of the project's says them
+  # again, read before Docksal's: php-fpm keeps the first value it reads for a setting.
+  mkdir -p "${root}/.webship/runtime" ;
+  rt_docksal_fpm "${root}" ;
   mkdir -p "${root}/.docksal" ;
   cat > "${root}/.docksal/docksal.env" <<ENV
 # Written by the Webship Workspace (its docksal runtime, webship/workspace#730). Run it with: fin project start
@@ -1179,19 +1226,41 @@ x-webship:${platform:+
   docroot: "${docroot}"
   php: "${php}"
   database: "${db}"
-  host: ${safe}.docksal.site
+  host: ${safe}.docksal.site${daemons:+
+  daemons: ${daemons}}
 services:
   cli:
     environment:
       - WEBSHIP_RUNTIME=docksal
       # The project's own PHP settings (rt_php_ini), after the stack's: the leading ':' keeps PHP's own folder.
       - PHP_INI_SCAN_DIR=:/var/www/.webship/php
+    volumes:
+      # The project's own PHP settings for the web server (rt_php_ini): read first, as php-fpm keeps the first value of each.
+      - \${PROJECT_ROOT}/.webship/runtime/docksal-fpm.conf:/usr/local/etc/php-fpm.d/00-webship.conf:ro${mount}
   # Mailpit: PHP's mail goes there from cli, and its page is http://mail.${safe}.docksal.site (MAIL_URL).
   mail:
     extends:
       file: \${HOME}/.docksal/stacks/services.yml
       service: mail
 YAML
+}
+
+# The pool file of a Docksal project: each `key = value` of its .webship/php/*.ini as php_value, read by php-fpm before
+# Docksal's own pool settings (php-fpm keeps the first value of each), so the web server has the project's (rt_php_ini).
+function rt_docksal_fpm() {
+  local root="$1" f line ;
+  {
+    echo "; Written by the Webship Workspace's docksal runtime: the project's own PHP settings (rt_php_ini, .webship/php/*.ini)" ;
+    echo "; for the web server too, read before Docksal's pool settings: php-fpm keeps the first value it reads for each." ;
+    echo "[www]" ;
+    for f in "${root}"/.webship/php/*.ini ; do
+      [ -f "${f}" ] || continue ;
+      while IFS= read -r line || [ -n "${line}" ] ; do
+        [[ "${line}" =~ ^[[:space:]]*([A-Za-z0-9_.]+)[[:space:]]*=[[:space:]]*(.*[^[:space:]])[[:space:]]*$ ]] || continue ;
+        echo "php_value[${BASH_REMATCH[1]}] = ${BASH_REMATCH[2]}" ;
+      done < "${f}" ;
+    done
+  } > "${root}/.webship/runtime/docksal-fpm.conf" ;
 }
 
 # The container of a service of the project, by the labels compose gives it (fin runs compose in .docksal/).
@@ -1225,10 +1294,11 @@ function rt_docksal() {
       if [ -d "${root}/.docksal" ] && ! grep -q '^x-webship:' "${root}/.docksal/docksal.yml" 2> /dev/null ; then
         echo "${root}/.docksal/ is the project's own: the Workspace leaves it as it is." ; return 0 ;
       fi
-      local name type docroot php db platform a ;
+      local name type docroot php db platform daemons a ;
       if [ -f "${root}/.docksal/docksal.yml" ] ; then
         name="$(rt_name "${root}")" ; type="$(rt_meta type "${root}")" ; docroot="$(rt_meta docroot "${root}")" ;
         php="$(rt_meta php "${root}")" ; db="$(rt_meta database "${root}")" ; platform="$(rt_meta platform "${root}")" ;
+        daemons="$(rt_meta daemons "${root}")" ;
       fi
       for a in "$@" ; do
         case "${a}" in
@@ -1236,7 +1306,7 @@ function rt_docksal() {
           --php-version=*) php="${a#*=}" ;; --database=*) db="${a#*=}" ; db="${db#*:}" ;;
         esac
       done
-      rt_docksal_write "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${platform}" ;
+      rt_docksal_write "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${platform}" "${daemons}" ;
       echo "Wrote .docksal/ for docksal (${type:-php}, PHP ${php:-8.3}, MariaDB ${db:-10.11}): $(rt_url "${root}")" ;;
     start|restart)
       [ -n "${root}" ] || { echo "No docksal project here." >&2 ; return 1 ; } ;

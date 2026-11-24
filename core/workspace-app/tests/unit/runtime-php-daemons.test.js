@@ -83,7 +83,14 @@ test('every runtime\'s web container scans the project\'s settings after the sta
   assert.match(stack, /\n {12}- \{name: PHP_INI_SCAN_DIR, value: ":\/var\/www\/html\/\.webship\/php"\}\n/);
   assert.doesNotMatch(stack, /- name: daemons/);
   assert.match(read(built(dir, 'lando', 'sl'), '.lando.yml'), /\n {8}PHP_INI_SCAN_DIR: ":\/app\/\.webship\/php"\n/, 'Lando: in the appserver, where the project is /app');
-  assert.match(read(built(dir, 'docksal', 'ss'), '.docksal', 'docksal.yml'), /\n {6}- PHP_INI_SCAN_DIR=:\/var\/www\/\.webship\/php\n/, 'Docksal: in cli, where PHP runs');
+  const ss = built(dir, 'docksal', 'ss');
+  assert.match(read(ss, '.docksal', 'docksal.yml'), /\n {6}- PHP_INI_SCAN_DIR=:\/var\/www\/\.webship\/php\n/, 'Docksal: in cli, where PHP runs');
+  // Docksal's own pool settings (php_value) win over ini files for the web server: the project's pool file is read
+  // first, as php-fpm keeps the first value it reads for a setting.
+  assert.match(read(ss, '.docksal', 'docksal.yml'), /\n {4}volumes:\n {6}# [^\n]+\n {6}- \$\{PROJECT_ROOT\}\/\.webship\/runtime\/docksal-fpm\.conf:\/usr\/local\/etc\/php-fpm\.d\/00-webship\.conf:ro\n {2}# Mailpit/);
+  assert.match(read(ss, '.webship', 'runtime', 'docksal-fpm.conf'), /\n\[www\]\n$/, 'nothing to say yet');
+  run(dir, ss, "printf 'max_input_vars = 5000\\n; a comment\\nmemory_limit=512M\\n[section]\\n' | rt_php_ini moodle");
+  assert.match(read(ss, '.webship', 'runtime', 'docksal-fpm.conf'), /\n\[www\]\nphp_value\[max_input_vars\] = 5000\nphp_value\[memory_limit\] = 512M\n$/, 'rt_php_ini says the settings to php-fpm too');
 });
 
 test('rt_daemon on Docker Compose and Podman: the task in the block, its script, and a service of the project that runs it', () => {
@@ -132,7 +139,7 @@ test('rt_daemon on Kubernetes: a second container of the web pod, with its image
   assert.deepStrictEqual(logs, ['kubectl --context kind-webship -n ws-dk logs deploy/web -c web --tail 200'], 'the web server\'s logs, not the task\'s');
 });
 
-test('rt_daemon on DDEV: a web_extra_daemons entry of its own; on Lando and Docksal it says the task does not run there yet', () => {
+test('rt_daemon on DDEV: a web_extra_daemons entry of its own', () => {
   const dir = sandbox();
   const d = ddevProject(dir, 'dd');
   assert.strictEqual(run(dir, d, 'rt_daemon cron \'bash /var/www/html/.ddev/cron.sh "a b"\'').status, 0);
@@ -140,12 +147,42 @@ test('rt_daemon on DDEV: a web_extra_daemons entry of its own; on Lando and Dock
     '# Written by the Webship Workspace (rt_daemon, webship/workspace#825): a task kept running beside the web server.',
     'web_extra_daemons:', '  - name: "cron"', '    command: "bash /var/www/html/.ddev/cron.sh \\"a b\\""', '    directory: /var/www/html', ''].join('\n'));
   assert.ok(!fs.existsSync(path.join(d, '.webship')), 'nothing else on DDEV');
-  for (const runtime of ['lando', 'docksal']) {
-    const p = built(dir, runtime, `n${runtime}`);
-    const r = run(dir, p, "rt_daemon cron 'php cron.php'");
-    assert.strictEqual(r.status, 0, 'a build goes on');
-    assert.match(r.out, new RegExp(`\\(${runtime}: a task beside the web server is not on ${runtime} yet, so 'cron' does not run there: webship/workspace#825\\)`));
-    assert.ok(!fs.existsSync(path.join(p, '.webship', 'daemons')), runtime);
-  }
   assert.match(run(dir, d, 'rt_daemon cron').out, /rt_daemon: a name \(lower case, digits, - and _\) and a command, please\./);
+});
+
+test('rt_daemon on Lando: the appserver runs the tasks after each start, once, as the web server\'s user', () => {
+  const dir = sandbox();
+  const p = built(dir, 'lando', 'dl');
+  const port = read(p, '.lando.yml').match(/^ {2}port: (\d+)$/m)[1];
+  assert.doesNotMatch(read(p, '.lando.yml'), /^events:/m, 'no event until a task is asked for');
+  assert.strictEqual(run(dir, p, "rt_daemon cron 'php cron.php'").status, 0);
+  assert.match(read(p, '.webship', 'daemons', 'cron.sh'), /\nphp cron\.php\n$/);
+  const lando = read(p, '.lando.yml');
+  assert.match(lando.slice(0, lando.indexOf('\nrecipe:')), /\n {2}daemons: cron$/, 'declared in the block');
+  assert.match(lando, new RegExp(`^ {2}port: ${port}$`, 'm'), 'the address is kept');
+  assert.match(lando, /\nevents:\n {2}post-start:\n {4}# [^\n]+\n {4}- appserver: bash \/app\/\.webship\/runtime\/lando-daemons\.sh\n$/);
+  const runner = read(p, '.webship', 'runtime', 'lando-daemons.sh');
+  assert.match(runner, /^exec 9> \/tmp\/webship-daemons\.lock\nflock -n 9 \|\| exit 0$/m, 'one set of tasks, however often Lando starts the app');
+  assert.match(runner, /\[ "\$\(id -u\)" = 0 \] && run='runuser -u www-data --'/, 'as the web server\'s user');
+  assert.match(runner, /nohup setsid \$\{run\} bash -c 'for f in \/app\/\.webship\/daemons\/\*\.sh ; do \[ -f "\$f" \] && bash "\$f" & done ; wait' < \/dev\/null > \/tmp\/webship-daemons\.log 2>&1 &/);
+  run(dir, p, 'ddev config --php-version=8.4');
+  assert.match(read(p, '.lando.yml'), /\n {2}daemons: cron\n[\s\S]*\n {4}- appserver: bash \/app\/\.webship\/runtime\/lando-daemons\.sh\n$/, 'written again, the task stays');
+});
+
+test('rt_daemon on Docksal: a program of cli\'s supervisor, where PHP runs, as the project\'s user', () => {
+  const dir = sandbox();
+  const p = built(dir, 'docksal', 'ds');
+  assert.doesNotMatch(read(p, '.docksal', 'docksal.yml'), /webship-daemons/, 'no program until a task is asked for');
+  assert.strictEqual(run(dir, p, "rt_daemon cron 'php cron.php'").status, 0);
+  assert.match(read(p, '.webship', 'daemons', 'cron.sh'), /\nphp cron\.php\n$/);
+  const yml = read(p, '.docksal', 'docksal.yml');
+  assert.match(yml.slice(0, yml.indexOf('\nservices:')), /\n {2}daemons: cron$/, 'declared in the block');
+  assert.match(yml, /\n {6}- \$\{PROJECT_ROOT\}\/\.webship\/runtime\/docksal-daemons\.conf:\/etc\/supervisor\/conf\.d\/webship-daemons\.conf:ro\n {2}# Mailpit/);
+  const conf = read(p, '.webship', 'runtime', 'docksal-daemons.conf');
+  // A script, not a command line: the supervisor reads " ;" as the start of a comment.
+  assert.match(conf, /^\[program:webship-daemons\]\ncommand = runuser -u docker -- bash \/var\/www\/\.webship\/runtime\/docksal-daemons\.sh\ndirectory = \/var\/www\nautorestart = true\n/m);
+  assert.doesNotMatch(conf.split('\n').filter((l) => !l.startsWith(';')).join('\n'), / ;/);
+  assert.match(read(p, '.webship', 'runtime', 'docksal-daemons.sh'), /\nfor f in \/var\/www\/\.webship\/daemons\/\*\.sh ; do \[ -f "\$f" \] && bash "\$f" & done\nwait\n$/);
+  run(dir, p, 'ddev config --php-version=8.4');
+  assert.match(read(p, '.docksal', 'docksal.yml'), /webship-daemons\.conf/, 'written again, the task stays');
 });
