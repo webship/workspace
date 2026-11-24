@@ -168,6 +168,56 @@ YAML
   ( cd "${root}" && ddev config > /dev/null ) ;
 }
 
+# A key of the x-webship block, set or written (as rt_claim does with platform): rt_meta_set <key> <value> <root>.
+function rt_meta_set() {
+  local key="$1" value="$2" root="$3" file ; file="${root}/$(rt_meta_file "${root}")" ;
+  if grep -q "^  ${key}: " "${file}" ; then sed -i "/^x-webship:/,/^[^ x]/s|^  ${key}: .*|  ${key}: ${value}|" "${file}" ;
+  else sed -i "/^x-webship:\$/a\\  ${key}: ${value}" "${file}" ; fi
+}
+
+# The stack of an application that serves itself, on another runtime than DDEV (webship/workspace#841): its language
+# and the version it chooses (python, node, java, dotnet, ruby, go), or `image <name>` for an image of its own. The
+# layer builds the web image from the language's own image, pinned to that version, with what every stack has on top
+# (core/config/runtimes/generic). Run it after `ddev config --webserver-type=generic`; on DDEV the plugin's own
+# .ddev/web-build files stay as they are, and nothing is done here.
+function rt_stack() {
+  local lang="$1" version="${2:-}" found root ;
+  case "${lang}" in python|node|java|dotnet|ruby|go|image) ;; *) echo "rt_stack: a language (python, node, java, dotnet, ruby, go) and its version, or image <name>." >&2 ; return 1 ;; esac
+  [[ "${version}" =~ ^[A-Za-z0-9._:/@-]+$ ]] || { echo "rt_stack: the version ${lang} runs at (never latest: the application chooses it)." >&2 ; return 1 ; } ;
+  [ "${version}" = latest ] && { echo "rt_stack: a pinned version, never latest." >&2 ; return 1 ; } ;
+  found="$(rt_find_project "${3:-$PWD}")" || { echo "rt_stack: no project in ${3:-$PWD} (run it after 'ddev config')." >&2 ; return 1 ; } ;
+  [ "${found%% *}" = ddev ] && return 0 ;
+  root="${found#* }" ;
+  rt_meta_set stack generic "${root}" && rt_meta_set language "${lang}" "${root}" && rt_meta_set language_version "\"${version}\"" "${root}" || return 1 ;
+  ( cd "${root}" && ddev config > /dev/null ) ;
+}
+
+# What the application adds to its stack's image, a Dockerfile fragment read on the input (what DDEV's
+# .ddev/web-build/Dockerfile.<name> adds to DDEV's web image), on another runtime than DDEV (#841).
+function rt_web_build() {
+  local name="$1" found root ;
+  [[ "${name}" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "rt_web_build: a name, please (lower case, digits, - and _)." >&2 ; return 1 ; } ;
+  found="$(rt_find_project "${2:-$PWD}")" || { echo "rt_web_build: no project in ${2:-$PWD} (run it after 'ddev config')." >&2 ; return 1 ; } ;
+  [ "${found%% *}" = ddev ] && { cat > /dev/null ; return 0 ; } ;
+  root="${found#* }" ;
+  mkdir -p "${root}/.webship/runtime/web-build" && cat > "${root}/.webship/runtime/web-build/Dockerfile.${name}" || return 1 ;
+  ( cd "${root}" && ddev config > /dev/null ) ;
+}
+
+# The application's own server, on another runtime than DDEV (#841): the web container runs the command as the host
+# user from the project's root, and the project's address goes to the port it listens on.
+function rt_serve() {
+  local port="$1" command="${2:-}" found root ;
+  { [[ "${port}" =~ ^[0-9]+$ ]] && [ -n "${command}" ] ; } || { echo "rt_serve: the port the server listens on, and its command." >&2 ; return 1 ; } ;
+  found="$(rt_find_project "${3:-$PWD}")" || { echo "rt_serve: no project in ${3:-$PWD} (run it after 'ddev config')." >&2 ; return 1 ; } ;
+  [ "${found%% *}" = ddev ] && return 0 ;
+  root="${found#* }" ;
+  mkdir -p "${root}/.webship/runtime" ;
+  printf '#!/usr/bin/env bash\n# Written by the Webship Workspace (rt_serve, webship/workspace#841): the application'"'"'s own server.\ncd "$(dirname "$0")/../.." || exit 1\n%s\n' "${command}" > "${root}/.webship/runtime/serve.sh" ;
+  rt_meta_set serve_port "${port}" "${root}" || return 1 ;
+  ( cd "${root}" && ddev config > /dev/null ) ;
+}
+
 # Is the project of a folder this platform's? On DDEV its project type, or the plugin's `.ddev/config.<name>.yaml`;
 # on another runtime the type or the claim (rt_claim) of its x-webship block. A plugin's `<name>_is_project` asks
 # this instead of reading .ddev/config.yaml, so it answers on every runtime. `-` and `_` in a name are one.
@@ -264,10 +314,95 @@ function rt_dc() {
 }
 
 # Writes compose.yaml and the stack's build folder for a project: what `ddev config` does for DDEV.
-function rt_compose_write() {
-  local rt="$1" root="$2" name="$3" type="$4" docroot="$5" php="$6" db="$7" port="$8" platform="${9:-}" mail_port="${10:-}" daemons="${11:-}" ;
+# The base image of a stack's language at a version, pinned to it, never `latest` (webship/workspace#841): the
+# language's own image on Debian (Ubuntu for Java's), or an image the application names (`image <name>`).
+function rt_stack_image() {
+  local lang="$1" v="$2" ;
+  case "${lang}" in
+    python) echo "python:${v}-slim-bookworm" ;;
+    node) echo "node:${v}-bookworm-slim" ;;
+    java) echo "eclipse-temurin:${v}-jdk" ;;
+    dotnet) echo "mcr.microsoft.com/dotnet/sdk:${v}" ;;
+    ruby) echo "ruby:${v}-slim-bookworm" ;;
+    go) echo "golang:${v}-bookworm" ;;
+    image) echo "${v}" ;;
+    *) echo "debian:bookworm-slim" ;;
+  esac
+}
+
+# The Dockerfile of a generic stack: the stack's own (core/config/runtimes/generic), then the application's additions
+# (rt_web_build: .webship/runtime/web-build/Dockerfile.<name>), in the order of their names. The command the web
+# container runs is .webship/runtime/serve.sh (rt_serve); until the application says it, the container waits.
+function rt_generic_runtime() {
+  local root="$1" f ;
   mkdir -p "${root}/.webship/runtime" ;
-  cp "${RT_STACKS}/php/Dockerfile" "${root}/.webship/runtime/Dockerfile" ;
+  {
+    cat "${RT_STACKS}/generic/Dockerfile" ;
+    for f in "${root}"/.webship/runtime/web-build/Dockerfile.* ; do
+      [ -f "${f}" ] || continue ;
+      printf '\n# %s (rt_web_build)\n' "${f##*/}" ; cat "${f}" ;
+    done
+  } > "${root}/.webship/runtime/Dockerfile" ;
+  [ -f "${root}/.webship/runtime/serve.sh" ] || printf '#!/usr/bin/env bash\n# Written by the Webship Workspace: the application has not said its server yet (rt_serve).\nexec sleep infinity\n' > "${root}/.webship/runtime/serve.sh" ;
+}
+
+# The db service of compose.yaml for the project's database: MariaDB (a version, as before), PostgreSQL
+# ("postgres:<version>", #841) or none. PostgreSQL keeps its data where its image says: /var/lib/postgresql from 18 on.
+function rt_compose_db() {
+  local db="$1" ;
+  case "${db}" in
+    none) return 0 ;;
+    postgres:*)
+      local v="${db#postgres:}" data=/var/lib/postgresql/data ;
+      [ "${v%%.*}" -ge 18 ] 2>/dev/null && data=/var/lib/postgresql ;
+      cat <<YAML
+  db:
+    image: postgres:${v}
+    environment:
+      POSTGRES_DB: db
+      POSTGRES_USER: db
+      POSTGRES_PASSWORD: db
+    volumes:
+      - db:${data}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U db -d db"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+YAML
+      ;;
+    *) cat <<YAML
+  db:
+    image: mariadb:${db}
+    # DDEV's character set and collation, whatever the version: from 11.x on MariaDB's own default collation is one
+    # an installer may not take (Moodle: "unicode"), and a site's database is the same on every runtime.
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_general_ci"]
+    environment:
+      MARIADB_DATABASE: db
+      MARIADB_USER: db
+      MARIADB_PASSWORD: db
+      MARIADB_ROOT_PASSWORD: root
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+YAML
+      ;;
+  esac
+}
+
+function rt_compose_write() {
+  local rt="$1" root="$2" name="$3" type="$4" docroot="$5" php="$6" db="$7" port="$8" platform="${9:-}" mail_port="${10:-}" daemons="${11:-}" stack="${12:-php}" ;
+  # A generic stack's language, version, own image and server port (#841), kept by `ddev config` as the claim is.
+  local lang="${RT_STACK_LANG:-}" lang_version="${RT_STACK_VERSION:-}" serve_port="${RT_SERVE_PORT:-}" stack_lines="" ;
+  [ -n "${lang}" ] && stack_lines="${stack_lines}"$'\n  language: '"${lang}" ;
+  [ -n "${lang_version}" ] && stack_lines="${stack_lines}"$'\n  language_version: "'"${lang_version}"'"' ;
+  [ -n "${serve_port}" ] && stack_lines="${stack_lines}"$'\n  serve_port: '"${serve_port}" ;
+  mkdir -p "${root}/.webship/runtime" ;
+  if [ "${stack}" = generic ] ; then rt_generic_runtime "${root}" ; else cp "${RT_STACKS}/php/Dockerfile" "${root}/.webship/runtime/Dockerfile" ; fi ;
   # Rootless Podman maps a container's users into a range of their own: with keep-id the user of the web service is
   # the host user, so it can write the project folder it is given (found on a real Podman build, #694).
   local userns="" ;
@@ -282,7 +417,7 @@ name: ${name}
 x-webship:${platform:+
   platform: ${platform}}
   runtime: ${rt}
-  stack: php
+  stack: ${stack}${stack_lines}
   type: ${type}
   docroot: "${docroot}"
   php: "${php}"
@@ -291,6 +426,7 @@ x-webship:${platform:+
   mail_port: ${mail_port}}${daemons:+
   daemons: ${daemons}}
 services:
+$(if [ "${stack}" = generic ] ; then rt_compose_generic_web "${rt}" "${name}" "${port}" "$(rt_stack_image "${lang}" "${lang_version}")" "${serve_port:-8000}" "${userns}" "${db}" ; else cat <<WEB
   web:
     build:
       context: .webship/runtime
@@ -309,32 +445,45 @@ ${userns}    environment:
     volumes:
       - .:/var/www/html
     ports:
-      - "127.0.0.1:${port}:80"
-    depends_on:
-      db:
-        condition: service_healthy
-  db:
-    image: mariadb:${db}
-    # DDEV's character set and collation, whatever the version: from 11.x on MariaDB's own default collation is one
-    # an installer may not take (Moodle: "unicode"), and a site's database is the same on every runtime.
-    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_general_ci"]
-    environment:
-      MARIADB_DATABASE: db
-      MARIADB_USER: db
-      MARIADB_PASSWORD: db
-      MARIADB_ROOT_PASSWORD: root
-    volumes:
-      - db:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 5s
-      timeout: 5s
-      retries: 60
+      - "127.0.0.1:${port}:80"$( [ "${db}" = none ] || printf '\n    depends_on:\n      db:\n        condition: service_healthy' )
+WEB
+fi)
+$(rt_compose_db "${db}")
   mail:
     image: axllent/mailpit${mail_ports}${daemons:+
 $(rt_compose_daemons "${name}" "${php}" "${docroot}" "${rt}" "${userns}")}
 volumes:
   db:
+YAML
+  # No database: the empty line its service would have left goes too, and its volume.
+  [ "${db}" = none ] && sed -i -e '/^services:$/,/^  mail:$/{/^$/d}' -e '/^volumes:$/,$d' "${root}/compose.yaml" ;
+  return 0 ;
+}
+
+# The web service of a generic stack (#841): the stack's image (its language, or the application's own) with the
+# application's additions, its server (.webship/runtime/serve.sh, rt_serve) run as the host user from the project's
+# root, and the project's address sent to the server's port.
+function rt_compose_generic_web() {
+  local rt="$1" name="$2" port="$3" base="$4" serve_port="$5" userns="$6" db="$7" ;
+  cat <<YAML
+  web:
+    build:
+      context: .webship/runtime
+      args:
+        BASE_IMAGE: "${base}"
+        UID: "$(id -u)"
+        GID: "$(id -g)"
+    image: webship-${name}-web
+${userns}    # The application's own server (rt_serve), as the host user, from the project's root.
+    command: ["runuser", "-u", "www-data", "--", "bash", "/var/www/html/.webship/runtime/serve.sh"]
+    working_dir: /var/www/html
+    environment:
+      WEBSHIP_RUNTIME: ${rt}
+      WEBSHIP_PORT: "${port}"
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "127.0.0.1:${port}:${serve_port}"$( [ "${db}" = none ] || printf '\n    depends_on:\n      db:\n        condition: service_healthy' )
 YAML
 }
 
@@ -509,6 +658,36 @@ function rt_describe_json() {
   printf '{"raw":{"name":"%s","status":"%s","primary_url":"%s","runtime":"%s"}}\n' "${name}" "${status}" "${url}" "${rt}" ;
 }
 
+# Import a dump into a project's PostgreSQL (#841), safely: the dump is read and checked first, the client and the
+# database are asked separately, the dump goes into a database of its own, and only a whole import takes the place of
+# `db`. Anything short of that fails loudly, and the project's database is left as it was. $2 is a function that runs a
+# command in the database's container, its input passed on (rt_compose's and rt_k8s's own).
+function rt_pg_import() {
+  local file="$1" dbx="$2" head ;
+  [ -s "${file}" ] || { echo "import-db: ${file} is missing or empty: the database is untouched." >&2 ; return 1 ; } ;
+  case "${file}" in
+    *.gz) gunzip -t "${file}" 2> /dev/null || { echo "import-db: ${file} is not a whole gzip file: the database is untouched." >&2 ; return 1 ; } ;
+          head="$(gunzip -c "${file}" | head -c 4096)" ;;
+    *) head="$(head -c 4096 "${file}")" ;;
+  esac
+  grep -q 'PostgreSQL database dump' <<< "${head}" || { echo "import-db: ${file} is not a PostgreSQL dump (pg_dump's plain SQL): the database is untouched." >&2 ; return 1 ; } ;
+  "${dbx}" psql --version > /dev/null 2>&1 || { echo "import-db: no psql in the database's container: the database is untouched." >&2 ; return 1 ; } ;
+  "${dbx}" psql -U db -d postgres -tAc 'SELECT 1' 2> /dev/null | grep -q '^1$' || { echo "import-db: the database does not answer: it is untouched." >&2 ; return 1 ; } ;
+  "${dbx}" psql -U db -d postgres -qc 'DROP DATABASE IF EXISTS db_webship_import' > /dev/null && "${dbx}" psql -U db -d postgres -qc 'CREATE DATABASE db_webship_import OWNER db' > /dev/null \
+    || { echo "import-db: a database for the import could not be made: the project's database is untouched." >&2 ; return 1 ; } ;
+  if ! case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | "${dbx}" psql -U db -d db_webship_import -v ON_ERROR_STOP=1 -q > /dev/null ; then
+    "${dbx}" psql -U db -d postgres -qc 'DROP DATABASE IF EXISTS db_webship_import' > /dev/null 2>&1 ;
+    echo "import-db: the dump stopped on an error: the project's database is untouched." >&2 ; return 1 ;
+  fi
+  # The import is whole: it takes the place of db, the connections to db closed first.
+  "${dbx}" psql -U db -d postgres -v ON_ERROR_STOP=1 -q > /dev/null <<'SQL' || { echo "import-db: the imported database could not take the place of db (the dump is in db_webship_import)." >&2 ; return 1 ; }
+SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'db' AND pid <> pg_backend_pid();
+ALTER DATABASE db RENAME TO db_webship_old;
+ALTER DATABASE db_webship_import RENAME TO db;
+DROP DATABASE db_webship_old;
+SQL
+}
+
 function rt_compose() {
   local rt="$1" ; shift ;
   local verb="${1:-}" ; shift || true ;
@@ -528,15 +707,26 @@ function rt_compose() {
       # A plugin's claim (rt_claim) stays when the file is written again.
       platform="$( [ -f "${root}/compose.yaml" ] && rt_meta platform "${root}" )" ;
       mail_port="$( [ -f "${root}/compose.yaml" ] && rt_meta mail_port "${root}" )" ;
-      # The tasks beside the web server (rt_daemon) stay too.
-      local daemons ; daemons="$( [ -f "${root}/compose.yaml" ] && rt_meta daemons "${root}" )" ;
+      # The tasks beside the web server (rt_daemon) stay too, and a generic stack's language and server (#841).
+      local daemons stack ; daemons="$( [ -f "${root}/compose.yaml" ] && rt_meta daemons "${root}" )" ;
+      stack="$( [ -f "${root}/compose.yaml" ] && rt_meta stack "${root}" )" ;
+      local RT_STACK_LANG RT_STACK_VERSION RT_SERVE_PORT ;
+      if [ -f "${root}/compose.yaml" ] ; then
+        RT_STACK_LANG="$(rt_meta language "${root}")" ; RT_STACK_VERSION="$(rt_meta language_version "${root}")" ; RT_SERVE_PORT="$(rt_meta serve_port "${root}")" ;
+      fi
       for a in "$@" ; do
         case "${a}" in
           --project-name=*) name="${a#*=}" ;; --project-type=*) type="${a#*=}" ;; --docroot=*) docroot="${a#*=}" ;;
-          --php-version=*) php="${a#*=}" ;; --database=*) db="${a#*=}" ; db="${db#*:}" ;;
+          --php-version=*) php="${a#*=}" ;;
+          # MariaDB as its version (as before); PostgreSQL by its name and version, which the PostgreSQL plugin reads.
+          --database=postgres:*) db="${a#*=}" ;; --database=*) db="${a#*=}" ; db="${db#*:}" ;;
+          --omit-containers=*) case ",${a#*=}," in *,db,*) db=none ;; esac ;;
+          # An application that serves itself (DDEV's generic web server): a generic stack, no Apache.
+          --webserver-type=generic) stack=generic ;; --webserver-type=*) stack=php ;;
         esac
       done
-      rt_compose_write "${rt}" "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" "${daemons}" ;
+      RT_STACK_LANG="${RT_STACK_LANG}" RT_STACK_VERSION="${RT_STACK_VERSION}" RT_SERVE_PORT="${RT_SERVE_PORT}" \
+        rt_compose_write "${rt}" "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" "${daemons}" "${stack:-php}" ;
       echo "Wrote compose.yaml for ${rt} (${type:-php}, PHP ${php:-8.3}, MariaDB ${db:-10.11}): $(rt_url "${root}")" ;;
     start|restart)
       [ -n "${root}" ] || { echo "No ${rt} project here." >&2 ; return 1 ; } ;
@@ -576,15 +766,34 @@ function rt_compose() {
       # a terminal of its own, so it shows its prompt: compose leaves it out when its output is not one.
       if [ -t 0 ] ; then "$(rt_engine "${rt}")" exec -it -u www-data "$(rt_dc "${rt}" "${root}" ps -q web | head -1)" bash ;
       else rt_dc "${rt}" "${root}" exec -u www-data web bash ; fi ;;
-    mysql) rt_dc "${rt}" "${root}" exec -T db mariadb -udb -pdb db "$@" ;;
-    export-db)
-      local file ; file="$(rt_file_arg "$@")" ;
-      if [ -n "${file}" ] ; then rt_dc "${rt}" "${root}" exec -T db mariadb-dump -udb -pdb db | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
-      else rt_dc "${rt}" "${root}" exec -T db mariadb-dump -udb -pdb db | gzip ; fi ;;
-    import-db)
-      local file ; file="$(rt_file_arg "$@")" ;
-      [ -f "${file}" ] || { echo "No such file: ${file}" >&2 ; return 1 ; } ;
-      case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | rt_dc "${rt}" "${root}" exec -T db mariadb -udb -pdb db ;;
+    mysql|psql|export-db|import-db)
+      # The project's database decides the client (#841): MariaDB, PostgreSQL, or none.
+      local dbase ; dbase="$(rt_meta database "${root}")" ;
+      dbx() { rt_dc "${rt}" "${root}" exec -T db "$@" ; } ;
+      case "${dbase}" in
+        none) echo "This project has no database." >&2 ; return 1 ;;
+        postgres:*) case "${verb}" in
+          mysql) echo "The database of this project is PostgreSQL: ddev psql." >&2 ; return 1 ;;
+          psql) dbx psql -U db -d db "$@" ;;
+          export-db)
+            local file ; file="$(rt_file_arg "$@")" ;
+            if [ -n "${file}" ] ; then dbx pg_dump -U db --no-owner --no-privileges db | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
+            else dbx pg_dump -U db --no-owner --no-privileges db | gzip ; fi ;;
+          import-db) rt_pg_import "$(rt_file_arg "$@")" dbx ;;
+        esac ;;
+        *) case "${verb}" in
+          psql) echo "The database of this project is MariaDB: ddev mysql." >&2 ; return 1 ;;
+          mysql) dbx mariadb -udb -pdb db "$@" ;;
+          export-db)
+            local file ; file="$(rt_file_arg "$@")" ;
+            if [ -n "${file}" ] ; then dbx mariadb-dump -udb -pdb db | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
+            else dbx mariadb-dump -udb -pdb db | gzip ; fi ;;
+          import-db)
+            local file ; file="$(rt_file_arg "$@")" ;
+            [ -f "${file}" ] || { echo "No such file: ${file}" >&2 ; return 1 ; } ;
+            case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | dbx mariadb -udb -pdb db ;;
+        esac ;;
+      esac ;;
     launch) echo "$(rt_url "${root}")${1:-}" ;;
     logs) rt_dc "${rt}" "${root}" logs --tail "${LOG_LINES:-200}" web ;;
     version|--version|-v) echo "the Webship Workspace's ${rt} runtime (no DDEV)" ;;
@@ -637,36 +846,70 @@ function rt_k8s_web_image() {
   else echo "webship-${name}-web" ; fi
 }
 
-function rt_k8s_write() {
-  local root="$1" name type docroot php db port mail_port ns image pull=Never daemons sidecar="" ;
-  name="$(sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1)" ; docroot="$(rt_meta docroot "${root}")" ;
-  daemons="$(rt_meta daemons "${root}")" ;
-  db="$(rt_meta database "${root}")" ; port="$(rt_meta port "${root}")" ; mail_port="$(rt_meta mail_port "${root}")" ; ns="ws-${name}" ;
-  image="$(rt_k8s_web_image "${root}")" ; [ "${image}" = "webship-${name}-web" ] || pull=IfNotPresent ;
-  mkdir -p "${root}/k8s" ;
-  # The tasks beside the web server (rt_daemon, webship/workspace#825): a second container of the web pod, with its
-  # image, code and settings, running every .webship/daemons/*.sh as the web server's user.
-  [ -n "${daemons}" ] && sidecar="
-        - name: daemons
-          image: ${image}
-          imagePullPolicy: ${pull}
-          command: [\"runuser\", \"-u\", \"www-data\", \"--\", \"bash\", \"-c\", \"for f in /var/www/html/.webship/daemons/*.sh ; do [ -f \\\"\$f\\\" ] && bash \\\"\$f\\\" & done ; wait\"]
-          env:
-            - {name: APACHE_DOCUMENT_ROOT, value: /var/www/html${docroot:+/${docroot}}}
-            - {name: WEBSHIP_RUNTIME, value: kubernetes}
-            - {name: PHP_INI_SCAN_DIR, value: \":/var/www/html/.webship/php\"}
-          volumeMounts: [{name: code, mountPath: /var/www/html}]" ;
-  cat > "${root}/k8s/kustomization.yaml" <<YAML
-# Written by the Webship Workspace's kubernetes runtime (webship/workspace#694) from compose.yaml.
-namespace: ${ns}
-resources:
-  - stack.yaml
-YAML
-  cat > "${root}/k8s/stack.yaml" <<YAML
+# The database part of a project's Kubernetes stack (#841): MariaDB (as before), PostgreSQL ("postgres:<version>", its
+# data where its image says), or none. Each begins with its own "---".
+function rt_k8s_db() {
+  local db="$1" ;
+  case "${db}" in
+    none) return 0 ;;
+    postgres:*)
+      local v="${db#postgres:}" data=/var/lib/postgresql/data ;
+      [ "${v%%.*}" -ge 18 ] 2>/dev/null && data=/var/lib/postgresql ;
+      cat <<YAML
+---
 apiVersion: v1
-kind: Namespace
+kind: PersistentVolumeClaim
 metadata:
-  name: ${ns}
+  name: db
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: db}
+  template:
+    metadata:
+      labels: {app: db}
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: db
+          image: postgres:${v}
+          env:
+            - {name: POSTGRES_DB, value: db}
+            - {name: POSTGRES_USER, value: db}
+            - {name: POSTGRES_PASSWORD, value: db}
+            # The data in a folder of the volume: its root holds lost+found, which initdb refuses.
+            - {name: PGDATA, value: ${data}/pgdata}
+          ports: [{containerPort: 5432}]
+          readinessProbe:
+            exec: {command: ["pg_isready", "-U", "db", "-d", "db"]}
+            periodSeconds: 5
+          volumeMounts: [{name: data, mountPath: ${data}}]
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: db}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  selector: {app: db}
+  ports: [{port: 5432}]
+YAML
+      ;;
+    *) cat <<YAML
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -721,6 +964,48 @@ metadata:
 spec:
   selector: {app: db}
   ports: [{port: 3306}]
+YAML
+      ;;
+  esac
+}
+
+function rt_k8s_write() {
+  local root="$1" name type docroot php db port mail_port ns image pull=Never daemons sidecar="" ;
+  name="$(sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1)" ; docroot="$(rt_meta docroot "${root}")" ;
+  daemons="$(rt_meta daemons "${root}")" ;
+  # A generic stack (#841): the application's own server, as the host user from the project's root, on its port.
+  local serve_port="" serve_cmd="" ;
+  if [ "$(rt_meta stack "${root}")" = generic ] ; then
+    serve_port="$(rt_meta serve_port "${root}")" ; serve_port="${serve_port:-8000}" ;
+    serve_cmd=$'\n          command: ["runuser", "-u", "www-data", "--", "bash", "/var/www/html/.webship/runtime/serve.sh"]\n          workingDir: /var/www/html' ;
+  fi
+  db="$(rt_meta database "${root}")" ; port="$(rt_meta port "${root}")" ; mail_port="$(rt_meta mail_port "${root}")" ; ns="ws-${name}" ;
+  image="$(rt_k8s_web_image "${root}")" ; [ "${image}" = "webship-${name}-web" ] || pull=IfNotPresent ;
+  mkdir -p "${root}/k8s" ;
+  # The tasks beside the web server (rt_daemon, webship/workspace#825): a second container of the web pod, with its
+  # image, code and settings, running every .webship/daemons/*.sh as the web server's user.
+  [ -n "${daemons}" ] && sidecar="
+        - name: daemons
+          image: ${image}
+          imagePullPolicy: ${pull}
+          command: [\"runuser\", \"-u\", \"www-data\", \"--\", \"bash\", \"-c\", \"for f in /var/www/html/.webship/daemons/*.sh ; do [ -f \\\"\$f\\\" ] && bash \\\"\$f\\\" & done ; wait\"]
+          env:
+            - {name: APACHE_DOCUMENT_ROOT, value: /var/www/html${docroot:+/${docroot}}}
+            - {name: WEBSHIP_RUNTIME, value: kubernetes}
+            - {name: PHP_INI_SCAN_DIR, value: \":/var/www/html/.webship/php\"}
+          volumeMounts: [{name: code, mountPath: /var/www/html}]" ;
+  cat > "${root}/k8s/kustomization.yaml" <<YAML
+# Written by the Webship Workspace's kubernetes runtime (webship/workspace#694) from compose.yaml.
+namespace: ${ns}
+resources:
+  - stack.yaml
+YAML
+  cat > "${root}/k8s/stack.yaml" <<YAML
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${ns}
+$(rt_k8s_db "${db}")
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -774,7 +1059,7 @@ spec:
             - {name: WEBSHIP_RUNTIME, value: kubernetes}
             # The project's own PHP settings (rt_php_ini), after the stack's: the leading ':' keeps PHP's own folder.
             - {name: PHP_INI_SCAN_DIR, value: ":/var/www/html/.webship/php"}
-          ports: [{containerPort: 80}]
+          ports: [{containerPort: ${serve_port:-80}}]${serve_cmd}
           volumeMounts: [{name: code, mountPath: /var/www/html}]${sidecar}
       volumes:
         - name: code
@@ -787,7 +1072,7 @@ metadata:
 spec:
   type: NodePort
   selector: {app: web}
-  ports: [{port: 80, nodePort: ${port}}]
+  ports: [{port: 80, nodePort: ${port}${serve_port:+, targetPort: ${serve_port}}}]
 YAML
   # The mailbox on a NodePort of its own, where the tests of the site read the mail it sent (MAIL_URL).
   [ -z "${mail_port}" ] || cat >> "${root}/k8s/stack.yaml" <<YAML
@@ -836,7 +1121,7 @@ function rt_k8s() {
       # The site's own image is built and loaded; an image the manifests name instead (WORKSPACE_KUBE_WEB_IMAGE when
       # they were written) is the cluster's to find.
       if grep -q "^ *image: webship-${name}-web\$" "${root}/k8s/stack.yaml" 2> /dev/null ; then
-        docker build -q -t "webship-${name}-web" --build-arg PHP_VERSION="$(rt_meta php "${root}")" --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" "${root}/.webship/runtime" > /dev/null || return 1 ;
+        docker build -q -t "webship-${name}-web" --build-arg PHP_VERSION="$(rt_meta php "${root}")" --build-arg BASE_IMAGE="$(rt_stack_image "$(rt_meta language "${root}")" "$(rt_meta language_version "${root}")")" --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" "${root}/.webship/runtime" > /dev/null || return 1 ;
         case "$(rt_kctx)" in kind-*) kind load docker-image "webship-${name}-web" --name "${RT_KIND_CLUSTER}" > /dev/null || return 1 ;; esac ;
       fi
       rt_kubectl apply -k "${root}/k8s" > /dev/null || return 1 ;
@@ -870,15 +1155,34 @@ function rt_k8s() {
       if [ "${svc}" = tests ] ; then rt_tests_run kubernetes "${root}" "${PWD}" "${line}" ; return $? ; fi
       if [ "${svc}" = web ] ; then kx web runuser -u www-data -- bash -c "cd '${workdir}' && ${line}" ; else kx "${svc}" bash -c "${line}" ; fi ;;
     ssh) rt_kubectl -n "${ns}" exec -it deploy/web -c web -- runuser -u www-data -- bash ;;
-    mysql) kx db mariadb -udb -pdb db "$@" ;;
-    export-db)
-      local file ; file="$(rt_file_arg "$@")" ;
-      if [ -n "${file}" ] ; then kx db mariadb-dump -udb -pdb db | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
-      else kx db mariadb-dump -udb -pdb db | gzip ; fi ;;
-    import-db)
-      local file ; file="$(rt_file_arg "$@")" ;
-      [ -f "${file}" ] || { echo "No such file: ${file}" >&2 ; return 1 ; } ;
-      case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | kx db mariadb -udb -pdb db ;;
+    mysql|psql|export-db|import-db)
+      # The project's database decides the client (#841): MariaDB, PostgreSQL, or none.
+      local dbase ; dbase="$(rt_meta database "${root}")" ;
+      dbx() { kx db "$@" ; } ;
+      case "${dbase}" in
+        none) echo "This project has no database." >&2 ; return 1 ;;
+        postgres:*) case "${verb}" in
+          mysql) echo "The database of this project is PostgreSQL: ddev psql." >&2 ; return 1 ;;
+          psql) dbx psql -U db -d db "$@" ;;
+          export-db)
+            local file ; file="$(rt_file_arg "$@")" ;
+            if [ -n "${file}" ] ; then dbx pg_dump -U db --no-owner --no-privileges db | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
+            else dbx pg_dump -U db --no-owner --no-privileges db | gzip ; fi ;;
+          import-db) rt_pg_import "$(rt_file_arg "$@")" dbx ;;
+        esac ;;
+        *) case "${verb}" in
+          psql) echo "The database of this project is MariaDB: ddev mysql." >&2 ; return 1 ;;
+          mysql) dbx mariadb -udb -pdb db "$@" ;;
+          export-db)
+            local file ; file="$(rt_file_arg "$@")" ;
+            if [ -n "${file}" ] ; then dbx mariadb-dump -udb -pdb db | gzip > "${file}" ; [ "${PIPESTATUS[0]}" -eq 0 ] && rt_dump_has_content "${file}" ;
+            else dbx mariadb-dump -udb -pdb db | gzip ; fi ;;
+          import-db)
+            local file ; file="$(rt_file_arg "$@")" ;
+            [ -f "${file}" ] || { echo "No such file: ${file}" >&2 ; return 1 ; } ;
+            case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | dbx mariadb -udb -pdb db ;;
+        esac ;;
+      esac ;;
     launch) echo "$(rt_url "${root}")${1:-}" ;;
     logs) rt_kubectl -n "${ns}" logs deploy/web -c web --tail "${LOG_LINES:-200}" ;;
     version|--version|-v) echo "the Webship Workspace's kubernetes runtime (no DDEV), context $(rt_kctx)" ;;
