@@ -96,7 +96,7 @@ test('a pack is only ever @webship-js/<name>-steps, whatever is typed', () => {
 
 test('the shipped list: real packs, a kind each, extensions on a base it knows', () => {
   const { packs, upcoming } = sp.shippedList();
-  assert.ok(packs.length >= 41, 'the 41 packs on npm on 2026-11-22');
+  assert.ok(packs.length >= 42, 'the 42 packs on npm on 2026-11-24');
   for (const p of [...packs, ...upcoming]) {
     assert.match(p.name, sp.PACK_RE, p.name);
     assert.ok(['platform', 'extension', 'any-site'].includes(p.kind), `${p.name}: ${p.kind}`);
@@ -158,7 +158,7 @@ test('the list: npm unreachable and nothing cached gives the list shipped with t
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-steps-root-'));
   const list = await sp.listPacks({ root, fetchImpl: fakeFetch({ 'https://': new Error('offline') }) });
   assert.strictEqual(list.source, 'shipped');
-  assert.ok(list.packs.length >= 41);
+  assert.ok(list.packs.length >= 42);
   assert.ok(list.packs.every((p) => p.docs.startsWith('https://webship.co/docs/webship-js/2.0.x/')));
   const upcoming = sp.shippedList().upcoming.map((p) => p.name);
   assert.ok(!list.packs.some((p) => upcoming.includes(p.name)), 'a pack that is not on npm yet is not offered');
@@ -379,6 +379,10 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   // bbPress: the plugin's assets, or the forums' wrapper; WordPress is found beside it (2026-11-22).
   assert.ok(hits('<link rel="stylesheet" href="/wp-content/plugins/bbpress/templates/default/css/bbpress.min.css?ver=2.6.22">').includes('bbpress'));
   assert.ok(hits('<div id="bbpress-forums" class="bbpress-wrapper">').includes('bbpress'));
+  // Mautic: the variables of its pages, on the login page the front page leads to (2026-11-24); not the tracking
+  // script, which a site that only uses Mautic loads too.
+  assert.deepStrictEqual(hits('<script>\n    var mauticBasePath    = \'\';\n    var mauticAjaxUrl     = "/s/ajax";\n</script>'), ['mautic']);
+  assert.deepStrictEqual(hits('<script src="https://marketing.example.com/mtc.js"></script>'), []);
   // phpBB: the body's id (2026-11-22).
   assert.deepStrictEqual(hits('<body id="phpbb" class="nojs notouch section-index ltr">'), ['phpbb']);
   assert.deepStrictEqual(hits('<link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">'), ['bootstrap']);

@@ -4,7 +4,7 @@ The Extra steps panel (a project's Tests menu) shows them beside each `@webship-
 same files the docs cards on webship.co show. Each logo belongs to its project; `core/config/step-packs.json`
 names the file of each pack.
 
-- `aspnet-core` (the set's `dotnet`), `astro`, `codeigniter`, `craftcms`, `discourse`, `django`, `docusaurus`, `drupal`, `filament`, `gatsby`, `ghost`, `hubspot`, `jira`, `joomla`, `laravel`, `magento`, `moodle`, `nextcloud`, `nextjs` (the set's `nextdotjs`), `spring-boot` (the set's `springboot`),
+- `aspnet-core` (the set's `dotnet`), `astro`, `codeigniter`, `craftcms`, `discourse`, `django`, `docusaurus`, `drupal`, `filament`, `gatsby`, `ghost`, `hubspot`, `jira`, `joomla`, `laravel`, `magento`, `mautic`, `moodle`, `nextcloud`, `nextjs` (the set's `nextdotjs`), `spring-boot` (the set's `springboot`),
   `odoo`, `payload` (the set's `payloadcms`), `phpbb`, `prestashop`, `shopify`, `squarespace`, `strapi`, `symfony`, `typo3`, `wagtail`, `webflow`, `woocommerce`, `wordpress` (`.svg`): Simple Icons
   16.37.0 (CC0-1.0), filled with the colour the set lists for the brand.
 - `keycloak.svg`: Simple Icons 16.37.0, filled with the colour the set lists for the brand. Unlike most of the set,
