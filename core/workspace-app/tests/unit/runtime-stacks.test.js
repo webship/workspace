@@ -21,7 +21,7 @@ function sandbox() {
   fs.mkdirSync(bin);
   for (const cli of ['docker', 'podman', 'ddev', 'kind']) {
     // A database's container answers `psql --version` and `SELECT 1`; a dump that says STOP fails as psql would.
-    fs.writeFileSync(path.join(bin, cli), `#!/usr/bin/env bash\necho "${cli} $*" >> "${dir}/calls.log"\nin=""\nif [ -t 0 ] ; then : ; else in="$(cat)" ; [ -n "$in" ] && printf '%s\\n' "$in" >> "${dir}/stdin.log" ; fi\ncase "$*" in *"psql --version"*) echo "psql (PostgreSQL) 16" ;; *"SELECT 1"*) echo 1 ;; esac\n[ -f "${dir}/fail-import" ] && [[ "$*" == *db_webship_import*ON_ERROR_STOP* ]] && exit 3\n[ -f "${dir}/fail-swap" ] && [[ "$in" == *"ALLOW_CONNECTIONS false"* ]] && exit 3\ntrue\n`, { mode: 0o755 });
+    fs.writeFileSync(path.join(bin, cli), `#!/usr/bin/env bash\necho "${cli} $*" >> "${dir}/calls.log"\nin=""\nif [ -t 0 ] ; then : ; else in="$(cat)" ; [ -n "$in" ] && printf '%s\\n' "$in" >> "${dir}/stdin.log" ; fi\ncase "$*" in *"psql --version"*) echo "psql (PostgreSQL) 16" ;; *"SELECT 1"*) echo 1 ;; esac\n[ -f "${dir}/fail-import" ] && [[ "$*" == *db_webship_import*ON_ERROR_STOP* ]] && exit 3\n[ -f "${dir}/fail-swap" ] && [[ "$in" == *"ALLOW_CONNECTIONS false"* ]] && exit 3\n[ -f "${dir}/fail-restore" ] && [[ "$in" == *"ALLOW_CONNECTIONS true"* ]] && exit 3\n[ -f "${dir}/fail-drop" ] && [[ "$*" == *"DROP DATABASE IF EXISTS db_webship_old"* ]] && exit 3\n[ -f "${dir}/probe-rc" ] && [[ "$*" == *"--entrypoint /bin/sh"* ]] && exit "$(cat "${dir}/probe-rc")"\ntrue\n`, { mode: 0o755 });
   }
   fs.writeFileSync(path.join(bin, 'kubectl'), `#!/usr/bin/env bash\necho "kubectl $*" >> "${dir}/calls.log"\ncase "$*" in *"get nodes"*) printf 172.18.0.2 ;; esac\n`, { mode: 0o755 });
   return dir;
@@ -182,6 +182,49 @@ test('a PostgreSQL import checks the dump, the client and the database first, go
   assert.match(swap.out, /could not take the place of db: db is as it was, open again/);
   assert.match(read(dir, 'stdin.log'), /EXECUTE 'ALTER DATABASE db_webship_old RENAME TO db';[\s\S]*\nALTER DATABASE db ALLOW_CONNECTIONS true;/);
   assert.ok(!swap.calls.some((c) => /DROP DATABASE IF EXISTS db_webship_old/.test(c)), 'nothing is dropped after a failed swap');
+  // A swap that fails, and db cannot be put back either: the import does not say it is as it was.
+  fs.writeFileSync(path.join(dir, 'fail-restore'), '');
+  const lost = run(dir, p, `ddev import-db --file=${good}`);
+  assert.strictEqual(lost.status, 1);
+  assert.match(lost.out, /and db could not be put back by itself: see the databases db, db_webship_old and db_webship_import/);
+  assert.doesNotMatch(lost.out, /db is as it was/);
+  for (const f of ['fail-swap', 'fail-restore']) fs.unlinkSync(path.join(dir, f));
+  // A swap that worked is not failed by the old database's removal: the import is done, and it says what is left.
+  fs.writeFileSync(path.join(dir, 'fail-drop'), '');
+  const left = run(dir, p, `ddev import-db --file=${good}`);
+  assert.strictEqual(left.status, 0, left.out);
+  assert.match(left.out, /the dump is the project's database now; the old one, db_webship_old, could not be removed/);
+});
+
+test('rt_stack image: a pinned image that can take the stack\'s layer (a shell, apt-get or apk), refused clearly before anything is written', () => {
+  const dir = sandbox();
+  const p = app(dir, 'docker', 'img', { calls: false });
+  const before = read(p, 'compose.yaml');
+  for (const image of ['acme/app', 'acme/app:latest', 'localhost:5000/app']) {
+    const r = run(dir, p, `rt_stack image ${image}`);
+    assert.strictEqual(r.status, 1, image);
+    assert.match(r.out, /a pinned image, please \(name:tag or name@sha256:\.\.\., never latest\)/, image);
+    assert.ok(!r.calls.some((c) => /^docker run/.test(c)), `${image}: nothing is run for an image that is not pinned`);
+  }
+  for (const [rc, why] of [['1', /image busybox:1\.37 has neither apt-get \(Debian, Ubuntu\) nor apk \(Alpine\), which the generic stack adds its layer with \(webship\/workspace#841\)/], ['127', /image busybox:1\.37 has no shell \(a distroless image\?\)/], ['125', /image busybox:1\.37 could not be run to see what it is built on \(is the name right, and can docker pull it\?\)/]]) {
+    fs.writeFileSync(path.join(dir, 'probe-rc'), rc);
+    const r = run(dir, p, 'rt_stack image busybox:1.37');
+    assert.strictEqual(r.status, 1, rc);
+    assert.match(r.out, why, rc);
+    assert.ok(r.calls.includes('docker run --rm --entrypoint /bin/sh busybox:1.37 -c command -v apt-get || command -v apk'), r.calls.join('\n'));
+    assert.strictEqual(read(p, 'compose.yaml'), before, `${rc}: nothing is written`);
+  }
+  fs.unlinkSync(path.join(dir, 'probe-rc'));
+  const ok = run(dir, p, 'rt_stack image localhost:5000/acme/app:2.1.0');
+  assert.strictEqual(ok.status, 0, ok.out);
+  assert.match(read(p, 'compose.yaml'), /language: image\n[\s\S]*language_version: "localhost:5000\/acme\/app:2\.1\.0"/);
+  assert.match(read(p, 'compose.yaml'), /BASE_IMAGE: "localhost:5000\/acme\/app:2\.1\.0"/);
+  // On Podman the image is asked with podman.
+  const q = app(dir, 'podman', 'pimg', { calls: false });
+  const digest = `acme/app@sha256:${'a'.repeat(64)}`;
+  const pod = run(dir, q, `rt_stack image ${digest}`);
+  assert.strictEqual(pod.status, 0, pod.out);
+  assert.ok(pod.calls.includes(`podman run --rm --entrypoint /bin/sh ${digest} -c command -v apt-get || command -v apk`), pod.calls.join('\n'));
 });
 
 test('the generic stack takes the layer with apt-get or apk, and an image with neither stops the build with why', () => {

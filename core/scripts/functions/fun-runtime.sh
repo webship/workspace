@@ -188,6 +188,21 @@ function rt_stack() {
   found="$(rt_find_project "${3:-$PWD}")" || { echo "rt_stack: no project in ${3:-$PWD} (run it after 'ddev config')." >&2 ; return 1 ; } ;
   [ "${found%% *}" = ddev ] && return 0 ;
   root="${found#* }" ;
+  if [ "${lang}" = image ] ; then
+    # An image of the application's own is pinned too: a tag that is not latest, or a digest.
+    { [[ "${version}" == *@sha256:* ]] || { [[ "${version##*/}" == *:* ]] && [ "${version##*:}" != latest ] ; } ; } \
+      || { echo "rt_stack: image ${version}: a pinned image, please (name:tag or name@sha256:..., never latest)." >&2 ; return 1 ; } ;
+    # The stack adds its layer with a shell and apt-get (Debian, Ubuntu) or apk (Alpine): an image with neither is
+    # refused here, before anything is written, not half-way through a build.
+    local cli=docker rc ; [ "${found%% *}" = podman ] && cli=podman ;
+    "${cli}" run --rm --entrypoint /bin/sh "${version}" -c 'command -v apt-get || command -v apk' > /dev/null 2>&1 ; rc=$? ;
+    case "${rc}" in
+      0) ;;
+      125) echo "rt_stack: image ${version} could not be run to see what it is built on (is the name right, and can ${cli} pull it?)." >&2 ; return 1 ;;
+      126|127) echo "rt_stack: image ${version} has no shell (a distroless image?): the generic stack adds its layer with apt-get (Debian, Ubuntu) or apk (Alpine) (webship/workspace#841). Build the application's image FROM one of those, or build on DDEV." >&2 ; return 1 ;;
+      *) echo "rt_stack: image ${version} has neither apt-get (Debian, Ubuntu) nor apk (Alpine), which the generic stack adds its layer with (webship/workspace#841). Build the application's image FROM one of those, or build on DDEV." >&2 ; return 1 ;;
+    esac
+  fi
   rt_meta_set stack generic "${root}" && rt_meta_set language "${lang}" "${root}" && rt_meta_set language_version "\"${version}\"" "${root}" || return 1 ;
   ( cd "${root}" && ddev config > /dev/null ) ;
 }
@@ -694,7 +709,7 @@ ALTER DATABASE db RENAME TO db_webship_old;
 ALTER DATABASE db_webship_import RENAME TO db;
 SQL
     # Put the project's database back as it was: under its name, open to connections again.
-    "${dbx}" psql -U db -d postgres -q > /dev/null 2>&1 <<'SQL'
+    "${dbx}" psql -U db -d postgres -v ON_ERROR_STOP=1 -q > /dev/null 2>&1 <<'SQL' || { echo "import-db: the imported database could not take the place of db, and db could not be put back by itself: see the databases db, db_webship_old and db_webship_import (ddev psql -l); the dump is in db_webship_import." >&2 ; return 1 ; }
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'db') AND EXISTS (SELECT 1 FROM pg_database WHERE datname = 'db_webship_old') THEN
     EXECUTE 'ALTER DATABASE db_webship_old RENAME TO db';
@@ -705,7 +720,9 @@ SQL
     echo "import-db: the imported database could not take the place of db: db is as it was, open again (the dump is in db_webship_import)." >&2 ; return 1 ;
   fi
   # The old database goes: it takes no connection, and none is left to it.
-  "${dbx}" psql -U db -d postgres -qc 'DROP DATABASE IF EXISTS db_webship_old' > /dev/null ;
+  "${dbx}" psql -U db -d postgres -qc 'DROP DATABASE IF EXISTS db_webship_old' > /dev/null 2>&1 \
+    || echo "import-db: the dump is the project's database now; the old one, db_webship_old, could not be removed (ddev psql -c 'DROP DATABASE db_webship_old')." >&2 ;
+  return 0 ;
 }
 
 function rt_compose() {
