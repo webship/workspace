@@ -89,7 +89,7 @@ test('a stamp still wins over git', () => {
   const { tmp, appDir } = checkout();
   try {
     fs.writeFileSync(path.join(appDir, '.app-version'), '1.0.40\n');
-    assert.deepStrictEqual(versionInfoOf(appDir), { version: '1.0.40', from: 'stamp', tag: '1.0.40', exact: true });
+    assert.deepStrictEqual(versionInfoOf(appDir), { version: '1.0.40', from: 'stamp', tag: 'v1.0.40', exact: true });
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
@@ -112,4 +112,22 @@ test('no stamp and no git: version unknown; a workspace inside some other reposi
 test('the top bar says where the version came from, and the update hint is asked only for an installed tree', () => {
   assert.match(server, /info\.from === 'git'\s*\n?\s*\? `Current local version: Webship Workspace \$\{v\}, from git \(git describe --tags\)/);
   assert.match(server, /current: appVersionInfo\(\)\.from === 'stamp' \? appVersion\(\) : ''/);
+});
+
+/* --- the link of a stamped tree (#858) --------------------------------------------------------------
+ * The release tags are v1.0.28, v1.0.32; the stamp that install.sh and update.sh write is the bare number. The link
+ * opened /releases/tag/1.0.28, a 404.
+ */
+test('a stamp that is a bare number links to the tag with its "v"; any other stamp is kept as it is', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'version-'));
+  try {
+    const appDir = path.join(tmp, 'workspace', 'core', 'workspace-app');
+    fs.mkdirSync(appDir, { recursive: true });
+    fs.writeFileSync(path.join(appDir, '.app-version'), '1.0.28\n');
+    assert.deepStrictEqual(versionInfoOf(appDir), { version: '1.0.28', from: 'stamp', tag: 'v1.0.28', exact: true }, 'shown 1.0.28, linked to v1.0.28');
+    fs.writeFileSync(path.join(appDir, '.app-version'), 'v1.0.28\n');
+    assert.deepStrictEqual(versionInfoOf(appDir), { version: 'v1.0.28', from: 'stamp', tag: 'v1.0.28', exact: true }, 'a stamp with its "v" keeps it');
+    fs.writeFileSync(path.join(appDir, '.app-version'), 'nightly\n');
+    assert.strictEqual(versionInfoOf(appDir).tag, 'nightly', 'a stamp that is not a number is linked as it is');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
