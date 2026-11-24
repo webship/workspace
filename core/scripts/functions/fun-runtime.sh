@@ -673,7 +673,7 @@ function rt_pg_import() {
   grep -q 'PostgreSQL database dump' <<< "${head}" || { echo "import-db: ${file} is not a PostgreSQL dump (pg_dump's plain SQL): the database is untouched." >&2 ; return 1 ; } ;
   "${dbx}" psql --version > /dev/null 2>&1 || { echo "import-db: no psql in the database's container: the database is untouched." >&2 ; return 1 ; } ;
   "${dbx}" psql -U db -d postgres -tAc 'SELECT 1' 2> /dev/null | grep -q '^1$' || { echo "import-db: the database does not answer: it is untouched." >&2 ; return 1 ; } ;
-  "${dbx}" psql -U db -d postgres -qc 'DROP DATABASE IF EXISTS db_webship_import' > /dev/null && "${dbx}" psql -U db -d postgres -qc 'CREATE DATABASE db_webship_import OWNER db' > /dev/null \
+  "${dbx}" psql -U db -d postgres -q -c 'SET client_min_messages = warning' -c 'DROP DATABASE IF EXISTS db_webship_import' > /dev/null && "${dbx}" psql -U db -d postgres -qc 'CREATE DATABASE db_webship_import OWNER db' > /dev/null \
     || { echo "import-db: a database for the import could not be made: the project's database is untouched." >&2 ; return 1 ; } ;
   if ! case "${file}" in *.gz) gunzip -c "${file}" ;; *) cat "${file}" ;; esac | "${dbx}" psql -U db -d db_webship_import -v ON_ERROR_STOP=1 -q > /dev/null ; then
     "${dbx}" psql -U db -d postgres -qc 'DROP DATABASE IF EXISTS db_webship_import' > /dev/null 2>&1 ;
