@@ -349,9 +349,11 @@ function rt_stack_image() {
 
 # The Dockerfile of a generic stack: the stack's own (core/config/runtimes/generic), then the application's additions
 # (rt_web_build: .webship/runtime/web-build/Dockerfile.<name>), in the order of their names. The command the web
-# container runs is .webship/runtime/serve.sh (rt_serve); until the application says it, the container waits.
+# container runs is .webship/runtime/start.sh: it waits for the project's database (#850), then runs serve.sh, the
+# application's server (rt_serve); until the application says it, the container waits.
 function rt_generic_runtime() {
-  local root="$1" f ;
+  local root="$1" db="${2:-none}" f engine=mariadb ;
+  case "${db}" in none) engine=none ;; postgres:*) engine=postgres ;; esac
   mkdir -p "${root}/.webship/runtime" ;
   {
     cat "${RT_STACKS}/generic/Dockerfile" ;
@@ -360,7 +362,47 @@ function rt_generic_runtime() {
       printf '\n# %s (rt_web_build)\n' "${f##*/}" ; cat "${f}" ;
     done
   } > "${root}/.webship/runtime/Dockerfile" ;
-  [ -f "${root}/.webship/runtime/serve.sh" ] || printf '#!/usr/bin/env bash\n# Written by the Webship Workspace: the application has not said its server yet (rt_serve).\nexec sleep infinity\n' > "${root}/.webship/runtime/serve.sh" ;
+  [ -f "${root}/.webship/runtime/serve.sh" ] || printf '#!/usr/bin/env bash\n# Written by the Webship Workspace: the application has not said its server yet (rt_serve).\nexec sleep infinity\n' > "${root}/.webship/runtime/serve.sh" ;  # The server starts once the project's database takes connections (#850): a container can start before its database
+  # and, on Kubernetes, before the cluster's DNS (a cluster started again), and a server that cannot reach its database
+  # as it starts can stay down (Django's runserver waits on its reloader). Bounded: WEBSHIP_DB_WAIT seconds.
+  cat > "${root}/.webship/runtime/start.sh" <<START
+#!/usr/bin/env bash
+# Written by the Webship Workspace (webship/workspace#850): the application's server (serve.sh, rt_serve) starts once
+# the project's database (${engine}) takes connections, waiting at most WEBSHIP_DB_WAIT seconds (300 by default).
+cd "\$(dirname "\$0")/../.." || exit 1
+wait="\${WEBSHIP_DB_WAIT:-300}" ; waited=0
+ready() {
+START
+  case "${engine}" in
+    postgres) echo '  pg_isready -q -h db -U db' >> "${root}/.webship/runtime/start.sh" ;;
+    mariadb) echo '  mariadb-admin ping -h db -u db -pdb --skip-ssl --silent > /dev/null 2>&1' >> "${root}/.webship/runtime/start.sh" ;;
+    *) echo '  true' >> "${root}/.webship/runtime/start.sh" ;;
+  esac
+  cat >> "${root}/.webship/runtime/start.sh" <<START
+}
+until ready ; do
+  [ "\${waited}" -ge "\${wait}" ] && { echo "The project's database (${engine} on db) did not answer in \${wait} s: the application's server is not started." >&2 ; exit 1 ; }
+  [ "\${waited}" = 0 ] && echo "Waiting for the project's database (${engine} on db) before the application's server starts."
+  sleep 2 ; waited=\$(( waited + 2 ))
+done
+exec bash .webship/runtime/serve.sh
+START
+  # Kubernetes' liveness probe of the server (#850). It answers: any HTTP response on its port within 5 s, a 500 too
+  # (an application whose database restarts is not killed). It answered before in this container and does not now: it
+  # is restarted. It never answered yet: fine for WEBSHIP_SERVE_GRACE seconds from the container's start (a build, the
+  # migrations of a first start), restarted after.
+  cat > "${root}/.webship/runtime/probe.sh" <<'PROBE'
+#!/usr/bin/env bash
+# Written by the Webship Workspace (webship/workspace#850): Kubernetes' liveness probe of the application's server.
+port="${1:-8000}" grace="${WEBSHIP_SERVE_GRACE:-1800}"
+served="${TMPDIR:-/tmp}/webship-served"
+code="$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://127.0.0.1:${port}/" 2> /dev/null)"
+if [ -n "${code}" ] && [ "${code}" != 000 ] ; then touch "${served}" ; exit 0 ; fi
+[ -f "${served}" ] && { echo "The application's server answered on port ${port} before, and does not now." ; exit 1 ; }
+up="$(ps -o etimes= -p 1 | tr -d ' ')"
+[ "${up:-0}" -lt "${grace}" ] && exit 0
+echo "The application's server has not answered on port ${port} in the ${grace} s since its container started." ; exit 1
+PROBE
 }
 
 # The db service of compose.yaml for the project's database: MariaDB (a version, as before), PostgreSQL
@@ -418,8 +460,16 @@ function rt_compose_write() {
   [ -n "${lang}" ] && stack_lines="${stack_lines}"$'\n  language: '"${lang}" ;
   [ -n "${lang_version}" ] && stack_lines="${stack_lines}"$'\n  language_version: "'"${lang_version}"'"' ;
   [ -n "${serve_port}" ] && stack_lines="${stack_lines}"$'\n  serve_port: '"${serve_port}" ;
+  # How long a generic stack's server waits for its database, and Kubernetes' grace for a server that never answered
+  # yet (#850): WEBSHIP_DB_WAIT and WEBSHIP_SERVE_GRACE of `ddev config`, kept in x-webship when it writes again.
+  local db_wait="" serve_grace="" ;
+  if [ "${stack}" = generic ] ; then
+    db_wait="${RT_DB_WAIT:-300}" ; [[ "${db_wait}" =~ ^[0-9]+$ ]] || db_wait=300 ;
+    serve_grace="${RT_SERVE_GRACE:-1800}" ; [[ "${serve_grace}" =~ ^[0-9]+$ ]] || serve_grace=1800 ;
+    stack_lines="${stack_lines}"$'\n  db_wait: '"${db_wait}"$'\n  serve_grace: '"${serve_grace}" ;
+  fi
   mkdir -p "${root}/.webship/runtime" ;
-  if [ "${stack}" = generic ] ; then rt_generic_runtime "${root}" ; else cp "${RT_STACKS}/php/Dockerfile" "${root}/.webship/runtime/Dockerfile" ; fi ;
+  if [ "${stack}" = generic ] ; then rt_generic_runtime "${root}" "${db}" ; else cp "${RT_STACKS}/php/Dockerfile" "${root}/.webship/runtime/Dockerfile" ; fi ;
   # Rootless Podman maps a container's users into a range of their own: with keep-id the user of the web service is
   # the host user, so it can write the project folder it is given (found on a real Podman build, #694).
   local userns="" ;
@@ -443,7 +493,7 @@ x-webship:${platform:+
   mail_port: ${mail_port}}${daemons:+
   daemons: ${daemons}}
 services:
-$(if [ "${stack}" = generic ] ; then rt_compose_generic_web "${rt}" "${name}" "${port}" "$(rt_stack_image "${lang}" "${lang_version}")" "${serve_port:-8000}" "${userns}" "${db}" ; else cat <<WEB
+$(if [ "${stack}" = generic ] ; then rt_compose_generic_web "${rt}" "${name}" "${port}" "$(rt_stack_image "${lang}" "${lang_version}")" "${serve_port:-8000}" "${userns}" "${db}" "${db_wait}" ; else cat <<WEB
   web:
     build:
       context: .webship/runtime
@@ -481,7 +531,7 @@ YAML
 # application's additions, its server (.webship/runtime/serve.sh, rt_serve) run as the host user from the project's
 # root, and the project's address sent to the server's port.
 function rt_compose_generic_web() {
-  local rt="$1" name="$2" port="$3" base="$4" serve_port="$5" userns="$6" db="$7" ;
+  local rt="$1" name="$2" port="$3" base="$4" serve_port="$5" userns="$6" db="$7" db_wait="${8:-300}" ;
   cat <<YAML
   web:
     build:
@@ -491,12 +541,14 @@ function rt_compose_generic_web() {
         UID: "$(id -u)"
         GID: "$(id -g)"
     image: webship-${name}-web
-${userns}    # The application's own server (rt_serve), as the host user, from the project's root.
-    command: ["runuser", "-u", "www-data", "--", "bash", "/var/www/html/.webship/runtime/serve.sh"]
+${userns}    # The application's own server (rt_serve), as the host user, from the project's root, once its database takes
+    # connections (start.sh, #850).
+    command: ["runuser", "-u", "www-data", "--", "bash", "/var/www/html/.webship/runtime/start.sh"]
     working_dir: /var/www/html
     environment:
       WEBSHIP_RUNTIME: ${rt}
       WEBSHIP_PORT: "${port}"
+      WEBSHIP_DB_WAIT: "${db_wait}"
     volumes:
       - .:/var/www/html
     ports:
@@ -750,10 +802,12 @@ function rt_compose() {
       # The tasks beside the web server (rt_daemon) stay too, and a generic stack's language and server (#841).
       local daemons stack ; daemons="$( [ -f "${root}/compose.yaml" ] && rt_meta daemons "${root}" )" ;
       stack="$( [ -f "${root}/compose.yaml" ] && rt_meta stack "${root}" )" ;
-      local RT_STACK_LANG RT_STACK_VERSION RT_SERVE_PORT ;
+      local RT_STACK_LANG RT_STACK_VERSION RT_SERVE_PORT RT_DB_WAIT RT_SERVE_GRACE ;
       if [ -f "${root}/compose.yaml" ] ; then
         RT_STACK_LANG="$(rt_meta language "${root}")" ; RT_STACK_VERSION="$(rt_meta language_version "${root}")" ; RT_SERVE_PORT="$(rt_meta serve_port "${root}")" ;
+        RT_DB_WAIT="$(rt_meta db_wait "${root}")" ; RT_SERVE_GRACE="$(rt_meta serve_grace "${root}")" ;
       fi
+      RT_DB_WAIT="${WEBSHIP_DB_WAIT:-${RT_DB_WAIT}}" ; RT_SERVE_GRACE="${WEBSHIP_SERVE_GRACE:-${RT_SERVE_GRACE}}" ;
       for a in "$@" ; do
         case "${a}" in
           --project-name=*) name="${a#*=}" ;; --project-type=*) type="${a#*=}" ;; --docroot=*) docroot="${a#*=}" ;;
@@ -765,7 +819,7 @@ function rt_compose() {
           --webserver-type=generic) stack=generic ;; --webserver-type=*) stack=php ;;
         esac
       done
-      RT_STACK_LANG="${RT_STACK_LANG}" RT_STACK_VERSION="${RT_STACK_VERSION}" RT_SERVE_PORT="${RT_SERVE_PORT}" \
+      RT_STACK_LANG="${RT_STACK_LANG}" RT_STACK_VERSION="${RT_STACK_VERSION}" RT_SERVE_PORT="${RT_SERVE_PORT}" RT_DB_WAIT="${RT_DB_WAIT}" RT_SERVE_GRACE="${RT_SERVE_GRACE}" \
         rt_compose_write "${rt}" "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" "${daemons}" "${stack:-php}" ;
       echo "Wrote compose.yaml for ${rt} (${type:-php}, PHP ${php:-8.3}, MariaDB ${db:-10.11}): $(rt_url "${root}")" ;;
     start|restart)
@@ -1014,10 +1068,16 @@ function rt_k8s_write() {
   name="$(sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1)" ; docroot="$(rt_meta docroot "${root}")" ;
   daemons="$(rt_meta daemons "${root}")" ;
   # A generic stack (#841): the application's own server, as the host user from the project's root, on its port.
-  local serve_port="" serve_cmd="" ;
+  local serve_port="" serve_cmd="" serve_env="" ;
   if [ "$(rt_meta stack "${root}")" = generic ] ; then
     serve_port="$(rt_meta serve_port "${root}")" ; serve_port="${serve_port:-8000}" ;
-    serve_cmd=$'\n          command: ["runuser", "-u", "www-data", "--", "bash", "/var/www/html/.webship/runtime/serve.sh"]\n          workingDir: /var/www/html' ;
+    local db_wait serve_grace ; db_wait="$(rt_meta db_wait "${root}")" ; serve_grace="$(rt_meta serve_grace "${root}")" ;
+    serve_env=$'\n            # How long the server waits for its database, and the grace of one that never answered yet (#850).\n            - {name: WEBSHIP_DB_WAIT, value: "'"${db_wait:-300}"$'"}\n            - {name: WEBSHIP_SERVE_GRACE, value: "'"${serve_grace:-1800}"$'"}' ;
+    # Once its database takes connections (start.sh); restarted when it stops answering, or never answers after the
+    # grace (probe.sh, #850). No startup probe: the pod is ready as soon as it runs, as `ddev start` waits for it
+    # before a build has made the application its server serves.
+    serve_cmd=$'\n          command: ["runuser", "-u", "www-data", "--", "bash", "/var/www/html/.webship/runtime/start.sh"]\n          workingDir: /var/www/html'
+    serve_cmd="${serve_cmd}"$'\n          livenessProbe:\n            exec: {command: ["bash", "/var/www/html/.webship/runtime/probe.sh", "'"${serve_port}"$'"]}\n            periodSeconds: 10\n            timeoutSeconds: 10\n            failureThreshold: 3' ;
   fi
   db="$(rt_meta database "${root}")" ; port="$(rt_meta port "${root}")" ; mail_port="$(rt_meta mail_port "${root}")" ; ns="ws-${name}" ;
   image="$(rt_k8s_web_image "${root}")" ; [ "${image}" = "webship-${name}-web" ] || pull=IfNotPresent ;
@@ -1098,7 +1158,7 @@ spec:
             - {name: APACHE_DOCUMENT_ROOT, value: /var/www/html${docroot:+/${docroot}}}
             - {name: WEBSHIP_RUNTIME, value: kubernetes}
             # The project's own PHP settings (rt_php_ini), after the stack's: the leading ':' keeps PHP's own folder.
-            - {name: PHP_INI_SCAN_DIR, value: ":/var/www/html/.webship/php"}
+            - {name: PHP_INI_SCAN_DIR, value: ":/var/www/html/.webship/php"}${serve_env}
           ports: [{containerPort: ${serve_port:-80}}]${serve_cmd}
           volumeMounts: [{name: code, mountPath: /var/www/html}]${sidecar}
       volumes:

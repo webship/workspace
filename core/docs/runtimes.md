@@ -87,6 +87,17 @@ What a plugin changes, what it must never do and the checklist to prove it are i
 
 Two stacks so far: the `php` stack (Apache, PHP, MariaDB), and a generic one for an application in another language, which brings its own language and version (Python, Node.js, Java, .NET, Ruby, Go, or an image of its own), its own server and PostgreSQL, MariaDB or no database (webship/workspace#841): on Docker Compose, Podman and Kubernetes so far, Lando and Docksal next. On DDEV a project of any language builds as before, with DDEV's own images and its generic web server. A service of a platform's own (OpenSearch, Redis) still builds on DDEV only.
 
+A generic stack's server starts once the project's database takes connections, and on Kubernetes a server that stops answering is restarted (webship/workspace#850). Two settings, taken from the environment of `ddev config` and kept in the `x-webship` block:
+
+| Setting | Default | What it is |
+| --- | --- | --- |
+| `WEBSHIP_DB_WAIT` | 300 | How many seconds the server waits for its database before it says so and stops (every runtime) |
+| `WEBSHIP_SERVE_GRACE` | 1800 | On Kubernetes, how many seconds a server that never answered yet has from its container's start (a build, the migrations of a first start) before it is restarted |
+
+```bash
+WEBSHIP_DB_WAIT=600 WEBSHIP_SERVE_GRACE=3600 ddev config   # then ddev restart
+```
+
 ## In the dashboard
 
 A site on Docker Compose, Podman, Kubernetes, Lando or Docksal has the row a DDEV project has. Its card shows **Running** or **Stopped** (the chip is the switch), links to the site's own address, and carries a **DOCKER**, **PODMAN**, **K8S**, **LANDO** or **DOCKSAL** menu where the DDEV menu sits: start, stop, restart, describe, the web logs, a shell in the web container, export the database, back up, delete the containers (or the namespace) and remove the project. Each entry runs as a screen session, like the DDEV menu's.

@@ -61,7 +61,8 @@ test('a generic stack on Docker Compose and Podman: the language\'s pinned image
     const port = block.match(/\n {2}port: (\d+)/)[1];
     const web = compose.slice(compose.indexOf('\n  web:\n'), compose.indexOf('\n  db:\n'));
     assert.match(web, /\n {8}BASE_IMAGE: "python:3\.13-slim-bookworm"\n/, `${runtime}: pinned to the version`);
-    assert.match(web, /\n {4}command: \["runuser", "-u", "www-data", "--", "bash", "\/var\/www\/html\/\.webship\/runtime\/serve\.sh"\]\n {4}working_dir: \/var\/www\/html\n/, runtime);
+    assert.match(web, /\n {4}command: \["runuser", "-u", "www-data", "--", "bash", "\/var\/www\/html\/\.webship\/runtime\/start\.sh"\]\n {4}working_dir: \/var\/www\/html\n/, `${runtime}: the database wait, then the server (#850)`);
+    assert.match(web, /\n {6}WEBSHIP_DB_WAIT: "300"\n/, runtime);
     assert.ok(web.includes(`- "127.0.0.1:${port}:8000"`), `${runtime}: the address goes to the server's port`);
     assert.doesNotMatch(web, /APACHE_DOCUMENT_ROOT|PHP_VERSION/, `${runtime}: no Apache, no PHP`);
     if (runtime === 'podman') assert.match(web, /\n {4}userns_mode: keep-id\n/);
@@ -122,7 +123,7 @@ test('PostgreSQL on Kubernetes: a db deployment of its image, its data in a fold
   assert.match(stack, /\n {12}- \{name: PGDATA, value: \/var\/lib\/postgresql\/data\/pgdata\}\n/);
   assert.match(stack, /readinessProbe:\n {12}exec: \{command: \["pg_isready", "-U", "db", "-d", "db"\]\}/);
   assert.match(stack, /\n {2}ports: \[\{port: 5432\}\]\n/);
-  assert.match(stack, /\n {10}ports: \[\{containerPort: 8000\}\]\n {10}command: \["runuser", "-u", "www-data", "--", "bash", "\/var\/www\/html\/\.webship\/runtime\/serve\.sh"\]\n {10}workingDir: \/var\/www\/html\n/);
+  assert.match(stack, /\n {10}ports: \[\{containerPort: 8000\}\]\n {10}command: \["runuser", "-u", "www-data", "--", "bash", "\/var\/www\/html\/\.webship\/runtime\/start\.sh"\]\n {10}workingDir: \/var\/www\/html\n/);
   assert.match(stack, /\n {2}ports: \[\{port: 80, nodePort: \d+, targetPort: 8000\}\]\n/);
   assert.doesNotMatch(stack, /mariadb/);
 });
@@ -236,4 +237,102 @@ test('the generic stack takes the layer with apt-get or apk, and an image with n
   assert.match(dockerfile, /elif command -v apk > \/dev\/null ; then \\\n {6}apk add --no-cache bash git unzip curl ca-certificates less procps shadow runuser/);
   assert.match(dockerfile, /ln -sf \/usr\/bin\/msmtp \/usr\/sbin\/sendmail/, 'Alpine\'s msmtp as sendmail too');
   assert.match(dockerfile, /this image has neither \(webship\/workspace#841\)[^"]*" >&2 ; exit 1/);
+});
+
+/** start.sh and probe.sh of a generic stack, run as the web container runs them, with stand-ins on PATH (#850). */
+function scripts(dir, engine) {
+  const p = path.join(dir, `w${engine}`); fs.mkdirSync(p);
+  const db = { postgres: 'postgres:16', mariadb: '10.11', none: 'none' }[engine];
+  const conf = run(dir, p, `ddev config --project-type=generic --webserver-type=generic --docroot= --database=${db} --project-name=w${engine}`, { WORKSPACE_RUNTIME: 'docker' });
+  assert.strictEqual(conf.status, 0, conf.out);
+  fs.writeFileSync(path.join(p, '.webship', 'runtime', 'serve.sh'), '#!/usr/bin/env bash\necho "the server runs in $PWD"\n');
+  const bin = path.join(dir, `fake-${engine}`); fs.mkdirSync(bin);
+  // The database answers after ANSWER_AFTER asks (never when it is 99); the server answers CODE; the container is AGE s old.
+  for (const cli of ['pg_isready', 'mariadb-admin']) fs.writeFileSync(path.join(bin, cli), `#!/usr/bin/env bash\necho "$0 $*" >> "${dir}/asked-${engine}.log"\nn=$(wc -l < "${dir}/asked-${engine}.log")\n[ "$n" -gt "\${ANSWER_AFTER:-0}" ]\n`, { mode: 0o755 });
+  fs.writeFileSync(path.join(bin, 'curl'), '#!/usr/bin/env bash\nprintf "%s" "${CODE:-000}"\n', { mode: 0o755 });
+  fs.writeFileSync(path.join(bin, 'ps'), '#!/usr/bin/env bash\necho "   ${AGE:-10}"\n', { mode: 0o755 });
+  fs.writeFileSync(path.join(bin, 'sleep'), '#!/usr/bin/env bash\ntrue\n', { mode: 0o755 });
+  const sh = (script, env = {}, args = []) => {
+    const r = spawnSync('bash', [path.join(p, '.webship', 'runtime', script), ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, TMPDIR: dir, ...env } });
+    const asked = path.join(dir, `asked-${engine}.log`);
+    const log = fs.existsSync(asked) ? fs.readFileSync(asked, 'utf8').trim().split('\n') : [];
+    if (fs.existsSync(asked)) fs.unlinkSync(asked);
+    return { out: r.stdout + r.stderr, status: r.status, asked: log };
+  };
+  return { p, sh };
+}
+
+test('a generic stack\'s server starts once its database takes connections, at most WEBSHIP_DB_WAIT seconds, and says why it did not', () => {
+  const dir = sandbox();
+  const pg = scripts(dir, 'postgres');
+  let r = pg.sh('start.sh', { ANSWER_AFTER: '2' });
+  assert.strictEqual(r.status, 0, r.out);
+  assert.match(r.out, /^Waiting for the project's database \(postgres on db\) before the application's server starts\.\nthe server runs in /, 'it says it waits, once');
+  assert.ok(r.out.trim().endsWith(pg.p), 'then the server, from the project\'s root');
+  assert.deepStrictEqual(r.asked.map((a) => a.replace(/^\S*\//, '')), ['pg_isready -q -h db -U db', 'pg_isready -q -h db -U db', 'pg_isready -q -h db -U db'], 'asked until it answers');
+  r = pg.sh('start.sh', { ANSWER_AFTER: '99', WEBSHIP_DB_WAIT: '6' });
+  assert.strictEqual(r.status, 1);
+  assert.match(r.out, /The project's database \(postgres on db\) did not answer in 6 s: the application's server is not started\./);
+  assert.doesNotMatch(r.out, /the server runs/);
+  assert.strictEqual(r.asked.length, 4, 'every 2 s for 6 s, and once more');
+  const maria = scripts(dir, 'mariadb');
+  r = maria.sh('start.sh', { ANSWER_AFTER: '0' });
+  assert.strictEqual(r.status, 0, r.out);
+  assert.deepStrictEqual(r.asked.map((a) => a.replace(/^\S*\//, '')), ['mariadb-admin ping -h db -u db -pdb --skip-ssl --silent'], 'MariaDB is asked with its own client');
+  assert.doesNotMatch(r.out, /Waiting/);
+  const none = scripts(dir, 'none');
+  r = none.sh('start.sh', { ANSWER_AFTER: '99' });
+  assert.strictEqual(r.status, 0, r.out);
+  assert.deepStrictEqual(r.asked, [], 'no database, nothing to wait for');
+  assert.match(r.out, /^the server runs in /);
+});
+
+test('the wait and the grace are kept in x-webship, taken from WEBSHIP_DB_WAIT and WEBSHIP_SERVE_GRACE of ddev config, and Kubernetes has them', () => {
+  const dir = sandbox();
+  const p = app(dir, 'docker', 'keep', { calls: false });
+  assert.match(read(p, 'compose.yaml'), /\n {2}db_wait: 300\n {2}serve_grace: 1800\n/, 'the defaults');
+  assert.strictEqual(run(dir, p, 'ddev config', { WEBSHIP_DB_WAIT: '600', WEBSHIP_SERVE_GRACE: '3600' }).status, 0);
+  let compose = read(p, 'compose.yaml');
+  assert.match(compose, /\n {2}db_wait: 600\n {2}serve_grace: 3600\n/);
+  assert.match(compose, /\n {6}WEBSHIP_DB_WAIT: "600"\n/);
+  assert.strictEqual(run(dir, p, 'ddev config --project-name=keep').status, 0);
+  compose = read(p, 'compose.yaml');
+  assert.match(compose, /\n {2}db_wait: 600\n {2}serve_grace: 3600\n/, 'written again, they stay');
+  assert.strictEqual(run(dir, p, 'ddev config', { WEBSHIP_DB_WAIT: 'soon' }).status, 0);
+  assert.match(read(p, 'compose.yaml'), /\n {2}db_wait: 300\n/, 'a wait that is not a number is the default');
+  const k = app(dir, 'kubernetes', 'kgrace', { calls: false });
+  assert.strictEqual(run(dir, k, 'ddev config', { WEBSHIP_SERVE_GRACE: '2400' }).status, 0);
+  const stack = read(k, 'k8s', 'stack.yaml');
+  assert.match(stack, /\n {12}- \{name: WEBSHIP_DB_WAIT, value: "300"\}\n {12}- \{name: WEBSHIP_SERVE_GRACE, value: "2400"\}\n/);
+});
+
+test('on Kubernetes a generic stack\'s server has a liveness probe on its port, and no startup probe: the pod is ready as it runs', () => {
+  const dir = sandbox();
+  const stack = read(app(dir, 'kubernetes', 'kprobe'), 'k8s', 'stack.yaml');
+  assert.match(stack, /\n {10}workingDir: \/var\/www\/html\n {10}livenessProbe:\n {12}exec: \{command: \["bash", "\/var\/www\/html\/\.webship\/runtime\/probe\.sh", "8000"\]\}\n {12}periodSeconds: 10\n {12}timeoutSeconds: 10\n {12}failureThreshold: 3\n/);
+  assert.doesNotMatch(stack, /startupProbe/, '`ddev start` waits for the pod before a build has made what its server serves');
+  const web = stack.slice(stack.indexOf('  name: web\n'), stack.indexOf('kind: Service', stack.indexOf('  name: web\n')));
+  assert.doesNotMatch(web, /readinessProbe/);
+});
+
+test('probe.sh: any answer passes (a 500 too); a server that answered and does not now fails; one that never answered has WEBSHIP_SERVE_GRACE', () => {
+  const dir = sandbox();
+  const { sh } = scripts(dir, 'postgres');
+  const served = path.join(dir, 'webship-served');
+  let r = sh('probe.sh', { CODE: '000', AGE: '100' }, ['8000']);
+  assert.strictEqual(r.status, 0, 'never answered, within the grace (a build, the migrations of a first start)');
+  assert.ok(!fs.existsSync(served));
+  r = sh('probe.sh', { CODE: '000', AGE: '1800' }, ['8000']);
+  assert.strictEqual(r.status, 1);
+  assert.match(r.out, /has not answered on port 8000 in the 1800 s since its container started/);
+  r = sh('probe.sh', { CODE: '000', AGE: '100', WEBSHIP_SERVE_GRACE: '60' }, ['8000']);
+  assert.strictEqual(r.status, 1, 'the grace is WEBSHIP_SERVE_GRACE');
+  for (const code of ['200', '404', '500']) {
+    r = sh('probe.sh', { CODE: code, AGE: '5000' }, ['8000']);
+    assert.strictEqual(r.status, 0, `${code}: an answer is an answer`);
+  }
+  assert.ok(fs.existsSync(served), 'it has served in this container');
+  r = sh('probe.sh', { CODE: '000', AGE: '120' }, ['8000']);
+  assert.strictEqual(r.status, 1, 'it answered before and does not now: restarted, grace or not');
+  assert.match(r.out, /answered on port 8000 before, and does not now/);
 });
