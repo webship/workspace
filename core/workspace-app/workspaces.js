@@ -520,7 +520,9 @@ function versionInfoOf(appDir) {
   try {
     stamp = fs.readFileSync(path.join(appDir, '.app-version'), 'utf8').trim().split('\n')[0];
   } catch (_) { stamp = ''; }
-  if (stamp) return { version: stamp, from: 'stamp', tag: stamp, exact: true };
+  // The release tags carry a "v" (v1.0.28) and the stamp is the bare number (1.0.28): the link names the tag as the
+  // repository does, and a stamp that is not a bare number is kept as it is.
+  if (stamp) return { version: stamp, from: 'stamp', tag: /^\d/.test(stamp) ? `v${stamp}` : stamp, exact: true };
   const fromGit = gitVersionOf(appDir);
   if (fromGit) return { version: fromGit.version, from: 'git', tag: fromGit.tag, exact: fromGit.exact };
   return { version: '', from: '', tag: '', exact: false };
