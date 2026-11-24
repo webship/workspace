@@ -20,6 +20,8 @@ names the file of each pack.
 - `diffy.svg`: the favicon of diffy.website.
 - `bbpress.svg`: the mark bbPress 2.6.22 ships (`includes/admin/assets/icons/logo.svg`, GPL-2.0-or-later), filled
   black (Simple Icons has no bbPress icon).
+- `buddypress.svg`: the BuddyPress mark WordPress 7.1.5 ships in its icon font (`buddicons-buddypress-logo` of
+  `wp-includes/fonts/dashicons.svg`, GPL-2.0-or-later), filled black (Simple Icons has no BuddyPress icon).
 
 A pack with no logo here shows the one its own package ships (`assets/logo.svg` or `.png`), and a puzzle piece
 when there is none.

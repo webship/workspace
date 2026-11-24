@@ -34,6 +34,7 @@
         ["aspnet-core", "ASP.NET Core", "A builder for ASP.NET Core apps with individual accounts, Razor Pages or a Blazor Web App, and its .NET tool"],
         ["wagtail", "Wagtail", "A builder for Wagtail sites, new or the Bakery demo, and the manage.py tool"],
         ["bbpress", "bbPress", "A builder for forums on WordPress with bbPress, with sample content, and its forums tool"],
+        ["buddypress", "BuddyPress", "A builder for communities on WordPress with BuddyPress, with sample content, and its community tool"],
         ["phpbb", "phpBB", "A builder for phpBB boards from the release package, with sample content, and its CLI tool"],
         ["mautic", "Mautic", "A builder for Mautic marketing automation sites, with sample content, and its console tool"],
         ["penpot", "Penpot", "A builder for Penpot design and prototyping sites, with sample content, and the backend's tool"],
