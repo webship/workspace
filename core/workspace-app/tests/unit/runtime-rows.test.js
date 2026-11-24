@@ -433,3 +433,47 @@ test('a runtime site\'s mail (#859): the panel a DDEV row opens, from the mailbo
     fs.rmSync(dev('mail-site'), { recursive: true, force: true });
   }
 });
+
+test('the export before an import (#859 review): stamped to the second, never a file there, never the dump being imported, never a name given twice', () => {
+  const { beforeImportPath } = require('../../actions/runtime');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-before-import-'));
+  const at = new Date('2026-11-24T16:52:10.400Z');
+  // Two imports in the same second give two exports, though neither is on disk yet.
+  const first = beforeImportPath(dir, 'x', 'some.sql.gz', at);
+  const second = beforeImportPath(dir, 'x', 'some.sql.gz', new Date('2026-11-24T16:52:10.900Z'));
+  assert.strictEqual(path.basename(first), 'x--db--before-import-2026-11-24-16-52-10.sql.gz');
+  assert.strictEqual(path.basename(second), 'x--db--before-import-2026-11-24-16-52-10-2.sql.gz');
+  // Undoing an import with the newest before-import export, in the second it was named: the export taken first gets
+  // a name of its own, and the file being imported is left as it is.
+  const undo = 'y--db--before-import-2026-11-24-16-52-40.sql.gz';
+  fs.writeFileSync(path.join(dir, undo), 'the database as it was');
+  const kept = beforeImportPath(dir, 'y', undo, new Date('2026-11-24T16:52:40.100Z'));
+  assert.notStrictEqual(path.basename(kept), undo);
+  assert.strictEqual(path.basename(kept), 'y--db--before-import-2026-11-24-16-52-40-2.sql.gz');
+  assert.strictEqual(fs.readFileSync(path.join(dir, undo), 'utf8'), 'the database as it was', 'not touched');
+  // A name the dump has but no file has yet is skipped too, and so is one on disk.
+  fs.writeFileSync(path.join(dir, 'z--db--before-import-2026-11-24-17-00-00-2.sql.gz'), '');
+  const z = beforeImportPath(dir, 'z', 'z--db--before-import-2026-11-24-17-00-00.sql.gz', new Date('2026-11-24T17:00:00Z'));
+  assert.strictEqual(path.basename(z), 'z--db--before-import-2026-11-24-17-00-00-3.sql.gz');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('two imports through the dashboard name two exports, and an undo with the newest export keeps it', async () => {
+  const backups = path.join(root, 'backups', 'dev');
+  fs.mkdirSync(backups, { recursive: true });
+  const dump = 'dock-site--db--2026-11-24-10-00.sql.gz';
+  fs.writeFileSync(path.join(backups, dump), 'x');
+  const exportOf = (line) => (line.match(/' export-db '--file=([^']+)'/) || [])[1];
+  await post('/actions/runtime-import-db', { workspace: 'dev', projectName: 'dock-site', dump, confirm: 'yes' });
+  const one = exportOf(lastLine());
+  await post('/actions/runtime-import-db', { workspace: 'dev', projectName: 'dock-site', dump, confirm: 'yes' });
+  const two = exportOf(lastLine());
+  assert.ok(one && two && one !== two, `${one} / ${two}`);
+  // The newest before-import export, imported to undo: the export taken first is another file.
+  fs.writeFileSync(two, 'the database as it was');
+  await post('/actions/runtime-import-db', { workspace: 'dev', projectName: 'dock-site', dump: path.basename(two), confirm: 'yes' });
+  const line = lastLine();
+  assert.notStrictEqual(exportOf(line), two, line);
+  assert.ok(line.includes(`' import-db '--file=${two}'`), line);
+  assert.strictEqual(fs.readFileSync(two, 'utf8'), 'the database as it was');
+});
