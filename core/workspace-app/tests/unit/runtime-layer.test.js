@@ -198,7 +198,7 @@ test('kubernetes: config writes compose.yaml and k8s/ manifests, and each verb b
     'kubectl --context kind-webship -n ws-k1 exec -i deploy/web -c web -- runuser -u www-data -- bash -c cd /var/www/html && vendor/bin/drush cr ',
     'kubectl --context kind-webship -n ws-k1 exec -i deploy/db -c db -- mariadb -udb -pdb db -e select 1',
     'kubectl --context kind-webship -n ws-k1 scale deploy --all --replicas=0',
-    'kubectl --context kind-webship -n ws-k1 logs deploy/web --tail 200',
+    'kubectl --context kind-webship -n ws-k1 logs deploy/web -c web --tail 200',
   ]);
   const own = run(dir, p, 'ddev stop', { WORKSPACE_KUBE_CONTEXT: 'my-cluster' });
   assert.deepStrictEqual(own.calls, ['kubectl --context my-cluster -n ws-k1 scale deploy --all --replicas=0'], 'a cluster of your own, by its context');
