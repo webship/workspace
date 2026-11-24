@@ -314,6 +314,9 @@ ${userns}    environment:
         condition: service_healthy
   db:
     image: mariadb:${db}
+    # DDEV's character set and collation, whatever the version: from 11.x on MariaDB's own default collation is one
+    # an installer may not take (Moodle: "unicode"), and a site's database is the same on every runtime.
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_general_ci"]
     environment:
       MARIADB_DATABASE: db
       MARIADB_USER: db
@@ -694,6 +697,8 @@ spec:
       containers:
         - name: db
           image: mariadb:${db}
+          # DDEV's character set and collation, whatever the version (the same as compose.yaml's db service).
+          args: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_general_ci"]
           env:
             - {name: MARIADB_DATABASE, value: db}
             - {name: MARIADB_USER, value: db}
@@ -1017,8 +1022,9 @@ function rt_lando() {
   rt_lando_bin || { echo "The lando runtime needs Lando (https://docs.lando.dev/install/): no lando on PATH or in ~/.local/bin." >&2 ; return 1 ; } ;
   case ":${PATH}:" in *":${HOME}/.local/bin:"*) ;; *) [ -d "${HOME}/.local/bin" ] && PATH="${PATH}:${HOME}/.local/bin" ;; esac
   # The database of the app: the Workspace's (db), or a Landofile's own, read from the service.
-  local dbcmd='mysql -u"${MARIADB_USER:-${MYSQL_USER:-db}}" -p"${MARIADB_PASSWORD:-${MYSQL_PASSWORD:-db}}" "${MARIADB_DATABASE:-${MYSQL_DATABASE:-db}}"' ;
-  local dumpcmd='mysqldump -u"${MARIADB_USER:-${MYSQL_USER:-db}}" -p"${MARIADB_PASSWORD:-${MYSQL_PASSWORD:-db}}" "${MARIADB_DATABASE:-${MYSQL_DATABASE:-db}}"' ;
+  # The clients by MariaDB's own names where the image has them: from 11.x on, an image may have no mysql or mysqldump.
+  local dbcmd='"$(command -v mariadb || echo mysql)" -u"${MARIADB_USER:-${MYSQL_USER:-db}}" -p"${MARIADB_PASSWORD:-${MYSQL_PASSWORD:-db}}" "${MARIADB_DATABASE:-${MYSQL_DATABASE:-db}}"' ;
+  local dumpcmd='"$(command -v mariadb-dump || echo mysqldump)" -u"${MARIADB_USER:-${MYSQL_USER:-db}}" -p"${MARIADB_PASSWORD:-${MYSQL_PASSWORD:-db}}" "${MARIADB_DATABASE:-${MYSQL_DATABASE:-db}}"' ;
   case "${verb}" in
     config)
       [ "${1:-}" = global ] && return 0 ;
@@ -1142,6 +1148,9 @@ function rt_docksal_host() {
 }
 
 # Writes .docksal/docksal.env and .docksal/docksal.yml for a project.
+# The release of Docksal's MariaDB image for a version: 11.x is only in 1.5 (there is no docksal/mariadb:11.4-1.4).
+function rt_docksal_db_tag() { case "$1" in 11.*) echo 1.5 ;; *) echo 1.4 ;; esac ; }
+
 function rt_docksal_write() {
   local root="$1" name="$2" type="$3" docroot="$4" php="$5" db="$6" platform="${7:-}" ;
   local safe="${name,,}" ; safe="${safe//_/-}" ; safe="${safe//[^-a-z0-9]/}" ;
@@ -1153,7 +1162,7 @@ COMPOSE_PROJECT_NAME=${safe}
 VIRTUAL_HOST=${safe}.docksal.site
 DOCROOT=${docroot:-.}
 CLI_IMAGE=docksal/cli:php${php}-3.10
-DB_IMAGE=docksal/mariadb:${db}-1.4
+DB_IMAGE=docksal/mariadb:${db}-$(rt_docksal_db_tag "${db}")
 MYSQL_ROOT_PASSWORD=root
 MYSQL_USER=db
 MYSQL_PASSWORD=db
@@ -1206,8 +1215,9 @@ function rt_docksal() {
   [ -n "${root}" ] && rel="${PWD#${root}}" ;
   local workdir="/var/www${rel}" ;
   command -v "${WORKSPACE_FIN_BIN:-fin}" > /dev/null 2>&1 || { echo "The docksal runtime needs Docksal (https://docs.docksal.io/getting-started/setup/): no fin on PATH." >&2 ; return 1 ; } ;
-  local dbcmd='mysql -u"${MYSQL_USER:-user}" -p"${MYSQL_PASSWORD:-user}" "${MYSQL_DATABASE:-default}"' ;
-  local dumpcmd='mysqldump -u"${MYSQL_USER:-user}" -p"${MYSQL_PASSWORD:-user}" "${MYSQL_DATABASE:-default}"' ;
+  # The clients by MariaDB's own names where the image has them: from 11.x on, an image may have no mysql or mysqldump.
+  local dbcmd='"$(command -v mariadb || echo mysql)" -u"${MYSQL_USER:-user}" -p"${MYSQL_PASSWORD:-user}" "${MYSQL_DATABASE:-default}"' ;
+  local dumpcmd='"$(command -v mariadb-dump || echo mysqldump)" -u"${MYSQL_USER:-user}" -p"${MYSQL_PASSWORD:-user}" "${MYSQL_DATABASE:-default}"' ;
   case "${verb}" in
     config)
       [ "${1:-}" = global ] && return 0 ;

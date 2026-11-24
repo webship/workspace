@@ -168,12 +168,12 @@ test('the database: export, import and mysql in the database service, with its o
   fs.writeFileSync(path.join(dir, 'dump'), 'CREATE TABLE t (a int);\n');
   const file = path.join(dir, 'out.sql.gz');
   const ex = run(dir, p, `ddev export-db --file=${file}; echo "rc=$?"`);
-  assert.match(ex.calls[0], /^lando exec database -- bash -c mysqldump -u"\$\{MARIADB_USER:-\$\{MYSQL_USER:-db\}\}"/);
+  assert.match(ex.calls[0], /^lando exec database -- bash -c "\$\(command -v mariadb-dump \|\| echo mysqldump\)" -u"\$\{MARIADB_USER:-\$\{MYSQL_USER:-db\}\}"/);
   assert.match(ex.out, /rc=0/);
   assert.match(spawnSync('bash', ['-c', `gunzip -c ${file}`], { encoding: 'utf8' }).stdout, /CREATE TABLE t/);
   fs.unlinkSync(path.join(dir, 'dump'));
   const im = run(dir, p, `ddev import-db --file=${file}; echo "rc=$?"`);
-  assert.match(im.calls[0], /^lando exec database -- bash -c mysql -u"\$\{MARIADB_USER/);
+  assert.match(im.calls[0], /^lando exec database -- bash -c "\$\(command -v mariadb \|\| echo mysql\)" -u"\$\{MARIADB_USER/);
   assert.ok(im.calls.includes('stdin: CREATE TABLE t (a int);'), 'the dump is piped in');
   assert.ok(im.calls[0].endsWith(env));
   { const r = run(dir, p, `ddev import-db --file=${dir}/none.sql; echo "rc=$?"`).out; assert.match(r, /No such file/); assert.match(r, /rc=1/); }
