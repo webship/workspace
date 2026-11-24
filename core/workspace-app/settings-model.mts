@@ -75,6 +75,7 @@ export const FAMILIES: Family[] = [
   { id: 'hosting', label: 'Hosting providers', icon: 'tabler:cloud', about: 'Link a project to its host: environments, data, deploys, logs.' },
   { id: 'forges', label: 'Git forges', icon: 'tabler:git-merge', about: 'The repository, its issues and requests, and the credential used there.' },
   { id: 'containers', label: 'Container runtimes', icon: 'tabler:box', about: 'A menu for projects that run on a runtime other than the default one.' },
+  { id: 'databases', label: 'Databases', icon: 'tabler:database-cog', about: 'The DATABASE menu of a project: a console, tables and sizes, export and import, a web admin.' },
   { id: 'features', label: 'Features', icon: 'tabler:puzzle', about: 'A menu, a page or a service the base does not carry.' },
 ];
 const FAMILY_IDS = new Set(FAMILIES.map((f) => f.id));

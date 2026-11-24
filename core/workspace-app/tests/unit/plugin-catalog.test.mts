@@ -88,6 +88,17 @@ test('the AI folders are a family of their own, the platforms on npm are listed,
   assert.strictEqual(FAMILIES[0].id, 'platforms', 'platforms first, as Settings shows them');
 });
 
+test('the databases family offers each engine, not the base they share, and Settings shows it as the catalogue does', () => {
+  const by = Object.fromEntries(FAMILIES.map((f) => [f.id, f.plugins.map(([n]) => n)]));
+  assert.deepStrictEqual(by.databases, ['mariadb', 'mysql', 'postgresql', 'sqlite']);
+  assert.ok(!catalog().some((p) => p.name === 'database'), 'the base is a dependency of the engines, never a plugin of its own');
+  const ids = FAMILIES.map((f) => f.id);
+  assert.strictEqual(ids.indexOf('databases'), ids.indexOf('containers') + 1, 'after the container runtimes');
+  const family = $settings_model.FAMILIES.find((f) => f.id === 'databases');
+  assert.ok(family && family.label === 'Databases' && family.icon, 'Settings has the family, with its name and icon');
+  for (const p of catalog().filter((e) => e.family === 'databases')) assert.match(p.summary, /tables and sizes/, `${p.name} says what its menu holds`);
+});
+
 test('the Plugins page is where a plugin is added: a labelled box, the catalogue under a filter, the commands of the base closed at the end', () => {
   const src = $fs.readFileSync($path.join(import.meta.dirname, '..', '..', 'plugins-page.js'), 'utf8');
   assert.match(src, /<label class="settings-search-label" for="plugin-require-spec">Add a package by name<\/label>/);
