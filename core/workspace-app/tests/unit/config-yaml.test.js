@@ -59,11 +59,11 @@ test('nothing displays package.json version — .app-version is the only source'
   assert.deepEqual(readers, [], 'these read package.json version — use appVersion() instead');
 });
 
-test('appVersion reads the stamp, and says nothing when there is none', () => {
+test('appVersion reads the stamp (or, in a git checkout with none, git), and says nothing when there is neither', () => {
   const { appVersion } = require(path.join(__dirname, '..', '..', 'workspaces'));
   const v = appVersion();
   assert.equal(typeof v, 'string');
-  // Either a real tag, or empty. Never a placeholder, never a guess.
+  // Either a real tag (the stamp's, or git's with the commits past it), or empty. Never a placeholder, never a guess.
   if (v) assert.match(v, /^[0-9]+\.[0-9]+\.[0-9]+/, `unexpected version stamp: ${v}`);
 });
 

@@ -483,21 +483,59 @@ function listBackups(key) {
  * machine answered "(untracked)" for ever and was told to update to the version it already
  * had. Across a team that is the support question nobody can answer.
  *
+ * A tree with no stamp that is a git checkout of its own (a contributor's clone, the checkout the
+ * plugins' CI makes) asks git instead: `git describe --tags` names the release tag at a release,
+ * and the tag, the commits since and the commit past one. Only when the workspace's root IS the
+ * top folder of the checkout: a workspace copied into some other repository must not report that
+ * repository's tags. A stamp, when there is one, wins.
+ *
  * package.json is deliberately NOT the source: it says 1.0.0 and has since the first commit,
  * which is worse than no answer because it looks like one.
  *
  * Returns '' when unknown, and callers must render that as unknown rather than as anything
  * else — a wrong version stops the question being asked.
  */
-let _appVersion = { at: 0, value: null };
-function appVersion() {
-  if (_appVersion.value !== null && Date.now() - _appVersion.at < 10000) return _appVersion.value;
-  let v = '';
+function gitVersionOf(appDir) {
+  const root = path.resolve(appDir, '..', '..');
+  const git = (args) => {
+    try {
+      const r = require('child_process').spawnSync('git', ['-C', root, ...args],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 });
+      return r.status === 0 ? String(r.stdout || '').trim() : '';
+    } catch (_) { return ''; }
+  };
+  const top = git(['rev-parse', '--show-toplevel']);
   try {
-    v = fs.readFileSync(path.join(__dirname, '.app-version'), 'utf8').trim().split('\n')[0];
-  } catch (_) { v = ''; }
-  _appVersion = { at: Date.now(), value: v };
-  return v;
+    if (!top || fs.realpathSync(top) !== fs.realpathSync(root)) return null;
+  } catch (_) { return null; }
+  const described = git(['describe', '--tags']);
+  if (!described) return null;
+  const past = /-\d+-g[0-9a-f]+$/.test(described);
+  return { version: described.replace(/^v(?=\d)/, ''), tag: past ? '' : described, exact: !past };
+}
+
+/** What a tree's version is and where it comes from: { version, from: 'stamp' | 'git' | '', tag, exact }. */
+function versionInfoOf(appDir) {
+  let stamp = '';
+  try {
+    stamp = fs.readFileSync(path.join(appDir, '.app-version'), 'utf8').trim().split('\n')[0];
+  } catch (_) { stamp = ''; }
+  if (stamp) return { version: stamp, from: 'stamp', tag: stamp, exact: true };
+  const fromGit = gitVersionOf(appDir);
+  if (fromGit) return { version: fromGit.version, from: 'git', tag: fromGit.tag, exact: fromGit.exact };
+  return { version: '', from: '', tag: '', exact: false };
+}
+
+let _appVersion = { at: 0, value: null };
+function appVersionInfo() {
+  if (_appVersion.value !== null && Date.now() - _appVersion.at < 10000) return _appVersion.value;
+  const info = versionInfoOf(__dirname);
+  _appVersion = { at: Date.now(), value: info };
+  return info;
+}
+
+function appVersion() {
+  return appVersionInfo().version;
 }
 
 /**
@@ -543,7 +581,7 @@ function exposureRisk() {
 
 module.exports = {
   RESERVED_WORKSPACES,
-  appVersion, exposureRisk,
+  appVersion, appVersionInfo, versionInfoOf, exposureRisk,
   sourceOf,
   commandDescription,
   commandFlags,

@@ -26,15 +26,23 @@ export interface WorktreeInfo {
 /**
  * Is this project directory a git checkout?
  *
- * `rev-parse --git-dir` rather than a test for a `.git` directory, because a
- * project that is ITSELF a worktree carries `.git` as a FILE pointing at the real
- * one — and a worktree of a worktree is both legal and useful. Asking git is the
- * only answer that is right for every shape, including a submodule.
+ * Asked of git rather than by a test for a `.git` directory, because a project
+ * that is ITSELF a worktree carries `.git` as a FILE pointing at the real one —
+ * and a worktree of a worktree is both legal and useful. Asking git is the only
+ * answer that is right for every shape, including a submodule.
+ *
+ * The folder must be the TOP of the checkout (`rev-parse --show-toplevel`), not
+ * merely inside one: there git answers for the enclosing repository, and in a
+ * workspace installed with `git clone` that is the workspace itself, so every
+ * project folder that is not its own repository was taken for the workspace's
+ * checkout (its remove refused as "the main checkout", a worktree offered of it).
  */
 export function projectHasGit(dir: string): boolean {
   try {
-    return spawnSync('git', ['-C', dir, 'rev-parse', '--git-dir'],
-      { stdio: ['ignore', 'ignore', 'ignore'], timeout: 5000 }).status === 0;
+    const r = spawnSync('git', ['-C', dir, 'rev-parse', '--show-toplevel'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 });
+    const top = r.status === 0 ? String(r.stdout || '').trim() : '';
+    return !!top && fs.realpathSync(top) === fs.realpathSync(dir);
   } catch (_) { return false; }
 }
 
