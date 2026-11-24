@@ -1809,8 +1809,10 @@ function rt_docksal_generic_write() {
       local v="${db#postgres:}" data=/var/lib/postgresql/data ;
       [ "${v%%.*}" -ge 18 ] 2>/dev/null && data=/var/lib/postgresql ;
       database="
-  # PostgreSQL ${v}, the official image as on the other runtimes: db/db/db.
+  # PostgreSQL ${v}, the official image as on the other runtimes: db/db/db. Docksal's containers are known by their
+  # hostname, as its own services say theirs: without it db is not a name on the project's network.
   db:
+    hostname: db
     image: postgres:${v}
     environment:
       - POSTGRES_DB=db

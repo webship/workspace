@@ -135,7 +135,7 @@ test('Docksal: a generic stack is Docksal\'s node stack: cli is the stack\'s ima
   assert.match(cli, /\n {6}- WEBSHIP_RUNTIME=docksal\n {6}- WEBSHIP_DB_WAIT=300\n {6}- WEBSHIP_SERVE_GRACE=1800\n/);
   assert.match(cli, /\n {6}- io\.docksal\.user=www-data\n {6}- io\.docksal\.virtual-port=8000\n {4}expose:\n {6}- "8000"\n/);
   assert.match(cli, /\n {4}healthcheck:\n {6}test: \["CMD", "bash", "\/var\/www\/\.webship\/runtime\/probe\.sh", "8000"\]\n/, 'the proxy routes to a healthy container only');
-  assert.match(yml, /\n {2}db:\n {4}image: postgres:16\n {4}environment:\n {6}- POSTGRES_DB=db\n {6}- POSTGRES_USER=db\n {6}- POSTGRES_PASSWORD=db\n {4}volumes:\n {6}- db:\/var\/lib\/postgresql\/data\n/);
+  assert.match(yml, /\n {2}db:\n {4}hostname: db\n {4}image: postgres:16\n {4}environment:\n {6}- POSTGRES_DB=db\n {6}- POSTGRES_USER=db\n {6}- POSTGRES_PASSWORD=db\n {4}volumes:\n {6}- db:\/var\/lib\/postgresql\/data\n/);
   assert.match(yml, /\n {2}mail:\n {4}extends:\n {6}file: \$\{HOME\}\/\.docksal\/stacks\/services\.yml\n {6}service: mail\nvolumes:\n {2}db:\n$/);
   assert.strictEqual(run(dir, p, 'ddev config --project-name=Gdocksal').status, 0);
   assert.match(read(p, '.docksal', 'docksal.yml'), /\n {2}stack: generic\n {2}language: python\n/, 'written again, the stack stays');
