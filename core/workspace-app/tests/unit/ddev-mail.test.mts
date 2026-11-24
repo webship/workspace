@@ -68,7 +68,7 @@ test('it is only offered while the project is up', () => {
   // DDEV reports a Mailpit URL for stopped projects too — 51 of them here — but the service only
   // answers while the containers are running, so an entry on a stopped row leads nowhere.
   assert.match(page, /if \(!running \|\| !mailpit\) return '';/);
-  assert.match(page, /entry && entry\.status === 'running'/);
+  assert.match(page, /if \(entry\) return entry\.status === 'running'/);
 });
 
 test('the label says captured, not sent', () => {
@@ -101,7 +101,8 @@ test('the feature owns its wiring: server.js holds four lines and no markup', ()
   const mailLines = server.split('\n')
     .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
     .filter((l) => /ddevMail|mailpit/i.test(l));
-  assert.ok(mailLines.length <= 8, `server.js wires mail on ${mailLines.length} lines:\n${mailLines.join('\n')}`);
+  // The DDEV menu and the runtime menu (#859) each place the entry: one line each, the markup is the module's.
+  assert.ok(mailLines.length <= 9, `server.js wires mail on ${mailLines.length} lines:\n${mailLines.join('\n')}`);
   assert.ok(!mailLines.some((l) => /<li>|<a |hx-get="\/fragments\/projects\/mail/.test(l)),
     'no mail markup in server.js');
   // Each of the four is a call into the module.
