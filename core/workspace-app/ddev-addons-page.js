@@ -92,7 +92,7 @@ async function addonsPanelHtml({ workspace, project, projectDir, q = '', page = 
 
       <h4 class="uk-margin-small-bottom">Everything in the registry <span class="uk-badge">${(registry.list || []).length}</span></h4>
       <form class="addon-search uk-margin-small" hx-get="${panelUrl}" hx-target="#editor-modal-body" hx-swap="innerHTML"
-            hx-trigger="submit, keyup[key=='Enter'] from:find input">
+            hx-trigger="submit">
         <input class="uk-input uk-form-small" type="search" name="q" value="${esc(q)}"
                placeholder="Search the add-on registry — redis, solr, playwright…" aria-label="Search add-ons">
         <button class="uk-button uk-button-default uk-button-small" type="submit">Search</button>
