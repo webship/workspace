@@ -204,6 +204,24 @@ test('kubernetes: config writes compose.yaml and k8s/ manifests, and each verb b
   assert.deepStrictEqual(own.calls, ['kubectl --context my-cluster -n ws-k1 scale deploy --all --replicas=0'], 'a cluster of your own, by its context');
 });
 
+test('kubernetes: a project without a database starts without waiting for one, one with a database waits for it first (#883)', () => {
+  const dir = sandbox();
+  const waits = (calls) => calls.filter((c) => / rollout status /.test(c)).map((c) => c.replace(/^.* rollout status (\S+) .*$/, '$1'));
+  const none = path.join(dir, 'kn0'); fs.mkdirSync(none);
+  run(dir, none, 'ddev config --project-type=php --docroot=site --project-name=kn0 --omit-containers=db', { WORKSPACE_RUNTIME: 'kubernetes' });
+  assert.match(fs.readFileSync(path.join(none, 'compose.yaml'), 'utf8'), /^ {2}database: "none"$/m);
+  assert.doesNotMatch(fs.readFileSync(path.join(none, 'k8s', 'stack.yaml'), 'utf8'), /^ {2}name: db$/m, 'its manifests hold no db Deployment');
+  let r = run(dir, none, 'ddev start');
+  assert.strictEqual(r.status, 0, r.out);
+  assert.deepStrictEqual(waits(r.calls), ['deploy/web'], 'nothing waits for a database the project does not have');
+  assert.match(r.out, /^Running on kubernetes \(kind-webship, namespace ws-kn0\): /m);
+  const db = path.join(dir, 'kd1'); fs.mkdirSync(db);
+  run(dir, db, 'ddev config --project-type=php --docroot=site --project-name=kd1', { WORKSPACE_RUNTIME: 'kubernetes' });
+  r = run(dir, db, 'ddev start');
+  assert.strictEqual(r.status, 0, r.out);
+  assert.deepStrictEqual(waits(r.calls), ['deploy/db', 'deploy/web'], 'the database first, then the web server');
+});
+
 /* ---- What the dashboard's tools need of the layer (the row, the Tests menu, backup, restore, remove) ---- */
 
 test('describe -j answers in DDEV\'s shape, so the tools read the state and the address as they do from DDEV', () => {

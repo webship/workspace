@@ -1227,7 +1227,10 @@ function rt_k8s() {
       rt_kubectl apply -k "${root}/k8s" > /dev/null || return 1 ;
       [ "${verb}" = restart ] && rt_kubectl -n "${ns}" rollout restart deploy/web > /dev/null ;
       rt_kubectl -n "${ns}" scale deploy --all --replicas=1 > /dev/null ;
-      rt_kubectl -n "${ns}" rollout status deploy/db --timeout=900s > /dev/null && rt_kubectl -n "${ns}" rollout status deploy/web --timeout=900s > /dev/null || return 1 ;
+      # The database first, when the project has one: `ddev config --omit-containers=db` gives a project none, and
+      # its manifests no db Deployment to wait for (#883).
+      { [ "$(rt_meta database "${root}")" = none ] || rt_kubectl -n "${ns}" rollout status deploy/db --timeout=900s > /dev/null ; } \
+        && rt_kubectl -n "${ns}" rollout status deploy/web --timeout=900s > /dev/null || return 1 ;
       case "$(rt_meta type "${root}")" in drupal*) rt_drupal_settings "${root}" ;; esac ;
       echo "Running on kubernetes ($(rt_kctx), namespace ${ns}): $(rt_url "${root}")" ;;
     stop) rt_kubectl -n "${ns}" scale deploy --all --replicas=0 ;;
