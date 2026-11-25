@@ -388,6 +388,11 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<link href="catalog/view/stylesheet/stylesheet.css" type="text/css" rel="stylesheet"/>'), ['opencart']);
   assert.deepStrictEqual(hits('<form id="form-currency" action="https://shop.example.com/index.php?route=common/currency.save&amp;language=en-gb" method="post" data-oc-toggle="ajax">'), ['opencart']);
   assert.ok(!hits('<link href="catalog/view/theme/default/stylesheet/stylesheet.css" rel="stylesheet" />').includes('opencart'), 'OpenCart 3 is not the one the pack tests');
+  // Redmine: the meta tags its layout gives every page, its description and its keywords (2026-11-25); not the word in a
+  // page that only links to it.
+  assert.deepStrictEqual(hits('<meta name="description" content="Redmine" />\n<meta name="keywords" content="issue,bug,tracker" />'), ['redmine']);
+  assert.deepStrictEqual(hits('<meta name="keywords" content="issue,bug,tracker" />'), ['redmine']);
+  assert.ok(!hits('<a href="https://www.redmine.org">Redmine</a>').includes('redmine'), 'a link to it is not the site');
   // OpenProject: the meta tag its layout gives every page, or its header, on the login page the front page leads to
   // (2026-11-25); not the word in a page that only links to it.
   assert.deepStrictEqual(hits('<meta name="app_title" content="Sign in | OpenProject">\n<meta name="app_base_path" content="">'), ['openproject']);

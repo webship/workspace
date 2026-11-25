@@ -41,6 +41,7 @@
         ["learnpress", "LearnPress", "A builder for courses on WordPress with LearnPress, with a sample course, and its courses tool"],
         ["opencart", "OpenCart", "A builder for OpenCart shops with the demo catalog, and its CLI tool"],
         ["openproject", "OpenProject", "A builder for OpenProject sites with a sample project and sprint, and its work packages as work items"],
+        ["redmine", "Redmine", "A builder for Redmine sites with a sample project and version, and its issues as work items"],
         ["roundcube", "Roundcube", "A builder for Roundcube webmails with a test mail server, sample mail and contacts, and its tool"],
         ["django", "Django", "A builder for Django projects with the admin, and the manage tool"],
         ["nextjs", "Next.js", "A builder for Next.js apps (the Learn course or the default app), and its CLI tool"],
