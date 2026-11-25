@@ -388,6 +388,11 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<link href="catalog/view/stylesheet/stylesheet.css" type="text/css" rel="stylesheet"/>'), ['opencart']);
   assert.deepStrictEqual(hits('<form id="form-currency" action="https://shop.example.com/index.php?route=common/currency.save&amp;language=en-gb" method="post" data-oc-toggle="ajax">'), ['opencart']);
   assert.ok(!hits('<link href="catalog/view/theme/default/stylesheet/stylesheet.css" rel="stylesheet" />').includes('opencart'), 'OpenCart 3 is not the one the pack tests');
+  // OpenProject: the meta tag its layout gives every page, or its header, on the login page the front page leads to
+  // (2026-11-25); not the word in a page that only links to it.
+  assert.deepStrictEqual(hits('<meta name="app_title" content="Sign in | OpenProject">\n<meta name="app_base_path" content="">'), ['openproject']);
+  assert.deepStrictEqual(hits('<header class="op-app-header">'), ['openproject']);
+  assert.ok(!hits('<a href="https://www.openproject.org">OpenProject</a>').includes('openproject'), 'a link to it is not the site');
   // Mautic: the variables of its pages, on the login page the front page leads to (2026-11-24); not the tracking
   // script, which a site that only uses Mautic loads too.
   assert.deepStrictEqual(hits('<script>\n    var mauticBasePath    = \'\';\n    var mauticAjaxUrl     = "/s/ajax";\n</script>'), ['mautic']);

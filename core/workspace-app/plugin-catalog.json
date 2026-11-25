@@ -40,6 +40,7 @@
         ["penpot", "Penpot", "A builder for Penpot design and prototyping sites, with sample content, and the backend's tool"],
         ["learnpress", "LearnPress", "A builder for courses on WordPress with LearnPress, with a sample course, and its courses tool"],
         ["opencart", "OpenCart", "A builder for OpenCart shops with the demo catalog, and its CLI tool"],
+        ["openproject", "OpenProject", "A builder for OpenProject sites with a sample project and sprint, and its work packages as work items"],
         ["django", "Django", "A builder for Django projects with the admin, and the manage tool"],
         ["nextjs", "Next.js", "A builder for Next.js apps (the Learn course or the default app), and its CLI tool"],
         ["strapi", "Strapi", "A builder for Strapi apps (Community Edition) on PostgreSQL, and the strapi tool"],
