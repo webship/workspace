@@ -394,6 +394,12 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<meta name="keywords" content="git,forge,forgejo">'), ['gitea']);
   assert.deepStrictEqual(hits('<meta name="author" content="Forgejo – Beyond coding. We forge.">'), ['gitea']);
   assert.ok(!hits('<a href="https://gitea.com">Gitea</a> and <a href="https://forgejo.org">Forgejo</a>').includes('gitea'), 'a link to either is not the site');
+  // Plane: the application-name and app-title metas its web app puts on every page (2026-11-25, read on the plugin's
+  // own Plane v1.5.1 site); not a page that only links to plane.so, nor another app's application-name.
+  assert.deepStrictEqual(hits('<meta name="application-name" content="Plane"/>'), ['plane']);
+  assert.deepStrictEqual(hits('<meta name="apple-mobile-web-app-title" content="Plane | Simple, extensible, open-source project management tool."/>'), ['plane']);
+  assert.ok(!hits('<a href="https://plane.so">Plane</a>').includes('plane'), 'a link to it is not the site');
+  assert.ok(!hits('<meta name="application-name" content="Planet"/>').includes('plane'), 'another app\'s name that starts like it');
   // Redmine: the meta tags its layout gives every page, its description and its keywords (2026-11-25); not the word in a
   // page that only links to it.
   assert.deepStrictEqual(hits('<meta name="description" content="Redmine" />\n<meta name="keywords" content="issue,bug,tracker" />'), ['redmine']);
