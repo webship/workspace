@@ -322,6 +322,11 @@ function ddev() {
 
 # --- Docker Compose and Podman ---------------------------------------------------------------------------------
 
+# A project's database as a person reads it, from what compose.yaml keeps (#890): none, postgres:<v> or MariaDB's version.
+function rt_db_words() {
+  case "${1:-10.11}" in none) echo 'no database' ;; postgres:*) echo "PostgreSQL ${1#postgres:}" ;; *) echo "MariaDB ${1:-10.11}" ;; esac
+}
+
 function rt_free_port() { python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])' ; }
 
 # docker compose, or podman compose, in the project.
@@ -821,7 +826,12 @@ function rt_compose() {
       done
       RT_STACK_LANG="${RT_STACK_LANG}" RT_STACK_VERSION="${RT_STACK_VERSION}" RT_SERVE_PORT="${RT_SERVE_PORT}" RT_DB_WAIT="${RT_DB_WAIT}" RT_SERVE_GRACE="${RT_SERVE_GRACE}" \
         rt_compose_write "${rt}" "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" "${daemons}" "${stack:-php}" ;
-      echo "Wrote compose.yaml for ${rt} (${type:-php}, PHP ${php:-8.3}, MariaDB ${db:-10.11}): $(rt_url "${root}")" ;;
+      # What was written, as it is: a generic stack has no PHP, and the database is the project's (#890).
+      if [ "${stack:-php}" = generic ] ; then
+        echo "Wrote compose.yaml for ${rt} (generic, $(rt_db_words "${db:-10.11}")): $(rt_url "${root}")" ;
+      else
+        echo "Wrote compose.yaml for ${rt} (${type:-php}, PHP ${php:-8.3}, $(rt_db_words "${db:-10.11}")): $(rt_url "${root}")" ;
+      fi ;;
     start|restart)
       [ -n "${root}" ] || { echo "No ${rt} project here." >&2 ; return 1 ; } ;
       # A restart stops what runs first: `up` alone leaves running containers as they are.
