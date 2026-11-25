@@ -388,6 +388,12 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<link href="catalog/view/stylesheet/stylesheet.css" type="text/css" rel="stylesheet"/>'), ['opencart']);
   assert.deepStrictEqual(hits('<form id="form-currency" action="https://shop.example.com/index.php?route=common/currency.save&amp;language=en-gb" method="post" data-oc-toggle="ajax">'), ['opencart']);
   assert.ok(!hits('<link href="catalog/view/theme/default/stylesheet/stylesheet.css" rel="stylesheet" />').includes('opencart'), 'OpenCart 3 is not the one the pack tests');
+  // Gitea and Forgejo, one pack: the keywords meta each puts on every page, and the author meta of their front pages
+  // (2026-11-25); not a page that only links to either.
+  assert.deepStrictEqual(hits('<meta name="keywords" content="go,git,self-hosted,gitea">'), ['gitea']);
+  assert.deepStrictEqual(hits('<meta name="keywords" content="git,forge,forgejo">'), ['gitea']);
+  assert.deepStrictEqual(hits('<meta name="author" content="Forgejo – Beyond coding. We forge.">'), ['gitea']);
+  assert.ok(!hits('<a href="https://gitea.com">Gitea</a> and <a href="https://forgejo.org">Forgejo</a>').includes('gitea'), 'a link to either is not the site');
   // Redmine: the meta tags its layout gives every page, its description and its keywords (2026-11-25); not the word in a
   // page that only links to it.
   assert.deepStrictEqual(hits('<meta name="description" content="Redmine" />\n<meta name="keywords" content="issue,bug,tracker" />'), ['redmine']);
