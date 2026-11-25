@@ -383,6 +383,11 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.ok(hits("<link rel='stylesheet' id='learnpress-block-css' href='/wp-content/plugins/learnpress/assets/css/learnpress-block.min.css?ver=4.5.0' media='all' />").includes('learnpress'));
   assert.ok(hits('<script id="lp-global-js-extra">\nvar lpData = {"site_url":"https:\\/\\/example.com"};\n</script>').includes('learnpress'));
   assert.ok(!hits('<p>Read the lpDataset notes.</p>').includes('learnpress'), 'a word that only starts like it is not the plugin');
+  // OpenCart: the storefront's own stylesheet of OpenCart 4, or the toggles its forms carry (2026-11-25); not the
+  // stylesheet of OpenCart 3, whose storefront the pack does not test.
+  assert.deepStrictEqual(hits('<link href="catalog/view/stylesheet/stylesheet.css" type="text/css" rel="stylesheet"/>'), ['opencart']);
+  assert.deepStrictEqual(hits('<form id="form-currency" action="https://shop.example.com/index.php?route=common/currency.save&amp;language=en-gb" method="post" data-oc-toggle="ajax">'), ['opencart']);
+  assert.ok(!hits('<link href="catalog/view/theme/default/stylesheet/stylesheet.css" rel="stylesheet" />').includes('opencart'), 'OpenCart 3 is not the one the pack tests');
   // Mautic: the variables of its pages, on the login page the front page leads to (2026-11-24); not the tracking
   // script, which a site that only uses Mautic loads too.
   assert.deepStrictEqual(hits('<script>\n    var mauticBasePath    = \'\';\n    var mauticAjaxUrl     = "/s/ajax";\n</script>'), ['mautic']);
