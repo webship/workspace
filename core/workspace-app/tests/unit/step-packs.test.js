@@ -411,6 +411,17 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<body id="phpbb" class="nojs notouch section-index ltr">'), ['phpbb']);
   assert.deepStrictEqual(hits('<link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">'), ['bootstrap']);
   assert.deepStrictEqual(hits('<script src="/js/bootstrap.bundle.min.js?v=5"></script>'), ['bootstrap']);
+  // UIkit (2026-11-25): its script or style sheet, from a theme's own folder or a CDN; else the uk- attributes of a page
+  // whose theme bundles the script into a file of its own. Not its icons alone, and not a name that only ends like it.
+  assert.deepStrictEqual(hits('<script src="https://cdn.jsdelivr.net/npm/uikit@3.25.22/dist/js/uikit.min.js"></script>'), ['uikit']);
+  assert.deepStrictEqual(hits('<link rel="stylesheet" href="/templates/yootheme/vendor/assets/uikit/dist/css/uikit.min.css?ver=4.5">'), ['uikit']);
+  assert.deepStrictEqual(hits('<nav class="uk-navbar-container" uk-navbar="mode: hover">'), ['uikit']);
+  assert.deepStrictEqual(hits('<div data-uk-slideshow>'), ['uikit']);
+  assert.deepStrictEqual(hits('<script src="/js/uikit-icons.min.js"></script>'), []);
+  assert.deepStrictEqual(hits('<script src="/js/nuikit.js"></script>'), []);
+  assert.deepStrictEqual(hits('<div uk-grid class="uk-child-width-1-2">'), ['uikit']);
+  assert.deepStrictEqual(hits('<div class="uk-grid uk-light">'), [], 'a class is not an attribute that sets a component up');
+  assert.deepStrictEqual(hits('<p class="uk-text-lead">A class name alone is a style sheet, not the components.</p>'), []);
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
   assert.deepStrictEqual(hits('<html><body>Hello</body></html>'), []);
 
