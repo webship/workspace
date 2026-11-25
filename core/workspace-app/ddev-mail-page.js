@@ -141,7 +141,7 @@ async function mailPanelHtml({ workspace, project, base, q = '' }) {
 
       <div class="mail-tools">
         <form class="mail-search" hx-get="${esc(panelUrl)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
-              hx-trigger="submit, keyup[key=='Enter'] from:find input">
+              hx-trigger="submit">
           <input class="uk-input uk-form-small" type="search" name="q" value="${esc(q)}"
                  placeholder="Search subject, address, body…" aria-label="Search this mailbox">
           <button class="uk-button uk-button-default uk-button-small" type="submit">Search</button>
