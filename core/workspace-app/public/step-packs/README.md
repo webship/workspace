@@ -24,6 +24,9 @@ names the file of each pack.
   `wp-includes/fonts/dashicons.svg`, GPL-2.0-or-later), filled black (Simple Icons has no BuddyPress icon).
 - `learnpress.png`: the icon LearnPress 4.5.0 ships in its plugin (`assets/images/icon-128x128.png`, GPL-3.0),
   unmodified (Simple Icons has no LearnPress icon).
+- `opencart.png`: the cart of the OpenCart logo the 4.1.0.4 release ships (`image/catalog/opencart-logo.png`,
+  GPL-3.0), cut out of the wordmark and set on a square; the release's favicon (`image/catalog/opencart.ico`) is the
+  same cart at 16 px (Simple Icons has no OpenCart icon).
 
 A pack with no logo here shows the one its own package ships (`assets/logo.svg` or `.png`), and a puzzle piece
 when there is none.
