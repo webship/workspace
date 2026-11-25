@@ -10,6 +10,9 @@ names the file of each pack.
 - `keycloak.svg`: Simple Icons 16.37.0, filled with the colour the set lists for the brand. Unlike most of the set,
   Simple Icons marks this icon as under the Linux Foundation's trademark usage guidelines rather than CC0-1.0; it is
   used only to name the platform the pack works with.
+- `redmine.svg`: Simple Icons 16.37.0, filled with the colour the set lists for the brand. The set lists this icon
+  under CC BY-SA 2.5, the Redmine logo's own licence (https://www.redmine.org/projects/redmine/wiki/logo); it is used
+  only to name the platform the pack tests.
 - `bootstrap.svg`: Simple Icons 16.37.0, filled with the brand colour `#7952B3`. The set lists this icon under the MIT
   licence (the Bootstrap project's).
 - `mediawiki.svg`: the MediaWiki logo the 1.46.2 release ships (`resources/assets/mediawiki_compact.svg`),
