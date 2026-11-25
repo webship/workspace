@@ -23,10 +23,11 @@
     "ws": "^8.21.3"
   },
   "devDependencies": {
+    "@cucumber/cucumber": "^12.9.0",
     "@types/node": "24.19.2",
     "esbuild": "0.28.2",
     "typescript": "7.0.2",
-    "webship-js": "^2.0.4"
+    "webship-js": "^2.0.17"
   },
   "keywords": [],
   "author": "",
