@@ -5120,8 +5120,10 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
         installed: flags.some((f) => f === '--install' || f === '-i'), text: form.ai_prompt, flags: words });
       cmdLine += ` && ${after.step}`;
     }
-    const started = await startInScreen({ workspace, project: projectName, projectDir: dir, ownerDir: path.join(dir, projectName), verb: 'build',
-      cmdLine, label: `build (${builderLabel(dir, script)})` });
+    // A build changes the project's state: the page hears when it ends, the states read again, and the row shows the
+    // state the build left, with no reload (#894).
+    const started = require('./jobs').watchedUntilDone(await startInScreen({ workspace, project: projectName, projectDir: dir,
+      ownerDir: path.join(dir, projectName), verb: 'build', cmdLine, label: `build (${builderLabel(dir, script)})` }));
     const then = after && started.ok
       ? `<div class="msg assistant">When the build finishes, Claude Code starts in it as <code>${esc(after.session)}</code>.</div>` : '';
     return send(screenStartedHtml(started, `build ${projectName}`, projectName) + then, started.ok ? 200 : (started.already ? 409 : 500));  }

@@ -18,7 +18,7 @@ const { humanSize, humanTime } = require('../format.mts');
 const { ROOT, loadWorkspaces, workspaceDir } = require('../workspaces');
 const {
   run, jobFragment, runningJobKey, startJob, ddevProjectName, listProjects,
-  startInScreen, screenStartedHtml, screenAction, changesDdevState,
+  startInScreen, screenStartedHtml, screenAction, watchedUntilDone,
 } = require('../jobs');
 
 /**
@@ -27,9 +27,7 @@ const {
  * page as its notice left, six seconds in, when the verb had often not ended and the list kept was the old one.
  */
 function watchedIfItChangesState(started, changes) {
-  if (!started.ok || !changes) return started;
-  changesDdevState(started.session);
-  return { ...started, watch: true };
+  return changes ? watchedUntilDone(started) : started;
 }
 const {
   milvusProjectName, ragInstances, ragBindings, ragInstanceFor, ragWriteBinding,

@@ -170,6 +170,25 @@ jobs:
           YAML
           docker compose -f sandboxes/ci-runtime-docker/compose.yaml up -d --wait
           curl -fsS -o /dev/null http://127.0.0.1:18080/
+      # What the scenario tagged @needs-builder-ci-row builds from the Build form (tests/features/build-row.feature,
+      # #894): a builder of sandboxes that makes a small site on Docker Compose, in the shape a builder's
+      # `--runtime docker` leaves, after a pause, as a build takes a while. Its row must say Running once the build
+      # ends, with no reload.
+      - name: a builder of a small site on Docker Compose in sandboxes
+        run: |
+          cat > sandboxes/cmd-ci-row-project.sh <<'BUILDER'
+          #!/usr/bin/env bash
+          # workspace-name: CI row site
+          set -euo pipefail
+          name="${1:?the project name}"
+          dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/${name}"
+          mkdir -p "${dir}"
+          printf 'name: %s\nx-webship:\n  runtime: docker\n  stack: php\n  type: php\n  docroot: ""\n  php: "8.3"\n  database: "10.11"\n  port: 18081\nservices:\n  web:\n    image: nginx:alpine\n    ports:\n      - "127.0.0.1:18081:80"\n' "${name}" > "${dir}/compose.yaml"
+          sleep 15
+          docker compose -f "${dir}/compose.yaml" up -d --wait
+          BUILDER
+          chmod +x sandboxes/cmd-ci-row-project.sh
+          bash -n sandboxes/cmd-ci-row-project.sh
       - name: start the dashboard
         working-directory: core/workspace-app
         run: |
