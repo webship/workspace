@@ -6,7 +6,7 @@
  *
  * Stand-in docker, podman, ddev, kind and kubectl on PATH record what is called; nothing is started.
  */
-const { test } = require('node:test');
+const { test, after } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
@@ -17,8 +17,22 @@ const yaml = require('js-yaml');
 const SCRIPTS = path.join(__dirname, '..', '..', '..', 'scripts');
 const STACKS = path.join(__dirname, '..', '..', '..', 'config', 'runtimes');
 
+const SANDBOX_RE = /^ws-runtime-services-[A-Za-z0-9]{6}$/;
+const sandboxes = [];
+
+/** Remove a file or a folder of this test's sandboxes, never a path outside one. */
+function removeInSandbox(target) {
+  const parts = path.relative(os.tmpdir(), path.resolve(target)).split(path.sep);
+  assert.ok(SANDBOX_RE.test(parts[0]) && !parts.includes('..'), `refused to remove ${target}: not in a sandbox of this test`);
+  fs.rmSync(target, { recursive: true, force: true });
+}
+
+// Every sandbox goes when the file's tests are done: nothing of them is left in the temporary folder.
+after(() => { for (const dir of sandboxes) removeInSandbox(dir); });
+
 function sandbox() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-runtime-services-'));
+  sandboxes.push(dir);
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin);
   for (const cli of ['docker', 'podman', 'ddev', 'kind']) {
@@ -72,7 +86,7 @@ test('no service: compose.yaml and the manifests are what they were, with no lin
     // A service added, then taken away: the files are byte for byte the ones without.
     assert.strictEqual(run(dir, p, ONE).status, 0);
     assert.notDeepStrictEqual(written(p), before, `${runtime}: the service is written`);
-    fs.rmSync(path.join(p, '.webship', 'runtime', 'services'), { recursive: true });
+    removeInSandbox(path.join(p, '.webship', 'runtime', 'services'));
     assert.strictEqual(run(dir, p, 'ddev config > /dev/null').status, 0);
     assert.deepStrictEqual(written(p), before, `${runtime}: without services, the same files as before`);
     assert.ok(!fs.existsSync(path.join(p, 'k8s', 'services')), `${runtime}: no copy of an env file left`);
@@ -164,10 +178,16 @@ test('Kubernetes: a Deployment, a ClusterIP Service and a PVC per service in the
   // Written again, they stay; a service taken away takes its manifests and its copy with it.
   assert.strictEqual(run(dir, p, 'ddev config > /dev/null').status, 0);
   assert.strictEqual(yaml.loadAll(read(p, 'k8s', 'services.yaml')).filter(Boolean).length, 8);
-  fs.rmSync(path.join(p, '.webship', 'runtime', 'services', 'store.yaml'));
+  removeInSandbox(path.join(p, '.webship', 'runtime', 'services', 'store.yaml'));
   assert.strictEqual(run(dir, p, 'ddev config > /dev/null').status, 0);
   assert.ok(!fs.existsSync(path.join(p, 'k8s', 'services', 'store.env')));
   assert.deepStrictEqual(yaml.load(read(p, 'k8s', 'kustomization.yaml')).secretGenerator, [{ name: 'queue-env', envs: ['services/queue.env'] }]);
+  // An empty root never reaches /k8s: the writer stops at its removal, with nothing removed and nothing written after.
+  const empty = run(dir, p, 'rt_k8s_services "" ; echo went-on');
+  assert.notStrictEqual(empty.status, 0);
+  assert.match(empty.out, /root: parameter null or not set/);
+  assert.doesNotMatch(empty.out, /went-on/);
+  assert.ok(fs.existsSync(path.join(p, 'k8s', 'services', 'queue.env')), 'the project\'s own copy is still there');
 });
 
 test('what rt_service refuses, before anything is written; on DDEV it does nothing', () => {

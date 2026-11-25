@@ -1314,7 +1314,7 @@ YAML
 # can read). A project with none gets no file and no line of them.
 function rt_k8s_services() {
   local root="$1" s image port env_file volume command list ;
-  rm -rf "${root}/k8s/services" "${root}/k8s/services.yaml" ;
+  rm -rf "${root:?}/k8s/services" "${root:?}/k8s/services.yaml" ;
   list="$(rt_services "${root}")" ;
   [ -n "${list}" ] || return 0 ;
   mkdir -p "${root}/k8s/services" && chmod 700 "${root}/k8s/services" || return 1 ;
