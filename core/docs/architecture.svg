@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" width="1200" height="620" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 1134" width="640" height="1134" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-labelledby="title desc">
   <title id="title">The Webship Workspace: the core and its plugin families</title>
-  <desc id="desc">On the left, the core: the dashboard, the plugin system, settings and jobs, and the command line. On the right, the plugins it adds, by family: platforms, workspace folders, AI items, container runtimes, databases, hosting, git forges, work items and features.</desc>
+  <desc id="desc">At the top, the core: the dashboard, the plugin system, settings and jobs, and the command line. Below it, the plugins it adds, by family: platforms, workspace folders, AI items, container runtimes, databases, hosting, git forges, work items, features, and your own plugin.</desc>
   <defs>
     <style>
       .t { fill: #1b2a4a; font-size: 15px; font-weight: 600; }
@@ -10,80 +10,86 @@
       .box { fill: #ffffff; stroke: #c9d3e3; stroke-width: 1.5; }
       .frame { fill: #f7f9fc; stroke: #c9d3e3; stroke-width: 1.5; }
       .card { fill: #ffffff; stroke: #d6deea; stroke-width: 1.5; }
+      .own { fill: #ffffff; stroke: #2f6fed; stroke-width: 1.5; stroke-dasharray: 5 4; }
       .pill { fill: #ffffff; stroke: #2f6fed; stroke-width: 1.2; }
       .pt { fill: #2f6fed; font-size: 13px; font-weight: 600; }
       .line { stroke: #2f6fed; stroke-width: 2; fill: none; marker-end: url(#arrow); }
     </style>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2f6fed"/></marker>
   </defs>
-  <rect width="1200" height="620" fill="#ffffff"/>
-  <rect x="650" y="18" width="530" height="34" rx="17" class="pill"/>
-  <text x="670" y="40" class="pt">every plugin is an npm package: @webship.co/workspace-&lt;name&gt;</text>
+  <rect width="640" height="1134" fill="#ffffff"/>
+  <rect x="20" y="16" width="600" height="32" rx="16" class="pill"/>
+  <text x="40" y="37" class="pt">every plugin is an npm package: @webship.co/workspace-&lt;name&gt;</text>
   <!-- the core -->
-  <rect x="20" y="70" width="390" height="530" rx="14" class="core"/>
-  <text x="42" y="106" class="h">@webship.co/workspace</text>
-  <text x="42" y="128" class="m">the core, which ships empty</text>
-  <rect x="42" y="150" width="346" height="100" rx="10" class="box"/>
-  <text x="62" y="180" class="t">Dashboard</text>
-  <text x="62" y="204" class="m">node:http + HTMX</text>
-  <text x="62" y="224" class="m">in a container, DDEV by default</text>
-  <rect x="42" y="262" width="346" height="100" rx="10" class="box"/>
-  <text x="62" y="292" class="t">Plugin system</text>
-  <text x="62" y="316" class="m">require · activate · install</text>
-  <text x="62" y="336" class="m">configure, from Settings or the CLI</text>
-  <rect x="42" y="374" width="346" height="100" rx="10" class="box"/>
-  <text x="62" y="404" class="t">Settings, workspaces, jobs</text>
-  <text x="62" y="428" class="m">core/config · core/scripts</text>
-  <text x="62" y="448" class="m">builders · screen sessions</text>
-  <rect x="42" y="486" width="346" height="100" rx="10" class="box"/>
-  <text x="62" y="516" class="t">Command line</text>
-  <text x="62" y="540" class="m">webship-workspace</text>
-  <text x="62" y="560" class="m">init · plugin · catalog · update</text>
-  <path d="M410,335 L436,335" class="line"/>
+  <rect x="20" y="64" width="600" height="300" rx="14" class="core"/>
+  <text x="40" y="98" class="h">@webship.co/workspace</text>
+  <text x="40" y="120" class="m">the core, which ships empty</text>
+  <rect x="40" y="140" width="275" height="96" rx="10" class="box"/>
+  <text x="58" y="170" class="t">Dashboard</text>
+  <text x="58" y="194" class="m">node:http + HTMX</text>
+  <text x="58" y="214" class="m">in a container, DDEV by default</text>
+  <rect x="325" y="140" width="275" height="96" rx="10" class="box"/>
+  <text x="343" y="170" class="t">Plugin system</text>
+  <text x="343" y="194" class="m">require · activate · install</text>
+  <text x="343" y="214" class="m">configure: Settings or CLI</text>
+  <rect x="40" y="248" width="275" height="96" rx="10" class="box"/>
+  <text x="58" y="278" class="t">Settings and jobs</text>
+  <text x="58" y="302" class="m">workspaces · builders</text>
+  <text x="58" y="322" class="m">screen sessions</text>
+  <rect x="325" y="248" width="275" height="96" rx="10" class="box"/>
+  <text x="343" y="278" class="t">Command line</text>
+  <text x="343" y="302" class="m">webship-workspace</text>
+  <text x="343" y="322" class="m">init · plugin · catalog · update</text>
+  <path d="M320,364 L320,396" class="line"/>
   <!-- the plugins, by family -->
-  <rect x="440" y="70" width="740" height="530" rx="14" class="frame"/>
-  <text x="462" y="106" class="h">Plugins, by family</text>
-  <text x="462" y="128" class="m">each one optional: add it from the terminal or Settings → Plugins</text>
-  <rect x="456" y="148" width="228" height="132" rx="10" class="card"/>
-  <text x="474" y="180" class="t">Platforms</text>
-  <text x="474" y="206" class="m">drupal · wordpress · joomla</text>
-  <text x="474" y="227" class="m">laravel · django · moodle</text>
-  <text x="474" y="248" class="m">and many more, with steps</text>
-  <rect x="696" y="148" width="228" height="132" rx="10" class="card"/>
-  <text x="714" y="180" class="t">Workspace folders</text>
-  <text x="714" y="206" class="m">dev · test · products</text>
-  <text x="714" y="227" class="m">docs · images · rag</text>
-  <text x="714" y="248" class="m">and the AI item folders</text>
-  <rect x="936" y="148" width="228" height="132" rx="10" class="card"/>
-  <text x="954" y="180" class="t">AI items</text>
-  <text x="954" y="206" class="m">agents · skills</text>
-  <text x="954" y="227" class="m">commands · prompts</text>
-  <text x="954" y="248" class="m">into any AI CLI</text>
-  <rect x="456" y="294" width="228" height="132" rx="10" class="card"/>
-  <text x="474" y="326" class="t">Container runtimes</text>
-  <text x="474" y="352" class="m">DDEV by default, or</text>
-  <text x="474" y="373" class="m">docker · podman · k8s</text>
-  <text x="474" y="394" class="m">lando · docksal</text>
-  <rect x="696" y="294" width="228" height="132" rx="10" class="card"/>
-  <text x="714" y="326" class="t">Databases</text>
-  <text x="714" y="352" class="m">mariadb · mysql</text>
-  <text x="714" y="373" class="m">postgresql · sqlite</text>
-  <rect x="936" y="294" width="228" height="132" rx="10" class="card"/>
-  <text x="954" y="326" class="t">Hosting</text>
-  <text x="954" y="352" class="m">upsun · acquia · cpanel</text>
-  <text x="954" y="373" class="m">digitalocean · aws</text>
-  <text x="954" y="394" class="m">azure · godaddy</text>
-  <rect x="456" y="440" width="228" height="132" rx="10" class="card"/>
-  <text x="474" y="472" class="t">Git forges</text>
-  <text x="474" y="498" class="m">github · gitlab</text>
-  <text x="474" y="519" class="m">bitbucket</text>
-  <rect x="696" y="440" width="228" height="132" rx="10" class="card"/>
-  <text x="714" y="472" class="t">Work items</text>
-  <text x="714" y="498" class="m">jira · openproject</text>
-  <text x="714" y="519" class="m">github and gitlab issues</text>
-  <text x="714" y="540" class="m">the AI works a ticket</text>
-  <rect x="936" y="440" width="228" height="132" rx="10" class="card"/>
-  <text x="954" y="472" class="t">Features</text>
-  <text x="954" y="498" class="m">git · ide · screens</text>
-  <text x="954" y="519" class="m">google-drive · avatar</text>
+  <rect x="20" y="400" width="600" height="714" rx="14" class="frame"/>
+  <text x="40" y="434" class="h">Plugins, by family</text>
+  <text x="40" y="456" class="m">each one optional: add it from the terminal or Settings</text>
+  <rect x="40" y="476" width="275" height="110" rx="10" class="card"/>
+  <text x="58" y="506" class="t">Platforms</text>
+  <text x="58" y="530" class="m">drupal · wordpress · joomla</text>
+  <text x="58" y="550" class="m">laravel · django · moodle</text>
+  <text x="58" y="570" class="m">and many more, with steps</text>
+  <rect x="325" y="476" width="275" height="110" rx="10" class="card"/>
+  <text x="343" y="506" class="t">Workspace folders</text>
+  <text x="343" y="530" class="m">dev · test · products</text>
+  <text x="343" y="550" class="m">docs · images · rag</text>
+  <text x="343" y="570" class="m">and the AI item folders</text>
+  <rect x="40" y="598" width="275" height="110" rx="10" class="card"/>
+  <text x="58" y="628" class="t">AI items</text>
+  <text x="58" y="652" class="m">agents · skills</text>
+  <text x="58" y="672" class="m">commands · prompts</text>
+  <text x="58" y="692" class="m">into any AI CLI</text>
+  <rect x="325" y="598" width="275" height="110" rx="10" class="card"/>
+  <text x="343" y="628" class="t">Container runtimes</text>
+  <text x="343" y="652" class="m">DDEV by default, or</text>
+  <text x="343" y="672" class="m">docker · podman · k8s</text>
+  <text x="343" y="692" class="m">lando · docksal</text>
+  <rect x="40" y="720" width="275" height="110" rx="10" class="card"/>
+  <text x="58" y="750" class="t">Databases</text>
+  <text x="58" y="774" class="m">mariadb · mysql</text>
+  <text x="58" y="794" class="m">postgresql · sqlite</text>
+  <rect x="325" y="720" width="275" height="110" rx="10" class="card"/>
+  <text x="343" y="750" class="t">Hosting</text>
+  <text x="343" y="774" class="m">upsun · acquia · cpanel</text>
+  <text x="343" y="794" class="m">digitalocean · aws</text>
+  <text x="343" y="814" class="m">azure · godaddy</text>
+  <rect x="40" y="842" width="275" height="110" rx="10" class="card"/>
+  <text x="58" y="872" class="t">Git forges</text>
+  <text x="58" y="896" class="m">github · gitlab</text>
+  <text x="58" y="916" class="m">bitbucket</text>
+  <rect x="325" y="842" width="275" height="110" rx="10" class="card"/>
+  <text x="343" y="872" class="t">Work items</text>
+  <text x="343" y="896" class="m">jira · openproject</text>
+  <text x="343" y="916" class="m">github and gitlab issues</text>
+  <text x="343" y="936" class="m">the AI works a ticket</text>
+  <rect x="40" y="964" width="275" height="110" rx="10" class="card"/>
+  <text x="58" y="994" class="t">Features</text>
+  <text x="58" y="1018" class="m">git · ide · screens</text>
+  <text x="58" y="1038" class="m">google-drive · avatar</text>
+  <rect x="325" y="964" width="275" height="110" rx="10" class="own"/>
+  <text x="343" y="994" class="t">Your own plugin</text>
+  <text x="343" y="1018" class="m">typed by plugin-api</text>
+  <text x="343" y="1038" class="m">required from npm</text>
+  <text x="343" y="1058" class="m">or from a git repository</text>
 </svg>
