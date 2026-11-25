@@ -58,7 +58,7 @@ A project's runtime is what its folder holds:
 - **Docker Compose and Podman:** `compose.yaml`, with an `x-webship:` block (the runtime, the project type, the PHP and database versions, the port, and `platform:` when a plugin claims the project), and `.webship/runtime/Dockerfile`, the image of its web service. You can run it without the Workspace: `docker compose up -d`.
 - **Lando:** `.lando.yml`, with the same `x-webship:` block, and `.webship/runtime/` (two small files the app is built with). You can run it without the Workspace: `lando start`.
 - **Docksal:** `.docksal/docksal.env` (the stack, the docroot, the images, the database) and `.docksal/docksal.yml`, with the same `x-webship:` block. You can run it without the Workspace: `fin project start`.
-- **Kubernetes:** the same `compose.yaml`, plus `k8s/` (a `kustomization.yaml` and the manifests: a namespace `ws-<name>`, Deployments and Services for the web, the database and the mail catcher, a volume claim for the database). You can apply it yourself: `kubectl apply -k k8s`.
+- **Kubernetes:** the same `compose.yaml`, plus `k8s/` (a `kustomization.yaml` and the manifests: a namespace `ws-<name>`, Deployments and Services for the web, the database and the mail catcher, a volume claim for the database, and the project's own services, below). You can apply it yourself: `kubectl apply -k k8s`.
 
 The Workspace looks for these from a folder up to the workspace's own folder, never above it, and never takes a temporary folder (`/tmp`, `/var/tmp`, `/dev/shm`, `TMPDIR`) for a project.
 
@@ -86,7 +86,7 @@ What the layer gives a plugin:
 
 What a plugin changes, what it must never do and the checklist to prove it are in [plugins-on-runtimes.md](plugins-on-runtimes.md).
 
-Two stacks so far: the `php` stack (Apache, PHP, MariaDB), and a generic one for an application in another language, which brings its own language and version (Python, Node.js, Java, .NET, Ruby, Go, or an image of its own), its own server and PostgreSQL, MariaDB or no database (webship/workspace#841): on every runtime: Docker Compose, Podman, Kubernetes, Lando and Docksal. On DDEV a project of any language builds as before, with DDEV's own images and its generic web server. A service of a platform's own (OpenSearch, Redis) still builds on DDEV only.
+Two stacks so far: the `php` stack (Apache, PHP, MariaDB), and a generic one for an application in another language, which brings its own language and version (Python, Node.js, Java, .NET, Ruby, Go, or an image of its own), its own server and PostgreSQL, MariaDB or no database (webship/workspace#841): on every runtime: Docker Compose, Podman, Kubernetes, Lando and Docksal. On DDEV a project of any language builds as before, with DDEV's own images and its generic web server. A service of a platform's own (OpenSearch, Redis) is one of the project's own services on Docker Compose, Podman and Kubernetes (`rt_service`, below); on Lando and Docksal it still builds on DDEV only.
 
 A generic stack's server starts once the project's database takes connections, and on Kubernetes a server that stops answering is restarted (webship/workspace#850). Two settings, taken from the environment of `ddev config` and kept in the `x-webship` block:
 
@@ -98,6 +98,47 @@ A generic stack's server starts once the project's database takes connections, a
 ```bash
 WEBSHIP_DB_WAIT=600 WEBSHIP_SERVE_GRACE=3600 ddev config   # then ddev restart
 ```
+
+## A project's own services
+
+On Docker Compose, Podman and Kubernetes a project can carry services of its own beside its web server, its database
+and the mail catcher: a cache, a queue, an S3 store, a search engine (webship/workspace#900). A plugin calls
+`rt_service` after `ddev config`, as it calls `rt_stack`:
+
+```bash
+rt_service <name> <image:tag> [--port <n>] [--env-file <file>] [--volume <path>] [--command "<line>"]
+```
+
+| Part | What it is |
+| --- | --- |
+| `<name>` | Its name, which is also its host name in the project's network: lower case, digits and `-`, never `web`, `db`, `mail`, `mail-web` or `daemons` |
+| `<image:tag>` | Its image, pinned: a tag that is not `latest`, or a digest |
+| `--port <n>` | The port it listens on, inside the project only |
+| `--env-file <file>` | A file of the project with its environment, by its path from the project's root. Docker Compose reads a `$` in it as one of its variables: write values without one |
+| `--volume <path>` | The folder in the container its data is kept in: a volume of the project's own |
+| `--command "<line>"` | Its command line, in place of the image's own (the image's arguments on Kubernetes) |
+
+The Plane plugin's, for example:
+
+```bash
+rt_service valkey docker.io/valkey/valkey:7.2.11-alpine --port 6379
+rt_service rabbitmq docker.io/library/rabbitmq:3.13.6-alpine --port 5672 --env-file plane/rabbitmq.env --volume /var/lib/rabbitmq
+rt_service minio docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z --port 9000 --env-file plane/minio.env --volume /export \
+  --command 'server /export --console-address ":9090"'
+```
+
+Each is kept in `.webship/runtime/services/<name>.yaml`, and every `ddev config` writes it again:
+
+- **Docker Compose and Podman:** a service of `compose.yaml`. Compose names its container and its volume after the
+  project, and the web server waits for it to start. `ddev delete` (compose's `down -v`) and the removal take them with
+  the project; no image or volume of the machine is reused by a name of its own, or removed.
+- **Kubernetes:** in the project's namespace, a Deployment, a ClusterIP Service on its port (its name is its host name,
+  as in `compose.yaml`) and a PersistentVolumeClaim for its volume. Its env file becomes a Secret of the kustomization,
+  from a copy in `k8s/services/` that only you can read. Deleting the project deletes its namespace, with all of them.
+- **DDEV:** `rt_service` does nothing: a plugin brings its own `.ddev/docker-compose.<name>.yaml` there.
+- **Lando and Docksal:** not yet; `rt_service` says so and writes nothing.
+
+A project without services is written exactly as before.
 
 ## In the dashboard
 

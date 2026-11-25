@@ -218,7 +218,7 @@ The three calls are kept in the `x-webship` block (`stack: generic`, `language`,
 ## What does not fit yet
 
 - **MySQL 8 as a project's database**, and PostgreSQL for the `php` stack of Lando and Docksal (SQLite in a file is fine): the layer renders MariaDB everywhere, and PostgreSQL for a generic stack on every runtime and for the `php` stack on Docker Compose, Podman and Kubernetes. Lando's and Docksal's `php` stack refuses PostgreSQL, and says the generic stack has it.
-- **A service of the platform's own** (OpenSearch for Magento, Redis, a database's web admin such as Adminer): a DDEV add-on or a `docker-compose.<name>.yaml` in `.ddev/` has no equivalent yet. PHP settings of the project's own and a task in the web container's image (a cron loop, a queue worker) do fit: `rt_php_ini` and `rt_daemon` above.
+- **A service of the platform's own** (OpenSearch for Magento, Redis, a queue, an S3 store): on Docker Compose, Podman and Kubernetes it is `rt_service <name> <image:tag> [--port <n>] [--env-file <file>] [--volume <path>] [--command "<line>"]`, after `ddev config` (webship/workspace#900; [runtimes.md](runtimes.md#a-projects-own-services)). On DDEV keep your `.ddev/docker-compose.<name>.yaml`; on Lando and Docksal there is no equivalent yet. A database's web admin such as Adminer has none either. PHP settings of the project's own and a task in the web container's image (a cron loop, a queue worker) fit: `rt_php_ini` and `rt_daemon` above.
 
 A builder that does not fit yet must not build a `php` stack by accident, when the workspace's `container.runtime` names another runtime. It says so and stops, before `ddev config`:
 
