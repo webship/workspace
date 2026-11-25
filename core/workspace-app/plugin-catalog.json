@@ -27,6 +27,7 @@
         ["codeigniter", "CodeIgniter", "A builder for CodeIgniter apps with the official auth library, and the spark tool"],
         ["woocommerce", "WooCommerce", "A builder for WooCommerce shops on WordPress, with the shop's sample products"],
         ["bootstrap", "Bootstrap", "A demo site of every Bootstrap component, on 5.3 or 4.6"],
+        ["uikit", "UIkit", "A demo site of every UIkit component, on DDEV, Docker Compose, Podman or Kubernetes"],
         ["mediawiki", "MediaWiki", "A builder for MediaWiki wikis, and its maintenance tool"],
         ["moodle", "Moodle", "A builder for Moodle learning sites with a test course, and its CLI tool"],
         ["nextcloud", "Nextcloud", "A builder for Nextcloud Server sites from the official release, and the occ tool"],
