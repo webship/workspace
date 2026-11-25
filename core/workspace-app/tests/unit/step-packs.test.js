@@ -434,6 +434,15 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<div uk-grid class="uk-child-width-1-2">'), ['uikit']);
   assert.deepStrictEqual(hits('<div class="uk-grid uk-light">'), [], 'a class is not an attribute that sets a component up');
   assert.deepStrictEqual(hits('<p class="uk-text-lead">A class name alone is a style sheet, not the components.</p>'), []);
+  // Flutter (2026-11-25): the loader of a web build, flutter_bootstrap.js (3.22 and later), flutter.js before it, or the
+  // compiled app itself; not a file whose name only ends like one, and not a link to the project.
+  assert.deepStrictEqual(hits('<script src="flutter_bootstrap.js" async></script>'), ['flutter']);
+  assert.deepStrictEqual(hits('<script src="/app/flutter_bootstrap.js?v=3501"></script>'), ['flutter']);
+  assert.deepStrictEqual(hits('<script src="flutter.js" defer></script>'), ['flutter']);
+  assert.deepStrictEqual(hits('<script src="main.dart.js" type="application/javascript"></script>'), ['flutter']);
+  assert.deepStrictEqual(hits('<script src="/js/my_flutter_bootstrap.js.map"></script>'), []);
+  assert.deepStrictEqual(hits('<script src="/js/notflutter.js"></script>'), []);
+  assert.ok(!hits('<a href="https://flutter.dev">Flutter</a>').includes('flutter'), 'a link to the project is not an app');
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
   assert.deepStrictEqual(hits('<html><body>Hello</body></html>'), []);
 
