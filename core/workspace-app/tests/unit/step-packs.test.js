@@ -393,6 +393,11 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<meta name="app_title" content="Sign in | OpenProject">\n<meta name="app_base_path" content="">'), ['openproject']);
   assert.deepStrictEqual(hits('<header class="op-app-header">'), ['openproject']);
   assert.ok(!hits('<a href="https://www.openproject.org">OpenProject</a>').includes('openproject'), 'a link to it is not the site');
+  // Roundcube: the webmail's own script on its login page (served at static.php/ by 1.7), or the object that script
+  // starts (2026-11-25); not a script whose name only starts like it.
+  assert.deepStrictEqual(hits('<script src="static.php/program/js/app.min.js?s=1795431776"></script>'), ['roundcube']);
+  assert.deepStrictEqual(hits('<script>\nvar rcmail = new rcube_webmail();\nrcmail.set_env({"task":"login"});\n</script>'), ['roundcube']);
+  assert.ok(!hits('<script src="/assets/program/js/application.js"></script>').includes('roundcube'), 'another program\'s application.js is not the webmail');
   // Mautic: the variables of its pages, on the login page the front page leads to (2026-11-24); not the tracking
   // script, which a site that only uses Mautic loads too.
   assert.deepStrictEqual(hits('<script>\n    var mauticBasePath    = \'\';\n    var mauticAjaxUrl     = "/s/ajax";\n</script>'), ['mautic']);
