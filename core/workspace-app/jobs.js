@@ -553,6 +553,17 @@ function changesDdevState(session) {
 /** Whether the session ended was one of them; true once, so a second watcher for it reads nothing again. */
 function changedDdevState(session) { return ddevChanging.delete(session); }
 
+/**
+ * A session that changes a project's state is watched: a DDEV verb (start, stop, restart: #766) and a build (#894).
+ * The page hears when it is done, and by then the states have been read again, so the row shows the state the session
+ * left; the page is not reloaded as the notice leaves, while the session is still running and the old state is kept.
+ */
+function watchedUntilDone(started) {
+  if (!started || !started.ok) return started;
+  changesDdevState(started.session);
+  return { ...started, watch: true };
+}
+
 function sessionWatchHtml(session) {
   return `<span hidden class="session-watch" hx-get="/fragments/session-done/${encodeURIComponent(session)}" hx-trigger="every 2s" hx-swap="outerHTML"></span>`;
 }
@@ -612,7 +623,7 @@ module.exports = {
   SCREENRC, screenCmd,
   screenWrap,
   run, jobs, runningJobKey, startJob, stopJob, jobFragment,
-  startInScreen, startInOwnScreen, stopOwnScreen, ownScreenUp, screenStartedHtml, screensLink, sessionWatchHtml, changesDdevState, changedDdevState, screenSessionName, screenAction, addRunner,
+  startInScreen, startInOwnScreen, stopOwnScreen, ownScreenUp, screenStartedHtml, screensLink, sessionWatchHtml, changesDdevState, changedDdevState, watchedUntilDone, screenSessionName, screenAction, addRunner,
   hostRunner, hostRunnerCall, hostRunnerUp, hostRunnerRequest, hostRunnerAsk, hostSessionsFile,
   // Not job machinery, but they travelled inside the same span of server.js and every
   // caller of them also calls the runner. They move properly in the next split.
