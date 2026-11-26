@@ -3265,9 +3265,23 @@ function runtimeStateOf(projectPath, states) {
   const project = projectRuntime.readProject(projectPath);
   const isRuntime = projectRuntime.isRuntimeProject(project);
   const status = isRuntime ? ((states && states.get(project.root)) || 'unknown') : null;
+  // A claimed project whose runtime has no database may still keep one through its platform's plugin (#937): what
+  // the shell last said of it, without asking again (coreRowMenuBody asks when the menu opens), or undefined.
+  const said = isRuntime && project.database === 'none' && project.platform ? projectDb.peek(projectPath) : null;
   return { project, isRuntime, runtime: isRuntime ? project.runtime : '', name: project.name, status,
     running: status === 'running', url: isRuntime ? projectRuntime.urlOf(project) : '',
-    label: isRuntime ? projectRuntime.LABELS[project.runtime] : '', title: isRuntime ? projectRuntime.TITLES[project.runtime] : '' };
+    label: isRuntime ? projectRuntime.LABELS[project.runtime] : '', title: isRuntime ? projectRuntime.TITLES[project.runtime] : '',
+    platformDb: said ? said.database : undefined };
+}
+
+/**
+ * Whether a project on another runtime has a database to export and import (#942): its runtime's own, or one its
+ * platform's plugin keeps (#937). For a claimed project whose runtime has none, `rt.platformDb` is the shell's answer;
+ * before there is one, the claim is the guess.
+ */
+function runtimeHasDb(rt) {
+  if (rt.project.database !== 'none') return true;
+  return typeof rt.platformDb === 'boolean' ? rt.platformDb : !!rt.project.platform;
 }
 
 /**
@@ -3280,6 +3294,7 @@ function runtimeMenuItemsHtml({ key, p, meta, gates, rt }) {
   const { running, url, name, title, status } = rt;
   const vals = (extra = '') => `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(p)}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
   const drupal = canDrupal && /^drupal/.test(rt.project.type || '');
+  const hasDb = runtimeHasDb(rt);
   return `
           <li class="uk-nav-header" data-group="project">${esc(name)} · ${esc(title)}${rt.project.namespace ? ` · ${esc(rt.project.namespace)}` : ''}</li>
           ${running
@@ -3299,8 +3314,8 @@ function runtimeMenuItemsHtml({ key, p, meta, gates, rt }) {
           <li><a href hx-post="/actions/runtime-drush-uli" ${vals()}><span uk-icon="icon: unlock; ratio: .7"></span> One-time login link (uli)</a></li>` : ''}
           <li class="uk-nav-divider"></li>
           <li class="uk-nav-header">database</li>
-          ${running ? `<li><a href hx-post="/actions/runtime-export-db" ${vals()}><span uk-icon="icon: database; ratio: .7"></span> Export the database</a></li>` : ''}
-          ${running && rt.project.database !== 'none' ? `<li data-entry="import"><a href hx-get="/fragments/projects/import-db/${encodeURIComponent(key)}/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
+          ${running && hasDb ? `<li><a href hx-post="/actions/runtime-export-db" ${vals()}><span uk-icon="icon: database; ratio: .7"></span> Export the database</a></li>` : ''}
+          ${running && hasDb ? `<li data-entry="import"><a href hx-get="/fragments/projects/import-db/${encodeURIComponent(key)}/${encodeURIComponent(p)}" hx-target="#editor-modal-body" hx-swap="innerHTML"
                  hx-on::after:request="UIkit.modal('#editor-modal').show()"
                  title="Put a database back from a dump this workspace holds, after an export of the one it replaces"><span uk-icon="icon: push; ratio: .7"></span> Import a database…</a></li>` : ''}
           ${canBackup ? `<li data-entry="back up"><a href hx-post="/actions/backup" ${vals()}><span uk-icon="icon: download; ratio: .7"></span> Back up this ${esc(meta.noun)}</a></li>
@@ -3691,6 +3706,9 @@ async function coreRowMenuBody(slot, key, project) {
     const onRuntime = projectRuntime.readProject(projectPath);
     if (!gates.canDdev || isDdev || !projectRuntime.isRuntimeProject(onRuntime)) return none('Not a project on Docker Compose, Podman or Kubernetes.');
     const rt = runtimeStateOf(projectPath, await projectRuntime.statesFor([onRuntime]));
+    // A platform's own database (#937, #942): asked of the shell for this one project, and only where the runtime's
+    // files cannot answer (a claimed project whose runtime has none).
+    if (onRuntime.database === 'none' && onRuntime.platform) rt.platformDb = (await projectDb.describeProjectDb(projectPath)).database;
     const items = runtimeMenuItemsHtml({ key, p: project, meta, gates, rt });
     return { status: 200, html: `<ul class="uk-nav uk-dropdown-nav">${items}\n        </ul>` };
   }

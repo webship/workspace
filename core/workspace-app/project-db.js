@@ -62,9 +62,15 @@ function describeProjectDb(projectDir) {
   });
 }
 
+/** What the shell last said of a folder, however long ago, or null: for a row drawn without asking it again (#942). */
+function peek(projectDir) {
+  const hit = cache.get(path.resolve(projectDir));
+  return hit ? hit.value : null;
+}
+
 /** Forget what was said of one folder, or of all. */
 function forget(projectDir) {
   if (projectDir) cache.delete(path.resolve(projectDir)); else cache.clear();
 }
 
-module.exports = { describeProjectDb, forget, parse };
+module.exports = { describeProjectDb, forget, parse, peek };
