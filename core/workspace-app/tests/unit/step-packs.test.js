@@ -400,6 +400,11 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<meta name="apple-mobile-web-app-title" content="Plane | Simple, extensible, open-source project management tool."/>'), ['plane']);
   assert.ok(!hits('<a href="https://plane.so">Plane</a>').includes('plane'), 'a link to it is not the site');
   assert.ok(!hits('<meta name="application-name" content="Planet"/>').includes('plane'), 'another app\'s name that starts like it');
+  // Leantime: the version meta its layout gives every page, the login form a visitor gets included (2026-11-26, read on
+  // the plugin's own Leantime 3.17.0 site); not a page that only links to leantime.io, nor the word in a description.
+  assert.deepStrictEqual(hits('<meta name="leantime-version" content="3.17.0">'), ['leantime']);
+  assert.ok(!hits('<a href="https://leantime.io">Leantime</a>').includes('leantime'), 'a link to it is not the site');
+  assert.ok(!hits('<meta name="description" content="Leantime">').includes('leantime'), 'its site name, which a site may change, is not enough');
   // Redmine: the meta tags its layout gives every page, its description and its keywords (2026-11-25); not the word in a
   // page that only links to it.
   assert.deepStrictEqual(hits('<meta name="description" content="Redmine" />\n<meta name="keywords" content="issue,bug,tracker" />'), ['redmine']);
