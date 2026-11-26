@@ -405,6 +405,13 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<meta name="leantime-version" content="3.17.0">'), ['leantime']);
   assert.ok(!hits('<a href="https://leantime.io">Leantime</a>').includes('leantime'), 'a link to it is not the site');
   assert.ok(!hits('<meta name="description" content="Leantime">').includes('leantime'), 'its site name, which a site may change, is not enough');
+  // Kanboard: the layout of every page gives its body the address of Kanboard's status check, the login form a visitor
+  // gets included (2026-11-26, read on the plugin's own Kanboard 1.2.58 site); not a page that only links to
+  // kanboard.org, the word in a description, nor another app's status address.
+  assert.deepStrictEqual(hits('<body data-status-url="/?controller=UserAjaxController&amp;action=status"\n      data-login-url="/login">'), ['kanboard']);
+  assert.ok(!hits('<a href="https://kanboard.org">Kanboard</a>').includes('kanboard'), 'a link to it is not the site');
+  assert.ok(!hits('<meta name="description" content="Kanboard">').includes('kanboard'), 'the word in a description is not enough');
+  assert.ok(!hits('<body data-status-url="/api/status">').includes('kanboard'), 'another app\'s status address');
   // Vikunja: the page of its web app, the same at every address, sets window.CUSTOM_LOGO_URL and tells a browser without
   // JavaScript that Vikunja needs it (2026-11-26, read on the plugin's own Vikunja 2.8.0 site); not a page that only links
   // to vikunja.io, nor the word in a description.
