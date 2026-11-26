@@ -32,7 +32,9 @@
 
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 const https = require('https');
+const net = require('net');
 const dns = require('dns');
 const os = require('os');
 const crypto = require('crypto');
@@ -1046,15 +1048,35 @@ async function routerHost() {
   return routerAddress;
 }
 
-/** GET a page of a local DDEV site through the router (from this machine or from inside a container). */
+/**
+ * How a page of a project's site is asked for: a DDEV site (https://<name>.ddev.site) through DDEV's router, from this
+ * machine or from inside a container; any other address (the port of a project of Docker Compose or Podman, a node's
+ * address on Kubernetes, Docksal's host name) directly, over its own scheme and port. TLS is given a server name only
+ * for a name: it refuses an IP address as one ("Setting the TLS ServerName to an IP address is not permitted").
+ */
+function siteRequest(u, router, timeoutMs) {
+  const viaRouter = u.protocol === 'https:' && /\.ddev\.site$/i.test(u.hostname);
+  const hostname = u.hostname.replace(/^\[|\]$/g, '');
+  const secure = u.protocol === 'https:';
+  const options = {
+    host: viaRouter ? router : hostname,
+    port: viaRouter ? 443 : Number(u.port || (secure ? 443 : 80)),
+    method: 'GET', path: `${u.pathname}${u.search}`, timeout: timeoutMs,
+    headers: { Host: u.host, 'User-Agent': 'Mozilla/5.0 (compatible; Webship Workspace)', Accept: 'text/html' },
+  };
+  if (secure) {
+    options.rejectUnauthorized = false;
+    if (!net.isIP(hostname)) options.servername = hostname;
+  }
+  return { secure, options };
+}
+
+/** GET a page of a project's site: a DDEV site through its router, another address directly (siteRequest). */
 async function fetchSitePage(url, { hops = 3, timeoutMs = 12000 } = {}) {
   const u = new URL(url);
-  const host = await routerHost();
+  const { secure, options } = siteRequest(u, /\.ddev\.site$/i.test(u.hostname) ? await routerHost() : '', timeoutMs);
   const res = await new Promise((resolve, reject) => {
-    const req = https.request({
-      host, port: 443, method: 'GET', path: `${u.pathname}${u.search}`, servername: u.hostname, rejectUnauthorized: false, timeout: timeoutMs,
-      headers: { Host: u.hostname, 'User-Agent': 'Mozilla/5.0 (compatible; Webship Workspace)', Accept: 'text/html' },
-    }, (r) => {
+    const req = (secure ? https : http).request(options, (r) => {
       const parts = []; let size = 0;
       r.on('data', (d) => { size += d.length; if (size <= 2 * 1024 * 1024) parts.push(d); else r.destroy(); });
       const done = () => resolve({ status: r.statusCode, headers: r.headers, html: Buffer.concat(parts).toString('utf8') });
@@ -1103,11 +1125,14 @@ function detectPacks(page, packs) {
  *  Next.js (a Payload app) would otherwise be offered the Next.js pack beside the one its platform plugin added.
  *  An installed pack the list does not know (a tarball added before the pack is listed) counts as a platform
  *  pack. Extensions of a platform (WooCommerce on WordPress) and packs for any site (Bootstrap) are still offered. */
-async function suggestFor(projectDir, { list, fetchPage = fetchSitePage } = {}) {
-  const host = projectHost(projectDir);
-  if (!host) return { host: '', hits: [], error: 'no DDEV project name' };
+async function suggestFor(projectDir, { list, fetchPage = fetchSitePage, url = '' } = {}) {
+  // The project's own address when the caller knows it (the runtime's, as its row shows it: rt_url), else its DDEV one.
+  const ddev = projectHost(projectDir);
+  const address = /^https?:\/\/[^/\s]+/i.test(url || '') ? new URL(url).origin : (ddev ? `https://${ddev}` : '');
+  if (!address) return { host: '', hits: [], error: 'no address for the project (no --url, and no DDEV project name)' };
+  const host = new URL(address).host;
   let page;
-  try { page = await fetchPage(`https://${host}/`); } catch (e) { return { host, hits: [], error: String((e && e.message) || e) }; }
+  try { page = await fetchPage(`${address}/`); } catch (e) { return { host, hits: [], error: String((e && e.message) || e) }; }
   const has = projectState(projectDir).packs;
   const kindOf = (name) => { const p = (list || []).find((x) => x.name === name); return p ? p.kind : 'platform'; };
   const hasPlatform = Object.keys(has).some((name) => kindOf(name) === 'platform');
@@ -1266,7 +1291,7 @@ async function main(argv) {
     return status;
   }
   if (verb === 'suggest') {
-    const s = await suggestFor(dir, { list: list.packs });
+    const s = await suggestFor(dir, { list: list.packs, url: opt('url') });
     for (const h of s.hits) {
       say(`  This site looks like ${h.pack.title} (${h.evidence}). The pack that fits: ${h.pack.name}`);
       say(`    ${h.pack.summary}`);
@@ -1285,7 +1310,7 @@ module.exports = {
   objectKeys, readCucumber, projectSettings, readmeSettings, settingsToFill, globFor, readmeOf, packConfigOf,
   projectState, notInstalled, profileFor, placeFor, featureFiles,
   addPack, removePack, copyExamples, EXAMPLE_FILE_DIRS, localPack, localPackFile, LOCAL_DIR,
-  projectHost, fetchSitePage, detectPacks, suggestFor,
+  projectHost, siteRequest, fetchSitePage, detectPacks, suggestFor,
   main,
 };
 
