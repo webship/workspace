@@ -405,6 +405,14 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<meta name="leantime-version" content="3.17.0">'), ['leantime']);
   assert.ok(!hits('<a href="https://leantime.io">Leantime</a>').includes('leantime'), 'a link to it is not the site');
   assert.ok(!hits('<meta name="description" content="Leantime">').includes('leantime'), 'its site name, which a site may change, is not enough');
+  // Vikunja: the page of its web app, the same at every address, sets window.CUSTOM_LOGO_URL and tells a browser without
+  // JavaScript that Vikunja needs it (2026-11-26, read on the plugin's own Vikunja 2.8.0 site); not a page that only links
+  // to vikunja.io, nor the word in a description.
+  assert.deepStrictEqual(hits("<script>\n\twindow.SENTRY_ENABLED = false\n\twindow.CUSTOM_LOGO_URL = ''\n\twindow.CUSTOM_LOGO_URL_DARK = ''\n</script>"), ['vikunja']);
+  assert.deepStrictEqual(hits("<noscript>\n\t<strong>We're sorry but Vikunja doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>\n</noscript>"), ['vikunja']);
+  assert.ok(!hits('<a href="https://vikunja.io">Vikunja</a>').includes('vikunja'), 'a link to it is not the site');
+  assert.ok(!hits('<meta name="description" content="Vikunja (/vɪˈkuːnjə/) - The to-do app to organize your life.">').includes('vikunja'), 'the word in a description is not enough');
+  assert.ok(!hits("<script>window.CUSTOM_LOGO_URL_DARK = ''</script>").includes('vikunja'), 'only the light logo\'s own setting');
   // Redmine: the meta tags its layout gives every page, its description and its keywords (2026-11-25); not the word in a
   // page that only links to it.
   assert.deepStrictEqual(hits('<meta name="description" content="Redmine" />\n<meta name="keywords" content="issue,bug,tracker" />'), ['redmine']);

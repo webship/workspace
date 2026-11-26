@@ -46,6 +46,7 @@
         ["gitea", "Gitea and Forgejo", "One plugin for both forges: a builder, the forge for your own instance, its issues as work items"],
         ["plane", "Plane", "A builder for Plane sites (Community Edition) with a sample project and cycle; its work items as work items"],
         ["leantime", "Leantime", "A builder for Leantime sites with a sample project and sprint; its tasks as work items"],
+        ["vikunja", "Vikunja", "A builder for Vikunja sites with a sample project and its board; its tasks as work items"],
         ["roundcube", "Roundcube", "A builder for Roundcube webmails with a test mail server, sample mail and contacts, and its tool"],
         ["django", "Django", "A builder for Django projects with the admin, and the manage tool"],
         ["nextjs", "Next.js", "A builder for Next.js apps (the Learn course or the default app), and its CLI tool"],
