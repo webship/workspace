@@ -137,14 +137,36 @@ test('a plugin\'s export that writes nothing fails the backup, and leaves no emp
   assert.ok(!fs.existsSync(path.join(dir, 'e-db.fakedump')));
 });
 
-test('an export DDEV cannot finish fails the backup, and leaves no empty dump', () => {
+test('an export DDEV cannot finish fails the backup, and leaves no dump, empty or cut short, unless it was there before', () => {
   const dir = sandbox();
-  // The stand-in ddev of this test starts the dump and fails, as DDEV does when the database is not there.
-  fs.writeFileSync(path.join(dir, 'bin', 'ddev'), `#!/usr/bin/env bash\necho "ddev $*" >> "${dir}/calls.log"\nfor a in "$@" ; do case "$a" in --file=*) : > "\${a#--file=}" ;; esac ; done\nexit 1\n`, { mode: 0o755 });
+  // The stand-in ddev of this test writes part of a dump and fails, as DDEV does when the export breaks off.
+  fs.writeFileSync(path.join(dir, 'bin', 'ddev'), `#!/usr/bin/env bash\necho "ddev $*" >> "${dir}/calls.log"\nfor a in "$@" ; do case "$a" in --file=*) printf 'partial dump' > "\${a#--file=}" ;; esac ; done\nexit 1\n`, { mode: 0o755 });
   const p = ddevProject(dir, 'broken', 'name: broken\ntype: drupal11\n');
   const r = run(dir, p, `export_project_db "${dir}/b-db" ; echo "status=$? file=[$PROJECT_DB_FILE]"`, { plugin: false });
   assert.match(r.out, /status=1 file=\[\]/);
-  assert.ok(!fs.existsSync(path.join(dir, 'b-db.sql.gz')), 'no empty dump');
+  assert.ok(!fs.existsSync(path.join(dir, 'b-db.sql.gz')), 'no cut-short dump for the Import panel to list');
+  // A file that was there before the call is not the call's to remove.
+  fs.writeFileSync(path.join(dir, 'kept-db.sql.gz'), 'an older dump');
+  run(dir, p, `export_project_db "${dir}/kept-db"`, { plugin: false });
+  assert.ok(fs.existsSync(path.join(dir, 'kept-db.sql.gz')), 'the file that was there stays');
+});
+
+test('a platform\'s own hook that calls ddev export-db reaches DDEV once, never itself', () => {
+  const dir = sandbox();
+  const p = ddevProject(dir, 'both', 'name: both\ntype: drupal11\n', { 'config.fakep.yaml': '' });
+  // A platform that keeps a database of its own beside DDEV's, and dumps DDEV's too, through the workspace's ddev.
+  const both = 'fakep_export_db() { echo "fake export $1" >> "${CALLS}" ; ddev export-db --file="$1.ddev.sql.gz" || return 1 ; echo "FAKE DUMP" > "$1" ; }';
+  const r = run(dir, p, `${both}\nexport_project_db "${dir}/both-db" ; echo "status=$?" ; ddev export-db --file=${dir}/again.dump ; echo "verb status=$?"`);
+  assert.match(r.out, /status=0/);
+  assert.match(r.out, /verb status=0/);
+  assert.deepStrictEqual(r.calls, [
+    `fake export ${dir}/both-db.fakedump`,
+    `ddev export-db --file=${dir}/both-db.fakedump.ddev.sql.gz`,
+    `fake export ${dir}/again.dump`,
+    `ddev export-db --file=${dir}/again.dump.ddev.sql.gz`,
+  ], 'DDEV\'s export once for each, and the plugin once for each');
+  // Outside the hook, the mark is gone: the next verb asks the plugin again.
+  assert.doesNotMatch(run(dir, p, 'echo "mark=[${RT_DB_HOOK_ACTIVE:-}]"').out, /mark=\[1\]/);
 });
 
 test('every backup script backs the database up through export_project_db', () => {

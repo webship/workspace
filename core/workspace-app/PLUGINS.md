@@ -487,6 +487,10 @@ and put it back, and every one of those asks it first, on every runtime (webship
 | `<name>_import_db <file>` | `ddev import-db --file=<file>`, `import_project_db`: the row's Import, a clone | Puts `<file>` back as the project's database: it checks the dump is whole first and touches nothing when it is not, says what it replaces, and reads both of the formats its export writes. |
 | `<name>_db_extension` | `export_project_db`, the row's Import list | Optional: the extension of the platform's own dumps, with its dot (`.dump`). Without it they are `.sql.gz`. |
 
+While a platform's own `<name>_export_db` or `<name>_import_db` runs, `ddev export-db` and `ddev import-db`
+are DDEV's (or the runtime layer's) own: the hook is not asked again (`RT_DB_HOOK_ACTIVE`), so a platform
+that keeps a database of its own beside DDEV's can dump that one too, and never calls itself back.
+
 Without these, everything is as it was. A project with no database at all (DDEV's `db` omitted, or the
 runtime's database `none`) and no hook is backed up without one: the backup says so, archives the folder
 and succeeds. The row's Import lists, for a platform that keeps its database, that project's own dumps

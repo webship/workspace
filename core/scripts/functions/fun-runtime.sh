@@ -378,6 +378,7 @@ function ddev() {
   local rt rc ; rt="$(runtime_of)" ;
   # A platform whose plugin keeps the project's database its own way answers export-db and import-db itself, on every
   # runtime, DDEV's too (#937, fun-project-db.sh): 125 is "no plugin keeps it", and then the verb is what it always was.
+  # Inside the plugin's own function (RT_DB_HOOK_ACTIVE) the verbs are DDEV's or the runtime layer's: no call back.
   case "${1:-}" in
     export-db|import-db)
       if declare -F rt_db_hook > /dev/null ; then

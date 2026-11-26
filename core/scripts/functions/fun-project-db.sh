@@ -79,9 +79,9 @@ function export_project_db() {
     echo "export_project_db: where to write the dump (its path, without the extension)." >&2 ;
     return 1 ;
   fi
-  if p="$(rt_db_platform)" ; then
+  if [ -z "${RT_DB_HOOK_ACTIVE:-}" ] && p="$(rt_db_platform)" ; then
     file="${base}$(rt_db_extension "${p}")" ;
-    "${p}_export_db" "${file}" || { rm -f "${file}" ; return 1 ; } ;
+    RT_DB_HOOK_ACTIVE=1 "${p}_export_db" "${file}" || { rm -f "${file}" ; return 1 ; } ;
     if [ ! -s "${file}" ] ; then
       echo "The ${p} plugin wrote no dump to ${file}." >&2 ;
       rm -f "${file}" ;
@@ -95,9 +95,12 @@ function export_project_db() {
     return 0 ;
   fi
   file="${base}.sql.gz" ;
+  local existed='no' ;
+  [ -e "${file}" ] && existed='yes' ;
   if ! ddev export-db --file="${file}" ; then
-    # A dump DDEV began and did not finish is not left behind for a restore to import.
-    [ -s "${file}" ] || rm -f "${file}" ;
+    # A dump DDEV began and did not finish, empty or cut short, is not left behind for a restore to import (the
+    # Import panel lists every .sql.gz); a file that was there before the call is not this call's to remove.
+    [ "${existed}" = 'yes' ] || rm -f "${file}" ;
     return 1 ;
   fi
   PROJECT_DB_FILE="${file}" ;
@@ -111,8 +114,8 @@ function import_project_db() {
     echo "import_project_db: no such dump: ${file}" >&2 ;
     return 1 ;
   fi
-  if p="$(rt_db_platform)" ; then
-    "${p}_import_db" "${file}" ;
+  if [ -z "${RT_DB_HOOK_ACTIVE:-}" ] && p="$(rt_db_platform)" ; then
+    RT_DB_HOOK_ACTIVE=1 "${p}_import_db" "${file}" ;
     return $? ;
   fi
   if ! rt_has_db ; then
@@ -124,10 +127,13 @@ function import_project_db() {
 
 # The hook of the runtime layer's `ddev` function: `ddev export-db` and `ddev import-db` of a project whose platform's
 # plugin keeps its database go to that plugin, on every runtime. Returns 125 when no plugin keeps it, and the caller
-# then does what it always did.
+# then does what it always did. While the plugin's own function runs, RT_DB_HOOK_ACTIVE is set and the `ddev` function
+# does not ask the hook again: a plugin that keeps its database beside DDEV's can dump that one too with `ddev
+# export-db`, which is then DDEV's (or the runtime layer's) own, not a call back into itself.
 function rt_db_hook() {
-  local verb="$1" p file ;
+  local verb="$1" p file rc ;
   shift ;
+  [ -n "${RT_DB_HOOK_ACTIVE:-}" ] && return 125 ;
   p="$(rt_db_platform)" || return 125 ;
   file="$(rt_file_arg "$@")" ;
   if [ -z "${file}" ] ; then
@@ -135,8 +141,9 @@ function rt_db_hook() {
     return 1 ;
   fi
   case "${verb}" in
-    export-db) "${p}_export_db" "${file}" ;;
-    import-db) "${p}_import_db" "${file}" ;;
+    export-db) RT_DB_HOOK_ACTIVE=1 "${p}_export_db" "${file}" ; rc=$? ;;
+    import-db) RT_DB_HOOK_ACTIVE=1 "${p}_import_db" "${file}" ; rc=$? ;;
     *) return 125 ;;
   esac
+  return "${rc}" ;
 }
