@@ -34,7 +34,7 @@ names the file of each pack.
   (Simple Icons has no Leantime icon). Leantime and its logo are Leantime's; it names the software the pack tests.
 - `kanboard.svg`: the icon Kanboard 1.2.58 ships (`assets/img/inkscape-optimized-icon.svg`, MIT), unmodified (Simple
   Icons has no Kanboard icon). Kanboard and its logo are Kanboard's; it names the software the pack tests.
-- `wekan.svg`: Wekan's own logo, `public/wekan-logo.svg` of wekan/wekan at v13.33 (MIT), unmodified (Simple Icons has
+- `wekan.png`: the app icon Wekan 13.33 ships (`public/android-chrome-192x192.png`, MIT), unmodified (Simple Icons has
   no Wekan icon). Wekan and its logo are Wekan's; it names the software the pack tests.
 
 A pack with no logo here shows the one its own package ships (`assets/logo.svg` or `.png`), and a puzzle piece
