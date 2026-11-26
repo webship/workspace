@@ -479,6 +479,15 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<body data-sveltekit-preload-data="hover"><div style="display: contents"><h1>About this app</h1></div></body>'), ['svelte']);
   assert.deepStrictEqual(hits('<script src="/js/my_app/immutable/entry/start.js"></script>'), []);
   assert.ok(!hits('<a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a>').includes('svelte'), 'a link to the project is not an app');
+  // Vue (2026-11-26, read on Nuxt 4.7.0's official starter, the pack's demo and the Nuxt Hacker News app): the payload
+  // Nuxt writes into every page it serves, a page drawn in the browser only too, or a script of its build folder with
+  // the build's own file name; not a folder whose name only looks like it, and not a link to the project.
+  assert.deepStrictEqual(hits('<script type="application/json" data-nuxt-data="nuxt-app" data-ssr="true" id="__NUXT_DATA__">[]</script>'), ['vue']);
+  assert.deepStrictEqual(hits('<script type="application/json" data-nuxt-data="nuxt-app" data-ssr="false" id="__NUXT_DATA__">[]</script>'), ['vue']);
+  assert.deepStrictEqual(hits('<script type="module" src="/_nuxt/foO3jVOy.js" crossorigin></script>'), ['vue']);
+  assert.deepStrictEqual(hits('<link rel="modulepreload" as="script" crossorigin href="/app/_nuxt/DWbU_yTX.js">'), ['vue']);
+  assert.deepStrictEqual(hits('<script src="/js/my_nuxt/app.js"></script><div id="__NUXT_DATA__x"></div>'), []);
+  assert.ok(!hits('<a href="https://nuxt.com/docs">nuxt.com/docs</a>').includes('vue'), 'a link to the project is not an app');
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
   assert.deepStrictEqual(hits('<html><body>Hello</body></html>'), []);
 

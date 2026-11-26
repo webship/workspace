@@ -56,7 +56,8 @@
         ["discourse", "Discourse", "A builder for Discourse forums, installed the official way, and the forum's Rails tool"],
         ["payload", "Payload", "A builder for Payload apps (the website or the blank template) on PostgreSQL, and the payload tool"],
         ["flutter", "Flutter", "A builder for Flutter web apps, new or from a repository, with the SDK in their own container"],
-        ["svelte", "Svelte", "A builder for SvelteKit apps, new or from a repository, with Node.js in their own container"]
+        ["svelte", "Svelte", "A builder for SvelteKit apps, new or from a repository, with Node.js in their own container"],
+        ["vue", "Vue", "A builder for Nuxt apps, new or from a repository, with Node.js in their own container"]
       ]
     },
     {
