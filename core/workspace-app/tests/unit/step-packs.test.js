@@ -469,6 +469,16 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<script src="/js/my_flutter_bootstrap.js.map"></script>'), []);
   assert.deepStrictEqual(hits('<script src="/js/notflutter.js"></script>'), []);
   assert.ok(!hits('<a href="https://flutter.dev">Flutter</a>').includes('flutter'), 'a link to the project is not an app');
+  // Svelte (2026-11-26, read on the demo of the create tool, SvelteKit 3.4): the start script of a page the app takes
+  // over (absolute or relative, as the app's paths say), the global the app starts from, or the preloading attribute
+  // of the app's template, which a page built without client-side code keeps too; not a folder whose name only ends
+  // like the app's, and not a link to the project.
+  assert.deepStrictEqual(hits('<link href="/_app/immutable/entry/start.BxV0i3Qe.js" rel="modulepreload">'), ['svelte']);
+  assert.deepStrictEqual(hits('<link href="../_app/immutable/entry/start.BxV0i3Qe.js" rel="modulepreload">'), ['svelte']);
+  assert.deepStrictEqual(hits('<script>{ __sveltekit_1ab2cd3 = { base: new URL(".", location).pathname.slice(0, -1) }; }</script>'), ['svelte']);
+  assert.deepStrictEqual(hits('<body data-sveltekit-preload-data="hover"><div style="display: contents"><h1>About this app</h1></div></body>'), ['svelte']);
+  assert.deepStrictEqual(hits('<script src="/js/my_app/immutable/entry/start.js"></script>'), []);
+  assert.ok(!hits('<a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a>').includes('svelte'), 'a link to the project is not an app');
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
   assert.deepStrictEqual(hits('<html><body>Hello</body></html>'), []);
 
