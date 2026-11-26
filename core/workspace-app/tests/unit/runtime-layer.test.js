@@ -166,6 +166,26 @@ test('podman: the same compose file, run with podman compose', () => {
   assert.deepStrictEqual(r.calls, ['podman compose up -d --build --wait', 'podman compose exec -T -u www-data -w /var/www/html web composer install']);
 });
 
+test('a project by its name, from outside its folder: Docker\'s through docker compose, Podman\'s through podman compose (#935)', () => {
+  const dir = sandbox();
+  const out = path.join(dir, 'elsewhere'); fs.mkdirSync(out);
+  for (const rt of ['docker', 'podman']) {
+    const r = run(dir, out, 'ddev describe mysite ; ddev delete mysite -y -O', { WORKSPACE_RUNTIME: rt });
+    assert.deepStrictEqual(r.calls, [`${rt} compose -p mysite ps -q`, `${rt} compose -p mysite down -v --remove-orphans`], rt);
+  }
+});
+
+test('drop_database on Podman: the project of the same name goes with its volumes, through podman compose (#935)', () => {
+  const dir = sandbox();
+  // This Podman has the project: asked for its containers, it names one.
+  fs.writeFileSync(path.join(dir, 'bin', 'podman'), `#!/usr/bin/env bash\necho "podman $*" >> "${dir}/calls.log"\ncase "$*" in *" ps -q") echo 0123456789ab ;; esac\n`, { mode: 0o755 });
+  const sites = path.join(dir, 'sites'); fs.mkdirSync(sites);
+  const r = run(dir, sites, `source ${SCRIPTS}/functions/fun-database.sh; PROJECT_NAME=mysite drop_database`, { WORKSPACE_RUNTIME: 'podman' });
+  assert.strictEqual(r.status, 0, r.out);
+  assert.deepStrictEqual(r.calls.filter((c) => c.startsWith('podman ')), ['podman compose -p mysite ps -q', 'podman compose -p mysite down -v --remove-orphans']);
+  assert.ok(!r.calls.some((c) => c.startsWith('docker compose')), `Docker is never asked for a Podman project:\n${r.calls.join('\n')}`);
+});
+
 test('drupal on a container runtime: settings.php includes the runtime\'s database file, with no $databases in settings.php', () => {
   const dir = sandbox();
   const p = path.join(dir, 'd4'); const sd = path.join(p, 'web', 'sites', 'default'); fs.mkdirSync(sd, { recursive: true });
