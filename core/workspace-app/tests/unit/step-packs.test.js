@@ -412,6 +412,14 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.ok(!hits('<a href="https://kanboard.org">Kanboard</a>').includes('kanboard'), 'a link to it is not the site');
   assert.ok(!hits('<meta name="description" content="Kanboard">').includes('kanboard'), 'the word in a description is not enough');
   assert.ok(!hits('<body data-status-url="/api/status">').includes('kanboard'), 'another app\'s status address');
+  // Wekan: every page loads the stylesheets of Wekan's own Meteor packages, the sign-in form a visitor gets included
+  // (2026-11-26, read on the plugin's own Wekan 13.33 site); not a page that only links to wekan.fi, the word in a
+  // description, nor another Meteor app's packages.
+  assert.deepStrictEqual(hits('<link rel="stylesheet" type="text/css" class="__meteor-css__" href="/packages/wekan-accounts-saml/saml_login_button.css?hash=b337bc47d874f2fd0bd77d49a195c08210c071a0">'), ['wekan']);
+  assert.deepStrictEqual(hits('<link rel="stylesheet" type="text/css" class="__meteor-css__" href="/boards/packages/wekan-fontawesome/fontawesome-free/css/all.css?hash=1">'), ['wekan'], 'a site under a path');
+  assert.ok(!hits('<a href="https://wekan.fi">Wekan</a>').includes('wekan'), 'a link to it is not the site');
+  assert.ok(!hits('<meta name="description" content="Wekan">').includes('wekan'), 'the word in a description is not enough');
+  assert.ok(!hits('<link rel="stylesheet" type="text/css" class="__meteor-css__" href="/packages/accounts-ui/login_buttons.css">').includes('wekan'), 'another Meteor app\'s packages');
   // Vikunja: the page of its web app, the same at every address, sets window.CUSTOM_LOGO_URL and tells a browser without
   // JavaScript that Vikunja needs it (2026-11-26, read on the plugin's own Vikunja 2.8.0 site); not a page that only links
   // to vikunja.io, nor the word in a description.

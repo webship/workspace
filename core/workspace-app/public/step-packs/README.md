@@ -37,6 +37,8 @@ names the file of each pack.
 - `vue.svg`: the Vue logo, `logo.svg` of github.com/vuejs/art, unmodified. The Vue logo is the Vue team's, designed
   by Evan You, from github.com/vuejs/art, under CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/).
   It is not covered by the Workspace's licence.
+- `wekan.png`: the app icon Wekan 13.33 ships (`public/android-chrome-192x192.png`, MIT), unmodified (Simple Icons has
+  no Wekan icon). Wekan and its logo are Wekan's; it names the software the pack tests.
 
 A pack with no logo here shows the one its own package ships (`assets/logo.svg` or `.png`), and a puzzle piece
 when there is none.
