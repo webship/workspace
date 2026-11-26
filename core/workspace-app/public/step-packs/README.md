@@ -34,6 +34,9 @@ names the file of each pack.
   (Simple Icons has no Leantime icon). Leantime and its logo are Leantime's; it names the software the pack tests.
 - `kanboard.svg`: the icon Kanboard 1.2.58 ships (`assets/img/inkscape-optimized-icon.svg`, MIT), unmodified (Simple
   Icons has no Kanboard icon). Kanboard and its logo are Kanboard's; it names the software the pack tests.
+- `vue.svg`: the Vue logo, `logo.svg` of github.com/vuejs/art, unmodified. The Vue logo is the Vue team's, designed
+  by Evan You, from github.com/vuejs/art, under CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/).
+  It is not covered by the Workspace's licence.
 - `wekan.png`: the app icon Wekan 13.33 ships (`public/android-chrome-192x192.png`, MIT), unmodified (Simple Icons has
   no Wekan icon). Wekan and its logo are Wekan's; it names the software the pack tests.
 
