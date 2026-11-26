@@ -420,6 +420,14 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.ok(!hits('<a href="https://wekan.fi">Wekan</a>').includes('wekan'), 'a link to it is not the site');
   assert.ok(!hits('<meta name="description" content="Wekan">').includes('wekan'), 'the word in a description is not enough');
   assert.ok(!hits('<link rel="stylesheet" type="text/css" class="__meteor-css__" href="/packages/accounts-ui/login_buttons.css">').includes('wekan'), 'another Meteor app\'s packages');
+  // Taiga: every page is the front end's one page, which sets window.TAIGA_VERSION in its head, at the root or under a
+  // path (2026-11-26, read on the plugin's own Taiga 6.10 site); not a page that only links to taiga.io, nor the words of
+  // its description, nor another app's own version variable.
+  assert.deepStrictEqual(hits("<script type=\"text/javascript\">\n      window.prerenderReady = false;\n      window.TAIGA_VERSION = 'v-1778767629306';\n</script>"), ['taiga']);
+  assert.deepStrictEqual(hits("<base href=\"/taiga/\"><link rel=\"stylesheet\" href=\"v-1778767629306/styles/theme-taiga.css\"><script>window.TAIGA_VERSION = 'v-1778767629306';</script>"), ['taiga'], 'a site under a path');
+  assert.ok(!hits('<a href="https://taiga.io">Taiga</a>').includes('taiga'), 'a link to it is not the site');
+  assert.ok(!hits('<meta name="description" content="Taiga is a project management platform for startups and agile developers">').includes('taiga'), 'the words of its description are not enough');
+  assert.ok(!hits("<script>window.APP_VERSION = 'v-1778767629306';</script>").includes('taiga'), 'another app\'s version variable');
   // Vikunja: the page of its web app, the same at every address, sets window.CUSTOM_LOGO_URL and tells a browser without
   // JavaScript that Vikunja needs it (2026-11-26, read on the plugin's own Vikunja 2.8.0 site); not a page that only links
   // to vikunja.io, nor the word in a description.
