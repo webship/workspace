@@ -65,7 +65,8 @@ before(async () => {
   standIn('docker', `echo "docker $*" >> "${root}/calls.log"
 case "$*" in "compose ls"*)
   if [ -f "${flags}/docker-stopped" ] ; then st="exited(3)" ; else st="running(3)" ; fi
-  echo "[{\\"Name\\":\\"dock-site\\",\\"Status\\":\\"$st\\",\\"ConfigFiles\\":\\"${dev('dock-site', 'compose.yaml')}\\"},{\\"Name\\":\\"ddev-other\\",\\"Status\\":\\"running(2)\\",\\"ConfigFiles\\":\\"/x/.ddev/c.yaml\\"}]" ;;
+  extra="" ; [ -f "${flags}/platform-sites" ] && for n in fapi-site ng-site static-site ; do extra="$extra{\\"Name\\":\\"$n\\",\\"Status\\":\\"running(2)\\",\\"ConfigFiles\\":\\"${root}/dev/$n/compose.yaml\\"}," ; done
+  echo "[$extra{\\"Name\\":\\"dock-site\\",\\"Status\\":\\"$st\\",\\"ConfigFiles\\":\\"${dev('dock-site', 'compose.yaml')}\\"},{\\"Name\\":\\"ddev-other\\",\\"Status\\":\\"running(2)\\",\\"ConfigFiles\\":\\"/x/.ddev/c.yaml\\"}]" ;;
 esac`);
   standIn('podman', `echo "podman $*" >> "${root}/calls.log"\necho '[]'`);
   // kubectl: the cluster hangs while flags/kube-hangs is there; the web Deployment is scaled to 0 otherwise.
@@ -81,11 +82,21 @@ esac`);
   standIn('screen', `case "$1" in --version) echo "Screen version 4.09 (stand-in)" ;; -ls) echo "No Sockets found." ; exit 1 ;;
   *) while [ $# -gt 0 ] ; do if [ "$1" = "-lc" ] ; then echo "$2" >> "${root}/screen.log" ; fi ; shift ; done ;; esac`);
 
+  // project-db.sh describe: a platform that keeps its database (fakep) and a claim that keeps none, for the #942
+  // test's sites; every other folder gets the real script's answer. Each folder asked is written down.
+  standIn('project-db', `echo "$(basename "$PWD")" >> "${root}/project-db.log"
+case "$(basename "$PWD")" in
+  fapi-site) echo '{"platform": "fakep", "extension": ".dump", "database": true}' ;;
+  ng-site) echo '{"platform": null, "extension": ".sql.gz", "database": false}' ;;
+  *) exec bash "${root}/core/scripts/project-db.sh" "$@" ;;
+esac`);
+
   fs.writeFileSync(path.join(flags, 'kube-hangs'), '');
   const port = await free();
   base = `http://127.0.0.1:${port}`;
   proc = spawn(process.execPath, ['server.js'], { cwd: APP,
     env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, PORT: String(port), WORKSPACE_ROOT: root, WORKSPACE_PLUGINS_NO_RESTART: '1',
+      WORKSPACE_PROJECT_DB_SCRIPT: path.join(bin, 'project-db'),
       WORKSPACE_RUNTIME_TIMEOUT_MS: '800', WORKSPACE_KUBE_CONTEXT: '', WORKSPACE_KIND_CLUSTER: '' },
     stdio: ['ignore', 'pipe', 'pipe'] });
   await new Promise((resolve, reject) => {
@@ -476,4 +487,54 @@ test('two imports through the dashboard name two exports, and an undo with the n
   assert.notStrictEqual(exportOf(line), two, line);
   assert.ok(line.includes(`' import-db '--file=${two}'`), line);
   assert.strictEqual(fs.readFileSync(two, 'utf8'), 'the database as it was');
+});
+
+test('a runtime row offers Export and Import when its runtime or its platform keeps a database, and neither when none does (#942)', async () => {
+  // Three running Docker sites whose runtime has no database: one whose platform's plugin keeps one (fakep, #937),
+  // one claimed by a platform that keeps none, one claimed by none. Made here and removed after, so the other tests'
+  // rows stay as they are.
+  const platformSite = (name, platform) => {
+    fs.mkdirSync(dev(name), { recursive: true });
+    fs.writeFileSync(dev(name, 'compose.yaml'), `name: ${name}\nx-webship:\n  runtime: docker\n  stack: generic\n  type: generic\n  docroot: ""\n  database: none\n${platform ? `  platform: ${platform}\n` : ''}  port: 41009\nservices:\n  web:\n    image: webship-${name}-web\n`);
+  };
+  platformSite('fapi-site', 'fakep');
+  platformSite('ng-site', 'ngish');
+  platformSite('static-site', '');
+  fs.writeFileSync(path.join(flags, 'platform-sites'), '');
+  fs.rmSync(path.join(root, 'project-db.log'), { force: true });
+  try {
+    await forget();
+    const menu = async (name) => {
+      const r = await text(`/fragments/row-menu/runtime/dev/${name}`);
+      assert.strictEqual(r.status, 200, name);
+      assert.match(r.html, /hx-post="\/actions\/runtime-stop"/, `${name} runs`);
+      return r.html;
+    };
+    const fapi = await menu('fapi-site');
+    assert.match(fapi, /hx-post="\/actions\/runtime-export-db"[^>]*>[\s\S]*?Export the database<\/a>/, 'the platform\'s database is exported');
+    assert.match(fapi, /<li data-entry="import"><a href hx-get="\/fragments\/projects\/import-db\/dev\/fapi-site"[\s\S]*?Import a database…<\/a>/, 'and imported');
+    for (const name of ['ng-site', 'static-site']) {
+      const html = await menu(name);
+      assert.doesNotMatch(html, /runtime-export-db|Export the database|data-entry="import"|Import a database/, `${name} keeps no database`);
+      assert.match(html, /hx-post="\/actions\/backup"/, `${name}: the folder is still backed up`);
+    }
+    // The shell is asked only where the files cannot answer: a claimed site whose runtime has no database.
+    const asked = fs.readFileSync(path.join(root, 'project-db.log'), 'utf8').trim().split('\n');
+    assert.ok(asked.includes('fapi-site') && asked.includes('ng-site'), asked.join(' '));
+    assert.ok(!asked.includes('static-site'), 'a site no platform claims is answered by its files');
+    // A row counts the commands its menu has, from the shell's last answer, without asking it again.
+    const before = asked.length;
+    const { html } = await text('/fragments/dev/projects');
+    for (const [name, body] of [['fapi-site', fapi], ['ng-site', await menu('ng-site')]]) {
+      const caption = (rowOf(html, name).match(/row-menu\/runtime\/dev\/[a-z-]+"[\s\S]*?<span class="act-status uk-text-meta">(\d+) commands?<\/span>/) || [])[1];
+      assert.strictEqual(Number(caption), (body.match(/<a /g) || []).length, `${name}: the row's count is its menu's`);
+    }
+    assert.strictEqual(fs.readFileSync(path.join(root, 'project-db.log'), 'utf8').trim().split('\n').length, before, 'the rows asked nothing');
+    // A runtime's own database is still the runtime's: the Docker site offers both, as before.
+    assert.match(await menu('dock-site'), /runtime-export-db[\s\S]*data-entry="import"/);
+  } finally {
+    fs.rmSync(path.join(flags, 'platform-sites'), { force: true });
+    for (const name of ['fapi-site', 'ng-site', 'static-site']) fs.rmSync(dev(name), { recursive: true, force: true });
+    await forget();
+  }
 });

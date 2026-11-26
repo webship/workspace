@@ -495,7 +495,10 @@ Without these, everything is as it was. A project with no database at all (DDEV'
 runtime's database `none`) and no hook is backed up without one: the backup says so, archives the folder
 and succeeds. The row's Import lists, for a platform that keeps its database, that project's own dumps
 in the workspace's backups (its format, and the SQL ones), and takes its export first in the same
-command, as a runtime's import does.
+command, as a runtime's import does. On Docker Compose, Podman and Kubernetes the row's menu offers
+Export and Import when the runtime or the platform keeps a database, and neither when none does
+(webship/workspace#942): for a project the platform claims whose runtime has none, the menu asks the
+hook when it opens.
 
 ## Hooks a feature plugin reaches for
 
