@@ -434,10 +434,13 @@ function testing_steps_install() {
   ddev ${runner} install ;
 }
 
-# A suggestion, never an install: the pack that would fit what the site's front page shows.
+# A suggestion, never an install: the pack that would fit what the site's front page shows. The site is asked at the
+# address its runtime gives it (rt_url, the address on its row): https://<name>.ddev.site on DDEV, a port of this
+# machine on Docker Compose and Podman, a node's address on Kubernetes.
 function testing_steps_suggest() {
-  local project_path="$1" lines;
-  lines="$(timeout 40 node "${TESTING_STEP_PACKS_JS}" suggest "${project_path}" 2>/dev/null)" || return 0 ;
+  local project_path="$1" lines url="";
+  declare -f rt_url > /dev/null && url="$(cd "${project_path}" && rt_url 2>/dev/null)" ;
+  lines="$(timeout 40 node "${TESTING_STEP_PACKS_JS}" suggest "${project_path}" ${url:+"--url=${url}"} 2>/dev/null)" || return 0 ;
   [ -n "${lines}" ] || return 0 ;
   echo "";
   echo "A step pack that would fit this site (a suggestion: nothing is installed):";

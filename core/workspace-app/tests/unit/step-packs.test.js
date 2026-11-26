@@ -532,3 +532,72 @@ test('cmd-tools-testing.sh: the options, and the verbs they reach', () => {
   // A step verb alone does not set the stack up again.
   assert.match(fun, /\[ "\$\{steps\}" == 'no' \]/);
 });
+
+// #919: the suggestion asks the project's own address (rt_url, its row's), over its own scheme.
+test('a page is asked through DDEV\'s router for a DDEV site, and directly at any other address, with a TLS name only for a name (#919)', () => {
+  const req = (url) => sp.siteRequest(new URL(url), 'ddev-router', 5000);
+  let r = req('https://stepsdemo.ddev.site/about?x=1');
+  assert.deepStrictEqual([r.secure, r.options.host, r.options.port, r.options.servername, r.options.path, r.options.headers.Host], [true, 'ddev-router', 443, 'stepsdemo.ddev.site', '/about?x=1', 'stepsdemo.ddev.site']);
+  r = req('http://127.0.0.1:54233/');
+  assert.deepStrictEqual([r.secure, r.options.host, r.options.port, r.options.headers.Host], [false, '127.0.0.1', 54233, '127.0.0.1:54233']);
+  assert.ok(!('servername' in r.options) && !('rejectUnauthorized' in r.options), 'plain HTTP has no TLS options');
+  r = req('https://172.24.0.2:30443/');
+  assert.deepStrictEqual([r.secure, r.options.host, r.options.port], [true, '172.24.0.2', 30443]);
+  assert.ok(!('servername' in r.options), 'TLS is never told an IP address as a server name');
+  assert.strictEqual(req('https://[::1]:8443/').options.host, '::1');
+  assert.ok(!('servername' in req('https://[::1]:8443/').options));
+  r = req('http://shop.docksal.site/');
+  assert.deepStrictEqual([r.secure, r.options.host, r.options.port], [false, 'shop.docksal.site', 80]);
+  assert.strictEqual(req('https://app.example.com/').options.servername, 'app.example.com', 'a name keeps its server name');
+});
+
+test('a page of a site on a port of this machine is read over plain HTTP, a same-host redirect followed (#919)', async () => {
+  const http = require('http');
+  const server = http.createServer((q, s) => {
+    if (q.url === '/') { s.writeHead(302, { location: '/home' }); s.end(); return; }
+    s.writeHead(200, { 'content-type': 'text/html' });
+    s.end(`<link href="./_app/immutable/entry/start.Ab12.js" rel="modulepreload"><p>${q.headers.host}</p>`);
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const { port } = server.address();
+    const page = await sp.fetchSitePage(`http://127.0.0.1:${port}/`);
+    assert.strictEqual(page.status, 200);
+    assert.match(page.html, /start\.Ab12\.js/);
+    assert.match(page.html, new RegExp(`<p>127\\.0\\.0\\.1:${port}</p>`), 'the Host header is the address with its port');
+  } finally {
+    server.close();
+  }
+});
+
+test('the suggestion asks the address it is given (--url), else the DDEV one, and says when it has none (#919)', async () => {
+  const known = sp.knownPacks();
+  const all = [...known.values()].map((m) => sp.describePack({ name: m.name }, known));
+  const site = async (u) => { asked = u; return { status: 200, headers: {}, html: '<meta name="generator" content="WordPress 6.8">' }; };
+  let asked = '';
+  // A project of Docker Compose: no .ddev/, its address from its runtime.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-steps-'));
+  fs.writeFileSync(path.join(dir, 'package.json'), PACKAGE);
+  let s = await sp.suggestFor(dir, { list: all, fetchPage: site, url: 'http://127.0.0.1:54233' });
+  assert.strictEqual(asked, 'http://127.0.0.1:54233/');
+  assert.strictEqual(s.host, '127.0.0.1:54233');
+  assert.deepStrictEqual(s.hits.map((h) => h.pack.short), ['wordpress']);
+  // The address given wins over a .ddev/ the project template may ship.
+  s = await sp.suggestFor(project(), { list: all, fetchPage: site, url: 'http://172.24.0.2:30080/x' });
+  assert.strictEqual(asked, 'http://172.24.0.2:30080/');
+  // Without it, a DDEV site keeps its own address; with neither, nothing is fetched and the reason is said.
+  await sp.suggestFor(project(), { list: all, fetchPage: site });
+  assert.strictEqual(asked, 'https://stepsdemo.ddev.site/');
+  asked = '';
+  s = await sp.suggestFor(dir, { list: all, fetchPage: site });
+  assert.strictEqual(asked, '');
+  assert.deepStrictEqual(s.hits, []);
+  assert.match(s.error, /no address for the project/);
+});
+
+test('the testing setup hands the suggestion the address its runtime gives the project (#919)', () => {
+  const fun = fs.readFileSync(path.join(ROOT, 'core', 'scripts', 'functions', 'fun-testing.sh'), 'utf8');
+  const body = fun.slice(fun.indexOf('function testing_steps_suggest()'), fun.indexOf('\n}\n', fun.indexOf('function testing_steps_suggest()')));
+  assert.match(body, /declare -f rt_url > \/dev\/null && url="\$\(cd "\$\{project_path\}" && rt_url 2>\/dev\/null\)"/);
+  assert.match(body, /suggest "\$\{project_path\}" \$\{url:\+"--url=\$\{url\}"\}/);
+});
