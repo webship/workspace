@@ -471,6 +471,32 @@ and the AI Agents folder for its agents — so it works on a workspace that had 
 workspace folder ships replaces it while the plugin is installed; `--uninstall` puts the folder's
 copy back. `@webship.co/workspace-wordpress` is the shape to copy.
 
+### A platform that keeps its own database
+
+The row's Backup and Restore, the safety dump before a remove and a clone go through DDEV's verbs
+`ddev export-db` and `ddev import-db`: DDEV serves them on a DDEV project and the runtime layer on the
+other runtimes. A platform that keeps its database its own way (a service of its own beside DDEV's
+database, or instead of it: Postgres 18 for a FastAPI app, MongoDB for Wekan) declares how to dump it
+and put it back, and every one of those asks it first, on every runtime (webship/workspace#937,
+`core/scripts/functions/fun-project-db.sh`):
+
+| Function | Called by | What it does |
+| --- | --- | --- |
+| `<name>_is_project <dir>` | the hook, to find the platform of a project | Says whether the project in `<dir>` is one of the platform's own (a platform plugin has it already). |
+| `<name>_export_db <file>` | `ddev export-db --file=<file>` (the runtime layer's `ddev`), `export_project_db`: the backup scripts, the row's export, the export before an import, the safety dump before a remove, a clone | Writes the project's database to `<file>`, in the project's folder. A name ending in `.sql.gz` asks for a gzipped SQL dump; any other name, the platform's own format. |
+| `<name>_import_db <file>` | `ddev import-db --file=<file>`, `import_project_db`: the row's Import, a clone | Puts `<file>` back as the project's database: it checks the dump is whole first and touches nothing when it is not, says what it replaces, and reads both of the formats its export writes. |
+| `<name>_db_extension` | `export_project_db`, the row's Import list | Optional: the extension of the platform's own dumps, with its dot (`.dump`). Without it they are `.sql.gz`. |
+
+While a platform's own `<name>_export_db` or `<name>_import_db` runs, `ddev export-db` and `ddev import-db`
+are DDEV's (or the runtime layer's) own: the hook is not asked again (`RT_DB_HOOK_ACTIVE`), so a platform
+that keeps a database of its own beside DDEV's can dump that one too, and never calls itself back.
+
+Without these, everything is as it was. A project with no database at all (DDEV's `db` omitted, or the
+runtime's database `none`) and no hook is backed up without one: the backup says so, archives the folder
+and succeeds. The row's Import lists, for a platform that keeps its database, that project's own dumps
+in the workspace's backups (its format, and the SQL ones), and takes its export first in the same
+command, as a runtime's import does.
+
 ## Hooks a feature plugin reaches for
 
 Besides the row menus, pages, fragments and actions, the loader offers: `addForge(host, …)` (the

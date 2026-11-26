@@ -43,6 +43,8 @@ const { findGraphifyScript, findRagifyScript } = require('../workspaces');
 const { DDEV_ACTIONS, projectDdevCommands, serialiseRouter, touchesRouter } = require('../ddev');
 const snapshots = require('../ddev-snapshots.mts');
 const ddevImport = require('../ddev-import.mts');
+const projectDb = require('../project-db');
+const { verbLine } = require('../project-runtime');
 
 async function ddev_start({ form, res, send, workspace, pathname }) {
     const projectName = String(form.projectName || '');
@@ -117,18 +119,25 @@ async function ddev_verb({ form, res, send, workspace, pathname }) {
         return send(`<div class="msg error">${esc(projectName)} is not running — start it first.</div>`, 400);
       }
     }
+    let viaLayer = false;
     if (act.toBackups) {
       // A dump belongs in the workspace's backups folder, never in the home directory or
-      // the project itself.
+      // the project itself. It goes through the runtime layer's `ddev` (core/scripts/runtime-verb.sh),
+      // which hands it to the platform's plugin when that plugin keeps the database, in its own
+      // format (webship/workspace#937); on DDEV's own database it is `ddev export-db`, as before.
+      const db = await projectDb.describeProjectDb(projectDir);
+      if (!db.database) return send(`<div class="msg error">${esc(projectName)} has no database to export: it keeps none (its folder is the whole of it).</div>`, 400);
       const outDir = path.join(loadWorkspaces()[workspace].backupsDir);
       try { fs.mkdirSync(outDir, { recursive: true }); } catch (_) { /* reported by ddev */ }
       const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
-      args = [...args, '--gzip', '--file', path.join(outDir, `${projectName}--db--${stamp}.sql.gz`)];
+      args = [...args, '--gzip', shq(`--file=${path.join(outDir, `${projectName}--db--${stamp}${db.extension}`)}`)];
+      viaLayer = true;
     }
     // Before anything destructive: a dump into the workspace's backups folder.
     // `sql:drop` leaves nothing behind, so this is the only copy there will be.
     // && not ; — nothing is dropped unless the dump actually succeeded.
-    let line = `ddev ${args.join(' ')}`;
+    let line = viaLayer ? verbLine(args) : `ddev ${args.join(' ')}`;
+    if (!line) return send('<div class="msg error">Not run: the workspace path has characters a shell line cannot carry safely.</div>', 400);
     if (act.backupFirst) {
       const outDir = path.join(loadWorkspaces()[workspace].backupsDir);
       try { fs.mkdirSync(outDir, { recursive: true }); } catch (_) { /* the session reports it */ }
@@ -165,14 +174,29 @@ async function ddev_import_db({ form, send, workspace }) {
   if (form.confirm !== 'yes') {
     return send('<div class="msg error">Importing replaces every table in the database — it needs confirmation.</div>', 400);
   }
+  const db = await projectDb.describeProjectDb(projectDir);
+  if (!db.database) return send(`<div class="msg error">${esc(projectName)} has no database to import into: it keeps none.</div>`, 400);
   const backupsDir = loadWorkspaces()[workspace].backupsDir;
-  const dump = ddevImport.findDump(backupsDir, form.dump);
+  const own = db.platform ? { project: projectName, extension: db.extension } : null;
+  const dump = ddevImport.findDump(backupsDir, form.dump, own);
   if (!dump) return send('<div class="msg error">No such dump in this workspace\'s backups.</div>', 404);
   const file = path.join(backupsDir, dump.name);
   const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
-  const cmdLine = `echo "Taking a snapshot first…" && ddev snapshot --name before-import-${stamp}`
+  let cmdLine = `echo "Taking a snapshot first…" && ddev snapshot --name before-import-${stamp}`
     + ` && ddev import-db --file ${shq(file)}`
     + ` && echo "Imported ${dump.name}. The database as it was is the snapshot before-import-${stamp}."`;
+  if (db.platform) {
+    // The platform's plugin keeps the database (webship/workspace#937): DDEV has no snapshot of it. Its own export goes
+    // into the backups first, then its import, which checks the dump is whole before it touches anything; both
+    // through the runtime layer's `ddev`, whose hook hands them to the plugin.
+    const before = require('./runtime').beforeImportPath(backupsDir, projectName, dump.name, new Date(), db.extension);
+    const exportLine = verbLine(['export-db', shq(`--file=${before}`)]);
+    const importLine = verbLine(['import-db', shq(`--file=${file}`)]);
+    if (!exportLine || !importLine) return send('<div class="msg error">Not run: the workspace path has characters a shell line cannot carry safely.</div>', 400);
+    cmdLine = `echo "Exporting the database first (the ${db.platform} plugin keeps it)…" && ${exportLine}`
+      + ` && echo "Importing ${dump.name.replace(/[^\w.-]/g, '_')}…" && ${importLine}`
+      + ` && echo "Imported. The database as it was is ${path.basename(before)}, in this workspace's backups."`;
+  }
   const started = await startInScreen({
     workspace, project: projectName, projectDir, verb: 'import-db', cmdLine, label: `ddev import-db ${dump.name}`,
   });

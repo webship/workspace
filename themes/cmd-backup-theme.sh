@@ -19,4 +19,6 @@ trim_project_name ;   # "v11x00b1/" -> "v11x00b1" — see functions/fun-project-
 
 backup_time=$( date '+%Y-%m-%d_%H-%M-%S' );
 tar -cvzf ${backups}/${doc_name}/${doc_name}---${PROJECT_NAME}--${backup_time}.tar.gz ${PROJECT_NAME} ;
-(cd ${PROJECT_NAME} && ddev export-db --file=${backups}/${doc_name}/${doc_name}---${PROJECT_NAME}--${backup_time}-db.sql.gz) ;
+# The database beside the archive (webship/workspace#937): DDEV's export, the runtime's, or the dump of the platform
+# whose plugin keeps the database; a project with no database says so, and its archive is the backup.
+(cd ${PROJECT_NAME} && export_project_db "${backups}/${doc_name}/${doc_name}---${PROJECT_NAME}--${backup_time}-db") ;
