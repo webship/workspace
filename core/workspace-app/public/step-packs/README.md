@@ -39,6 +39,8 @@ names the file of each pack.
   It is not covered by the Workspace's licence.
 - `wekan.png`: the app icon Wekan 13.33 ships (`public/android-chrome-192x192.png`, MIT), unmodified (Simple Icons has
   no Wekan icon). Wekan and its logo are Wekan's; it names the software the pack tests.
+- `taiga.png`: the app icon Taiga 6.10.3 ships (taiga-front's `app/images/favicon.png`, AGPL-3.0), unmodified (Simple
+  Icons has no Taiga icon). Taiga and its logo are Taiga's; it names the software the pack tests.
 
 A pack with no logo here shows the one its own package ships (`assets/logo.svg` or `.png`), and a puzzle piece
 when there is none.
