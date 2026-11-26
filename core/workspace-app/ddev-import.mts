@@ -31,12 +31,24 @@ export interface Dump { name: string; size: number; mtime: Date }
 // are left out on purpose: DDEV accepts them, and in this folder they are whole-project archives.
 export const DUMP_RE = /\.(sql|mysql)(\.(gz|bz2|xz))?$/i;
 
-/** The dumps a workspace holds, newest first. */
-export function listDumps(backupsDir: string): Dump[] {
+/**
+ * A project whose platform's plugin keeps its database (webship/workspace#937): its own dumps are the ones of this
+ * project, in the platform's format (its extension) or as SQL (what the safety dumps ask the platform for).
+ */
+export interface OwnDumps { project: string; extension: string }
+
+/** Is this file a dump of that project, by its name? */
+function isOwnDump(name: string, own: OwnDumps): boolean {
+  const mine = name.startsWith(`${own.project}--`) || name.includes(`---${own.project}--`);
+  return mine && (name.endsWith(own.extension) || DUMP_RE.test(name));
+}
+
+/** The dumps a workspace holds, newest first: every SQL dump, or the own dumps of a project whose platform keeps its database. */
+export function listDumps(backupsDir: string, own?: OwnDumps | null): Dump[] {
   let names: string[] = [];
   try {
     names = fs.readdirSync(backupsDir, { withFileTypes: true })
-      .filter((e) => e.isFile() && !e.name.startsWith('.') && DUMP_RE.test(e.name))
+      .filter((e) => e.isFile() && !e.name.startsWith('.') && (own ? isOwnDump(e.name, own) : DUMP_RE.test(e.name)))
       .map((e) => e.name);
   } catch (_) {
     return [];
@@ -56,17 +68,19 @@ export function listDumps(backupsDir: string): Dump[] {
  * A basename, matched against what the folder actually holds — never joined from a browser value and
  * hoped about. `path.basename` first, so a name carrying a directory cannot even be compared.
  */
-export function findDump(backupsDir: string, name: unknown): Dump | null {
+export function findDump(backupsDir: string, name: unknown, own?: OwnDumps | null): Dump | null {
   const wanted = path.basename(String(name || ''));
   if (!wanted || wanted !== String(name || '')) return null;
-  return listDumps(backupsDir).find((d) => d.name === wanted) || null;
+  return listDumps(backupsDir, own).find((d) => d.name === wanted) || null;
 }
 
 /** The panel: what there is to import, and what importing one will do. */
-export function importPanelHtml({ workspace, project, backupsDir, backupsLabel, runtime = '' }: { workspace: string; project: string; backupsDir: string; backupsLabel: string; runtime?: string }): string {
+export function importPanelHtml({ workspace, project, backupsDir, backupsLabel, runtime = '', platform = '', extension = '' }: { workspace: string; project: string; backupsDir: string; backupsLabel: string; runtime?: string; platform?: string; extension?: string }): string {
   // DDEV's import, or a runtime's (webship/workspace#859): the runtime layer imports, after an export into the backups.
+  // A platform whose plugin keeps the database (#937) imports through its plugin, on either, after its own export.
   const action = runtime ? '/actions/runtime-import-db' : '/actions/ddev-import-db';
-  const dumps = listDumps(backupsDir);
+  const own = platform ? { project, extension: extension || '.sql.gz' } : null;
+  const dumps = listDumps(backupsDir, own);
   const vals = (extra: Record<string, string>): string => esc(JSON.stringify({ workspace, projectName: project, ...extra }));
   const rows = dumps.map((d) => `
     <li>
@@ -85,7 +99,12 @@ export function importPanelHtml({ workspace, project, backupsDir, backupsLabel, 
     <div class="editor-card">
       <h3 class="uk-margin-small-bottom">Import a database into ${esc(project)}</h3>
       <p class="uk-text-meta">Importing <strong>replaces</strong> every table in this project's database.
-        ${runtime
+        ${platform
+    ? `Its database is kept by the <strong>${esc(platform)}</strong> plugin, which checks that a dump is whole before
+        it touches anything. The database is exported into this list first, in the same command, as a
+        ${esc(own ? own.extension : '')} dump of its own: if the export fails nothing is imported, and if the import is
+        wrong the export is here to import back.`
+    : runtime
     ? `The database is exported into this list first, in the same command — so if the export fails nothing is
         imported, and if the import is wrong the export is here to import back.`
     : `A snapshot is taken first, in the same command — so if the snapshot fails nothing is imported, and
@@ -93,7 +112,7 @@ export function importPanelHtml({ workspace, project, backupsDir, backupsLabel, 
       ${dumps.length
     ? `<ul class="uk-list uk-list-divider import-list">${rows}</ul>`
     : '<p class="uk-text-meta">No database dumps in this workspace yet. <em>Export the database</em> writes one here, and so does a project backup.</p>'}
-      <p class="uk-text-meta">These are the dumps in <code>${esc(backupsLabel)}</code>. Whole-project archives
+      <p class="uk-text-meta">These are the dumps${own ? ` of ${esc(project)}` : ''} in <code>${esc(backupsLabel)}</code>. Whole-project archives
         from a backup are not listed: <code>ddev import-db</code> would accept one and hand a tarball of a
         project to the database. A dump from anywhere else is
         <code>ddev import-db --file &lt;path&gt;</code> in a terminal.</p>

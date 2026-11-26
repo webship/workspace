@@ -50,6 +50,7 @@ const { addonsPanelHtml } = require('./ddev-addons-page');
 const ddevImport = require('./ddev-import.mts');
 const ddevMail = require('./ddev-mail-page');
 const projectRuntime = require('./project-runtime');
+const projectDb = require('./project-db');
 
 // The project rows render synchronously, so the SCREENS badge counts from the
 // .cwd notes against a short-lived snapshot of `screen -ls`; the dropdown asks
@@ -7377,18 +7378,23 @@ async function onRequest(req, res) {
         if (im && isValidWorkspace(im[1]) && NAME_RE.test(im[2])) {
           const [, iWs, iProj] = im;
           const iDir = path.join(workspaceDir(iWs), iProj);
-          // A DDEV project, or one on another runtime with a database (webship/workspace#859): its layer imports.
+          // A DDEV project, or one on another runtime with a database (webship/workspace#859): its layer imports. A
+          // platform whose plugin keeps the database (#937) imports through its plugin, on either.
           const iRt = projectRuntime.readProject(iDir);
-          const onRuntime = projectRuntime.isRuntimeProject(iRt) && iRt.database !== 'none';
-          if (!onRuntime && !fs.existsSync(path.join(iDir, '.ddev', 'config.yaml'))) {
+          const isRt = projectRuntime.isRuntimeProject(iRt);
+          const isDdev = !isRt && fs.existsSync(path.join(iDir, '.ddev', 'config.yaml'));
+          const iDb = (isRt || isDdev) ? await projectDb.describeProjectDb(iDir) : null;
+          if (!iDb || !iDb.database) {
             res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-            return res.end('<div class="msg error">Not a DDEV project — there is no database to import into.</div>');
+            return res.end(iDb
+              ? `<div class="msg error">${esc(iProj)} has no database to import into: it keeps none (its folder is the whole of it).</div>`
+              : '<div class="msg error">Not a DDEV project — there is no database to import into.</div>');
           }
           const iMeta = loadWorkspaces()[iWs];
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
           return res.end(ddevImport.importPanelHtml({
             workspace: iWs, project: iProj, backupsDir: iMeta.backupsDir, backupsLabel: tildePath(iMeta.backupsDir),
-            runtime: onRuntime ? iRt.runtime : '',
+            runtime: isRt ? iRt.runtime : '', platform: iDb.platform || '', extension: iDb.extension,
           }));
         } }
       // A project's captured mail. The feature owns its path, its panel and its lookup; this asks

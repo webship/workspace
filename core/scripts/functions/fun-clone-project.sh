@@ -160,14 +160,19 @@ function clone_project() {
   local is_ddev='no' ;
   [ -f "${source_dir}/.ddev/config.yaml" ] && is_ddev='yes' ;
 
+  # The source's database, the way it is kept (webship/workspace#937): DDEV's export, or the dump of the platform whose
+  # plugin keeps it; a project with no database has none to copy, and its files are the whole of it.
   local dump='' ;
   if [ "${is_ddev}" == 'yes' ] && [ "${NO_DB}" != 'yes' ] ; then
     echo "Exporting the source database (read-only for '${source_name}')…" ;
-    dump="$(mktemp -u /tmp/clone-${source_name}-XXXX).sql.gz" ;
-    ( cd "${source_dir}" && ddev start -y >/dev/null 2>&1 ; ddev export-db --file="${dump}" ) || {
+    local dump_base ; dump_base="$(mktemp -u /tmp/clone-${source_name}-XXXX)" ;
+    ( cd "${source_dir}" && ddev start -y >/dev/null 2>&1 ; export_project_db "${dump_base}" && echo "${PROJECT_DB_FILE}" > "${dump_base}.file" ) || {
       echo "Could not export the source database — is '${source_name}' a healthy DDEV project?" ;
+      rm -f "${dump_base}.file" ;
       return 1 ;
     }
+    dump="$(cat "${dump_base}.file" 2> /dev/null)" ;
+    rm -f "${dump_base}.file" ;
   fi
 
   if [ "${as_worktree}" == 'yes' ] ; then
@@ -209,7 +214,7 @@ function clone_project() {
   ddev start -y ;
   if [ -n "${dump}" ] ; then
     echo "Importing the database…" ;
-    ddev import-db --file="${dump}" ;
+    import_project_db "${dump}" ;
     rm -f "${dump}" ;
   fi
 

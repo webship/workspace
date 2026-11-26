@@ -17,6 +17,7 @@ const { NAME_RE } = require('../validate.mts');
 const projectRuntime = require('../project-runtime');
 const ddevImport = require('../ddev-import.mts');
 const { shq } = require('../shell-quote.mts');
+const projectDb = require('../project-db');
 
 /**
  * `needsRunning` is refused when the runtime says the site is stopped, not attempted. `destructive` needs the
@@ -61,10 +62,13 @@ async function runtime_verb({ form, send, workspace, pathname }) {
   }
   let args = act.args;
   if (act.toBackups) {
+    // The platform's own dump when its plugin keeps the database (webship/workspace#937), else the layer's.
+    const db = await projectDb.describeProjectDb(projectDir);
+    if (!db.database) return send(`<div class="msg error">${esc(projectName)} has no database to export: it keeps none.</div>`, 400);
     const outDir = loadWorkspaces()[workspace].backupsDir;
     try { fs.mkdirSync(outDir, { recursive: true }); } catch (_) { /* the session reports it */ }
     const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
-    args = [...args, `--file=${path.join(outDir, `${projectName}--db--${stamp}.sql.gz`)}`];
+    args = [...args, `--file=${path.join(outDir, `${projectName}--db--${stamp}${db.extension}`)}`];
   }
   const cmdLine = projectRuntime.verbLine(args);
   if (!cmdLine) return send('<div class="msg error">Not run: the workspace path has characters a shell line cannot carry safely.</div>', 400);
@@ -84,10 +88,10 @@ const pickedBeforeImport = new Set();
  * imported (importing a before-import export to undo an import must not overwrite it with the state it undoes), or a
  * name this process already gave out. -2, -3… until the name is new. Chosen here, before the line is built.
  */
-function beforeImportPath(backupsDir, projectName, dumpName, now = new Date()) {
+function beforeImportPath(backupsDir, projectName, dumpName, now = new Date(), extension = '.sql.gz') {
   const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, '-');
   for (let n = 1; ; n += 1) {
-    const name = `${projectName}--db--before-import-${stamp}${n > 1 ? `-${n}` : ''}.sql.gz`;
+    const name = `${projectName}--db--before-import-${stamp}${n > 1 ? `-${n}` : ''}${extension}`;
     const full = path.join(backupsDir, name);
     if (name !== dumpName && !fs.existsSync(full) && !pickedBeforeImport.has(full)) {
       pickedBeforeImport.add(full);
@@ -109,14 +113,17 @@ async function runtime_import_db({ form, send, workspace }) {
   const projectDir = path.join(workspaceDir(workspace), projectName);
   const project = projectRuntime.readProject(projectDir);
   if (!projectRuntime.isRuntimeProject(project)) return send('<div class="msg error">Not a project on another runtime than DDEV.</div>', 400);
-  if (project.database === 'none') return send(`<div class="msg error">${esc(projectName)} has no database.</div>`, 400);
+  // A platform whose plugin keeps the database (webship/workspace#937) has one even when the runtime's is none.
+  const db = await projectDb.describeProjectDb(projectDir);
+  if (!db.database) return send(`<div class="msg error">${esc(projectName)} has no database.</div>`, 400);
   if (form.confirm !== 'yes') return send('<div class="msg error">Importing replaces every table in the database — it needs confirmation.</div>', 400);
   projectRuntime.invalidate(projectDir);
   if (await projectRuntime.stateOf(project) === 'stopped') return send(`<div class="msg error">${esc(projectName)} is not running: start it first.</div>`, 400);
   const backupsDir = loadWorkspaces()[workspace].backupsDir;
-  const dump = ddevImport.findDump(backupsDir, form.dump);
+  const own = db.platform ? { project: projectName, extension: db.extension } : null;
+  const dump = ddevImport.findDump(backupsDir, form.dump, own);
   if (!dump) return send('<div class="msg error">No such dump in this workspace\'s backups.</div>', 404);
-  const before = beforeImportPath(backupsDir, projectName, dump.name);
+  const before = beforeImportPath(backupsDir, projectName, dump.name, new Date(), db.extension);
   const exportLine = projectRuntime.verbLine(['export-db', shq(`--file=${before}`)]);
   const importLine = projectRuntime.verbLine(['import-db', shq(`--file=${path.join(backupsDir, dump.name)}`)]);
   if (!exportLine || !importLine) return send('<div class="msg error">Not run: the workspace path has characters a shell line cannot carry safely.</div>', 400);
