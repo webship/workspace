@@ -401,6 +401,13 @@ function rt_dc() {
   if [ "${rt}" = podman ] ; then ( cd "${root}" && podman compose "$@" ) ; else ( cd "${root}" && docker compose "$@" ) ; fi
 }
 
+# docker compose, or podman compose, for a project by its name, from outside its folder (#935): a builder's
+# drop_database asks for a project of the same name that way. Docker knows nothing of a Podman project.
+function rt_dc_name() {
+  local rt="$1" name="$2" ; shift 2 ;
+  if [ "${rt}" = podman ] ; then podman compose -p "${name}" "$@" ; else docker compose -p "${name}" "$@" ; fi
+}
+
 # Writes compose.yaml and the stack's build folder for a project: what `ddev config` does for DDEV.
 # The base image of a stack's language at a version, pinned to it, never `latest` (webship/workspace#841): the
 # language's own image on Debian (Ubuntu for Java's), or an image the application names (`image <name>`).
@@ -952,7 +959,7 @@ function rt_compose() {
     poweroff|list|add-on|get|snapshot|xdebug|mutagen|auth|share|hostname|debug|self-upgrade) echo "(${rt}: 'ddev ${verb}' has nothing to do here)" ;;
     describe)
       if [ -n "${1:-}" ] && [ -z "${root}" ] ; then
-        [ -n "$( (docker compose -p "$1" ps -q 2>/dev/null || true) )" ] ; return $? ;
+        [ -n "$( (rt_dc_name "${rt}" "$1" ps -q 2>/dev/null || true) )" ] ; return $? ;
       fi
       [ -n "${root}" ] || return 1 ;
       case "${1:-}" in -j|--json-output)
@@ -962,7 +969,7 @@ function rt_compose() {
       echo "$(sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1) on ${rt}: $(rt_url "${root}")" ; rt_dc "${rt}" "${root}" ps ;;
     delete)
       if [ -n "${root}" ] ; then rt_dc "${rt}" "${root}" down -v --remove-orphans ;
-      else local n ; for n in "$@" ; do case "${n}" in -*) ;; *) docker compose -p "${n}" down -v --remove-orphans 2>/dev/null ;; esac ; done ; fi ;;
+      else local n ; for n in "$@" ; do case "${n}" in -*) ;; *) rt_dc_name "${rt}" "${n}" down -v --remove-orphans 2>/dev/null ;; esac ; done ; fi ;;
     composer)
       if [ "${1:-}" = create-project ] ; then rt_dc "${rt}" "${root}" exec -T -u www-data -w "${workdir}" web bash -c "$(rt_create_project_cmd "$@")" ;
       else rt_dc "${rt}" "${root}" exec -T -u www-data -w "${workdir}" web composer "$@" ; fi ;;
