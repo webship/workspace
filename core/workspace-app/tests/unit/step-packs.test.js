@@ -507,11 +507,13 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   // Angular (2026-11-26, read on Angular 22.3's starter with server rendering, the pack's demo, and an app of Angular
   // 20.3 without server rendering): the root a page drawn by Angular's server carries (ng-version), the transfer state
   // it writes (the ng-state script), or the root element of the CLI's own index.html (app-root), which a page drawn in
-  // the browser alone keeps empty; not an element whose id only looks like it, and not a link to the project.
+  // the browser alone keeps, empty or with a placeholder until the app starts (the Jira clone's spinner); not an
+  // element whose id only looks like it, and not a link to the project.
   assert.deepStrictEqual(hits('<app-root ng-version="22.3.0" ngh="0" ng-server-context="ssr"><h1>Welcome</h1></app-root>'), ['angular']);
   assert.deepStrictEqual(hits('<script id="ng-state" type="application/json">{}</script>'), ['angular']);
   assert.deepStrictEqual(hits('<body ngcm=""><app-root></app-root><script src="main-N4AWNZHU.js" type="module"></script></body>'), ['angular']);
   assert.deepStrictEqual(hits('<body><app-root></app-root></body>'), ['angular']);
+  assert.deepStrictEqual(hits('<body><app-root>\n    <div class="pre-bootstrapping-container"></div>\n  </app-root></body>'), ['angular']);
   assert.deepStrictEqual(hits('<div id="app-root"></div><p>ng-version is a word here</p>'), []);
   assert.ok(!hits('<a href="https://angular.dev">angular.dev</a>').includes('angular'), 'a link to the project is not an app');
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
