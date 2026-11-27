@@ -542,6 +542,17 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<p>We keep our photos in Immich.</p><a href="https://immich.app/">immich.app</a><img src="https://immich.app/img/immich-logo.svg">'), [], 'a page that names Immich or links to it');
   assert.deepStrictEqual(hits('<p>Its page says: To use Immich, you must enable JavaScript.</p>'), [], 'the sentence quoted in a page, not in its noscript');
   assert.deepStrictEqual(hits('<noscript>To use this app, you must enable JavaScript.</noscript>'), [], 'another app\'s noscript');
+  // Material UI (2026-11-27, read on mui.com, a Next.js app drawn on the server with Material UI): the class names
+  // Material UI gives its components (MuiTypography-root, MuiLink-root …) in the page the server sends. It is a pack
+  // for any site, loaded beside the platform's (here Next.js). An app drawn in the browser only (a Vite app: an empty
+  // root and its scripts) shows nothing of it to a page fetch, and a page that only names a class is none.
+  const muiPage = '<a class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineNone css-1e5p5tt" href="/">MUI</a>';
+  assert.deepStrictEqual(hits(muiPage), ['material-ui']);
+  assert.match(sp.detectPacks({ html: muiPage, headers: {} }, all).find((h) => h.pack.short === 'material-ui').evidence, /carries "class="MuiTypography-root/, 'the class is the evidence');
+  assert.deepStrictEqual(hits(`<script src="/_next/static/chunks/main-app.js" async=""></script>${muiPage}`).sort(), ['material-ui', 'nextjs'], 'beside the platform\'s pack');
+  assert.deepStrictEqual(hits('<div id="root"></div>\n<script type="module" crossorigin src="/assets/index-BH1gq0bK.js"></script>'), [], 'an app drawn in the browser only');
+  assert.deepStrictEqual(hits('<p>Style it like the MuiButton-root class.</p><code>.MuiTypography-root</code>'), [], 'a page that names a class outside a class attribute');
+  assert.deepStrictEqual(hits('<button class="mui-btn mui-btn--primary">Go</button>'), [], 'another library\'s mui- classes');
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
   assert.deepStrictEqual(hits('<html><body>Hello</body></html>'), []);
 
