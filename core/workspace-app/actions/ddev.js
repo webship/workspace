@@ -182,8 +182,12 @@ async function ddev_import_db({ form, send, workspace }) {
   if (!dump) return send('<div class="msg error">No such dump in this workspace\'s backups.</div>', 404);
   const file = path.join(backupsDir, dump.name);
   const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+  // The import is the core's (project-db.sh import, #968): DDEV's own, with the core's steps around it when the
+  // database is PostgreSQL, so an application connected to it does not stop the import.
+  const dbImport = projectDb.importLine(shq(file));
+  if (!dbImport) return send('<div class="msg error">Not run: the workspace path has characters a shell line cannot carry safely.</div>', 400);
   let cmdLine = `echo "Taking a snapshot first…" && ddev snapshot --name before-import-${stamp}`
-    + ` && ddev import-db --file ${shq(file)}`
+    + ` && ${dbImport}`
     + ` && echo "Imported ${dump.name}. The database as it was is the snapshot before-import-${stamp}."`;
   if (db.platform) {
     // The platform's plugin keeps the database (webship/workspace#937): DDEV has no snapshot of it. Its own export goes

@@ -15,6 +15,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import * as imp from '../../ddev-import.mts';
+import { createRequire } from 'node:module';
 
 const APP = path.join(import.meta.dirname, '../..');
 const actions = fs.readFileSync(path.join(APP, 'actions/ddev.js'), 'utf8');
@@ -64,7 +65,10 @@ test('a snapshot is taken first, in the same line', () => {
   // already uses before it drops. Verified live: the import left `before-import-2026-09-23-10-12`
   // behind, and said so.
   const fn = actions.slice(actions.indexOf('async function ddev_import_db'));
-  assert.match(fn, /ddev snapshot --name before-import-\$\{stamp\}`\s*\n\s*\+ ` && ddev import-db --file/);
+  assert.match(fn, /ddev snapshot --name before-import-\$\{stamp\}`\s*\n\s*\+ ` && \$\{dbImport\}`/);
+  // The import is the core's (#968): project-db.sh import, in the project's folder, the dump's path quoted.
+  assert.match(fn, /const dbImport = projectDb\.importLine\(shq\(file\)\);/);
+  assert.doesNotMatch(fn, /` && ddev import-db --file/, 'no ddev import-db built here any more');
   assert.match(fn, /The database as it was is the snapshot before-import-/);
   assert.match(fn, /if \(form\.confirm !== 'yes'\)/, 'and it is confirmed');
   assert.match(fn, /ddevImport\.findDump\(backupsDir, form\.dump(, own)?\)/, 'against the workspace\'s own folder');
@@ -112,6 +116,19 @@ test('a platform that keeps its database: the import exports first and imports t
   assert.match(fn, /`echo "Exporting the database first \(the \$\{db\.platform\} plugin keeps it\)…" && \$\{exportLine\}`\s*\n\s*\+ ` && echo "Importing/, '&&: nothing is imported unless the export worked');
   // The DDEV path without a platform is the one it was.
   assert.match(fn, /let cmdLine = `echo "Taking a snapshot first…" && ddev snapshot --name before-import-\$\{stamp\}`/);
+});
+
+test('the row\'s Import line is the core\'s import script, with the dump\'s path quoted (#968)', () => {
+  const projectDb = createRequire(import.meta.url)('../../project-db.js');
+  const prev = process.env.WORKSPACE_PROJECT_DB_SCRIPT;
+  try {
+    process.env.WORKSPACE_PROJECT_DB_SCRIPT = '/ws/core/scripts/project-db.sh';
+    assert.equal(projectDb.importLine("'/ws/backups/dev/a b.sql.gz'"), "bash '/ws/core/scripts/project-db.sh' import '/ws/backups/dev/a b.sql.gz'");
+    process.env.WORKSPACE_PROJECT_DB_SCRIPT = '/ws/my scripts/project-db.sh';
+    assert.equal(projectDb.importLine("'x.sql.gz'"), '', 'a path a shell line cannot carry safely: no line');
+  } finally {
+    if (prev === undefined) delete process.env.WORKSPACE_PROJECT_DB_SCRIPT; else process.env.WORKSPACE_PROJECT_DB_SCRIPT = prev;
+  }
 });
 
 test('the panel says what importing costs, and what it will not offer', () => {

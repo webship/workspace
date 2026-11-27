@@ -388,7 +388,10 @@ function ddev() {
       fi ;;
   esac
   case "${rt}" in
-    ''|ddev) rt_ddev_config_args "$@" ; command ddev "${RT_DDEV_ARGS[@]}" ;;
+    ''|ddev)
+      # DDEV's import, through the core's own steps around it for a database on PostgreSQL (#968, fun-project-db.sh).
+      if [ "${1:-}" = import-db ] && declare -F rt_ddev_import_db > /dev/null ; then shift ; rt_ddev_import_db "$@" ; return $? ; fi
+      rt_ddev_config_args "$@" ; command ddev "${RT_DDEV_ARGS[@]}" ;;
     docker|podman) rt_compose "${rt}" "$@" ;;
     kubernetes) rt_k8s "$@" ;;
     lando) rt_lando "$@" ;;

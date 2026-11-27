@@ -491,6 +491,17 @@ While a platform's own `<name>_export_db` or `<name>_import_db` runs, `ddev expo
 are DDEV's (or the runtime layer's) own: the hook is not asked again (`RT_DB_HOOK_ACTIVE`), so a platform
 that keeps a database of its own beside DDEV's can dump that one too, and never calls itself back.
 
+A platform whose database is DDEV's own PostgreSQL needs no hook to be put back while it is connected to it
+(webship/workspace#968): DDEV's import drops the database first, which PostgreSQL refuses while an application holds
+sessions on it, so the core's `rt_ddev_import_db` (`fun-project-db.sh`, through the runtime layer's `ddev import-db`)
+closes the database to new connections, ends its sessions, lets DDEV import, and opens the database again, whatever the
+import did. The application connects again by itself. A Restore from the backups list starts such a project again after
+the import. The reason is an application that sets itself up on an empty database when it starts, as OpenProject does
+(it seeds it): the Restore's start gives it the empty database it makes, the import replaces that database under it,
+and it stops answering until it is started again, then starts on the database the backup holds. DDEV cannot start a
+project's database alone, which would let the import come first. MariaDB and MySQL go to DDEV as before; a MariaDB or
+MySQL application with the same habit would need the same restart, in `restore_project_db` (`fun-project-db.sh`).
+
 Without these, everything is as it was. A project with no database at all (DDEV's `db` omitted, or the
 runtime's database `none`) and no hook is backed up without one: the backup says so, archives the folder
 and succeeds. A Restore from the backups list extracts the archive, then starts the project and imports

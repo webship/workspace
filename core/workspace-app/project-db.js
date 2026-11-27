@@ -33,13 +33,30 @@ function parse(text) {
   }
 }
 
+/** The script that answers for a project's database (a test's stand-in when WORKSPACE_PROJECT_DB_SCRIPT names one). */
+function scriptPath() {
+  const { ROOT } = require('./workspaces');
+  return process.env.WORKSPACE_PROJECT_DB_SCRIPT || path.join(ROOT, 'core', 'scripts', 'project-db.sh');
+}
+
+/**
+ * The shell line that puts a dump back as the project's database, in the project's folder (#968): the script's import,
+ * through the platform's plugin when one keeps the database, else DDEV's import with the core's own steps around it on
+ * PostgreSQL (or the runtime's). `quoted` is the dump's path, already quoted for a shell. Empty when the script's path
+ * has characters a shell line cannot carry safely.
+ */
+function importLine(quoted) {
+  const script = scriptPath();
+  if (!/^[A-Za-z0-9_./@+-]+$/.test(script)) return '';
+  return `bash '${script}' import ${quoted}`;
+}
+
 /** The project's database, as the shell describes it; what was said before when the shell does not answer. */
 function describeProjectDb(projectDir) {
   const dir = path.resolve(projectDir);
   const hit = cache.get(dir);
   if (hit && Date.now() - hit.at < TTL) return Promise.resolve(hit.value);
-  const { ROOT } = require('./workspaces');
-  const script = process.env.WORKSPACE_PROJECT_DB_SCRIPT || path.join(ROOT, 'core', 'scripts', 'project-db.sh');
+  const script = scriptPath();
   return new Promise((resolve) => {
     let out = '';
     let child;
@@ -73,4 +90,4 @@ function forget(projectDir) {
   if (projectDir) cache.delete(path.resolve(projectDir)); else cache.clear();
 }
 
-module.exports = { describeProjectDb, forget, parse, peek };
+module.exports = { describeProjectDb, forget, importLine, parse, peek, scriptPath };
