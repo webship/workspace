@@ -556,3 +556,29 @@ test('a runtime row offers Export and Import when its runtime or its platform ke
     await forget();
   }
 });
+
+test('deleting a backup (#955): the archive and every dump of that backup go, a platform\'s own included; another backup\'s files stay', async () => {
+  const backups = path.join(root, 'backups', 'dev');
+  fs.mkdirSync(backups, { recursive: true });
+  const stamp = '2026-11-27_11-00-00';
+  const kinds = { fapi: '.dump', wekan: '.archive.gz', immich: '.sql.gz', plain: '.sql' };
+  const others = [`dev---fapi--2026-11-27_11-30-00.tar.gz`, `dev---fapi--2026-11-27_11-30-00-db.dump`, 'fapi--db--before-import-2026-11-27-11-00.dump', `dev---fapi-two--${stamp}.tar.gz`, `dev---fapi-two--${stamp}-db.dump`];
+  for (const name of others) fs.writeFileSync(path.join(backups, name), 'another backup');
+  for (const [project, ext] of Object.entries(kinds)) {
+    const file = `dev---${project}--${stamp}.tar.gz`;
+    fs.writeFileSync(path.join(backups, file), 'archive');
+    fs.writeFileSync(path.join(backups, `dev---${project}--${stamp}-db${ext}`), 'dump');
+    const r = await post('/actions/backup-delete', { workspace: 'dev', file, confirm: 'yes' });
+    assert.strictEqual(r.status, 200, r.html);
+    assert.match(r.html, new RegExp(`${file.replace(/\./g, '\\.')}\\n${`dev---${project}--${stamp}-db${ext}`.replace(/\./g, '\\.')}`), `${ext}: both named`);
+    assert.deepStrictEqual(fs.readdirSync(backups).filter((n) => n.startsWith(`dev---${project}--${stamp}`)), [], `${ext}: no dump left behind`);
+  }
+  // A backup with both forms of dump, an older SQL one beside its platform's own: both go.
+  const both = `dev---fapi--${stamp}.tar.gz`;
+  for (const n of [both, `dev---fapi--${stamp}-db.dump`, `dev---fapi--${stamp}-db.sql.gz`]) fs.writeFileSync(path.join(backups, n), 'x');
+  assert.strictEqual((await post('/actions/backup-delete', { workspace: 'dev', file: both, confirm: 'yes' })).status, 200);
+  assert.deepStrictEqual(fs.readdirSync(backups).filter((n) => n.startsWith(`dev---fapi--${stamp}`)), []);
+  // The other backups, the export taken before an import, and a project whose name starts the same are untouched.
+  for (const name of others) assert.ok(fs.existsSync(path.join(backups, name)), `${name} stays`);
+  for (const name of others) fs.unlinkSync(path.join(backups, name));
+});
