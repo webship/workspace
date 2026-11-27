@@ -101,7 +101,7 @@ test('one service on Docker Compose and Podman: its pinned image and port, the w
     assert.strictEqual(r.status, 0, r.out);
     assert.strictEqual(read(p, '.webship', 'runtime', 'services', 'cache.yaml').split('\n').filter((l) => l && !l.startsWith('#')).join('|'), 'image: docker.io/valkey/valkey:7.2.11-alpine|port: 6379');
     const compose = yaml.load(read(p, 'compose.yaml'));
-    assert.deepStrictEqual(compose.services.cache, { image: 'docker.io/valkey/valkey:7.2.11-alpine', expose: ['6379'] }, runtime);
+    assert.deepStrictEqual(compose.services.cache, { image: 'docker.io/valkey/valkey:7.2.11-alpine', restart: 'on-failure', expose: ['6379'] }, runtime);
     assert.deepStrictEqual(compose.services.web.depends_on, { db: { condition: 'service_healthy' }, cache: { condition: 'service_started' } }, runtime);
     assert.deepStrictEqual(compose.volumes, { db: null }, `${runtime}: a service with no volume adds none`);
     assert.strictEqual(compose.services.cache.container_name, undefined, `${runtime}: compose names its container after the project`);
@@ -117,7 +117,7 @@ test('three services: env files of the project, volumes named after the project,
     const text = read(p, 'compose.yaml');
     const compose = yaml.load(text);
     assert.deepStrictEqual(Object.keys(compose.services), ['web', 'db', 'mail', 'cache', 'queue', 'store'], runtime);
-    assert.deepStrictEqual(compose.services.queue, { image: 'docker.io/library/rabbitmq:3.13.6-alpine', env_file: ['app/queue.env'], expose: ['5672'], volumes: ['svc-queue:/var/lib/rabbitmq'] });
+    assert.deepStrictEqual(compose.services.queue, { image: 'docker.io/library/rabbitmq:3.13.6-alpine', restart: 'on-failure', env_file: ['app/queue.env'], expose: ['5672'], volumes: ['svc-queue:/var/lib/rabbitmq'] });
     assert.deepStrictEqual(compose.services.store.command, ['server', '/export', '--console-address', ':9090', '--note', '$$HOME'], `${runtime}: a $ is compose's $$`);
     assert.deepStrictEqual(compose.volumes, { db: null, 'svc-queue': null, 'svc-store': null }, `${runtime}: compose prefixes them with the project's name`);
     assert.deepStrictEqual(Object.keys(compose.services.web.depends_on), ['db', 'cache', 'queue', 'store']);
@@ -128,6 +128,25 @@ test('three services: env files of the project, volumes named after the project,
     const again = yaml.load(read(p, 'compose.yaml')).services;
     for (const name of ['cache', 'queue', 'store']) assert.match(again[name].image, /:[^:/]+$/, `${runtime}: ${name} is pinned`);
   }
+});
+
+test('a service whose process stops on its own comes back on Docker Compose and Podman (#959): every service has restart: on-failure, the web container, the database and the mail catcher none', () => {
+  const dir = sandbox();
+  assert.strictEqual(run(dir, dir, 'rt_service_restart').out.trim(), 'on-failure', 'plugins look for the function, which says the policy');
+  for (const runtime of ['docker', 'podman']) {
+    const p = project(dir, runtime, `restart-${runtime}`);
+    assert.strictEqual(run(dir, p, THREE).status, 0);
+    const services = yaml.load(read(p, 'compose.yaml')).services;
+    for (const name of ['cache', 'queue', 'store']) assert.strictEqual(services[name].restart, 'on-failure', `${runtime}: ${name}`);
+    for (const name of ['web', 'db', 'mail']) assert.strictEqual(services[name].restart, undefined, `${runtime}: ${name} keeps no policy (the web container ending says its application did not start)`);
+    // Written again by every `ddev config`, the policy stays.
+    assert.strictEqual(run(dir, p, 'ddev config').status, 0);
+    const again = yaml.load(read(p, 'compose.yaml')).services;
+    for (const name of ['cache', 'queue', 'store']) assert.strictEqual(again[name].restart, 'on-failure', `${runtime}: ${name} written again`);
+  }
+  // No service, no policy: compose.yaml is what it was.
+  const bare = project(dir, 'docker', 'restart-bare');
+  assert.doesNotMatch(read(bare, 'compose.yaml'), /restart:/);
 });
 
 test('no database: the services keep their volumes, and the database\'s goes', () => {
