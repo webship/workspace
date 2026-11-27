@@ -125,6 +125,48 @@ function import_project_db() {
   ddev import-db --file="${file}" ;
 }
 
+# The dump of a project's backup, beside its archive (`<workspace>---<project>--<stamp>.tar.gz`) in the backups folder
+# (#951): `<archive>-db<extension>` of the platform whose plugin keeps the project's database, as export_project_db
+# names it, else the SQL forms DDEV and the runtimes write, `-db.sql.gz` or `-db.sql`. Run in the project's folder once
+# its archive is extracted, so the plugin can say the project is its own. Prints the dump to import, or nothing: an
+# empty dump (an older backup of a project with no database left one) is named and not imported, and a dump only a
+# plugin can read, when no plugin of this workspace keeps the project's database, is named for the row's Import.
+function project_dump_beside() {
+  local archive="$1" base p f empty='' ;
+  local -a names=() ;
+  base="${archive%.tar.gz}" ;
+  if p="$(rt_db_platform)" ; then names+=("${base}-db$(rt_db_extension "${p}")") ; fi
+  names+=("${base}-db.sql.gz" "${base}-db.sql") ;
+  for f in "${names[@]}" ; do
+    [ -f "${f}" ] || continue ;
+    if [ -s "${f}" ] ; then echo "${f}" ; return 0 ; fi
+    [ -n "${empty}" ] || empty="${f}" ;
+  done
+  if [ -n "${empty}" ] ; then
+    echo "${empty##*/} is empty: the project had no database to export when it was backed up, so there is none to import." >&2 ;
+    return 0 ;
+  fi
+  for f in "${base}"-db.* ; do
+    [ -s "${f}" ] || continue ;
+    echo "${f##*/} is beside the archive, but no plugin of this workspace keeps this project's database: add the plugin of its platform, then import it from the row's menu." >&2 ;
+    return 0 ;
+  done
+  return 0 ;
+}
+
+# A project put back from its archive (#951), in its folder once the archive is extracted: started (by DDEV, or its
+# runtime), then its database imported from the dump beside the archive, through the runtime layer's `ddev import-db`,
+# which hands it to the platform's plugin when one keeps the database, on DDEV as on the other runtimes. A project with
+# no dump beside its archive (one with no database) is only started: its folder is the whole of it.
+function restore_project_db() {
+  local archive="$1" dump ;
+  dump="$(project_dump_beside "${archive}")" ;
+  ddev start -y || return 1 ;
+  [ -n "${dump}" ] || return 0 ;
+  echo "Importing database…" ;
+  ddev import-db --file="${dump}" ;
+}
+
 # The hook of the runtime layer's `ddev` function: `ddev export-db` and `ddev import-db` of a project whose platform's
 # plugin keeps its database go to that plugin, on every runtime. Returns 125 when no plugin keeps it, and the caller
 # then does what it always did. While the plugin's own function runs, RT_DB_HOOK_ACTIVE is set and the `ddev` function

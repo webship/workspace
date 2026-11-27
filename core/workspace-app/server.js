@@ -5304,29 +5304,20 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
       return send(`<div class="msg error">'${esc(projectName)}' already exists in this workspace — remove it first, then restore.</div>`, 409);
     }
 
-    // The archives were created from inside the workspace folder, so they
-    // extract back to <workspace>/<project>/. Then, if a matching DB dump
-    // sits next to the archive, bring the project up and import it — all as
-    // one streaming job. (file/projectName are regex-validated above, so
-    // embedding them in the shell line is safe.)
-    // An empty dump (a project with no database, backed up by an older command) is named, not imported:
-    // `ddev import-db` ends the restore with "failed to extract provided file: EOF" on it.
-    const { file: dbFile, empty: emptyDump } = require('./restore-dump.mts').dumpBeside(meta.backupsDir, file);
-    let shellLine = `set -e; echo "Extracting ${file}…"; tar -xzf '${archive}'`;
-    // A project on another runtime carries an x-webship block (in compose.yaml, .lando.yml, …: META_FILES): it is
-    // started, and its dump imported, through the runtime layer (core/scripts/runtime-verb.sh).
-    const viaRuntime = projectRuntime.verbLine([]);
-    const onRuntime = `[ ! -f '${targetDir}/.ddev/config.yaml' ] && grep -qs '^x-webship:' ${projectRuntime.META_FILES.map((f) => `'${targetDir}/${f}'`).join(' ')}`;
-    if (dbFile) {
-      const viaLayer = viaRuntime ? `if ${onRuntime}; then cd '${targetDir}' && ${viaRuntime} start -y && echo "Importing database…" && ${viaRuntime} import-db --file='${dbFile}'; el` : '';
-      shellLine += ` && ${viaLayer}if [ -f '${targetDir}/.ddev/config.yaml' ]; then cd '${targetDir}' && ddev start -y && echo "Importing database…" && ddev import-db --file='${dbFile}'; else echo "Not a DDEV project — import the DB dump manually: ${path.basename(dbFile)}"; fi`;
-    } else {
-      // No database to import (a site that runs without one): the project is still started, as a restore
-      // with a dump starts it, so the site answers when the restore ends.
-      if (emptyDump) shellLine += ` && echo "${emptyDump} is empty: the project had no database to export when it was backed up, so there is none to import."`;
-      shellLine += ` && if [ -f '${targetDir}/.ddev/config.yaml' ]; then cd '${targetDir}' && ddev start -y; fi`;
-      if (viaRuntime) shellLine += ` && if ${onRuntime}; then cd '${targetDir}' && ${viaRuntime} start -y; fi`;
+    // The archives were created from inside the workspace folder, so they extract back to <workspace>/<project>/.
+    // Then core/scripts/project-db.sh restore, in that folder, starts the project and imports the dump beside the
+    // archive, on every runtime, DDEV's included (#951): the dump is `-db<extension>` of the platform whose plugin
+    // keeps the project's database, else `-db.sql.gz` or `-db.sql`, and the import goes through the runtime layer's
+    // `ddev import-db`, which hands it to that plugin. A project with no dump beside its archive (one that runs without
+    // a database) is only started, so the site answers when the restore ends; an empty dump (an older backup of such a
+    // project left one) is named, not imported. All of it as one streaming job. (file and projectName are
+    // regex-validated above, so embedding them in the shell line is safe; no `$` in it: the runner hands the line to an
+    // outer shell first.)
+    const projectDbScript = path.join(ROOT, 'core', 'scripts', 'project-db.sh');
+    if (!/^[A-Za-z0-9_./@+-]+$/.test(projectDbScript)) {
+      return send('<div class="msg error">The workspace\'s path cannot be handed to a shell as it is: restore the archive on a terminal.</div>', 500);
     }
+    const shellLine = `set -e; echo "Extracting ${file}…"; tar -xzf '${archive}' && cd '${targetDir}' && bash '${projectDbScript}' restore '${archive}'`;
     return screenAction(send, { workspace, project: projectName, projectDir: meta.dir,
       ownerDir: targetDir, verb: 'restore', cmdLine: shellLine, label: `restore ${file}` });
   }

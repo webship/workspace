@@ -484,8 +484,8 @@ and put it back, and every one of those asks it first, on every runtime (webship
 | --- | --- | --- |
 | `<name>_is_project <dir>` | the hook, to find the platform of a project | Says whether the project in `<dir>` is one of the platform's own (a platform plugin has it already). |
 | `<name>_export_db <file>` | `ddev export-db --file=<file>` (the runtime layer's `ddev`), `export_project_db`: the backup scripts, the row's export, the export before an import, the safety dump before a remove, a clone | Writes the project's database to `<file>`, in the project's folder. A name ending in `.sql.gz` asks for a gzipped SQL dump; any other name, the platform's own format. |
-| `<name>_import_db <file>` | `ddev import-db --file=<file>`, `import_project_db`: the row's Import, a clone | Puts `<file>` back as the project's database: it checks the dump is whole first and touches nothing when it is not, says what it replaces, and reads both of the formats its export writes. |
-| `<name>_db_extension` | `export_project_db`, the row's Import list | Optional: the extension of the platform's own dumps, with its dot (`.dump`). Without it they are `.sql.gz`. |
+| `<name>_import_db <file>` | `ddev import-db --file=<file>`, `import_project_db`: the row's Import, a clone, a Restore from the backups list | Puts `<file>` back as the project's database: it checks the dump is whole first and touches nothing when it is not, says what it replaces, and reads both of the formats its export writes. |
+| `<name>_db_extension` | `export_project_db`, the row's Import list, a Restore from the backups list | Optional: the extension of the platform's own dumps, with its dot (`.dump`). Without it they are `.sql.gz`. |
 
 While a platform's own `<name>_export_db` or `<name>_import_db` runs, `ddev export-db` and `ddev import-db`
 are DDEV's (or the runtime layer's) own: the hook is not asked again (`RT_DB_HOOK_ACTIVE`), so a platform
@@ -493,7 +493,11 @@ that keeps a database of its own beside DDEV's can dump that one too, and never 
 
 Without these, everything is as it was. A project with no database at all (DDEV's `db` omitted, or the
 runtime's database `none`) and no hook is backed up without one: the backup says so, archives the folder
-and succeeds. The row's Import lists, for a platform that keeps its database, that project's own dumps
+and succeeds. A Restore from the backups list extracts the archive, then starts the project and imports
+the dump beside it in its folder (`core/scripts/project-db.sh restore`, webship/workspace#951): the
+platform's own `<archive>-db<extension>` when its plugin keeps the database, else `-db.sql.gz` or `-db.sql`,
+through the runtime layer's `ddev import-db` on DDEV as on the other runtimes, so the plugin reads it. A
+project with no dump beside its archive is only started. The row's Import lists, for a platform that keeps its database, that project's own dumps
 in the workspace's backups (its format, and the SQL ones), and takes its export first in the same
 command, as a runtime's import does. On Docker Compose, Podman and Kubernetes the row's menu offers
 Export and Import when the runtime or the platform keeps a database, and neither when none does

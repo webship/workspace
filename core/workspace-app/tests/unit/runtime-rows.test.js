@@ -361,12 +361,30 @@ test('the remove form says what goes on the runtime, and offers the database bac
   assert.match(plain.html, /not a DDEV project, nothing to export/);
 });
 
-test('the source: a restored runtime project starts and imports through the layer, and the plugins\' own runtime menus are left out on it', () => {
+test('a Restore from the backups list (#951): the archive extracted, then project-db.sh restore in its folder, on every runtime; no import of its own', async () => {
+  const backups = path.join(root, 'backups', 'dev');
+  fs.mkdirSync(backups, { recursive: true });
+  const file = 'dev---gone-site--2026-11-27_10-00-00.tar.gz';
+  const archive = path.join(backups, file);
+  fs.writeFileSync(archive, 'archive');
+  fs.writeFileSync(archive.replace(/\.tar\.gz$/, '-db.dump'), 'a platform\'s own dump');
+  const r = await post('/actions/restore', { workspace: 'dev', file, confirm: 'yes' });
+  assert.strictEqual(r.status, 200, r.html);
+  const target = path.join(root, 'dev', 'gone-site');
+  // The runner wraps the line in its log: { <line> ; } 2>&1 | tee -a <session log>.
+  const line = `set -e; echo "Extracting ${file}…"; tar -xzf '${archive}' && cd '${target}' && bash '${path.join(root, 'core', 'scripts', 'project-db.sh')}' restore '${archive}'`;
+  assert.strictEqual(lastLine(), `{ ${line} ; } 2>&1 | tee -a "${path.join(root, '.screens', 'dev--gone-site--restore.log')}"`);
+  assert.doesNotMatch(line, /import-db|\$/, 'the import is the layer\'s, in the script; no $ for the outer shell');
+  // A project of that name already here is not overwritten.
+  fs.mkdirSync(target, { recursive: true });
+  const again = await post('/actions/restore', { workspace: 'dev', file, confirm: 'yes' });
+  assert.strictEqual(again.status, 409);
+  fs.rmSync(target, { recursive: true });
+  for (const f of fs.readdirSync(backups).filter((n) => n.startsWith('dev---gone-site--'))) fs.unlinkSync(path.join(backups, f));
+});
+
+test('the source: the plugins\' own runtime menus are left out on a runtime project', () => {
   const server = fs.readFileSync(path.join(APP, 'server.js'), 'utf8');
-  const restore = server.slice(server.indexOf("pathname === '/actions/restore'"), server.indexOf("pathname === '/actions/backup-delete'"));
-  assert.match(restore, /const viaRuntime = projectRuntime\.verbLine\(\[\]\);/);
-  assert.match(restore, /\$\{viaRuntime\} start -y && echo "Importing database…" && \$\{viaRuntime\} import-db --file='\$\{dbFile\}'/);
-  assert.match(restore, /grep -qs '\^x-webship:' \$\{projectRuntime\.META_FILES\.map\(\(f\) => `'\$\{targetDir\}\/\$\{f\}'`\)\.join\(' '\)\}/, 'every file that carries the block');
   assert.match(server, /if \(isRuntime\) for \(const id of projectRuntime\.RUNTIMES\) if \(id in pluginMenus\) pluginMenus\[id\] = '';/);
   assert.match(server, /const siteButton = ddevButton \|\| runtimeButton;/);
 });
