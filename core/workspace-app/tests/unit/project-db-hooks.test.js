@@ -169,6 +169,117 @@ test('a platform\'s own hook that calls ddev export-db reaches DDEV once, never 
   assert.doesNotMatch(run(dir, p, 'echo "mark=[${RT_DB_HOOK_ACTIVE:-}]"').out, /mark=\[1\]/);
 });
 
+// A Restore from the backups list (#951): once the archive is extracted, the project is started and the dump beside the
+// archive imported through the runtime layer, so the plugin that keeps the database reads it, on DDEV as elsewhere.
+function backup(dir, name, dumps) {
+  const backups = path.join(dir, 'backups');
+  fs.mkdirSync(backups, { recursive: true });
+  const archive = path.join(backups, `dev---${name}--2026-11-27_10-00-00.tar.gz`);
+  fs.writeFileSync(archive, 'archive');
+  for (const [ext, body] of Object.entries(dumps)) fs.writeFileSync(archive.replace(/\.tar\.gz$/, `-db${ext}`), body);
+  return archive;
+}
+
+test('a Restore of an ordinary DDEV project: started, then DDEV\'s own import of the .sql.gz beside the archive, as before', () => {
+  const dir = sandbox();
+  const p = ddevProject(dir, 'site', 'name: site\ntype: drupal11\n');
+  const archive = backup(dir, 'site', { '.sql.gz': 'gz' });
+  const r = run(dir, p, `restore_project_db "${archive}"`);
+  assert.deepStrictEqual(r.calls, ['ddev start -y', `ddev import-db --file=${archive.replace(/\.tar\.gz$/, '-db.sql.gz')}`]);
+  assert.match(r.out, /Importing database…/);
+  assert.strictEqual(r.status, 0);
+  // The cases the restore has always had (#354): a .sql when there is no .sql.gz; an empty dump named, not imported; an
+  // empty .sql.gz does not hide a .sql that has the database; no dump at all: started, nothing imported, nothing said.
+  const sql = backup(dir, 'site2', { '.sql': '-- sql' });
+  assert.deepStrictEqual(run(dir, p, `restore_project_db "${sql}"`).calls, ['ddev start -y', `ddev import-db --file=${sql.replace(/\.tar\.gz$/, '-db.sql')}`]);
+  const empty = backup(dir, 'site3', { '.sql.gz': '' });
+  const e = run(dir, p, `restore_project_db "${empty}"`);
+  assert.deepStrictEqual(e.calls, ['ddev start -y'], 'started, and nothing imported');
+  assert.match(e.out, /dev---site3--2026-11-27_10-00-00-db\.sql\.gz is empty: the project had no database to export when it was backed up, so there is none to import\./);
+  const both = backup(dir, 'site4', { '.sql.gz': '', '.sql': '-- sql' });
+  assert.deepStrictEqual(run(dir, p, `restore_project_db "${both}"`).calls, ['ddev start -y', `ddev import-db --file=${both.replace(/\.tar\.gz$/, '-db.sql')}`]);
+  const none = backup(dir, 'site5', {});
+  const n = run(dir, p, `restore_project_db "${none}"`);
+  assert.deepStrictEqual(n.calls, ['ddev start -y'], 'a project with no database: its folder is the whole of it, started');
+  assert.doesNotMatch(n.out, /Importing|empty|beside the archive/);
+});
+
+test('a Restore of a platform that keeps its database on DDEV: its own dump, read by its plugin, never DDEV\'s import', () => {
+  const dir = sandbox();
+  const p = ddevProject(dir, 'fapp', 'name: fapp\ntype: generic\nomit_containers: [db]\n', { 'config.fakep.yaml': '# the fake platform\n' });
+  // Its own extension (FastAPI's .dump, Wekan's .archive.gz).
+  const own = backup(dir, 'fapp', { '.fakedump': 'FAKE DUMP of fapp' });
+  const r = run(dir, p, `restore_project_db "${own}"`);
+  assert.deepStrictEqual(r.calls, ['ddev start -y', `fake import ${own.replace(/\.tar\.gz$/, '-db.fakedump')}`]);
+  assert.strictEqual(r.status, 0);
+  // A plugin whose dumps are gzipped SQL (Immich's): the .sql.gz goes to the plugin, not to DDEV's omitted database.
+  const sqlgz = backup(dir, 'fapp2', { '.sql.gz': 'FAKE DUMP of fapp' });
+  const g = run(dir, p, `unset -f fakep_db_extension ; restore_project_db "${sqlgz}"`);
+  assert.deepStrictEqual(g.calls, ['ddev start -y', `fake import ${sqlgz.replace(/\.tar\.gz$/, '-db.sql.gz')}`]);
+  // The plugin's own dump comes before the SQL forms; a .sql.gz of a backup made before the plugin kept the database
+  // still restores, through the plugin, which reads both.
+  const older = backup(dir, 'fapp3', { '.sql.gz': 'FAKE DUMP of fapp' });
+  assert.deepStrictEqual(run(dir, p, `restore_project_db "${older}"`).calls, ['ddev start -y', `fake import ${older.replace(/\.tar\.gz$/, '-db.sql.gz')}`]);
+  // An import the plugin refuses fails the restore, and says why.
+  const half = backup(dir, 'fapp4', { '.fakedump': 'half' });
+  const bad = run(dir, p, `restore_project_db "${half}" ; echo "status=$?"`);
+  assert.match(bad.out, /not a whole fake dump/);
+  assert.match(bad.out, /status=1/);
+});
+
+test('a Restore of a platform that keeps its database on another runtime: the same path, the runtime\'s start', () => {
+  const dir = sandbox();
+  const p = path.join(dir, 'dock');
+  fs.mkdirSync(p);
+  fs.writeFileSync(path.join(p, 'compose.yaml'), 'name: dock\nx-webship:\n  runtime: docker\n  platform: fakep\n  stack: generic\n  database: none\n  port: 41999\nservices:\n  web:\n    image: x\n');
+  const archive = backup(dir, 'dock', { '.fakedump': 'FAKE DUMP of dock' });
+  const r = run(dir, p, `restore_project_db "${archive}"`);
+  assert.ok(r.calls.length >= 2, r.out);
+  assert.match(r.calls[0], /^docker compose /, 'started by its runtime');
+  assert.strictEqual(r.calls[r.calls.length - 1], `fake import ${archive.replace(/\.tar\.gz$/, '-db.fakedump')}`);
+  assert.ok(!r.calls.some((c) => /^ddev /.test(c)), 'DDEV is never asked');
+});
+
+test('a Restore whose dump only a plugin reads, with no plugin to keep the database: started, and the dump named for the row\'s Import', () => {
+  const dir = sandbox();
+  const p = ddevProject(dir, 'fapp', 'name: fapp\ntype: generic\nomit_containers: [db]\n', { 'config.fakep.yaml': '# the fake platform\n' });
+  const archive = backup(dir, 'fapp', { '.fakedump': 'FAKE DUMP of fapp' });
+  const r = run(dir, p, `restore_project_db "${archive}"`, { plugin: false });
+  assert.deepStrictEqual(r.calls, ['ddev start -y'], 'nothing imported into a database the project omits');
+  assert.match(r.out, /dev---fapp--2026-11-27_10-00-00-db\.fakedump is beside the archive, but no plugin of this workspace keeps this project's database: add the plugin of its platform, then import it from the row's menu\./);
+});
+
+test('project-db.sh restore: a folder that is not a project is only put back; a project is started and its dump imported', () => {
+  const dir = sandbox();
+  // A scripts folder whose bootstrap loads the layer, the database functions and the fake platform, as the workspace's does.
+  const scripts = path.join(dir, 'scripts');
+  fs.mkdirSync(path.join(scripts, 'functions'), { recursive: true });
+  fs.copyFileSync(path.join(SCRIPTS, 'project-db.sh'), path.join(scripts, 'project-db.sh'));
+  fs.writeFileSync(path.join(scripts, 'bootstrap.sh'), `RT_STACKS=${STACKS}; source ${SCRIPTS}/functions/fun-runtime.sh; source ${SCRIPTS}/functions/fun-project-db.sh; RT_STACKS=${STACKS};\n${FAKEP}\n`);
+  const verb = (cwd, archive) => {
+    const log = path.join(dir, 'calls.log');
+    const r = spawnSync('bash', [path.join(scripts, 'project-db.sh'), 'restore', archive],
+      { cwd, encoding: 'utf8', env: { ...process.env, PATH: `${dir}/bin:${process.env.PATH}`, WORKSPACE_SCRIPTS: scripts, WORKSPACE_ROOT: path.join(SCRIPTS, '..', '..'), CALLS: log } });
+    const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) : [];
+    if (fs.existsSync(log)) fs.unlinkSync(log);
+    return { out: r.stdout + r.stderr, calls, status: r.status };
+  };
+  const plain = path.join(dir, 'notes');
+  fs.mkdirSync(plain);
+  const archive = backup(dir, 'notes', { '.sql.gz': 'gz' });
+  const r = verb(plain, archive);
+  assert.strictEqual(r.status, 0);
+  assert.deepStrictEqual(r.calls, []);
+  assert.match(r.out, /notes is back, but it is not a project of the workspace .*: nothing was started or imported\./);
+  assert.match(r.out, /Its dump is beside the archive: dev---notes--2026-11-27_10-00-00-db\.sql\.gz\./);
+  const p = ddevProject(dir, 'fapp', 'name: fapp\ntype: generic\nomit_containers: [db]\n', { 'config.fakep.yaml': '# the fake platform\n' });
+  const own = backup(dir, 'fapp', { '.fakedump': 'FAKE DUMP of fapp' });
+  const v = verb(p, own);
+  assert.strictEqual(v.status, 0, v.out);
+  assert.deepStrictEqual(v.calls, ['ddev start -y', `fake import ${own.replace(/\.tar\.gz$/, '-db.fakedump')}`]);
+  assert.match(verb(p, '').out, /Usage: bash project-db\.sh restore <archive>/);
+});
+
 test('every backup script backs the database up through export_project_db', () => {
   const repo = path.join(SCRIPTS, '..', '..');
   const scripts = ['dev/cmd-tools-backup-dev.sh', 'test/cmd-tools-backup-test.sh', 'sandboxes/cmd-tools-backup-sandboxes.sh',
