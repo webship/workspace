@@ -62,7 +62,8 @@
         ["vue", "Vue", "A builder for Nuxt apps, new or from a repository, with Node.js in their own container"],
         ["angular", "Angular", "A builder for Angular apps, new or from a repository, with Node.js in their own container"],
         ["fastapi", "FastAPI", "A builder for FastAPI apps, from the full-stack template or a repository, with their own Postgres"],
-        ["immich", "Immich", "A builder for Immich photo libraries, with their own Postgres and valkey, machine learning off"]
+        ["immich", "Immich", "A builder for Immich photo libraries, with their own Postgres and valkey, machine learning off"],
+        ["material-ui", "Material UI", "A builder for Material UI apps, new or from a repository, with Node.js in their own container"]
       ]
     },
     {

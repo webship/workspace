@@ -52,6 +52,8 @@ names the file of each pack.
 - `immich.svg`: the mark Immich v3.4.2 ships (`design/immich-logo.svg` of github.com/immich-app/immich, AGPL-3.0),
   unmodified. Immich and its logo are Immich's; it names the software the pack tests. It is not covered by the
   Workspace's licence.
+- `material-ui.svg`: MUI's own mark, `docs/public/static/logo.svg` of github.com/mui/material-ui v9.6.0, unmodified.
+  MUI and its logo are MUI's; it names the framework the pack tests. It is not covered by the Workspace's licence.
 
 A pack with no logo here shows the one its own package ships (`assets/logo.svg` or `.png`), and a puzzle piece
 when there is none.
