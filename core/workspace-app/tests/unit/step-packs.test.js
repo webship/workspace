@@ -553,6 +553,18 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<div id="root"></div>\n<script type="module" crossorigin src="/assets/index-BH1gq0bK.js"></script>'), [], 'an app drawn in the browser only');
   assert.deepStrictEqual(hits('<p>Style it like the MuiButton-root class.</p><code>.MuiTypography-root</code>'), [], 'a page that names a class outside a class attribute');
   assert.deepStrictEqual(hits('<button class="mui-btn mui-btn--primary">Go</button>'), [], 'another library\'s mui- classes');
+  // Headless UI (2026-11-27, read on headlessui.com, a Next.js app drawn on the server with Headless UI): the attribute
+  // both of its lines give every component for its state (data-headlessui-state), in the page the server sends. It is a
+  // pack for any site, loaded beside the platform's (here Next.js). An app drawn in the browser only (a Vite app, React
+  // or Vue: an empty root and its scripts) shows nothing of it to a page fetch, and a page that only names the attribute
+  // in its text or a code sample is none.
+  const huiPage = '<button class="flex items-center gap-0.5" aria-label="Select version of library" id="headlessui-menu-button-:R1sjm:" type="button" aria-haspopup="menu" aria-expanded="false" data-headlessui-state="">v2.1</button>';
+  assert.deepStrictEqual(hits(huiPage), ['headless-ui']);
+  assert.match(sp.detectPacks({ html: huiPage, headers: {} }, all).find((h) => h.pack.short === 'headless-ui').evidence, /carries "data-headlessui-state=""/, 'the attribute is the evidence');
+  assert.deepStrictEqual(hits(`<script src="/_next/static/chunks/main-app.js" async=""></script>${huiPage}`).sort(), ['headless-ui', 'nextjs'], 'beside the platform\'s pack');
+  assert.deepStrictEqual(hits('<div id="app"></div>\n<script type="module" crossorigin src="/assets/index-D4kq2xVc.js"></script>'), [], 'a Vue app drawn in the browser only');
+  assert.deepStrictEqual(hits('<p>Style it with <code>data-headlessui-state="open"</code>, or with ui-open:.</p>'), [], 'a page that names the attribute in its text');
+  assert.deepStrictEqual(hits('<pre>&lt;div data-headlessui-state="open"&gt;</pre>'), [], 'the attribute in a code sample');
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
   assert.deepStrictEqual(hits('<html><body>Hello</body></html>'), []);
 
