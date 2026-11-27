@@ -5338,11 +5338,14 @@ async function handleActionUnguarded(pathname, form, res, req = null) {
     if (!/^[a-z]+---[a-zA-Z0-9_\-]+--[0-9_-]+\.tar\.gz$/.test(file)) return send('<div class="msg error">Unrecognized backup filename.</div>', 400);
     const archive = path.join(meta.backupsDir, file);
     if (!fs.existsSync(archive)) return send('<div class="msg error">Backup file not found.</div>', 404);
+    // The archive and every dump of the same backup beside it, `<archive>-db.*` (#955): the SQL forms DDEV and the
+    // runtimes write, and a platform's own, whose plugin keeps the database (#937: FastAPI's -db.dump, Wekan's
+    // -db.archive.gz). A backup's name has no dot before .tar.gz, so the prefix is never another backup's.
+    const base = file.replace(/\.tar\.gz$/, '');
+    const dumps = fs.readdirSync(meta.backupsDir).filter((n) => n.startsWith(`${base}-db.`)).sort();
     const removed = [];
-    for (const f of [archive,
-      path.join(meta.backupsDir, file.replace(/\.tar\.gz$/, '-db.sql.gz')),
-      path.join(meta.backupsDir, file.replace(/\.tar\.gz$/, '-db.sql'))]) {
-      if (fs.existsSync(f)) { fs.unlinkSync(f); removed.push(path.basename(f)); }
+    for (const f of [archive, ...dumps.map((n) => path.join(meta.backupsDir, n))]) {
+      if (fs.existsSync(f) && fs.statSync(f).isFile()) { fs.unlinkSync(f); removed.push(path.basename(f)); }
     }
     res.setHeader('HX-Trigger', 'refresh-projects');
     return send(`<div class="msg assistant"><p>🗑️ Deleted backup:</p><pre>${esc(removed.join('\n'))}</pre></div>`);
