@@ -18,6 +18,9 @@ This page says what works today. It is updated as each part is proven on a real 
 | A WordPress site (the WordPress plugin): build and install, WP-CLI, test users, the tests, the database, the row, remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
 | A WooCommerce shop, a Joomla site, a phpBB board and a MediaWiki wiki (their plugins): build and install, the tool, test users, the tests, the database, the row, remove | Yes | Yes | Yes (for Joomla the tests and the row were not run there yet) | The same code as Docker, not yet run on a real Podman | On the way | On the way |
 | A Laravel app (the Laravel plugin): build and install, Artisan, test users, the tests, mail, the database, the row, remove | Yes | Yes | Yes | The same code as Docker, not yet run on a real Podman | Yes | Yes |
+| The tracker plugins Gitea and Forgejo, Plane, Leantime, Kanboard, Wekan and Vikunja: build and install with their default accounts and sample content, the tool, the test users, their step pack's suite, the work items, the row, remove | Yes | Yes | Yes | Yes | Not yet | Not yet |
+| The OpenProject and Redmine plugins: the same | Yes | Yes | Not yet (OpenProject: [webship/workspace-openproject#11](https://github.com/webship/workspace-openproject/issues/11); Redmine: [webship/workspace-redmine#11](https://github.com/webship/workspace-redmine/issues/11)) | Not yet (the same issues) | Not yet | Not yet |
+| The Taiga plugin: the same | Yes | Not yet ([webship/workspace-taiga#3](https://github.com/webship/workspace-taiga/issues/3)) | Not yet (the same issue) | Not yet (the same issue) | Not yet | Not yet |
 | The other platform plugins' builders (TYPO3, Magento, …) | Yes | On the way | On the way | On the way | On the way | On the way |
 | The DATABASE menu of a MariaDB site (the MariaDB plugin): the console, tables and sizes, export and import | Yes | Yes (the console shows no prompt) | Yes (the console shows no prompt) | The same code as Docker, not yet run on a real Podman | Not yet run | Not yet run |
 | The DATABASE menu of a MySQL or PostgreSQL site (their plugins) | Yes | PostgreSQL: yes (a generic stack, #841); MySQL: on the way, the layer builds MariaDB | On the way | On the way | On the way | On the way |
@@ -25,7 +28,7 @@ This page says what works today. It is updated as each part is proven on a real 
 | A web admin from the DATABASE menu (Adminer, phpMyAdmin) | Yes: DDEV's official add-ons | On the way | On the way | On the way | On the way | On the way |
 | The dashboard itself | Yes | Yes | Yes, with limits (below) | On the way | No: it runs on DDEV, Docker Compose or Kubernetes, and builds Lando sites from there | No: it builds Docksal sites from DDEV, Docker Compose or Kubernetes |
 
-"Yes" means it was run on a real build: Drupal 11 built and installed, its front and login pages answering, `drush status` bootstrapping, and the database exported and imported back. For the dashboard rows it means a real site driven in a browser: the row, the menu, stop and start, the tests set up and run, the test users added and cancelled, a backup, a remove and a restore. For WordPress it means the plugin's builder with `--install --add-users`, the front page and a login to the administration, `cmd-tools-wordpress-cli.sh`, the test users added and cancelled, the suite of `cmd-tools-testing.sh` green in the tests container, a mail caught by Mailpit, the database exported and imported back, the row in the dashboard and a remove.
+"Yes" means it was run on a real build: Drupal 11 built and installed, its front and login pages answering, `drush status` bootstrapping, and the database exported and imported back. For the dashboard rows it means a real site driven in a browser: the row, the menu, stop and start, the tests set up and run, the test users added and cancelled, a backup, a remove and a restore. For WordPress it means the plugin's builder with `--install --add-users`, the front page and a login to the administration, `cmd-tools-wordpress-cli.sh`, the test users added and cancelled, the suite of `cmd-tools-testing.sh` green in the tests container, a mail caught by Mailpit, the database exported and imported back, the row in the dashboard and a remove. For a tracker plugin it means its builder with `--install --add-users --sample-content` on that runtime, its step pack's whole suite run twice against the site with the site's counts the same after each run, the pack's must-fail check, stops and starts of the project, the plugin's dashboard features (the row, the runtime's menu, the test users, the work items) and a remove.
 
 ## Build on a runtime
 
@@ -73,7 +76,7 @@ bash dev/cmd-wordpress-project.sh mysite --install --add-users --runtime docker
 bash dev/cmd-wordpress-project.sh mysite --install --add-users --runtime kubernetes
 ```
 
-WordPress is the first, and the reference: `@webship.co/workspace-wordpress`. WooCommerce, Joomla, phpBB, MediaWiki and Laravel build on a runtime too (the table above says where). The other platform plugins follow one by one, and each says in its README what was run.
+WordPress is the first, and the reference: `@webship.co/workspace-wordpress`. WooCommerce, Joomla, phpBB, MediaWiki and Laravel build on a runtime too, and so do the tracker plugins (the table above says where). The other platform plugins follow one by one, and each says in its README what was run.
 
 What the layer gives a plugin:
 
