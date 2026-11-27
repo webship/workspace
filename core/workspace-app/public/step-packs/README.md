@@ -49,6 +49,9 @@ names the file of each pack.
   github.com/fastapi/full-stack-fastapi-template 0.12.0 (MIT), unmodified. FastAPI is a registered trademark of its owner;
   the Workspace is not affiliated with or endorsed by the FastAPI project. The icon is not covered by the Workspace's
   licence.
+- `immich.svg`: the mark Immich v3.4.2 ships (`design/immich-logo.svg` of github.com/immich-app/immich, AGPL-3.0),
+  unmodified. Immich and its logo are Immich's; it names the software the pack tests. It is not covered by the
+  Workspace's licence.
 
 A pack with no logo here shows the one its own package ships (`assets/logo.svg` or `.png`), and a puzzle piece
 when there is none.
