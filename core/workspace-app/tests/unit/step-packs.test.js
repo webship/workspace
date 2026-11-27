@@ -530,6 +530,18 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<title>Full Stack FastAPI Project - ReDoc</title>\n<link rel="shortcut icon" href="https://fastapi.tiangolo.com/img/favicon.png">'), ['fastapi']);
   assert.deepStrictEqual(hits('<link rel="shortcut icon" href="/favicon.ico"><div id="swagger-ui"></div><script>SwaggerUIBundle({ url: "/openapi.json" })</script>'), []);
   assert.deepStrictEqual(hits('<a href="https://fastapi.tiangolo.com/">FastAPI</a><img src="https://fastapi.tiangolo.com/img/favicon.png">'), []);
+  // Immich (2026-11-27, read on Immich v3.4.2): its front page is the web app's own, the same to everyone. Its two
+  // signs are its own: the sentence it shows without JavaScript, and the key its theme is kept under. The web app is a
+  // SvelteKit app, so its page fits the Svelte pack too, as a Payload app's fits the Next.js pack: once a project has
+  // the Immich pack, it is offered no other platform pack (#526). A page that only names Immich or links to it is none.
+  const immichPage = '<link rel="icon" type="image/svg+xml" sizes="any" href="/icon.svg" />\n<link href="/_app/immutable/entry/start.CARQQY7C.js" rel="modulepreload">\n<script>\n  try {\n    const preference = JSON.parse(localStorage.getItem(\'immich-ui-theme\'));\n  } catch {}\n</script>\n<noscript style="position: absolute; top: 0px; z-index: 1000; color: black; background-color: white">\n    To use Immich, you must enable JavaScript or use a JavaScript compatible browser.\n  </noscript>';
+  assert.deepStrictEqual(hits(immichPage), ['immich', 'svelte']);
+  assert.match(sp.detectPacks({ html: immichPage, headers: {} }, all).find((h) => h.pack.short === 'immich').evidence, /carries "To use Immich, you must enable JavaScript"/, 'the sentence is the evidence');
+  assert.deepStrictEqual(hits('<noscript>To use Immich, you must enable JavaScript or use a JavaScript compatible browser.</noscript>'), ['immich'], 'the sentence alone');
+  assert.deepStrictEqual(hits('<script>const p = localStorage.getItem("immich-ui-theme");</script>'), ['immich'], 'the theme key alone');
+  assert.deepStrictEqual(hits('<p>We keep our photos in Immich.</p><a href="https://immich.app/">immich.app</a><img src="https://immich.app/img/immich-logo.svg">'), [], 'a page that names Immich or links to it');
+  assert.deepStrictEqual(hits('<p>Its page says: To use Immich, you must enable JavaScript.</p>'), [], 'the sentence quoted in a page, not in its noscript');
+  assert.deepStrictEqual(hits('<noscript>To use this app, you must enable JavaScript.</noscript>'), [], 'another app\'s noscript');
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
   assert.deepStrictEqual(hits('<html><body>Hello</body></html>'), []);
 
