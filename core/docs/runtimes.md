@@ -138,6 +138,11 @@ Each is kept in `.webship/runtime/services/<name>.yaml`, and every `ddev config`
 - **Kubernetes:** in the project's namespace, a Deployment, a ClusterIP Service on its port (its name is its host name,
   as in `compose.yaml`) and a PersistentVolumeClaim for its volume. Its env file becomes a Secret of the kustomization,
   from a copy in `k8s/services/` that only you can read. Deleting the project deletes its namespace, with all of them.
+- **A service whose process stops on its own comes back** (webship/workspace#959): on Docker Compose and Podman it has
+  `restart: on-failure`, and on Kubernetes its pod starts it again. A stop of the project stays a stop. The web
+  container, the database and the mail catcher keep no restart policy on Docker Compose and Podman: the web container
+  ending is how the stack says its application did not start (start.sh). A plugin whose services need to come back
+  looks for `rt_service_restart` (it says the policy), and says so on an older core.
 - **DDEV:** `rt_service` does nothing: a plugin brings its own `.ddev/docker-compose.<name>.yaml` there.
 - **Lando and Docksal:** not yet; `rt_service` says so and writes nothing.
 

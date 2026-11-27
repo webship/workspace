@@ -238,6 +238,7 @@ function rt_serve() {
 # A service of the project's own beside its web server and database, on another runtime than DDEV (#900): a cache,
 # a queue, a store. Kept in .webship/runtime/services/<name>.yaml, which every `ddev config` writes into compose.yaml
 # (Docker Compose, Podman) and into the project's Kubernetes manifests, so it stays as the project is written again.
+# Its process stopping on its own, it comes back on every runtime (rt_service_restart, #959).
 #   rt_service <name> <image:tag> [--port <n>] [--env-file <file>] [--volume <path>] [--command "<line>"]
 # The image is pinned (a tag that is not latest, or a digest); the env file is a file of the project, by its path from
 # the project's root; the volume is the folder in the container its data is kept in, a volume of the project's own.
@@ -633,13 +634,21 @@ function rt_compose_depends() {
   return 0 ;
 }
 
-# The services of the project's own (rt_service, #900) for compose.yaml: each its pinned image, its command, its env
-# file of the project, the port it listens on in the project's network and its volume, which compose names after the
-# project (its container too), so `down -v` and the removal take them with it.
+# How a service of the project's own comes back on Docker Compose and Podman when its process stops on its own (#959):
+# on a failure, as a pod on Kubernetes starts its container again. A stop of the project stays a stop: neither compose
+# nor Podman starts again a container that was stopped on purpose. The web container, the database and the mail catcher
+# keep no policy: the web container ending is how the stack says its application did not start (start.sh, #850). A
+# plugin that needs services to come back looks for this function, and says so on a core without it.
+function rt_service_restart() { echo 'on-failure' ; }
+
+# The services of the project's own (rt_service, #900) for compose.yaml: each its pinned image, its restart policy
+# (rt_service_restart), its command, its env file of the project, the port it listens on in the project's network and
+# its volume, which compose names after the project (its container too), so `down -v` and the removal take them with it.
 function rt_compose_services() {
   local root="$1" s v ;
   for s in $(rt_services "${root}") ; do
     printf '  # A service of the project'"'"'s own (rt_service, webship/workspace#900).\n  %s:\n    image: "%s"\n' "${s}" "$(rt_service_value "${root}" "${s}" image)" ;
+    printf '    restart: %s\n' "$(rt_service_restart)" ;
     # compose reads a $ as one of its variables: $$ is a $ of the command.
     v="$(rt_service_value "${root}" "${s}" command)" ; [ -n "${v}" ] && printf '    command: %s\n' "$(rt_words_json "${v}" | sed 's/\$/$$/g')" ;
     v="$(rt_service_value "${root}" "${s}" env_file)" ; [ -n "${v}" ] && printf '    env_file:\n      - %s\n' "${v}" ;
