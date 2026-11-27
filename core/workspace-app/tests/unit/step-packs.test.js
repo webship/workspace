@@ -523,6 +523,13 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<body><app-root></app-root></body>'), [], 'a bare app-root');
   assert.deepStrictEqual(hits('<div id="app-root"></div><script src="/js/domain-1234abcd.js"></script><p>ng-version is a word here</p>'), []);
   assert.ok(!hits('<a href="https://angular.dev">angular.dev</a>').includes('angular'), 'a link to the project is not an app');
+  // FastAPI (2026-11-26, read on the full-stack template 0.12.0, FastAPI 0.141): its front page is the app's own, so the
+  // one sign is a page of FastAPI's own docs (Swagger UI or ReDoc, as FastAPI writes them), whose icon is FastAPI's;
+  // not another framework's Swagger UI, and not a link to the project or its icon in a page's text.
+  assert.deepStrictEqual(hits('<link type="text/css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">\n<link rel="shortcut icon" href="https://fastapi.tiangolo.com/img/favicon.png">\n<title>Full Stack FastAPI Project - Swagger UI</title>'), ['fastapi']);
+  assert.deepStrictEqual(hits('<title>Full Stack FastAPI Project - ReDoc</title>\n<link rel="shortcut icon" href="https://fastapi.tiangolo.com/img/favicon.png">'), ['fastapi']);
+  assert.deepStrictEqual(hits('<link rel="shortcut icon" href="/favicon.ico"><div id="swagger-ui"></div><script>SwaggerUIBundle({ url: "/openapi.json" })</script>'), []);
+  assert.deepStrictEqual(hits('<a href="https://fastapi.tiangolo.com/">FastAPI</a><img src="https://fastapi.tiangolo.com/img/favicon.png">'), []);
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
   assert.deepStrictEqual(hits('<html><body>Hello</body></html>'), []);
 

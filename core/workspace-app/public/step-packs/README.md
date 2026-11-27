@@ -45,6 +45,10 @@ names the file of each pack.
   github.com/angular/angular, unmodified. The Angular logo is the Angular team's, from github.com/angular/angular, under
   CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), as Angular's press kit provides it. It is not covered by the
   Workspace's licence.
+- `fastapi.svg`: the FastAPI icon, `frontend/public/assets/images/fastapi-icon.svg` of
+  github.com/fastapi/full-stack-fastapi-template 0.12.0 (MIT), unmodified. FastAPI is a registered trademark of its owner;
+  the Workspace is not affiliated with or endorsed by the FastAPI project. The icon is not covered by the Workspace's
+  licence.
 
 A pack with no logo here shows the one its own package ships (`assets/logo.svg` or `.png`), and a puzzle piece
 when there is none.

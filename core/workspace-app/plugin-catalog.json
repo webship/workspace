@@ -60,7 +60,8 @@
         ["flutter", "Flutter", "A builder for Flutter web apps, new or from a repository, with the SDK in their own container"],
         ["svelte", "Svelte", "A builder for SvelteKit apps, new or from a repository, with Node.js in their own container"],
         ["vue", "Vue", "A builder for Nuxt apps, new or from a repository, with Node.js in their own container"],
-        ["angular", "Angular", "A builder for Angular apps, new or from a repository, with Node.js in their own container"]
+        ["angular", "Angular", "A builder for Angular apps, new or from a repository, with Node.js in their own container"],
+        ["fastapi", "FastAPI", "A builder for FastAPI apps, from the full-stack template or a repository, with their own Postgres"]
       ]
     },
     {
