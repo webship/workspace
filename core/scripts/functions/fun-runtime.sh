@@ -462,6 +462,12 @@ function rt_generic_runtime() {
 # Written by the Webship Workspace (webship/workspace#850): the application's server (serve.sh, rt_serve) starts once
 # the project's database (${engine}) takes connections, waiting at most WEBSHIP_DB_WAIT seconds (300 by default).
 cd "\$(dirname "\$0")/../.." || exit 1
+# setpriv starts this as the host user and leaves the environment as it is: the user's own names and home.
+me="\$(id -un)" ; home="\$(getent passwd "\${me}" | cut -d: -f6)"
+export USER="\${me}" LOGNAME="\${me}" HOME="\${home:-/var/www}"
+# The container's stop while it waits for the database: nothing has started yet. An image's own stop signal (QUIT
+# for nginx, WINCH for Apache) comes in place of TERM.
+trap 'exit 143' TERM INT QUIT WINCH
 wait="\${WEBSHIP_DB_WAIT:-300}" ; waited=0
 ready() {
 START
@@ -477,8 +483,23 @@ until ready ; do
   [ "\${waited}" = 0 ] && echo "Waiting for the project's database (${engine} on db) before the application's server starts."
   sleep 2 ; waited=\$(( waited + 2 ))
 done
-exec bash .webship/runtime/serve.sh
 START
+  cat >> "${root}/.webship/runtime/start.sh" <<'SERVE'
+# The application's server, in a process group of its own (#983). This script is the container's first process: it
+# passes the container's stop on to the whole group as it came (TERM, INT, or the image's own stop signal, QUIT for
+# nginx, WINCH for Apache, which the runtime sends in place of TERM), and ends once everything in the group has ended,
+# with the server's own code, so a server that takes its time to stop has the runtime's whole grace for it. Job
+# control gives the server its group, and keeps INT and QUIT for it, which a background job without it ignores.
+set -m
+bash .webship/runtime/serve.sh &
+server=$!
+set +m
+for sig in TERM INT QUIT WINCH ; do trap "kill -${sig} -- -${server} 2> /dev/null" "${sig}" ; done
+wait "${server}" ; code=$?
+while kill -0 "${server}" 2> /dev/null ; do wait "${server}" ; code=$? ; done
+while kill -0 -- "-${server}" 2> /dev/null ; do sleep 0.2 ; done
+exit "${code}"
+SERVE
   # Kubernetes' liveness probe of the server (#850). It answers: any HTTP response on its port within 10 s, a 500 too
   # (an application whose database restarts is not killed, and a heavy one that is slow under load is not either, #971). It answered before in this container and does not now: it
   # is restarted. It never answered yet: fine for WEBSHIP_SERVE_GRACE seconds from the container's start (a build, the
@@ -547,6 +568,7 @@ YAML
 
 function rt_compose_write() {
   local rt="$1" root="$2" name="$3" type="$4" docroot="$5" php="$6" db="$7" port="$8" platform="${9:-}" mail_port="${10:-}" daemons="${11:-}" stack="${12:-php}" ;
+  [ -n "${daemons}" ] && { rt_daemons_runner "${root}" || return 1 ; } ;
   # A generic stack's language, version, own image and server port (#841), kept by `ddev config` as the claim is.
   local lang="${RT_STACK_LANG:-}" lang_version="${RT_STACK_VERSION:-}" serve_port="${RT_SERVE_PORT:-}" stack_lines="" ;
   [ -n "${lang}" ] && stack_lines="${stack_lines}"$'\n  language: '"${lang}" ;
@@ -688,8 +710,9 @@ function rt_compose_generic_web() {
         GID: "$(id -g)"
     image: webship-${name}-web
 ${userns}    # The application's own server (rt_serve), as the host user, from the project's root, once its database takes
-    # connections (start.sh, #850).
-    command: ["runuser", "-u", "www-data", "--", "bash", "/var/www/html/.webship/runtime/start.sh"]
+    # connections (start.sh, #850). setpriv execs (#983): runuser stayed as the first process and killed the server
+    # 2 s after a stop, whatever the runtime's grace.
+    command: ["setpriv", "--reuid=www-data", "--regid=www-data", "--init-groups", "--", "bash", "/var/www/html/.webship/runtime/start.sh"]
     working_dir: /var/www/html
     environment:
       WEBSHIP_RUNTIME: ${rt}
@@ -702,8 +725,39 @@ ${userns}    # The application's own server (rt_serve), as the host user, from t
 YAML
 }
 
+# The runner of the tasks beside the web server (rt_daemon), the first process of their container on Docker Compose,
+# Podman and Kubernetes, and a program of cli's supervisor on Docksal (#983): each .webship/daemons/*.sh in a process
+# group of its own, as the web server's user; the stop is passed on to every task, and the runner ends once they have
+# all ended.
+function rt_daemons_runner() {
+  mkdir -p "$1/.webship/runtime" || return 1 ;
+  cat > "$1/.webship/runtime/daemons.sh" <<'DAEMONS'
+#!/usr/bin/env bash
+# Written by the Webship Workspace (webship/workspace#825, #983): the project's tasks beside its web server (rt_daemon),
+# each .webship/daemons/*.sh in a process group of its own, as the web server's user. This script is the first process
+# of the tasks' container (on Docksal, a program of cli's supervisor): it stops every task with TERM when it is stopped
+# (TERM, INT, or the image's own stop signal, WINCH for the php stack's Apache image, QUIT for nginx), and ends once
+# they have all ended.
+cd "$(dirname "$0")/../.." || exit 1
+me="$(id -un)" ; home="$(getent passwd "${me}" | cut -d: -f6)"
+export USER="${me}" LOGNAME="${me}" HOME="${home:-/var/www}"
+tasks=()
+# Job control gives each task its group.
+set -m
+for f in .webship/daemons/*.sh ; do
+  [ -f "${f}" ] || continue
+  bash "${f}" &
+  tasks+=("$!")
+done
+set +m
+trap 'for t in "${tasks[@]}" ; do kill -TERM -- "-${t}" 2> /dev/null ; done' TERM INT QUIT WINCH
+wait
+for t in "${tasks[@]}" ; do while kill -0 -- "-${t}" 2> /dev/null ; do sleep 0.2 ; done ; done
+DAEMONS
+}
+
 # The service of the tasks beside the web server (rt_daemon), for compose.yaml: the web service's image, code and
-# settings, and every .webship/daemons/*.sh of the project run as the web server's user. `$$` is compose's `$`.
+# settings, and every .webship/daemons/*.sh of the project run as the web server's user (daemons.sh).
 function rt_compose_daemons() {
   local name="$1" php="$2" docroot="$3" rt="$4" userns="$5" ;
   cat <<YAML
@@ -716,7 +770,9 @@ function rt_compose_daemons() {
         UID: "$(id -u)"
         GID: "$(id -g)"
     image: webship-${name}-web
-${userns}    command: ["runuser", "-u", "www-data", "--", "bash", "-c", "for f in /var/www/html/.webship/daemons/*.sh ; do [ -f \"\$\$f\" ] && bash \"\$\$f\" & done ; wait"]
+${userns}    command: ["setpriv", "--reuid=www-data", "--regid=www-data", "--init-groups", "--", "bash", "/var/www/html/.webship/runtime/daemons.sh"]
+    # TERM for the tasks, not the web image's own stop signal (Apache's WINCH), which a task does not stop on.
+    stop_signal: SIGTERM
     environment:
       APACHE_DOCUMENT_ROOT: /var/www/html${docroot:+/${docroot}}
       WEBSHIP_RUNTIME: ${rt}
@@ -1220,6 +1276,7 @@ function rt_k8s_write() {
   local root="$1" name type docroot php db port mail_port ns image pull=Never daemons sidecar="" ;
   name="$(sed -n 's/^name: *//p' "${root}/compose.yaml" | head -1)" ; docroot="$(rt_meta docroot "${root}")" ;
   daemons="$(rt_meta daemons "${root}")" ;
+  [ -n "${daemons}" ] && { rt_daemons_runner "${root}" || return 1 ; } ;
   # A generic stack (#841): the application's own server, as the host user from the project's root, on its port.
   local serve_port="" serve_cmd="" serve_env="" ;
   if [ "$(rt_meta stack "${root}")" = generic ] ; then
@@ -1234,7 +1291,7 @@ function rt_k8s_write() {
     # Once its database takes connections (start.sh); restarted when it stops answering, or never answers after the
     # grace (probe.sh, #850). No startup probe: the pod is ready as soon as it runs, as `ddev start` waits for it
     # before a build has made the application its server serves.
-    serve_cmd=$'\n          command: ["runuser", "-u", "www-data", "--", "bash", "/var/www/html/.webship/runtime/start.sh"]\n          workingDir: /var/www/html'
+    serve_cmd=$'\n          command: ["setpriv", "--reuid=www-data", "--regid=www-data", "--init-groups", "--", "bash", "/var/www/html/.webship/runtime/start.sh"]\n          workingDir: /var/www/html'
     serve_cmd="${serve_cmd}"$'\n          livenessProbe:\n            exec: {command: ["bash", "/var/www/html/.webship/runtime/probe.sh", "'"${serve_port}"$'"]}\n            periodSeconds: 10\n            timeoutSeconds: 15\n            failureThreshold: '"${failures}" ;
   fi
   db="$(rt_meta database "${root}")" ; port="$(rt_meta port "${root}")" ; mail_port="$(rt_meta mail_port "${root}")" ; ns="ws-${name}" ;
@@ -1246,7 +1303,7 @@ function rt_k8s_write() {
         - name: daemons
           image: ${image}
           imagePullPolicy: ${pull}
-          command: [\"runuser\", \"-u\", \"www-data\", \"--\", \"bash\", \"-c\", \"for f in /var/www/html/.webship/daemons/*.sh ; do [ -f \\\"\$f\\\" ] && bash \\\"\$f\\\" & done ; wait\"]
+          command: [\"setpriv\", \"--reuid=www-data\", \"--regid=www-data\", \"--init-groups\", \"--\", \"bash\", \"/var/www/html/.webship/runtime/daemons.sh\"]
           env:
             - {name: APACHE_DOCUMENT_ROOT, value: /var/www/html${docroot:+/${docroot}}}
             - {name: WEBSHIP_RUNTIME, value: kubernetes}
@@ -1701,8 +1758,12 @@ services:
           UID: "$(id -u)"
           GID: "$(id -g)"
       image: webship-${app}-web
-      command: runuser -u www-data -- bash /app/.webship/runtime/start.sh
+      command: setpriv --reuid=www-data --regid=www-data --init-groups -- bash /app/.webship/runtime/start.sh
       environment:
+        # Lando's entrypoint then execs the command, so start.sh is the first process and gets the stop (#983).
+        # Without it, the entrypoint stays the first process, which a stop does not reach: the server was never
+        # asked to stop, and was killed at the end of the grace.
+        LANDO_NEEDS_EXEC: "1"
         WEBSHIP_RUNTIME: lando
         WEBSHIP_PORT: "${port}"
         WEBSHIP_DB_WAIT: "${db_wait}"
@@ -1924,18 +1985,17 @@ function rt_docksal_write() {
   local safe="${name,,}" ; safe="${safe//_/-}" ; safe="${safe//[^-a-z0-9]/}" mount="" ;
   # The tasks beside the web server (rt_daemon): a program of cli's supervisor, where PHP runs, as the project's user.
   if [ -n "${daemons}" ] ; then
-    mkdir -p "${root}/.webship/runtime" ;
-    cat > "${root}/.webship/runtime/docksal-daemons.sh" <<'SH'
-# Written by the Webship Workspace's docksal runtime: the project's tasks (rt_daemon), run by cli's supervisor.
-for f in /var/www/.webship/daemons/*.sh ; do [ -f "$f" ] && bash "$f" & done
-wait
-SH
+    # daemons.sh, as on the other runtimes (#983): the supervisor's stop reaches every task. The script that ran them
+    # before passed nothing on.
+    rt_daemons_runner "${root}" || return 1 ;
+    rm -f "${root}/.webship/runtime/docksal-daemons.sh" ;
     # A script, not a command line: the supervisor reads " ;" as the start of a comment.
     cat > "${root}/.webship/runtime/docksal-daemons.conf" <<'CONF'
 ; Written by the Webship Workspace's docksal runtime: the project's tasks (rt_daemon), kept running beside the web
-; server in cli, where PHP runs, as the project's user; its supervisor starts them again when they stop.
+; server in cli, where PHP runs, as the project's user; its supervisor starts them again when they stop. setpriv
+; execs (#983): the supervisor's stop reaches daemons.sh, which passes it on to every task and waits for them.
 [program:webship-daemons]
-command = runuser -u docker -- bash /var/www/.webship/runtime/docksal-daemons.sh
+command = setpriv --reuid=docker --regid=docker --init-groups -- bash /var/www/.webship/runtime/daemons.sh
 directory = /var/www
 autorestart = true
 stdout_logfile = /var/log/supervisor/webship-daemons-stdout
@@ -2078,7 +2138,7 @@ services:
         BASE_IMAGE: "$(rt_stack_image "${lang}" "${lang_version}")"
         UID: "$(id -u)"
         GID: "$(id -g)"
-    command: ["runuser", "-u", "www-data", "--", "bash", "/var/www/.webship/runtime/start.sh"]
+    command: ["setpriv", "--reuid=www-data", "--regid=www-data", "--init-groups", "--", "bash", "/var/www/.webship/runtime/start.sh"]
     environment:
       - WEBSHIP_RUNTIME=docksal
       - WEBSHIP_DB_WAIT=${db_wait}

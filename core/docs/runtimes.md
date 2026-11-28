@@ -93,6 +93,8 @@ Two stacks so far: the `php` stack (Apache, PHP, MariaDB), and a generic one for
 
 A generic stack's server starts once the project's database takes connections, and on Kubernetes a server that stops answering is restarted (webship/workspace#850). Any answer on its port within 10 seconds counts, a 500 too, and a server that answered before is restarted only after it has not answered for its patience (two minutes by default, webship/workspace#971): a heavy application that is slow under load keeps its pod, and one that has stopped is restarted. The database answers its readiness check within 5 seconds. Three settings, taken from the environment of `ddev config` and kept in the `x-webship` block:
 
+A stop reaches the server and gives it the runtime's whole grace to end (webship/workspace#983): the web container's first process, `start.sh` (on Lando too: its entrypoint execs it), passes it on to the server's process group as it came (TERM, or the image's own stop signal) and ends once the server has, 10 s at most on Docker Compose and Podman and 30 s on Kubernetes before the runtime kills what is left. The project's tasks (`rt_daemon`) stop with TERM the same way, on Docksal through cli's supervisor; on Lando they end with the container.
+
 | Setting | Default | What it is |
 | --- | --- | --- |
 | `WEBSHIP_DB_WAIT` | 300 | How many seconds the server waits for its database before it says so and stops (every runtime) |
