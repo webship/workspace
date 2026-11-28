@@ -239,12 +239,14 @@ function rt_serve() {
 # a queue, a store. Kept in .webship/runtime/services/<name>.yaml, which every `ddev config` writes into compose.yaml
 # (Docker Compose, Podman) and into the project's Kubernetes manifests, so it stays as the project is written again.
 # Its process stopping on its own, it comes back on every runtime (rt_service_restart, #959).
-#   rt_service <name> <image:tag> [--port <n>] [--env-file <file>] [--volume <path>] [--command "<line>"]
+#   rt_service <name> <image:tag> [--port <n>] [--env-file <file>] [--volume <path>] [--command "<line>"] [--nofile <n>]
 # The image is pinned (a tag that is not latest, or a digest); the env file is a file of the project, by its path from
 # the project's root; the volume is the folder in the container its data is kept in, a volume of the project's own.
+# --nofile is its open-files limit (#982), from 1024 to 1048576: a service that sizes itself to that limit (Erlang, so
+# RabbitMQ 3.8) takes over a GB on Kubernetes otherwise, where kind gives every pod the kernel's highest.
 # On DDEV it does nothing: a plugin brings its own .ddev/docker-compose.<name>.yaml there.
 function rt_service() {
-  local name="${1:-}" image="${2:-}" port="" env_file="" volume="" command="" found root ;
+  local name="${1:-}" image="${2:-}" port="" env_file="" volume="" command="" nofile="" found root ;
   [[ "${name}" =~ ^[a-z][a-z0-9-]{0,30}$ ]] || { echo "rt_service: a name, please (lower case, digits and -, starting with a letter)." >&2 ; return 1 ; } ;
   case "${name}" in web|db|mail|mail-web|daemons) echo "rt_service: ${name} is a service of the stack's own: give yours another name." >&2 ; return 1 ;; esac
   { [[ "${image}" =~ ^[A-Za-z0-9._/:@-]+$ ]] && { [[ "${image}" == *@sha256:* ]] || { [[ "${image##*/}" == *:* ]] && [ "${image##*:}" != latest ] ; } ; } ; } \
@@ -253,7 +255,8 @@ function rt_service() {
   while [ $# -gt 0 ] ; do
     case "$1" in
       --port) port="${2:-}" ;; --env-file) env_file="${2:-}" ;; --volume) volume="${2:-}" ;; --command) command="${2:-}" ;;
-      *) echo "rt_service: ${name}: $1 is not an option of it (--port, --env-file, --volume, --command)." >&2 ; return 1 ;;
+      --nofile) nofile="${2:-}" ;;
+      *) echo "rt_service: ${name}: $1 is not an option of it (--port, --env-file, --volume, --command, --nofile)." >&2 ; return 1 ;;
     esac
     shift 2 || { echo "rt_service: ${name}: $1 takes a value." >&2 ; return 1 ; } ;
   done
@@ -267,12 +270,22 @@ function rt_service() {
     echo "rt_service: ${name}: --volume takes the folder in the container its data is kept in." >&2 ; return 1 ;
   fi
   [[ "${command}" != *$'\n'* ]] || { echo "rt_service: ${name}: --command takes one line." >&2 ; return 1 ; } ;
+  # No leading zero: YAML would read 065536 as an octal number.
+  if [ -n "${nofile}" ] && ! { [[ "${nofile}" =~ ^[1-9][0-9]{3,6}$ ]] && [ "${nofile}" -ge 1024 ] && [ "${nofile}" -le 1048576 ] ; } ; then
+    echo "rt_service: ${name}: --nofile takes the open-files limit, a number from 1024 to 1048576." >&2 ; return 1 ;
+  fi
   found="$(rt_find_project "$PWD")" || { echo "rt_service: no project in $PWD (run it after 'ddev config')." >&2 ; return 1 ; } ;
   case "${found%% *}" in
     ddev) return 0 ;;
     docker|podman|kubernetes) ;;
     *) echo "rt_service: ${name}: a service of the project's own is written on Docker Compose, Podman and Kubernetes, not on ${found%% *} yet." >&2 ; return 1 ;;
   esac
+  # On Kubernetes and Podman the limit comes before the image's own start (#982): an image that gives none is refused
+  # here, before anything is written.
+  if [ -n "${nofile}" ] && { [ "${found%% *}" = kubernetes ] || [ "${found%% *}" = podman ] ; } \
+    && ! rt_service_start "$(rt_engine "${found%% *}")" "${image}" "${command}" > /dev/null ; then
+    echo "rt_service: ${name}: --nofile on $(rt_nofile_where "${found%% *}") runs the image's own start after the limit, and ${image} gave none." >&2 ; return 1 ;
+  fi
   root="${found#* }" ;
   mkdir -p "${root}/.webship/runtime/services" || return 1 ;
   {
@@ -283,6 +296,7 @@ function rt_service() {
     if [ -n "${env_file}" ] ; then printf 'env_file: %s\n' "${env_file}" ; fi ;
     if [ -n "${volume}" ] ; then printf 'volume: %s\n' "${volume}" ; fi ;
     if [ -n "${command}" ] ; then printf 'command: %s\n' "${command}" ; fi ;
+    if [ -n "${nofile}" ] ; then printf 'nofile: %s\n' "${nofile}" ; fi ;
   } > "${root}/.webship/runtime/services/${name}.yaml" || return 1 ;
   ( cd "${root}" && ddev config > /dev/null ) ;
 }
@@ -296,7 +310,7 @@ function rt_services() {
   done | sort ;
 }
 
-# One value of a service of the project's own: image, port, env_file, volume or command.
+# One value of a service of the project's own: image, port, env_file, volume, command or nofile.
 function rt_service_value() { sed -n "s/^$3: //p" "$1/.webship/runtime/services/$2.yaml" 2> /dev/null | head -1 ; }
 
 # A command line as a JSON list of its words (compose.yaml and the manifests take it as a YAML flow sequence).
@@ -597,7 +611,7 @@ function rt_compose_write() {
   [ -n "${mail_port}" ] && mail_ports=$'\n    # The mailbox, on this machine only (MAIL_URL).\n    ports:\n      - "127.0.0.1:'"${mail_port}"$':8025"' ;
   # The services of the project's own (rt_service, #900), and their volumes: nothing for a project with none.
   local services service_volumes ;
-  services="$(rt_compose_services "${root}")" ; service_volumes="$(rt_compose_service_volumes "${root}")" ;
+  services="$(rt_compose_services "${root}" "${rt}")" || return 1 ; service_volumes="$(rt_compose_service_volumes "${root}")" ;
   cat > "${root}/compose.yaml" <<YAML
 # Written by the Webship Workspace (its ${rt} runtime, webship/workspace#694). Run it with: ${rt} compose up -d
 name: ${name}
@@ -670,18 +684,37 @@ function rt_compose_depends() {
 function rt_service_restart() { echo 'on-failure' ; }
 
 # The services of the project's own (rt_service, #900) for compose.yaml: each its pinned image, its restart policy
-# (rt_service_restart), its command, its env file of the project, the port it listens on in the project's network and
-# its volume, which compose names after the project (its container too), so `down -v` and the removal take them with it.
+# (rt_service_restart), its command, its env file of the project, the port it listens on in the project's network, its
+# volume, which compose names after the project (its container too), so `down -v` and the removal take them with it,
+# and its open-files limit (--nofile, #982), soft and hard. On Podman the limit is also the start's, as on Kubernetes:
+# `podman compose` goes through Podman's Docker-compatible API, which drops a container's ulimits (Podman 4.9.3).
+#   rt_compose_services <root> [<runtime>]
 function rt_compose_services() {
-  local root="$1" s v ;
+  local root="$1" rt="${2:-docker}" s v start ;
+  # The starts on Podman are read before anything is written: one that cannot be read stops the writing.
+  if [ "${rt}" = podman ] ; then
+    for s in $(rt_services "${root}") ; do
+      [ -n "$(rt_service_value "${root}" "${s}" nofile)" ] || continue ;
+      rt_service_start podman "$(rt_service_value "${root}" "${s}" image)" "$(rt_service_value "${root}" "${s}" command)" > /dev/null \
+        || { echo "rt_service: ${s}: --nofile on Podman runs the image's own start after the limit, and $(rt_service_value "${root}" "${s}" image) gave none." >&2 ; return 1 ; } ;
+    done
+  fi
   for s in $(rt_services "${root}") ; do
     printf '  # A service of the project'"'"'s own (rt_service, webship/workspace#900).\n  %s:\n    image: "%s"\n' "${s}" "$(rt_service_value "${root}" "${s}" image)" ;
     printf '    restart: %s\n' "$(rt_service_restart)" ;
     # compose reads a $ as one of its variables: $$ is a $ of the command.
-    v="$(rt_service_value "${root}" "${s}" command)" ; [ -n "${v}" ] && printf '    command: %s\n' "$(rt_words_json "${v}" | sed 's/\$/$$/g')" ;
+    v="$(rt_service_value "${root}" "${s}" nofile)" ;
+    if [ -n "${v}" ] && [ "${rt}" = podman ] ; then
+      start="$(rt_service_start podman "$(rt_service_value "${root}" "${s}" image)" "$(rt_service_value "${root}" "${s}" command)")" ;
+      printf '    # The start lowers the open-files limit, then runs the image'"'"'s own (#982): Podman drops ulimits.\n' ;
+      printf '    entrypoint: %s\n    command: %s\n' "$(rt_nofile_command "${v}" | sed 's/\$/$$/g')" "$(printf '%s' "${start}" | sed 's/\$/$$/g')" ;
+    else
+      v="$(rt_service_value "${root}" "${s}" command)" ; [ -n "${v}" ] && printf '    command: %s\n' "$(rt_words_json "${v}" | sed 's/\$/$$/g')" ;
+    fi
     v="$(rt_service_value "${root}" "${s}" env_file)" ; [ -n "${v}" ] && printf '    env_file:\n      - %s\n' "${v}" ;
     v="$(rt_service_value "${root}" "${s}" port)" ; [ -n "${v}" ] && printf '    expose:\n      - "%s"\n' "${v}" ;
     v="$(rt_service_value "${root}" "${s}" volume)" ; [ -n "${v}" ] && printf '    volumes:\n      - svc-%s:%s\n' "${s}" "${v}" ;
+    v="$(rt_service_value "${root}" "${s}" nofile)" ; [ -n "${v}" ] && printf '    ulimits:\n      nofile:\n        soft: %s\n        hard: %s\n' "${v}" "${v}" ;
   done | sed -e '$ s/\n$//' ;
   return 0 ;
 }
@@ -1022,7 +1055,7 @@ function rt_compose() {
         esac
       done
       RT_STACK_LANG="${RT_STACK_LANG}" RT_STACK_VERSION="${RT_STACK_VERSION}" RT_SERVE_PORT="${RT_SERVE_PORT}" RT_DB_WAIT="${RT_DB_WAIT}" RT_SERVE_GRACE="${RT_SERVE_GRACE}" RT_SERVE_PATIENCE="${RT_SERVE_PATIENCE}" \
-        rt_compose_write "${rt}" "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" "${daemons}" "${stack:-php}" ;
+        rt_compose_write "${rt}" "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" "${daemons}" "${stack:-php}" || return 1 ;
       # What was written, as it is: a generic stack has no PHP, and the database is the project's (#890).
       if [ "${stack:-php}" = generic ] ; then
         echo "Wrote compose.yaml for ${rt} (generic, $(rt_db_words "${db:-10.11}")): $(rt_url "${root}")" ;
@@ -1408,8 +1441,39 @@ YAML
 # pinned image, a ClusterIP Service on its port (its name is its host name, as in compose.yaml) and a PVC for its
 # volume; its env file of the project becomes a Secret of the kustomization (a copy in k8s/services/, which only you
 # can read). A project with none gets no file and no line of them.
+# The start of a service of the project's own, as a list of words, for its open-files limit on Kubernetes and Podman
+# (--nofile, #982): the image's own entrypoint, then the service's --command, or the image's own command. Kubernetes
+# has no field for the limit, and Podman drops compose's ulimits, so the container runs a shell that lowers it and then
+# this (rt_nofile_command). The image is read with the runtime's engine, and fetched once when it is not here.
+#   rt_service_start <engine> <image> [<command line>]
+function rt_service_start() {
+  local engine="$1" image="$2" command="${3:-}" config ;
+  if ! "${engine}" image inspect "${image}" > /dev/null 2>&1 ; then
+    echo "rt_service: reading the start of ${image} for its open-files limit: fetching the image once." >&2 ;
+    "${engine}" pull -q "${image}" > /dev/null || return 1 ;
+  fi
+  config="$("${engine}" image inspect --format '{{json .Config}}' "${image}")" || return 1 ;
+  python3 -c '
+import json, shlex, sys
+config = json.loads(sys.argv[1] or "null") or {}
+start = (config.get("Entrypoint") or []) + (shlex.split(sys.argv[2]) if sys.argv[2] else (config.get("Cmd") or []))
+if not start:
+    sys.exit(1)
+print(json.dumps(start))
+' "${config}" "${command}" ;
+}
+
+# The container's command for an open-files limit on Kubernetes and Podman: a shell that lowers its own limit, soft and
+# hard, and then execs its arguments (rt_service_start). A limit the runtime already keeps lower is left as it is.
+function rt_nofile_command() {
+  python3 -c 'import json, sys; print(json.dumps(["sh", "-c", "ulimit -n %s || echo \"the open-files limit stays as the runtime gives it\" >&2 ; exec \"$0\" \"$@\"" % sys.argv[1]]))' "$1" ;
+}
+
+# Where --nofile starts the service through its shell, for what rt_service says.
+function rt_nofile_where() { case "$1" in kubernetes) echo Kubernetes ;; podman) echo Podman ;; *) echo "$1" ;; esac ; }
+
 function rt_k8s_services() {
-  local root="$1" s image port env_file volume command list ;
+  local root="$1" s image port env_file volume command nofile start list ;
   rm -rf "${root:?}/k8s/services" "${root:?}/k8s/services.yaml" ;
   list="$(rt_services "${root}")" ;
   [ -n "${list}" ] || return 0 ;
@@ -1419,7 +1483,11 @@ function rt_k8s_services() {
   for s in ${list} ; do
     image="$(rt_service_value "${root}" "${s}" image)" ; port="$(rt_service_value "${root}" "${s}" port)" ;
     env_file="$(rt_service_value "${root}" "${s}" env_file)" ; volume="$(rt_service_value "${root}" "${s}" volume)" ;
-    command="$(rt_service_value "${root}" "${s}" command)" ;
+    command="$(rt_service_value "${root}" "${s}" command)" ; nofile="$(rt_service_value "${root}" "${s}" nofile)" ; start="" ;
+    if [ -n "${nofile}" ] ; then
+      start="$(rt_service_start "$(rt_engine kubernetes)" "${image}" "${command}")" \
+        || { echo "rt_service: ${s}: --nofile on Kubernetes runs the image's own start after the limit, and ${image} gave none." >&2 ; return 1 ; } ;
+    fi
     if [ -n "${env_file}" ] && [ ! -f "${root}/${env_file}" ] ; then
       echo "rt_service: ${s}: its env file ${env_file} is not in the project; the service starts without it." >&2 ; env_file="" ;
     fi
@@ -1434,7 +1502,10 @@ function rt_k8s_services() {
       printf -- '---\n# A service of the project'"'"'s own (rt_service, webship/workspace#900).\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: %s\nspec:\n  replicas: 1\n' "${s}" ;
       if [ -n "${volume}" ] ; then printf '  strategy:\n    type: Recreate\n' ; fi ;
       printf '  selector:\n    matchLabels: {app: %s}\n  template:\n    metadata:\n      labels: {app: %s}\n    spec:\n      enableServiceLinks: false\n      containers:\n        - name: %s\n          image: %s\n          imagePullPolicy: IfNotPresent\n' "${s}" "${s}" "${s}" "${image}" ;
-      if [ -n "${command}" ] ; then printf '          args: %s\n' "$(rt_words_json "${command}")" ; fi ;
+      if [ -n "${nofile}" ] ; then
+        # Kubernetes has no field for the open-files limit (#982): the start lowers it, then runs the image's own.
+        printf '          command: %s\n          args: %s\n' "$(rt_nofile_command "${nofile}")" "${start}" ;
+      elif [ -n "${command}" ] ; then printf '          args: %s\n' "$(rt_words_json "${command}")" ; fi ;
       if [ -n "${env_file}" ] ; then printf '          envFrom: [{secretRef: {name: %s-env}}]\n' "${s}" ; fi ;
       if [ -n "${port}" ] ; then printf '          ports: [{containerPort: %s}]\n' "${port}" ; fi ;
       if [ -n "${volume}" ] ; then
@@ -1473,7 +1544,7 @@ function rt_k8s() {
       sed -i '/^    ports:$/,/^      - "127.0.0.1:/d' "${root}/compose.yaml" ;
       # No port of this machine on Kubernetes: the address is the node's, which a pod reaches as it is.
       sed -i '/^      # The site.s own port, also inside the container/,/^      WEBSHIP_PORT: /d' "${root}/compose.yaml" ;
-      rt_k8s_write "${root}" ;
+      rt_k8s_write "${root}" || return 1 ;
       echo "Wrote compose.yaml and k8s/ for kubernetes ($(rt_kctx)): $(rt_url "${root}")" ;;
     start|restart)
       [ -n "${root}" ] || { echo "No kubernetes project here." >&2 ; return 1 ; } ;
