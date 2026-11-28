@@ -4,7 +4,7 @@ The Extra steps panel (a project's Tests menu) shows them beside each `@webship-
 same files the docs cards on webship.co show. Each logo belongs to its project; `core/config/step-packs.json`
 names the file of each pack.
 
-- `aspnet-core` (the set's `dotnet`), `astro`, `codeigniter`, `craftcms`, `discourse`, `django`, `docusaurus`, `drupal`, `filament`, `flutter`, `gatsby`, `ghost`, `gitea` (the pack of Gitea and Forgejo), `headless-ui` (the set's `headlessui`), `hubspot`, `jira`, `joomla`, `laravel`, `magento`, `mautic`, `moodle`, `nextcloud`, `nextjs` (the set's `nextdotjs`), `spring-boot` (the set's `springboot`),
+- `aspnet-core` (the set's `dotnet`), `astro`, `codeigniter`, `craftcms`, `discourse`, `django`, `docusaurus`, `drupal`, `filament`, `flutter`, `gatsby`, `ghost`, `gitea` (the pack of Gitea and Forgejo), `headless-ui` (the set's `headlessui`), `home-assistant` (the set's `homeassistant`), `hubspot`, `jira`, `joomla`, `laravel`, `magento`, `mautic`, `moodle`, `nextcloud`, `nextjs` (the set's `nextdotjs`), `spring-boot` (the set's `springboot`),
   `odoo`, `openproject`, `payload` (the set's `payloadcms`), `penpot`, `phpbb`, `plane`, `prestashop`, `roundcube`, `shopify`, `squarespace`, `strapi`, `svelte`, `symfony`, `typo3`, `uikit`, `uptime-kuma` (the set's `uptimekuma`), `vikunja`, `wagtail`, `webflow`, `woocommerce`, `wordpress` (`.svg`): Simple Icons
   16.37.0 (CC0-1.0), filled with the colour the set lists for the brand.
 - `keycloak.svg`: Simple Icons 16.37.0, filled with the colour the set lists for the brand. Unlike most of the set,
