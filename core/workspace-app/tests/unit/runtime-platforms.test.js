@@ -60,6 +60,19 @@ test('the php stack carries WP-CLI at a named release, so `ddev wp` answers wher
   assert.match(dockerfile, /chmod \+x \/usr\/local\/bin\/wp/);
 });
 
+test('the php stack builds pcntl in, as DDEV\'s web image has it, and its build checks that PHP loads it', () => {
+  // The daemons of PHP apps fork and stop on a signal with pcntl: Phorge's phd needs it, Laravel's queue workers and
+  // Symfony Messenger use it to stop cleanly.
+  const dockerfile = fs.readFileSync(path.join(STACKS, 'php', 'Dockerfile'), 'utf8');
+  const built = /docker-php-ext-install -j"\$\(nproc\)" ([a-z_ ]+)/.exec(dockerfile);
+  assert.ok(built, 'the extensions the stack builds');
+  const extensions = built[1].trim().split(/\s+/);
+  for (const e of ['gd', 'pdo_mysql', 'mysqli', 'zip', 'intl', 'opcache', 'bcmath', 'exif', 'pcntl']) assert.ok(extensions.includes(e), `${e} is built in`);
+  assert.ok(dockerfile.indexOf('php -m | grep -qx pcntl') > dockerfile.indexOf(built[0]), 'the build checks that PHP loads it, after it is built');
+  const docs = fs.readFileSync(path.join(STACKS, '..', '..', 'docs', 'plugins-on-runtimes.md'), 'utf8');
+  assert.match(docs, /with gd, pdo_mysql, mysqli, zip, intl, opcache, bcmath, exif, pcntl;/, 'the docs list it');
+});
+
 test('`ddev wp` runs in the web container as the site\'s user, in the folder the builder is in, with its stdin', () => {
   const dir = sandbox();
   const d = built(dir, 'wpd', 'docker');
