@@ -479,8 +479,8 @@ until ready ; do
 done
 exec bash .webship/runtime/serve.sh
 START
-  # Kubernetes' liveness probe of the server (#850). It answers: any HTTP response on its port within 5 s, a 500 too
-  # (an application whose database restarts is not killed). It answered before in this container and does not now: it
+  # Kubernetes' liveness probe of the server (#850). It answers: any HTTP response on its port within 10 s, a 500 too
+  # (an application whose database restarts is not killed, and a heavy one that is slow under load is not either, #971). It answered before in this container and does not now: it
   # is restarted. It never answered yet: fine for WEBSHIP_SERVE_GRACE seconds from the container's start (a build, the
   # migrations of a first start), restarted after.
   cat > "${root}/.webship/runtime/probe.sh" <<'PROBE'
@@ -488,7 +488,7 @@ START
 # Written by the Webship Workspace (webship/workspace#850): Kubernetes' liveness probe of the application's server.
 port="${1:-8000}" grace="${WEBSHIP_SERVE_GRACE:-1800}"
 served="${TMPDIR:-/tmp}/webship-served"
-code="$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://127.0.0.1:${port}/" 2> /dev/null)"
+code="$(curl -s -o /dev/null -m 10 -w '%{http_code}' "http://127.0.0.1:${port}/" 2> /dev/null)"
 if [ -n "${code}" ] && [ "${code}" != 000 ] ; then touch "${served}" ; exit 0 ; fi
 [ -f "${served}" ] && { echo "The application's server answered on port ${port} before, and does not now." ; exit 1 ; }
 up="$(ps -o etimes= -p 1 | tr -d ' ')"
@@ -552,13 +552,16 @@ function rt_compose_write() {
   [ -n "${lang}" ] && stack_lines="${stack_lines}"$'\n  language: '"${lang}" ;
   [ -n "${lang_version}" ] && stack_lines="${stack_lines}"$'\n  language_version: "'"${lang_version}"'"' ;
   [ -n "${serve_port}" ] && stack_lines="${stack_lines}"$'\n  serve_port: '"${serve_port}" ;
-  # How long a generic stack's server waits for its database, and Kubernetes' grace for a server that never answered
-  # yet (#850): WEBSHIP_DB_WAIT and WEBSHIP_SERVE_GRACE of `ddev config`, kept in x-webship when it writes again.
-  local db_wait="" serve_grace="" ;
+  # How long a generic stack's server waits for its database, Kubernetes' grace for a server that never answered yet
+  # (#850), and how long Kubernetes lets a server that answered before not answer before it is restarted (#971):
+  # WEBSHIP_DB_WAIT, WEBSHIP_SERVE_GRACE and WEBSHIP_SERVE_PATIENCE of `ddev config`, kept in x-webship when it writes
+  # again.
+  local db_wait="" serve_grace="" serve_patience="" ;
   if [ "${stack}" = generic ] ; then
     db_wait="${RT_DB_WAIT:-300}" ; [[ "${db_wait}" =~ ^[0-9]+$ ]] || db_wait=300 ;
     serve_grace="${RT_SERVE_GRACE:-1800}" ; [[ "${serve_grace}" =~ ^[0-9]+$ ]] || serve_grace=1800 ;
-    stack_lines="${stack_lines}"$'\n  db_wait: '"${db_wait}"$'\n  serve_grace: '"${serve_grace}" ;
+    serve_patience="${RT_SERVE_PATIENCE:-120}" ; [[ "${serve_patience}" =~ ^[0-9]+$ ]] && [ "${serve_patience}" -ge 30 ] || serve_patience=120 ;
+    stack_lines="${stack_lines}"$'\n  db_wait: '"${db_wait}"$'\n  serve_grace: '"${serve_grace}"$'\n  serve_patience: '"${serve_patience}" ;
   fi
   mkdir -p "${root}/.webship/runtime" ;
   if [ "${stack}" = generic ] ; then rt_generic_runtime "${root}" "${db}" ; else cp "${RT_STACKS}/php/Dockerfile" "${root}/.webship/runtime/Dockerfile" ; fi ;
@@ -945,12 +948,12 @@ function rt_compose() {
       # The tasks beside the web server (rt_daemon) stay too, and a generic stack's language and server (#841).
       local daemons stack ; daemons="$( [ -f "${root}/compose.yaml" ] && rt_meta daemons "${root}" )" ;
       stack="$( [ -f "${root}/compose.yaml" ] && rt_meta stack "${root}" )" ;
-      local RT_STACK_LANG RT_STACK_VERSION RT_SERVE_PORT RT_DB_WAIT RT_SERVE_GRACE ;
+      local RT_STACK_LANG RT_STACK_VERSION RT_SERVE_PORT RT_DB_WAIT RT_SERVE_GRACE RT_SERVE_PATIENCE ;
       if [ -f "${root}/compose.yaml" ] ; then
         RT_STACK_LANG="$(rt_meta language "${root}")" ; RT_STACK_VERSION="$(rt_meta language_version "${root}")" ; RT_SERVE_PORT="$(rt_meta serve_port "${root}")" ;
-        RT_DB_WAIT="$(rt_meta db_wait "${root}")" ; RT_SERVE_GRACE="$(rt_meta serve_grace "${root}")" ;
+        RT_DB_WAIT="$(rt_meta db_wait "${root}")" ; RT_SERVE_GRACE="$(rt_meta serve_grace "${root}")" ; RT_SERVE_PATIENCE="$(rt_meta serve_patience "${root}")" ;
       fi
-      RT_DB_WAIT="${WEBSHIP_DB_WAIT:-${RT_DB_WAIT}}" ; RT_SERVE_GRACE="${WEBSHIP_SERVE_GRACE:-${RT_SERVE_GRACE}}" ;
+      RT_DB_WAIT="${WEBSHIP_DB_WAIT:-${RT_DB_WAIT}}" ; RT_SERVE_GRACE="${WEBSHIP_SERVE_GRACE:-${RT_SERVE_GRACE}}" ; RT_SERVE_PATIENCE="${WEBSHIP_SERVE_PATIENCE:-${RT_SERVE_PATIENCE}}" ;
       for a in "$@" ; do
         case "${a}" in
           --project-name=*) name="${a#*=}" ;; --project-type=*) type="${a#*=}" ;; --docroot=*) docroot="${a#*=}" ;;
@@ -962,7 +965,7 @@ function rt_compose() {
           --webserver-type=generic) stack=generic ;; --webserver-type=*) stack=php ;;
         esac
       done
-      RT_STACK_LANG="${RT_STACK_LANG}" RT_STACK_VERSION="${RT_STACK_VERSION}" RT_SERVE_PORT="${RT_SERVE_PORT}" RT_DB_WAIT="${RT_DB_WAIT}" RT_SERVE_GRACE="${RT_SERVE_GRACE}" \
+      RT_STACK_LANG="${RT_STACK_LANG}" RT_STACK_VERSION="${RT_STACK_VERSION}" RT_SERVE_PORT="${RT_SERVE_PORT}" RT_DB_WAIT="${RT_DB_WAIT}" RT_SERVE_GRACE="${RT_SERVE_GRACE}" RT_SERVE_PATIENCE="${RT_SERVE_PATIENCE}" \
         rt_compose_write "${rt}" "${root}" "${name:-$(basename "${root}")}" "${type:-php}" "${docroot}" "${php:-8.3}" "${db:-10.11}" "${port:-$(rt_free_port)}" "${platform}" "${mail_port:-$(rt_free_port)}" "${daemons}" "${stack:-php}" ;
       # What was written, as it is: a generic stack has no PHP, and the database is the project's (#890).
       if [ "${stack:-php}" = generic ] ; then
@@ -1137,6 +1140,7 @@ spec:
           readinessProbe:
             exec: {command: ["pg_isready", "-U", "db", "-d", "db"]}
             periodSeconds: 5
+            timeoutSeconds: 5
           volumeMounts: [{name: data, mountPath: ${data}}]
       volumes:
         - name: data
@@ -1194,6 +1198,7 @@ spec:
           readinessProbe:
             exec: {command: ["healthcheck.sh", "--connect", "--innodb_initialized"]}
             periodSeconds: 5
+            timeoutSeconds: 5
           volumeMounts: [{name: data, mountPath: /var/lib/mysql}]
       volumes:
         - name: data
@@ -1219,13 +1224,18 @@ function rt_k8s_write() {
   local serve_port="" serve_cmd="" serve_env="" ;
   if [ "$(rt_meta stack "${root}")" = generic ] ; then
     serve_port="$(rt_meta serve_port "${root}")" ; serve_port="${serve_port:-8000}" ;
-    local db_wait serve_grace ; db_wait="$(rt_meta db_wait "${root}")" ; serve_grace="$(rt_meta serve_grace "${root}")" ;
+    local db_wait serve_grace serve_patience failures ; db_wait="$(rt_meta db_wait "${root}")" ; serve_grace="$(rt_meta serve_grace "${root}")" ;
+    # A server that answered before and does not now is restarted after WEBSHIP_SERVE_PATIENCE seconds of not answering
+    # (#971), 120 by default: a probe every 10 s, that many failures in a row. One that is slow for half a minute under
+    # load keeps its pod; one that has stopped refuses its port at once, and is restarted after the patience.
+    serve_patience="$(rt_meta serve_patience "${root}")" ; [[ "${serve_patience}" =~ ^[0-9]+$ ]] && [ "${serve_patience}" -ge 30 ] || serve_patience=120 ;
+    failures=$(( (serve_patience + 9) / 10 )) ;
     serve_env=$'\n            # How long the server waits for its database, and the grace of one that never answered yet (#850).\n            - {name: WEBSHIP_DB_WAIT, value: "'"${db_wait:-300}"$'"}\n            - {name: WEBSHIP_SERVE_GRACE, value: "'"${serve_grace:-1800}"$'"}' ;
     # Once its database takes connections (start.sh); restarted when it stops answering, or never answers after the
     # grace (probe.sh, #850). No startup probe: the pod is ready as soon as it runs, as `ddev start` waits for it
     # before a build has made the application its server serves.
     serve_cmd=$'\n          command: ["runuser", "-u", "www-data", "--", "bash", "/var/www/html/.webship/runtime/start.sh"]\n          workingDir: /var/www/html'
-    serve_cmd="${serve_cmd}"$'\n          livenessProbe:\n            exec: {command: ["bash", "/var/www/html/.webship/runtime/probe.sh", "'"${serve_port}"$'"]}\n            periodSeconds: 10\n            timeoutSeconds: 10\n            failureThreshold: 3' ;
+    serve_cmd="${serve_cmd}"$'\n          livenessProbe:\n            exec: {command: ["bash", "/var/www/html/.webship/runtime/probe.sh", "'"${serve_port}"$'"]}\n            periodSeconds: 10\n            timeoutSeconds: 15\n            failureThreshold: '"${failures}" ;
   fi
   db="$(rt_meta database "${root}")" ; port="$(rt_meta port "${root}")" ; mail_port="$(rt_meta mail_port "${root}")" ; ns="ws-${name}" ;
   image="$(rt_k8s_web_image "${root}")" ; [ "${image}" = "webship-${name}-web" ] || pull=IfNotPresent ;

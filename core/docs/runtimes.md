@@ -91,15 +91,16 @@ What a plugin changes, what it must never do and the checklist to prove it are i
 
 Two stacks so far: the `php` stack (Apache, PHP, MariaDB), and a generic one for an application in another language, which brings its own language and version (Python, Node.js, Java, .NET, Ruby, Go, or an image of its own), its own server and PostgreSQL, MariaDB or no database (webship/workspace#841): on every runtime: Docker Compose, Podman, Kubernetes, Lando and Docksal. On DDEV a project of any language builds as before, with DDEV's own images and its generic web server. A service of a platform's own (OpenSearch, Redis) is one of the project's own services on Docker Compose, Podman and Kubernetes (`rt_service`, below); on Lando and Docksal it still builds on DDEV only.
 
-A generic stack's server starts once the project's database takes connections, and on Kubernetes a server that stops answering is restarted (webship/workspace#850). Two settings, taken from the environment of `ddev config` and kept in the `x-webship` block:
+A generic stack's server starts once the project's database takes connections, and on Kubernetes a server that stops answering is restarted (webship/workspace#850). Any answer on its port within 10 seconds counts, a 500 too, and a server that answered before is restarted only after it has not answered for its patience (two minutes by default, webship/workspace#971): a heavy application that is slow under load keeps its pod, and one that has stopped is restarted. The database answers its readiness check within 5 seconds. Three settings, taken from the environment of `ddev config` and kept in the `x-webship` block:
 
 | Setting | Default | What it is |
 | --- | --- | --- |
 | `WEBSHIP_DB_WAIT` | 300 | How many seconds the server waits for its database before it says so and stops (every runtime) |
 | `WEBSHIP_SERVE_GRACE` | 1800 | On Kubernetes, how many seconds a server that never answered yet has from its container's start (a build, the migrations of a first start) before it is restarted |
+| `WEBSHIP_SERVE_PATIENCE` | 120 | On Kubernetes, how many seconds a server that answered before may not answer before it is restarted (at least 30) |
 
 ```bash
-WEBSHIP_DB_WAIT=600 WEBSHIP_SERVE_GRACE=3600 ddev config   # then ddev restart
+WEBSHIP_DB_WAIT=600 WEBSHIP_SERVE_GRACE=3600 WEBSHIP_SERVE_PATIENCE=300 ddev config   # then ddev restart
 ```
 
 ## A project's own services
