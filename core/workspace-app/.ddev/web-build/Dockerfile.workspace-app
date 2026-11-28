@@ -22,7 +22,7 @@ RUN apt-get update -o Acquire::AllowInsecureRepositories=true || true \
 # its release, into the directory the docker client already looks in (docker-buildx is there).
 ARG COMPOSE_VERSION=v2.29.7
 RUN mkdir -p /usr/libexec/docker/cli-plugins \
-    && curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-$(uname -m)" \
+    && curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-$(uname -m)" \
          -o /usr/libexec/docker/cli-plugins/docker-compose \
     && chmod +x /usr/libexec/docker/cli-plugins/docker-compose \
     && docker compose version
@@ -41,7 +41,7 @@ ARG CODE_SERVER_VERSION=4.135.0
 RUN set -eux; \
     arch="$(dpkg --print-architecture)"; \
     case "$arch" in amd64) cs_arch=amd64 ;; arm64) cs_arch=arm64 ;; *) echo "no code-server build for $arch" >&2; exit 1 ;; esac; \
-    wget -qO /tmp/code-server.tar.gz \
+    wget -q --tries=5 --waitretry=3 --retry-connrefused -O /tmp/code-server.tar.gz \
       "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-${cs_arch}.tar.gz"; \
     mkdir -p /usr/local/lib/code-server; \
     tar -xzf /tmp/code-server.tar.gz -C /usr/local/lib/code-server --strip-components=1; \
@@ -95,11 +95,11 @@ ARG DDEV_VERSION=1.25.2
 # all the client needs; the actual building happens on the host's daemon over the mounted socket.
 ARG BUILDX_VERSION=0.34.1
 RUN mkdir -p /usr/libexec/docker/cli-plugins \
-    && curl -fsSL "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-amd64" \
+    && curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-amd64" \
       -o /usr/libexec/docker/cli-plugins/docker-buildx \
     && chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
 
-RUN curl -fsSL "https://github.com/ddev/ddev/releases/download/v${DDEV_VERSION}/ddev_linux-amd64.v${DDEV_VERSION}.tar.gz" \
+RUN curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "https://github.com/ddev/ddev/releases/download/v${DDEV_VERSION}/ddev_linux-amd64.v${DDEV_VERSION}.tar.gz" \
     -o /tmp/ddev.tar.gz \
     && tar -xzf /tmp/ddev.tar.gz -C /tmp \
     && mv /tmp/ddev /usr/local/bin/ddev \
@@ -109,7 +109,7 @@ RUN curl -fsSL "https://github.com/ddev/ddev/releases/download/v${DDEV_VERSION}/
 # The GitHub CLI: the agents/skills pages read webship/ai-agents (private)
 # and fetch items from it. Auth comes from the host's ~/.config/gh, which the
 # dood compose file bind-mounts alongside ~/.claude.
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+RUN curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
       > /etc/apt/sources.list.d/github-cli.list \
