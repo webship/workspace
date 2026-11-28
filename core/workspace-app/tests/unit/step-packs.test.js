@@ -565,6 +565,14 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<div id="app"></div>\n<script type="module" crossorigin src="/assets/index-D4kq2xVc.js"></script>'), [], 'a Vue app drawn in the browser only');
   assert.deepStrictEqual(hits('<p>Style it with <code>data-headlessui-state="open"</code>, or with ui-open:.</p>'), [], 'a page that names the attribute in its text');
   assert.deepStrictEqual(hits('<pre>&lt;div data-headlessui-state="open"&gt;</pre>'), [], 'the attribute in a code sample');
+  // Uptime Kuma (2026-11-28, read on 2.5.12 and 1.23.17, the page both lines serve at /dashboard, where their front page
+  // sends): the description the app's page carries, the same on both lines. A page drawn in the browser, so the rest of
+  // it is an empty root and its scripts. A page that names the app in its text, or the meta in a code sample, is none.
+  const ukPage = '<link rel="manifest" href="/manifest.json" />\n    <meta name="theme-color" id="theme-color" content="" />\n    <meta name="description" content="Uptime Kuma monitoring tool" />\n    <title>Uptime Kuma</title>';
+  assert.deepStrictEqual(hits(ukPage), ['uptime-kuma']);
+  assert.match(sp.detectPacks({ html: ukPage, headers: {} }, all).find((h) => h.pack.short === 'uptime-kuma').evidence, /carries "<meta name="description" content="Uptime Kuma monitoring/, 'the description is the evidence');
+  assert.deepStrictEqual(hits('<p>We watch our shop with Uptime Kuma, the monitoring tool.</p>'), [], 'a page that names the app in its text');
+  assert.deepStrictEqual(hits('<pre>&lt;meta name="description" content="Uptime Kuma monitoring tool" /&gt;</pre>'), [], 'the meta in a code sample');
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
   assert.deepStrictEqual(hits('<html><body>Hello</body></html>'), []);
 
