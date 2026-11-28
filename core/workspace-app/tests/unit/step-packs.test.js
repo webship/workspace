@@ -573,6 +573,16 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.match(sp.detectPacks({ html: ukPage, headers: {} }, all).find((h) => h.pack.short === 'uptime-kuma').evidence, /carries "<meta name="description" content="Uptime Kuma monitoring/, 'the description is the evidence');
   assert.deepStrictEqual(hits('<p>We watch our shop with Uptime Kuma, the monitoring tool.</p>'), [], 'a page that names the app in its text');
   assert.deepStrictEqual(hits('<pre>&lt;meta name="description" content="Uptime Kuma monitoring tool" /&gt;</pre>'), [], 'the meta in a code sample');
+  // Home Assistant (2026-11-28, read on 2026.11.3 and 2026.5.4): the front page of an app that has had its onboarding
+  // is the frontend's own page, the same on both lines, which names the app as a web app (application-name) and holds
+  // its launch screen; a new app sends its front page to its onboarding page, drawn by <ha-onboarding>. Both are drawn in
+  // the browser. A page that names the app in its text, or the meta in a code sample, is none.
+  const haPage = '<meta name="apple-mobile-web-app-title" content="Home Assistant">\n<meta name="application-name" content="Home Assistant">\n<meta name="referrer" content="same-origin">';
+  assert.deepStrictEqual(hits(haPage), ['home-assistant']);
+  assert.match(sp.detectPacks({ html: haPage, headers: {} }, all).find((h) => h.pack.short === 'home-assistant').evidence, /carries "<meta name="application-name" content="Home Assistant"/, 'the application name is the evidence');
+  assert.deepStrictEqual(hits('<title>Home Assistant</title></head><body><ha-onboarding></ha-onboarding>'), ['home-assistant'], 'a new app\'s onboarding page');
+  assert.deepStrictEqual(hits('<p>Our lights run on Home Assistant, the home automation platform.</p>'), [], 'a page that names the app in its text');
+  assert.deepStrictEqual(hits('<pre>&lt;meta name="application-name" content="Home Assistant"&gt;</pre>'), [], 'the meta in a code sample');
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
   assert.deepStrictEqual(hits('<html><body>Hello</body></html>'), []);
 
