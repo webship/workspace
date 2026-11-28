@@ -225,6 +225,12 @@ test('what rt_service refuses, before anything is written; on DDEV it does nothi
     ['rt_service cache docker.io/valkey/valkey:7.2.11-alpine --volume data', /--volume takes the folder/],
     ['rt_service cache docker.io/valkey/valkey:7.2.11-alpine --memory 1g', /is not an option of it/],
     ['rt_service cache docker.io/valkey/valkey:7.2.11-alpine --port', /takes a value/],
+    ['rt_service cache docker.io/valkey/valkey:7.2.11-alpine --nofile', /takes a value/],
+    ['rt_service cache docker.io/valkey/valkey:7.2.11-alpine --nofile 65536x', /--nofile takes the open-files limit, a number from 1024 to 1048576/],
+    ['rt_service cache docker.io/valkey/valkey:7.2.11-alpine --nofile 512', /--nofile takes the open-files limit/],
+    ['rt_service cache docker.io/valkey/valkey:7.2.11-alpine --nofile 2097152', /--nofile takes the open-files limit/],
+    // YAML would read a leading zero as an octal number.
+    ['rt_service cache docker.io/valkey/valkey:7.2.11-alpine --nofile 065536', /--nofile takes the open-files limit/],
   ];
   for (const [call, said] of cases) {
     const r = run(dir, p, call);
@@ -248,6 +254,146 @@ test('what rt_service refuses, before anything is written; on DDEV it does nothi
   assert.notStrictEqual(lando.status, 0);
   assert.match(lando.out, /a service of the project's own is written on Docker Compose, Podman and Kubernetes, not on lando yet/);
   assert.ok(!fs.existsSync(path.join(l, '.webship')), 'nothing written on Lando');
+});
+
+// The open-files limit of a service of the project's own (webship/workspace#982). Erlang sizes its tables to it: on
+// kind, which gives every pod the kernel's highest (1073741816), RabbitMQ 3.8 took 1.6 GB.
+const NOFILE = 'rt_service queue docker.io/library/rabbitmq:3.8.34-management-alpine --port 5672 --nofile 65536';
+
+/** A stand-in docker (or podman) that answers `image inspect` for the images it is given, as their config; the rest are not here. */
+function inspectingDocker(dir, configs, { pulled = [], cli = 'docker' } = {}) {
+  const lines = ['#!/usr/bin/env bash', `echo "${cli} $*" >> "${dir}/calls.log"`, 'case "$*" in'];
+  for (const [image, config] of Object.entries(configs)) {
+    const here = pulled.includes(image) ? `[ -f "${dir}/pulled" ] || exit 1 ; ` : '';
+    lines.push(`  "image inspect --format {{json .Config}} ${image}") ${here}printf '%s\\n' '${JSON.stringify(config)}' ;;`);
+    lines.push(`  "image inspect ${image}") ${here}true ;;`);
+    lines.push(`  "pull -q ${image}") touch "${dir}/pulled" ;;`);
+  }
+  lines.push('  "image inspect "*) exit 1 ;;', '  "pull "*) exit 1 ;;', 'esac', 'true', '');
+  fs.writeFileSync(path.join(dir, 'bin', cli), lines.join('\n'), { mode: 0o755 });
+}
+
+const RABBITMQ = { 'docker.io/library/rabbitmq:3.8.34-management-alpine': { Entrypoint: ['docker-entrypoint.sh'], Cmd: ['rabbitmq-server'], WorkingDir: '' } };
+const lower = (n) => ['sh', '-c', `ulimit -n ${n} || echo "the open-files limit stays as the runtime gives it" >&2 ; exec "$0" "$@"`];
+
+test('--nofile on Docker Compose: the open-files limit, soft and hard, in compose.yaml, and the image\'s own start; kept when written again (#982)', () => {
+  const dir = sandbox();
+  const p = project(dir, 'docker', 'nofile-docker');
+  const r = run(dir, p, NOFILE);
+  assert.strictEqual(r.status, 0, r.out);
+  assert.match(read(p, '.webship', 'runtime', 'services', 'queue.yaml'), /\nport: 5672\nnofile: 65536\n$/);
+  const queue = yaml.load(read(p, 'compose.yaml')).services.queue;
+  assert.deepStrictEqual(queue.ulimits, { nofile: { soft: 65536, hard: 65536 } });
+  assert.deepStrictEqual([queue.entrypoint, queue.command], [undefined, undefined], 'Docker keeps the ulimits: the image\'s own start');
+  assert.deepStrictEqual(r.calls.filter((c) => /^docker (image inspect|pull)/.test(c)), [], 'no image is read');
+  assert.strictEqual(run(dir, p, 'ddev config > /dev/null').status, 0);
+  assert.deepStrictEqual(yaml.load(read(p, 'compose.yaml')).services.queue.ulimits, { nofile: { soft: 65536, hard: 65536 } }, 'written again');
+  // A service without it has no ulimits: what it had before.
+  assert.strictEqual(run(dir, p, ONE).status, 0);
+  assert.strictEqual(yaml.load(read(p, 'compose.yaml')).services.cache.ulimits, undefined);
+});
+
+test('--nofile on Podman: the ulimits, and the start lowers the limit too, since Podman drops them; an image with no start stops the writing (#982)', () => {
+  const dir = sandbox();
+  inspectingDocker(dir, { ...RABBITMQ, 'docker.io/library/nginx:1.29.3-alpine': { Entrypoint: ['/docker-entrypoint.sh'], Cmd: ['nginx', '-g', 'daemon off;'] }, 'docker.io/library/scratchy:1.0.0': { Entrypoint: null, Cmd: null } }, { cli: 'podman' });
+  const p = project(dir, 'podman', 'nofile-podman');
+  const r = run(dir, p, `${NOFILE} && rt_service proxy docker.io/library/nginx:1.29.3-alpine --port 8080 --nofile 4096 --command 'nginx -c /etc/nginx/alt.conf -g "pid $HOME/n.pid;"'`);
+  assert.strictEqual(r.status, 0, r.out);
+  const text = read(p, 'compose.yaml');
+  const services = yaml.load(text).services;
+  // compose reads a $ as one of its variables: the shell's $0 and $@ are $$0 and $$@ in compose.yaml.
+  const escaped = (words) => words.map((w) => w.replace(/\$/g, '$$$$'));
+  assert.deepStrictEqual([services.queue.ulimits, services.queue.entrypoint, services.queue.command],
+    [{ nofile: { soft: 65536, hard: 65536 } }, escaped(lower(65536)), ['docker-entrypoint.sh', 'rabbitmq-server']]);
+  assert.deepStrictEqual([services.proxy.entrypoint, services.proxy.command],
+    [escaped(lower(4096)), ['/docker-entrypoint.sh', 'nginx', '-c', '/etc/nginx/alt.conf', '-g', 'pid $$HOME/n.pid;']], 'the entrypoint, then its --command');
+  assert.match(text, /\n {4}# The start lowers the open-files limit, then runs the image's own \(#982\): Podman drops ulimits\.\n {4}entrypoint: /);
+  assert.ok(r.calls.includes('podman image inspect --format {{json .Config}} docker.io/library/rabbitmq:3.8.34-management-alpine'), 'read with Podman');
+  // Refused before anything is written; written before, `ddev config` fails and keeps compose.yaml as it was.
+  const before = read(p, 'compose.yaml');
+  const none = run(dir, p, 'rt_service empty docker.io/library/scratchy:1.0.0 --nofile 65536');
+  assert.notStrictEqual(none.status, 0, none.out);
+  assert.match(none.out, /rt_service: empty: --nofile on Podman runs the image's own start after the limit, and docker\.io\/library\/scratchy:1\.0\.0 gave none/);
+  assert.ok(!fs.existsSync(path.join(p, '.webship', 'runtime', 'services', 'empty.yaml')));
+  fs.writeFileSync(path.join(p, '.webship', 'runtime', 'services', 'empty.yaml'), 'image: docker.io/library/scratchy:1.0.0\nnofile: 65536\n');
+  const again = run(dir, p, 'ddev config');
+  assert.notStrictEqual(again.status, 0, again.out);
+  assert.match(again.out, /rt_service: empty: --nofile on Podman runs the image's own start after the limit/);
+  assert.doesNotMatch(again.out, /Wrote compose\.yaml/);
+  assert.strictEqual(read(p, 'compose.yaml'), before, 'compose.yaml as it was');
+});
+
+test('--nofile on Kubernetes: the start lowers the limit, then runs the image\'s own entrypoint and command, or its --command (#982)', () => {
+  const dir = sandbox();
+  inspectingDocker(dir, {
+    'docker.io/library/rabbitmq:3.8.34-management-alpine': { Entrypoint: ['docker-entrypoint.sh'], Cmd: ['rabbitmq-server'], WorkingDir: '' },
+    'docker.io/library/nginx:1.29.3-alpine': { Entrypoint: ['/docker-entrypoint.sh'], Cmd: ['nginx', '-g', 'daemon off;'] },
+    'docker.io/valkey/valkey:7.2.11-alpine': { Entrypoint: null, Cmd: ['valkey-server'] },
+  }, { pulled: ['docker.io/valkey/valkey:7.2.11-alpine'] });
+  const p = project(dir, 'kubernetes', 'kube-nofile');
+  const r = run(dir, p, `${NOFILE} && rt_service proxy docker.io/library/nginx:1.29.3-alpine --port 8080 --nofile 4096 --command 'nginx -g "daemon off;" -c /etc/nginx/alt.conf'`
+    + ' && rt_service cache docker.io/valkey/valkey:7.2.11-alpine --port 6379 --nofile 10240');
+  assert.strictEqual(r.status, 0, r.out);
+  const docs = yaml.loadAll(read(p, 'k8s', 'services.yaml')).filter(Boolean);
+  const container = (name) => docs.find((d) => d.kind === 'Deployment' && d.metadata.name === name).spec.template.spec.containers[0];
+  assert.deepStrictEqual([container('queue').command, container('queue').args], [lower(65536), ['docker-entrypoint.sh', 'rabbitmq-server']], 'the image\'s entrypoint and command');
+  assert.deepStrictEqual([container('proxy').command, container('proxy').args], [lower(4096), ['/docker-entrypoint.sh', 'nginx', '-g', 'daemon off;', '-c', '/etc/nginx/alt.conf']], 'the image\'s entrypoint, then its --command');
+  assert.deepStrictEqual([container('cache').command, container('cache').args], [lower(10240), ['valkey-server']], 'no entrypoint: the command alone');
+  // Read with the engine that builds for the cluster; an image not on this machine is fetched once, and said.
+  assert.ok(r.calls.includes('docker pull -q docker.io/valkey/valkey:7.2.11-alpine'), r.calls.join('\n'));
+  assert.ok(!r.calls.some((c) => c.startsWith('docker pull -q docker.io/library/rabbitmq')), 'an image that is here is not fetched');
+  assert.match(r.out, /reading the start of docker\.io\/valkey\/valkey:7\.2\.11-alpine for its open-files limit: fetching the image once/);
+  // Written again, it stays; a service without --nofile keeps the image's own start, with no command.
+  assert.strictEqual(run(dir, p, 'ddev config > /dev/null').status, 0);
+  assert.deepStrictEqual(yaml.loadAll(read(p, 'k8s', 'services.yaml')).filter(Boolean).find((d) => d.kind === 'Deployment' && d.metadata.name === 'queue').spec.template.spec.containers[0].command, lower(65536));
+  assert.strictEqual(run(dir, p, "rt_service store docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z --port 9000 --command 'server /export'").status, 0);
+  const store = yaml.loadAll(read(p, 'k8s', 'services.yaml')).filter(Boolean).find((d) => d.kind === 'Deployment' && d.metadata.name === 'store').spec.template.spec.containers[0];
+  assert.deepStrictEqual([store.command, store.args], [undefined, ['server', '/export']]);
+});
+
+test('--nofile on Kubernetes: an image that gives no start of its own, or cannot be read, is refused before anything is written; written before, `ddev config` fails (#982)', () => {
+  const dir = sandbox();
+  inspectingDocker(dir, { 'docker.io/library/scratchy:1.0.0': { Entrypoint: null, Cmd: null } });
+  const p = project(dir, 'kubernetes', 'kube-nostart');
+  const none = run(dir, p, 'rt_service empty docker.io/library/scratchy:1.0.0 --nofile 65536');
+  assert.notStrictEqual(none.status, 0, none.out);
+  assert.match(none.out, /rt_service: empty: --nofile on Kubernetes runs the image's own start after the limit, and docker\.io\/library\/scratchy:1\.0\.0 gave none/);
+  const unknown = run(dir, p, 'rt_service gone docker.io/library/gone:1.0.0 --nofile 65536');
+  assert.notStrictEqual(unknown.status, 0, unknown.out);
+  assert.match(unknown.out, /rt_service: gone: --nofile on Kubernetes runs the image's own start after the limit, and docker\.io\/library\/gone:1\.0\.0 gave none/);
+  assert.ok(!fs.existsSync(path.join(p, '.webship', 'runtime', 'services')), 'refused before anything is written');
+  assert.ok(!fs.existsSync(path.join(p, 'k8s', 'services.yaml')));
+  // A service written before (by hand, or on another runtime) whose image gives none: `ddev config` says so and fails.
+  fs.mkdirSync(path.join(p, '.webship', 'runtime', 'services'), { recursive: true });
+  fs.writeFileSync(path.join(p, '.webship', 'runtime', 'services', 'empty.yaml'), 'image: docker.io/library/scratchy:1.0.0\nnofile: 65536\n');
+  const again = run(dir, p, 'ddev config');
+  assert.notStrictEqual(again.status, 0, again.out);
+  assert.match(again.out, /rt_service: empty: --nofile on Kubernetes runs the image's own start after the limit/);
+  assert.doesNotMatch(again.out, /Wrote compose\.yaml and k8s\//, 'not said to be written');
+  // With a --command, an image with no entrypoint of its own runs the command alone.
+  removeInSandbox(path.join(p, '.webship', 'runtime', 'services'));
+  const own = run(dir, p, "rt_service empty docker.io/library/scratchy:1.0.0 --nofile 65536 --command '/bin/serve --port 80'");
+  assert.strictEqual(own.status, 0, own.out);
+  const c = yaml.loadAll(read(p, 'k8s', 'services.yaml')).filter(Boolean).find((d) => d.kind === 'Deployment').spec.template.spec.containers[0];
+  assert.deepStrictEqual(c.args, ['/bin/serve', '--port', '80']);
+});
+
+test('the start --nofile writes on Kubernetes lowers the limit of what it runs, and runs it in its place (#982)', () => {
+  const lowered = spawnSync('bash', ['-c', `source ${SCRIPTS}/functions/fun-runtime.sh ; rt_nofile_command 2048`], { encoding: 'utf8' });
+  assert.strictEqual(lowered.status, 0, lowered.stderr);
+  const command = JSON.parse(lowered.stdout);
+  // As the container runs it: the command, then the arguments (here a shell that says its limits and its pid).
+  const r = spawnSync(command[0], [...command.slice(1), 'sh', '-c', 'echo "$(ulimit -Sn) $(ulimit -Hn) $$ $PPID"'], { encoding: 'utf8' });
+  assert.strictEqual(r.status, 0, r.stderr);
+  const [soft, hard] = r.stdout.trim().split(' ');
+  assert.deepStrictEqual([soft, hard], ['2048', '2048'], 'soft and hard, lowered');
+  // A limit above what the process may have is said, and the start goes on with the limit it has.
+  const hardNow = Number(spawnSync('sh', ['-c', 'ulimit -Hn'], { encoding: 'utf8' }).stdout.trim());
+  const above = JSON.parse(spawnSync('bash', ['-c', `source ${SCRIPTS}/functions/fun-runtime.sh ; rt_nofile_command ${hardNow + 1}`], { encoding: 'utf8' }).stdout);
+  const kept = spawnSync(above[0], [...above.slice(1), 'sh', '-c', 'ulimit -Hn'], { encoding: 'utf8' });
+  assert.strictEqual(kept.status, 0, kept.stderr);
+  assert.strictEqual(kept.stdout.trim(), String(hardNow));
+  assert.match(kept.stderr, /the open-files limit stays as the runtime gives it/);
 });
 
 test('removal takes the services\' volumes: `ddev delete` is compose\'s down -v of the project, and the leftovers go by its label', () => {

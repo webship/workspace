@@ -112,7 +112,7 @@ and the mail catcher: a cache, a queue, an S3 store, a search engine (webship/wo
 `rt_service` after `ddev config`, as it calls `rt_stack`:
 
 ```bash
-rt_service <name> <image:tag> [--port <n>] [--env-file <file>] [--volume <path>] [--command "<line>"]
+rt_service <name> <image:tag> [--port <n>] [--env-file <file>] [--volume <path>] [--command "<line>"] [--nofile <n>]
 ```
 
 | Part | What it is |
@@ -123,6 +123,7 @@ rt_service <name> <image:tag> [--port <n>] [--env-file <file>] [--volume <path>]
 | `--env-file <file>` | A file of the project with its environment, by its path from the project's root. Docker Compose reads a `$` in it as one of its variables: write values without one |
 | `--volume <path>` | The folder in the container its data is kept in: a volume of the project's own |
 | `--command "<line>"` | Its command line, in place of the image's own (the image's arguments on Kubernetes) |
+| `--nofile <n>` | Its open-files limit, soft and hard, from 1024 to 1048576 (webship/workspace#982). On Docker Compose, its `ulimits`. Kubernetes has no field for it. Podman drops `ulimits`: `podman compose` goes through Podman's Docker-compatible API, and with Podman 4.9.3 a container asked for 65536 got 1048576. So on Kubernetes and Podman the container's start lowers the limit and then runs the image's own entrypoint and command, or the entrypoint and `--command`. The image is read once for that with the runtime's engine, and fetched when it is not on this machine. It needs a shell (`sh`) |
 
 The Plane plugin's, for example:
 
@@ -148,6 +149,12 @@ Each is kept in `.webship/runtime/services/<name>.yaml`, and every `ddev config`
   looks for `rt_service_restart` (it says the policy), and says so on an older core.
 - **DDEV:** `rt_service` does nothing: a plugin brings its own `.ddev/docker-compose.<name>.yaml` there.
 - **Lando and Docksal:** not yet; `rt_service` says so and writes nothing.
+
+A service that sizes itself to its open-files limit needs `--nofile`. Erlang does, and so RabbitMQ 3.8 does. On
+Kubernetes, kind gives every pod the kernel's highest limit, 1073741816. There, one RabbitMQ 3.8.34 took 1.6 GB, and
+the kernel's out-of-memory killer took it. On Docker Compose, at Docker's own 1024 (soft) and 524288 (hard), the same
+RabbitMQ took 120 MiB. RabbitMQ 3.13 does not size itself this way. `--nofile 65536` brings RabbitMQ 3.8 back to about
+120 MB on every runtime.
 
 A project without services is written exactly as before.
 
