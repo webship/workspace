@@ -508,7 +508,10 @@ and succeeds. A Restore from the backups list extracts the archive, then starts 
 the dump beside it in its folder (`core/scripts/project-db.sh restore`, webship/workspace#951): the
 platform's own `<archive>-db<extension>` when its plugin keeps the database, else `-db.sql.gz` or `-db.sql`,
 through the runtime layer's `ddev import-db` on DDEV as on the other runtimes, so the plugin reads it. A
-project with no dump beside its archive is only started. The row's Import lists, for a platform that keeps its database, that project's own dumps
+project with no database is only started. A Restore that does not put a project's database back ends with a line that
+says why and a code that is not 0: the project did not start, its import failed, or no dump is beside the archive that
+this workspace can read (an empty one says the project had no database when it was backed up). A start that fails is
+tried once more after 20 seconds, in case another start of the same project ran at the same moment (#968). The row's Import lists, for a platform that keeps its database, that project's own dumps
 in the workspace's backups (its format, and the SQL ones), and takes its export first in the same
 command, as a runtime's import does. On Docker Compose, Podman and Kubernetes the row's menu offers
 Export and Import when the runtime or the platform keeps a database, and neither when none does

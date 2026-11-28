@@ -198,10 +198,38 @@ test('a Restore of an ordinary DDEV project: started, then DDEV\'s own import of
   assert.match(e.out, /dev---site3--2026-11-27_10-00-00-db\.sql\.gz is empty: the project had no database to export when it was backed up, so there is none to import\./);
   const both = backup(dir, 'site4', { '.sql.gz': '', '.sql': '-- sql' });
   assert.deepStrictEqual(run(dir, p, `restore_project_db "${both}"`).calls, ['ddev start -y', `ddev import-db --file=${both.replace(/\.tar\.gz$/, '-db.sql')}`]);
+  // No dump at all beside the archive of a project with a database: started, and the Restore says it did not finish.
   const none = backup(dir, 'site5', {});
   const n = run(dir, p, `restore_project_db "${none}"`);
-  assert.deepStrictEqual(n.calls, ['ddev start -y'], 'a project with no database: its folder is the whole of it, started');
-  assert.doesNotMatch(n.out, /Importing|empty|beside the archive/);
+  assert.deepStrictEqual(n.calls, ['ddev start -y'], 'started, nothing imported');
+  assert.strictEqual(n.status, 1);
+  assert.match(n.out, /The Restore did not finish: no dump of the project's database is beside dev---site5--2026-11-27_10-00-00\.tar\.gz that this workspace can read, so the project is back on an empty database\./);
+  // A project with no database: its folder is the whole of it, started, nothing said.
+  const nodb = ddevProject(dir, 'nodb', 'name: nodb\ntype: generic\nomit_containers: [db]\n');
+  const n2 = run(dir, nodb, `restore_project_db "${backup(dir, 'nodb', {})}"`);
+  assert.strictEqual(n2.status, 0, n2.out);
+  assert.deepStrictEqual(n2.calls, ['ddev start -y']);
+  assert.doesNotMatch(n2.out, /Importing|empty|beside the archive|did not finish/);
+  // A project that does not start: the Restore says what it did not put back.
+  const failing = sandbox();
+  fs.writeFileSync(path.join(failing, 'bin', 'ddev'), `#!/usr/bin/env bash\necho "ddev $*" >> "${failing}/calls.log"\n[ "$1" = start ] && exit 1\nexit 0\n`, { mode: 0o755 });
+  const fp = ddevProject(failing, 'site', 'name: site\ntype: drupal11\n');
+  const fa = backup(failing, 'site', { '.sql.gz': 'gz' });
+  const f = run(failing, fp, `sleep() { echo "sleep $1" >> "${failing}/calls.log" ; } ; restore_project_db "${fa}"`);
+  assert.strictEqual(f.status, 1);
+  assert.deepStrictEqual(f.calls, ['ddev start -y', 'sleep 20', 'ddev start -y'], 'started again once, after a wait; nothing imported into a project that did not start');
+  assert.match(f.out, /The project did not start at once; it is started again in 20 seconds, in case another start of it was running at the same moment\./);
+  assert.match(f.out, /The Restore did not finish: the project did not start, so its database was not put back from dev---site--2026-11-27_10-00-00-db\.sql\.gz\./);
+  // A start that fails once (another start of the project at the same moment) and goes through the second time: the
+  // import comes after it, and the Restore finishes.
+  const once = sandbox();
+  fs.writeFileSync(path.join(once, 'bin', 'ddev'), `#!/usr/bin/env bash\necho "ddev $*" >> "${once}/calls.log"\nif [ "$1" = start ] && [ ! -f "${once}/started" ] ; then : > "${once}/started" ; exit 1 ; fi\nexit 0\n`, { mode: 0o755 });
+  const op = ddevProject(once, 'site', 'name: site\ntype: drupal11\n');
+  const oa = backup(once, 'site', { '.sql.gz': 'gz' });
+  const o = run(once, op, `sleep() { echo "sleep $1" >> "${once}/calls.log" ; } ; restore_project_db "${oa}"`);
+  assert.strictEqual(o.status, 0, o.out);
+  assert.deepStrictEqual(o.calls, ['ddev start -y', 'sleep 20', 'ddev start -y', `ddev import-db --file=${oa.replace(/\.tar\.gz$/, '-db.sql.gz')}`]);
+  assert.match(o.out, /Restored: the project and its database from dev---site--2026-11-27_10-00-00\.tar\.gz\./);
 });
 
 test('a Restore of a platform that keeps its database on DDEV: its own dump, read by its plugin, never DDEV\'s import', () => {

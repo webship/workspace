@@ -220,17 +220,46 @@ function project_dump_beside() {
 # import replaced it under it); started again, it starts on the database the backup holds. DDEV cannot start a project's
 # database alone, which would let the import come first. A MariaDB or MySQL application that sets itself up on an empty
 # database when it starts would need the same, here.
+# A Restore never leaves a project with a database on an empty one and says nothing: when the project does not start,
+# when its import fails, or when no dump of its database is beside the archive (an empty one says the project had none
+# when it was backed up), it ends with a line that says so, and with a code that is not 0.
 function restore_project_db() {
-  local archive="$1" dump ;
+  local archive="$1" dump rc f empty='' ;
   dump="$(project_dump_beside "${archive}")" ;
-  ddev start -y || return 1 ;
-  [ -n "${dump}" ] || return 0 ;
+  if ! ddev start -y ; then
+    # Another start of the same project at the same moment (a `ddev start --all`, the row's switch, a second window)
+    # makes one of the two fail, a container's name being in use by the other's: once that one has ended, a start of
+    # the containers it made goes through, and the import still comes after it.
+    echo "The project did not start at once; it is started again in 20 seconds, in case another start of it was running at the same moment." >&2 ;
+    sleep 20 ;
+    if ! ddev start -y ; then
+      echo "The Restore did not finish: the project did not start${dump:+, so its database was not put back from ${dump##*/}}." >&2 ;
+      return 1 ;
+    fi
+  fi
+  if [ -z "${dump}" ] ; then
+    for f in "${archive%.tar.gz}"-db.* ; do [ -f "${f}" ] && [ ! -s "${f}" ] && empty="${f}" ; done
+    if rt_has_db && [ -z "${empty}" ] ; then
+      echo "The Restore did not finish: no dump of the project's database is beside ${archive##*/} that this workspace can read, so the project is back on an empty database." >&2 ;
+      return 1 ;
+    fi
+    return 0 ;
+  fi
   echo "Importing database…" ;
-  ddev import-db --file="${dump}" || return $? ;
+  ddev import-db --file="${dump}" ;
+  rc=$? ;
+  if [ "${rc}" -ne 0 ] ; then
+    echo "The Restore did not finish: the import of ${dump##*/} failed (${rc}), so the project is not on the backup's database." >&2 ;
+    return "${rc}" ;
+  fi
   if [ "$(runtime_of)" = ddev ] && ! rt_db_platform > /dev/null && [ "$(rt_ddev_db_type)" = postgres ] ; then
     echo "Starting the project again, so its application starts on the database the backup holds…" ;
-    ddev restart ;
+    if ! ddev restart ; then
+      echo "The Restore did not finish: the project did not start again after the import." >&2 ;
+      return 1 ;
+    fi
   fi
+  echo "Restored: the project and its database from ${archive##*/}." ;
 }
 
 # The hook of the runtime layer's `ddev` function: `ddev export-db` and `ddev import-db` of a project whose platform's
