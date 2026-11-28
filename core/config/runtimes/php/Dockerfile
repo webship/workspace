@@ -1,13 +1,16 @@
 # The php stack of the Webship Workspace's container runtimes (Docker Compose, Podman, Kubernetes): Apache and PHP
 # with the extensions Drupal, WordPress and the other PHP platforms need, Composer, WP-CLI (`ddev wp`, as DDEV's own
 # web image carries it), the MariaDB client, and msmtp sending PHP's mail to the stack's Mailpit. Files are written
-# as the host user (UID/GID), as DDEV does.
+# as the host user (UID/GID), as DDEV does. pcntl is built in, as DDEV's web image has it: the daemons of PHP apps fork
+# and stop on a signal with it (Phorge's phd, Laravel's queue workers, Symfony Messenger), and the build checks that PHP
+# loads it.
 ARG PHP_VERSION=8.3
 FROM php:${PHP_VERSION}-apache
 RUN apt-get update && apt-get install -y --no-install-recommends git unzip curl patch less mariadb-client msmtp-mta \
       libpng-dev libjpeg62-turbo-dev libfreetype6-dev libwebp-dev libzip-dev libicu-dev libxml2-dev \
   && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
-  && docker-php-ext-install -j"$(nproc)" gd pdo_mysql mysqli zip intl opcache bcmath exif \
+  && docker-php-ext-install -j"$(nproc)" gd pdo_mysql mysqli zip intl opcache bcmath exif pcntl \
+  && php -m | grep -qx pcntl \
   && a2enmod rewrite headers expires \
   && mkdir -p /etc/mysql/conf.d && printf '[client]\nskip-ssl\n' > /etc/mysql/conf.d/webship.cnf \
   && for b in mysql mariadb mysqldump mariadb-dump ; do printf '#!/bin/sh\nexec /usr/bin/%s "$@" --skip-ssl\n' "$b" > /usr/local/bin/$b && chmod 755 /usr/local/bin/$b ; done \

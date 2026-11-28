@@ -29,7 +29,7 @@ The stack a project gets (the `php` stack, `core/config/runtimes/php/Dockerfile`
 | | |
 | --- | --- |
 | Web | Apache with `mod_rewrite` and `AllowOverride All`, the docroot from `--docroot`. Not nginx |
-| PHP | 8.3 by default (`--php-version`), with gd, pdo_mysql, mysqli, zip, intl, opcache, bcmath, exif; `memory_limit` 1G |
+| PHP | 8.3 by default (`--php-version`), with gd, pdo_mysql, mysqli, zip, intl, opcache, bcmath, exif, pcntl; `memory_limit` 1G |
 | Tools in the web container | Composer 2, WP-CLI, git, unzip, curl, patch, the MariaDB client. No Node.js |
 | Database | MariaDB 10.11 by default (`--database=mariadb:<v>`), on the host `db`, port 3306: database `db`, user `db`, password `db`, root password `root` |
 | Mail | Mailpit on the host `mail`. PHP's `mail()` goes there. An app that speaks SMTP uses `mail`, port 1025, no login |
