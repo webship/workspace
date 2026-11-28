@@ -309,10 +309,31 @@ test('the wait and the grace are kept in x-webship, taken from WEBSHIP_DB_WAIT a
 test('on Kubernetes a generic stack\'s server has a liveness probe on its port, and no startup probe: the pod is ready as it runs', () => {
   const dir = sandbox();
   const stack = read(app(dir, 'kubernetes', 'kprobe'), 'k8s', 'stack.yaml');
-  assert.match(stack, /\n {10}workingDir: \/var\/www\/html\n {10}livenessProbe:\n {12}exec: \{command: \["bash", "\/var\/www\/html\/\.webship\/runtime\/probe\.sh", "8000"\]\}\n {12}periodSeconds: 10\n {12}timeoutSeconds: 10\n {12}failureThreshold: 3\n/);
+  // A slow but working server keeps its pod (#971): an answer within 10 s (probe.sh) counts, the probe has 15 s, and a
+  // server that answered before is restarted after 120 s of not answering by default (12 failures, every 10 s).
+  assert.match(stack, /\n {10}workingDir: \/var\/www\/html\n {10}livenessProbe:\n {12}exec: \{command: \["bash", "\/var\/www\/html\/\.webship\/runtime\/probe\.sh", "8000"\]\}\n {12}periodSeconds: 10\n {12}timeoutSeconds: 15\n {12}failureThreshold: 12\n/);
   assert.doesNotMatch(stack, /startupProbe/, '`ddev start` waits for the pod before a build has made what its server serves');
   const web = stack.slice(stack.indexOf('  name: web\n'), stack.indexOf('kind: Service', stack.indexOf('  name: web\n')));
   assert.doesNotMatch(web, /readinessProbe/);
+});
+
+test('the patience of a server on Kubernetes is WEBSHIP_SERVE_PATIENCE of ddev config, kept in x-webship; the database answers its readiness in 5 s (#971)', () => {
+  const dir = sandbox();
+  const k = app(dir, 'kubernetes', 'kpatience', { calls: false });
+  assert.match(read(k, 'compose.yaml'), /\n {2}serve_grace: 1800\n {2}serve_patience: 120\n/, 'the default, beside the grace');
+  assert.strictEqual(run(dir, k, 'ddev config', { WEBSHIP_SERVE_PATIENCE: '300' }).status, 0);
+  assert.match(read(k, 'compose.yaml'), /\n {2}serve_patience: 300\n/);
+  assert.match(read(k, 'k8s', 'stack.yaml'), /\n {12}timeoutSeconds: 15\n {12}failureThreshold: 30\n/, '300 s: 30 failures, every 10 s');
+  assert.strictEqual(run(dir, k, 'ddev config --project-name=kpatience').status, 0);
+  assert.match(read(k, 'compose.yaml'), /\n {2}serve_patience: 300\n/, 'written again, it stays');
+  for (const bad of ['soon', '5']) {
+    assert.strictEqual(run(dir, k, 'ddev config', { WEBSHIP_SERVE_PATIENCE: bad }).status, 0);
+    assert.match(read(k, 'compose.yaml'), /\n {2}serve_patience: 120\n/, `${bad}: not a number of at least 30, the default`);
+  }
+  const stack = read(k, 'k8s', 'stack.yaml');
+  assert.match(stack, /exec: \{command: \["pg_isready", "-U", "db", "-d", "db"\]\}\n {12}periodSeconds: 5\n {12}timeoutSeconds: 5\n/, 'PostgreSQL: 5 s to answer, not Kubernetes\' 1');
+  const maria = read(app(dir, 'kubernetes', 'kmaria', { calls: false, db: 'mariadb:10.11' }), 'k8s', 'stack.yaml');
+  assert.match(maria, /exec: \{command: \["healthcheck\.sh", "--connect", "--innodb_initialized"\]\}\n {12}periodSeconds: 5\n {12}timeoutSeconds: 5\n/, 'MariaDB too');
 });
 
 test('probe.sh: any answer passes (a 500 too); a server that answered and does not now fails; one that never answered has WEBSHIP_SERVE_GRACE', () => {
