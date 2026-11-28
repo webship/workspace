@@ -41,6 +41,9 @@ names the file of each pack.
   no Wekan icon). Wekan and its logo are Wekan's; it names the software the pack tests.
 - `taiga.png`: the app icon Taiga 6.10.3 ships (taiga-front's `app/images/favicon.png`, AGPL-3.0), unmodified (Simple
   Icons has no Taiga icon). Taiga and its logo are Taiga's; it names the software the pack tests.
+- `mantisbt.png`: the logo MantisBT 2.29.0 ships without its words (`images/mantis_logo_notext.png`, GPL-2.0),
+  unmodified (Simple Icons has no MantisBT icon). MantisBT and its logo are MantisBT's; it names the software the pack
+  tests.
 - `angular.svg`: the Angular icon, `adev/shared-docs/pipeline/tutorials/common/src/assets/angular.svg` of
   github.com/angular/angular, unmodified. The Angular logo is the Angular team's, from github.com/angular/angular, under
   CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), as Angular's press kit provides it. It is not covered by the

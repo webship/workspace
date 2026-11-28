@@ -412,6 +412,15 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.ok(!hits('<a href="https://kanboard.org">Kanboard</a>').includes('kanboard'), 'a link to it is not the site');
   assert.ok(!hits('<meta name="description" content="Kanboard">').includes('kanboard'), 'the word in a description is not enough');
   assert.ok(!hits('<body data-status-url="/api/status">').includes('kanboard'), 'another app\'s status address');
+  // MantisBT: the stylesheet of its own skin, which its layout loads on every page, or the first of its two login forms,
+  // which posts the username to login_password_page.php, on the login page the front page sends a visitor to
+  // (2026-11-28, read on the plugin's own MantisBT 2.29.0 site); not a page that only links to mantisbt.org, the admin
+  // template it is built on, nor another app's login form.
+  assert.deepStrictEqual(hits('<link rel="stylesheet" type="text/css" href="https://mantisbt.test/css/ace-mantis.css?cache_key=c0eaba46">'), ['mantisbt']);
+  assert.deepStrictEqual(hits('<form id="login-form" method="post" action="login_password_page.php">'), ['mantisbt']);
+  assert.ok(!hits('<a href="https://www.mantisbt.org">MantisBT</a>').includes('mantisbt'), 'a link to it is not the site');
+  assert.ok(!hits('<link rel="stylesheet" href="/css/ace.min.css">').includes('mantisbt'), 'the admin template it is built on is not enough');
+  assert.ok(!hits('<form id="login-form" method="post" action="/login">').includes('mantisbt'), 'another app\'s login form');
   // Wekan: every page loads the stylesheets of Wekan's own Meteor packages, the sign-in form a visitor gets included
   // (2026-11-26, read on the plugin's own Wekan 13.33 site); not a page that only links to wekan.fi, the word in a
   // description, nor another Meteor app's packages.
