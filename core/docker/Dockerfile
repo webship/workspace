@@ -22,7 +22,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl gnupg tini git screen \
        python3 python3-yaml python-is-python3 pandoc jq rsync openssh-client unzip zip less procps gh \
   && install -m 0755 -d /etc/apt/keyrings \
-  && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
+  && curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable" \
        > /etc/apt/sources.list.d/docker.list \
   && apt-get update \
@@ -34,10 +34,10 @@ RUN apt-get update \
 ARG KUBECTL_VERSION=v1.37.0
 ARG KIND_VERSION=v0.33.0
 RUN arch="$(dpkg --print-architecture)" \
-  && curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${arch}/kubectl" -o /usr/local/bin/kubectl \
+  && curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${arch}/kubectl" -o /usr/local/bin/kubectl \
   && chmod 0755 /usr/local/bin/kubectl \
   && if [ -n "${KIND_VERSION}" ] ; then \
-       curl -fsSL "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-${arch}" -o /usr/local/bin/kind && chmod 0755 /usr/local/bin/kind ; \
+       curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-${arch}" -o /usr/local/bin/kind && chmod 0755 /usr/local/bin/kind ; \
      fi
 
 # The Claude Code CLI, for the AI Assistant (it uses the login in the mounted ~/.claude). CLAUDE_CODE=false leaves it out.
@@ -47,7 +47,7 @@ RUN if [ "${CLAUDE_CODE}" = "true" ] ; then npm install -g --no-audit --no-fund 
 # The ddev binary, only when asked for (see the top of this file).
 ARG DDEV_VERSION=
 RUN if [ -n "${DDEV_VERSION}" ] ; then \
-      curl -fsSL "https://github.com/ddev/ddev/releases/download/v${DDEV_VERSION}/ddev_linux-$(dpkg --print-architecture).v${DDEV_VERSION}.tar.gz" \
+      curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "https://github.com/ddev/ddev/releases/download/v${DDEV_VERSION}/ddev_linux-$(dpkg --print-architecture).v${DDEV_VERSION}.tar.gz" \
         | tar -xz -C /usr/local/bin ddev && chmod 0755 /usr/local/bin/ddev ; \
     fi
 

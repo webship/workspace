@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git unzip curl 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # WP-CLI, at a release that is named: a platform's builder calls it as `ddev wp`. `less` is the pager its help asks for.
 ARG WP_CLI_VERSION=2.12.0
-RUN curl -fsSL -o /usr/local/bin/wp "https://github.com/wp-cli/wp-cli/releases/download/v${WP_CLI_VERSION}/wp-cli-${WP_CLI_VERSION}.phar" \
+RUN curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors -o /usr/local/bin/wp "https://github.com/wp-cli/wp-cli/releases/download/v${WP_CLI_VERSION}/wp-cli-${WP_CLI_VERSION}.phar" \
   && chmod +x /usr/local/bin/wp && wp --allow-root --version
 ARG UID=1000
 ARG GID=1000
