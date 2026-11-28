@@ -8,6 +8,12 @@
 # the project's database (its hook, functions/fun-project-db.sh), {"platform": null, "extension": ".sql.gz",
 # "database": true|false} otherwise, where database says whether DDEV's database (or the runtime's) is there.
 #
+#   cd <project> && bash core/scripts/project-db.sh import <dump>
+#
+# puts a dump back as the project's database, from the row's Import (#968): through the platform's plugin when one keeps
+# the database, else DDEV's import (or the runtime's), with the core's own steps around it for PostgreSQL on DDEV
+# (import_project_db).
+#
 #   cd <project> && bash core/scripts/project-db.sh restore <backups>/<workspace>---<project>--<stamp>.tar.gz
 #
 # once the archive is extracted, from the backups list's Restore (#951): starts the project and imports the dump beside
@@ -31,6 +37,16 @@ case "${1:-}" in
     else
       echo '{"platform": null, "extension": ".sql.gz", "database": false}' ;
     fi ;;
+  import)
+    if [ -z "${2:-}" ] ; then
+      echo "Usage: bash project-db.sh import <dump>   (in the project's folder)" >&2 ;
+      exit 1 ;
+    fi
+    if ! rt_find_project > /dev/null 2>&1 ; then
+      echo "$(basename "${project_db_dir}") is not a project of the workspace: nothing was imported." >&2 ;
+      exit 1 ;
+    fi
+    import_project_db "$2" ;;
   restore)
     if [ -z "${2:-}" ] ; then
       echo "Usage: bash project-db.sh restore <archive>   (in the project's folder, once the archive is extracted)" >&2 ;
@@ -44,6 +60,6 @@ case "${1:-}" in
     fi
     restore_project_db "$2" ;;
   *)
-    echo "Usage: bash project-db.sh describe|restore <archive>   (in a project folder)" >&2 ;
+    echo "Usage: bash project-db.sh describe|import <dump>|restore <archive>   (in a project folder)" >&2 ;
     exit 1 ;;
 esac

@@ -20,6 +20,9 @@
 # A file named *.sql.gz asks for a gzipped SQL dump (what DDEV writes; what the safety dump before a remove and a clone
 # ask for); any other name, the platform's own format. The platform's import reads both.
 #
+# DDEV's import of a database on PostgreSQL goes through rt_ddev_import_db (#968): the database is closed to new
+# connections and its sessions ended first, as DDEV drops it, and opened again after.
+#
 # Without a hook everything is as it was: DDEV's verbs on DDEV, the runtime layer's on the other runtimes. A project with
 # no database (DDEV's db omitted, or the runtime's database `none`) and no hook has nothing to back up: its backup says
 # so, archives the folder and succeeds.
@@ -106,6 +109,60 @@ function export_project_db() {
   PROJECT_DB_FILE="${file}" ;
 }
 
+# The type of the database of the DDEV project in a folder (here by default), as its .ddev/config.yaml says it, a
+# config.*.yaml after it as DDEV reads them: postgres, mysql or mariadb, mariadb when none says (DDEV's own default).
+function rt_ddev_db_type() {
+  local found root f t type='mariadb' ;
+  found="$(rt_find_project "${1:-$PWD}" 2> /dev/null)" || { echo "${type}" ; return 0 ; } ;
+  root="${found#* }" ;
+  for f in "${root}"/.ddev/config.yaml "${root}"/.ddev/config.*.yaml ; do
+    [ -f "${f}" ] || continue ;
+    t="$(awk '
+      /^database:[[:space:]]*\{/ { if (match($0, /type:[[:space:]]*["'\'']?[a-z]+/)) { v = substr($0, RSTART, RLENGTH) ; sub(/type:[[:space:]]*["'\'']?/, "", v) ; print v ; exit } }
+      /^database:[[:space:]]*$/ { indb = 1 ; next }
+      indb && /^[[:space:]]+type:/ { v = $0 ; sub(/^[[:space:]]+type:[[:space:]]*/, "", v) ; gsub(/["'\''[:space:]]/, "", v) ; print v ; exit }
+      indb && /^[^[:space:]#]/ { indb = 0 }' "${f}")" ;
+    [ -n "${t}" ] && type="${t}" ;
+  done
+  echo "${type}" ;
+}
+
+# DDEV's own import of a database into the DDEV project in the current folder, with DDEV's arguments (#968). DDEV drops
+# the database before it imports, which PostgreSQL refuses while an application is connected to it ("database "db" is
+# being accessed by other users"), as a used site's is. On PostgreSQL the database is closed to new connections first
+# (ALLOW_CONNECTIONS false holds for superusers too) and its sessions are ended, so DDEV can drop it; after the import
+# it is opened again, whatever the import did: DDEV checks a dump before it drops anything, and a dump it cannot read
+# leaves the old database there, closed, until then. An application connects again by itself. MariaDB and MySQL, an
+# import with --no-drop, and an import into another database by name go to DDEV as before.
+function rt_ddev_import_db() {
+  local a prev='' target='db' rc sessions ;
+  for a in "$@" ; do
+    case "${a}" in
+      --no-drop) command ddev import-db "$@" ; return $? ;;
+      --database=*) target="${a#--database=}" ;;
+    esac
+    case "${prev}" in -d|--database) target="${a}" ;; esac
+    prev="${a}" ;
+  done
+  if [ "$(rt_ddev_db_type)" != postgres ] || [ "${target}" != db ] ; then
+    command ddev import-db "$@" ;
+    return $? ;
+  fi
+  if command ddev psql -d postgres -q -c 'ALTER DATABASE db WITH ALLOW_CONNECTIONS false' < /dev/null > /dev/null 2>&1 ; then
+    sessions="$(command ddev psql -d postgres -tA -c "SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity WHERE datname = 'db' AND pid <> pg_backend_pid()" < /dev/null 2> /dev/null | tr -d '\r' | tail -n 1)" ;
+    echo "The database db is closed to new connections, and its open sessions are ended (${sessions:-0}): DDEV's import drops it, which PostgreSQL refuses while an application is connected." ;
+  fi
+  command ddev import-db "$@" ;
+  rc=$? ;
+  if ! command ddev psql -d postgres -q -c 'ALTER DATABASE db WITH ALLOW_CONNECTIONS true' < /dev/null > /dev/null 2>&1 ; then
+    echo "The database db could not be opened again after the import: ddev psql -d postgres -c 'ALTER DATABASE db WITH ALLOW_CONNECTIONS true', or restore the snapshot taken before." >&2 ;
+    [ "${rc}" -eq 0 ] && rc=1 ;
+  elif [ "${rc}" -ne 0 ] ; then
+    echo "The import did not succeed: the database db is open again, as it was before the import." >&2 ;
+  fi
+  return "${rc}" ;
+}
+
 # Put <file> back as the database of the project in the current folder: through the platform's plugin when it keeps the
 # database, else `ddev import-db` (as before). A project with no database has nothing to put it into.
 function import_project_db() {
@@ -158,13 +215,51 @@ function project_dump_beside() {
 # runtime), then its database imported from the dump beside the archive, through the runtime layer's `ddev import-db`,
 # which hands it to the platform's plugin when one keeps the database, on DDEV as on the other runtimes. A project with
 # no dump beside its archive (one with no database) is only started: its folder is the whole of it.
+# On DDEV with PostgreSQL the project is started again after the import (#968): its application started on the empty
+# database the start made, and may have set itself up on it (OpenProject seeds it, and stopped answering when the
+# import replaced it under it); started again, it starts on the database the backup holds. DDEV cannot start a project's
+# database alone, which would let the import come first. A MariaDB or MySQL application that sets itself up on an empty
+# database when it starts would need the same, here.
+# A Restore never leaves a project with a database on an empty one and says nothing: when the project does not start,
+# when its import fails, or when no dump of its database is beside the archive (an empty one says the project had none
+# when it was backed up), it ends with a line that says so, and with a code that is not 0.
 function restore_project_db() {
-  local archive="$1" dump ;
+  local archive="$1" dump rc f empty='' ;
   dump="$(project_dump_beside "${archive}")" ;
-  ddev start -y || return 1 ;
-  [ -n "${dump}" ] || return 0 ;
+  if ! ddev start -y ; then
+    # Another start of the same project at the same moment (a `ddev start --all`, the row's switch, a second window)
+    # makes one of the two fail, a container's name being in use by the other's: once that one has ended, a start of
+    # the containers it made goes through, and the import still comes after it.
+    echo "The project did not start at once; it is started again in 20 seconds, in case another start of it was running at the same moment." >&2 ;
+    sleep 20 ;
+    if ! ddev start -y ; then
+      echo "The Restore did not finish: the project did not start${dump:+, so its database was not put back from ${dump##*/}}." >&2 ;
+      return 1 ;
+    fi
+  fi
+  if [ -z "${dump}" ] ; then
+    for f in "${archive%.tar.gz}"-db.* ; do [ -f "${f}" ] && [ ! -s "${f}" ] && empty="${f}" ; done
+    if rt_has_db && [ -z "${empty}" ] ; then
+      echo "The Restore did not finish: no dump of the project's database is beside ${archive##*/} that this workspace can read, so the project is back on an empty database." >&2 ;
+      return 1 ;
+    fi
+    return 0 ;
+  fi
   echo "Importing database…" ;
   ddev import-db --file="${dump}" ;
+  rc=$? ;
+  if [ "${rc}" -ne 0 ] ; then
+    echo "The Restore did not finish: the import of ${dump##*/} failed (${rc}), so the project is not on the backup's database." >&2 ;
+    return "${rc}" ;
+  fi
+  if [ "$(runtime_of)" = ddev ] && ! rt_db_platform > /dev/null && [ "$(rt_ddev_db_type)" = postgres ] ; then
+    echo "Starting the project again, so its application starts on the database the backup holds…" ;
+    if ! ddev restart ; then
+      echo "The Restore did not finish: the project did not start again after the import." >&2 ;
+      return 1 ;
+    fi
+  fi
+  echo "Restored: the project and its database from ${archive##*/}." ;
 }
 
 # The hook of the runtime layer's `ddev` function: `ddev export-db` and `ddev import-db` of a project whose platform's

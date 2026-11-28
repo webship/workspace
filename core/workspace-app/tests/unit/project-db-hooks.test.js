@@ -198,10 +198,38 @@ test('a Restore of an ordinary DDEV project: started, then DDEV\'s own import of
   assert.match(e.out, /dev---site3--2026-11-27_10-00-00-db\.sql\.gz is empty: the project had no database to export when it was backed up, so there is none to import\./);
   const both = backup(dir, 'site4', { '.sql.gz': '', '.sql': '-- sql' });
   assert.deepStrictEqual(run(dir, p, `restore_project_db "${both}"`).calls, ['ddev start -y', `ddev import-db --file=${both.replace(/\.tar\.gz$/, '-db.sql')}`]);
+  // No dump at all beside the archive of a project with a database: started, and the Restore says it did not finish.
   const none = backup(dir, 'site5', {});
   const n = run(dir, p, `restore_project_db "${none}"`);
-  assert.deepStrictEqual(n.calls, ['ddev start -y'], 'a project with no database: its folder is the whole of it, started');
-  assert.doesNotMatch(n.out, /Importing|empty|beside the archive/);
+  assert.deepStrictEqual(n.calls, ['ddev start -y'], 'started, nothing imported');
+  assert.strictEqual(n.status, 1);
+  assert.match(n.out, /The Restore did not finish: no dump of the project's database is beside dev---site5--2026-11-27_10-00-00\.tar\.gz that this workspace can read, so the project is back on an empty database\./);
+  // A project with no database: its folder is the whole of it, started, nothing said.
+  const nodb = ddevProject(dir, 'nodb', 'name: nodb\ntype: generic\nomit_containers: [db]\n');
+  const n2 = run(dir, nodb, `restore_project_db "${backup(dir, 'nodb', {})}"`);
+  assert.strictEqual(n2.status, 0, n2.out);
+  assert.deepStrictEqual(n2.calls, ['ddev start -y']);
+  assert.doesNotMatch(n2.out, /Importing|empty|beside the archive|did not finish/);
+  // A project that does not start: the Restore says what it did not put back.
+  const failing = sandbox();
+  fs.writeFileSync(path.join(failing, 'bin', 'ddev'), `#!/usr/bin/env bash\necho "ddev $*" >> "${failing}/calls.log"\n[ "$1" = start ] && exit 1\nexit 0\n`, { mode: 0o755 });
+  const fp = ddevProject(failing, 'site', 'name: site\ntype: drupal11\n');
+  const fa = backup(failing, 'site', { '.sql.gz': 'gz' });
+  const f = run(failing, fp, `sleep() { echo "sleep $1" >> "${failing}/calls.log" ; } ; restore_project_db "${fa}"`);
+  assert.strictEqual(f.status, 1);
+  assert.deepStrictEqual(f.calls, ['ddev start -y', 'sleep 20', 'ddev start -y'], 'started again once, after a wait; nothing imported into a project that did not start');
+  assert.match(f.out, /The project did not start at once; it is started again in 20 seconds, in case another start of it was running at the same moment\./);
+  assert.match(f.out, /The Restore did not finish: the project did not start, so its database was not put back from dev---site--2026-11-27_10-00-00-db\.sql\.gz\./);
+  // A start that fails once (another start of the project at the same moment) and goes through the second time: the
+  // import comes after it, and the Restore finishes.
+  const once = sandbox();
+  fs.writeFileSync(path.join(once, 'bin', 'ddev'), `#!/usr/bin/env bash\necho "ddev $*" >> "${once}/calls.log"\nif [ "$1" = start ] && [ ! -f "${once}/started" ] ; then : > "${once}/started" ; exit 1 ; fi\nexit 0\n`, { mode: 0o755 });
+  const op = ddevProject(once, 'site', 'name: site\ntype: drupal11\n');
+  const oa = backup(once, 'site', { '.sql.gz': 'gz' });
+  const o = run(once, op, `sleep() { echo "sleep $1" >> "${once}/calls.log" ; } ; restore_project_db "${oa}"`);
+  assert.strictEqual(o.status, 0, o.out);
+  assert.deepStrictEqual(o.calls, ['ddev start -y', 'sleep 20', 'ddev start -y', `ddev import-db --file=${oa.replace(/\.tar\.gz$/, '-db.sql.gz')}`]);
+  assert.match(o.out, /Restored: the project and its database from dev---site--2026-11-27_10-00-00\.tar\.gz\./);
 });
 
 test('a Restore of a platform that keeps its database on DDEV: its own dump, read by its plugin, never DDEV\'s import', () => {
@@ -278,6 +306,121 @@ test('project-db.sh restore: a folder that is not a project is only put back; a 
   assert.strictEqual(v.status, 0, v.out);
   assert.deepStrictEqual(v.calls, ['ddev start -y', `fake import ${own.replace(/\.tar\.gz$/, '-db.fakedump')}`]);
   assert.match(verb(p, '').out, /Usage: bash project-db\.sh restore <archive>/);
+});
+
+// DDEV's import of a database on PostgreSQL (#968): DDEV drops the database first, which PostgreSQL refuses while an
+// application is connected. The core closes it to new connections and ends its sessions first, and opens it again
+// after, whatever the import did. MariaDB and MySQL go to DDEV as before.
+const CLOSE = 'ddev psql -d postgres -q -c ALTER DATABASE db WITH ALLOW_CONNECTIONS false';
+const END = "ddev psql -d postgres -tA -c SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity WHERE datname = 'db' AND pid <> pg_backend_pid()";
+const OPEN = 'ddev psql -d postgres -q -c ALTER DATABASE db WITH ALLOW_CONNECTIONS true';
+/** A stand-in ddev whose import ends with IMPORT_RC (0 by default), and whose session query says 3. */
+function pgSandbox() {
+  const dir = sandbox();
+  fs.writeFileSync(path.join(dir, 'bin', 'ddev'), `#!/usr/bin/env bash\necho "ddev $*" >> "${dir}/calls.log"\n[ -t 0 ] || cat > /dev/null\ncase "$1 $*" in\n  "import-db "*) exit "\${IMPORT_RC:-0}" ;;\n  psql*pg_terminate_backend*) echo 3 ;;\nesac\nexit 0\n`, { mode: 0o755 });
+  return dir;
+}
+
+test('DDEV on PostgreSQL: the database is closed and its sessions ended before DDEV\'s import, and opened again after (#968)', () => {
+  const dir = pgSandbox();
+  for (const [name, config] of [
+    ['blk', 'name: blk\ntype: generic\ndatabase:\n    type: postgres\n    version: "15"\n'],
+    ['flow', 'name: flow\ntype: generic\ndatabase: {type: postgres, version: "17"}\n'],
+  ]) {
+    const p = ddevProject(dir, name, config);
+    assert.strictEqual(run(dir, p, 'rt_ddev_db_type', { plugin: false }).out.trim(), 'postgres', name);
+    // Every way the core imports on DDEV: the runtime layer's ddev, import_project_db, and a Restore from the backups.
+    const file = `${dir}/x.sql.gz`;
+    for (const line of [`ddev import-db --file=${file}`, `import_project_db /etc/hostname`]) {
+      const r = run(dir, p, line, { plugin: false });
+      assert.strictEqual(r.status, 0, `${name}: ${line}: ${r.out}`);
+      const f = line.startsWith('ddev') ? file : '/etc/hostname';
+      assert.deepStrictEqual(r.calls, [CLOSE, END, `ddev import-db --file=${f}`, OPEN], `${name}: ${line}`);
+      assert.match(r.out, /The database db is closed to new connections, and its open sessions are ended \(3\): DDEV's import drops it, which PostgreSQL refuses while an application is connected\./);
+    }
+    // A Restore: started, the import, then started again, so the application starts on the database the backup holds.
+    const archive = backup(dir, name, { '.sql.gz': 'gz' });
+    const restore = run(dir, p, `restore_project_db "${archive}"`, { plugin: false });
+    assert.deepStrictEqual(restore.calls, ['ddev start -y', CLOSE, END, `ddev import-db --file=${archive.replace(/\.tar\.gz$/, '-db.sql.gz')}`, OPEN, 'ddev restart'], `${name}: the Restore`);
+    assert.match(restore.out, /Starting the project again, so its application starts on the database the backup holds…/);
+  }
+});
+
+test('DDEV on PostgreSQL: a dump DDEV refuses leaves the database open, and the import\'s code is DDEV\'s (#968)', () => {
+  const dir = pgSandbox();
+  const p = ddevProject(dir, 'pg', 'name: pg\ntype: generic\ndatabase:\n  type: postgres\n  version: "12"\n');
+  // DDEV checks a dump before it drops anything: one it cannot read (cut short) ends with 255, the old database there.
+  const r = spawnSync('bash', ['-c', `RT_STACKS=${STACKS}; source ${SCRIPTS}/functions/fun-runtime.sh; source ${SCRIPTS}/functions/fun-project-db.sh; ddev import-db --file=${dir}/cut.sql.gz`],
+    { cwd: p, encoding: 'utf8', env: { ...process.env, PATH: `${dir}/bin:${process.env.PATH}`, IMPORT_RC: '255' } });
+  const calls = fs.readFileSync(path.join(dir, 'calls.log'), 'utf8').trim().split('\n');
+  assert.strictEqual(r.status, 255, 'DDEV\'s own code');
+  assert.deepStrictEqual(calls, [CLOSE, END, `ddev import-db --file=${dir}/cut.sql.gz`, OPEN], 'opened again after the refusal');
+  assert.match(r.stderr, /The import did not succeed: the database db is open again, as it was before the import\./);
+  // In a Restore the project is not started again after a refused import: the Restore ends with the import's code.
+  const archive = backup(dir, 'pg', { '.sql.gz': 'gz' });
+  const rr = spawnSync('bash', ['-c', `RT_STACKS=${STACKS}; source ${SCRIPTS}/functions/fun-runtime.sh; source ${SCRIPTS}/functions/fun-project-db.sh; restore_project_db "${archive}"`],
+    { cwd: p, encoding: 'utf8', env: { ...process.env, PATH: `${dir}/bin:${process.env.PATH}`, IMPORT_RC: '255' } });
+  assert.strictEqual(rr.status, 255);
+  assert.doesNotMatch(fs.readFileSync(path.join(dir, 'calls.log'), 'utf8'), /ddev restart/);
+});
+
+test('DDEV on MariaDB or MySQL, an import with --no-drop or into another database: DDEV\'s import as before (#968)', () => {
+  const dir = pgSandbox();
+  for (const [name, config] of [
+    ['maria', 'name: maria\ntype: drupal11\n'],
+    ['maria2', 'name: maria2\ntype: drupal11\ndatabase:\n    type: mariadb\n    version: "10.11"\n'],
+    ['my', 'name: my\ntype: php\ndatabase: {type: mysql, version: "8.0"}\n'],
+  ]) {
+    const p = ddevProject(dir, name, config);
+    const r = run(dir, p, `ddev import-db --file=${dir}/x.sql.gz && import_project_db /etc/hostname`, { plugin: false });
+    assert.strictEqual(r.status, 0, name);
+    assert.deepStrictEqual(r.calls, [`ddev import-db --file=${dir}/x.sql.gz`, 'ddev import-db --file=/etc/hostname'], `${name}: no psql`);
+  }
+  const p = ddevProject(dir, 'pgx', 'name: pgx\ntype: generic\ndatabase:\n    type: postgres\n    version: "15"\n');
+  for (const args of ['--no-drop --file=/etc/hostname', '--database=other --file=/etc/hostname', '-d other --file=/etc/hostname']) {
+    assert.deepStrictEqual(run(dir, p, `ddev import-db ${args}`, { plugin: false }).calls, [`ddev import-db ${args}`], args);
+  }
+  // A config.*.yaml after config.yaml says the type as DDEV reads it.
+  const o = ddevProject(dir, 'over', 'name: over\ntype: generic\n', { 'config.postgres.yaml': 'database:\n  type: postgres\n  version: "16"\n' });
+  assert.strictEqual(run(dir, o, 'rt_ddev_db_type', { plugin: false }).out.trim(), 'postgres');
+});
+
+test('DDEV on PostgreSQL with a plugin that keeps the database: the plugin\'s import, as before (#937, #968)', () => {
+  const dir = pgSandbox();
+  const p = ddevProject(dir, 'fpg', 'name: fpg\ntype: generic\ndatabase:\n  type: postgres\n  version: "15"\n', { 'config.fakep.yaml': '# the fake platform\n' });
+  fs.writeFileSync(path.join(dir, 'dump.fakedump'), 'FAKE DUMP of fpg');
+  const r = run(dir, p, `import_project_db ${dir}/dump.fakedump`);
+  assert.strictEqual(r.status, 0, r.out);
+  assert.deepStrictEqual(r.calls, [`fake import ${dir}/dump.fakedump`], 'the plugin wins');
+});
+
+test('project-db.sh import: the row\'s Import goes through import_project_db, the core\'s steps on DDEV\'s PostgreSQL (#968)', () => {
+  const dir = pgSandbox();
+  const scripts = path.join(dir, 'scripts');
+  fs.mkdirSync(path.join(scripts, 'functions'), { recursive: true });
+  fs.copyFileSync(path.join(SCRIPTS, 'project-db.sh'), path.join(scripts, 'project-db.sh'));
+  fs.writeFileSync(path.join(scripts, 'bootstrap.sh'), `RT_STACKS=${STACKS}; source ${SCRIPTS}/functions/fun-runtime.sh; source ${SCRIPTS}/functions/fun-project-db.sh; RT_STACKS=${STACKS};\n${FAKEP}\n`);
+  const verb = (cwd, ...args) => {
+    const log = path.join(dir, 'calls.log');
+    const r = spawnSync('bash', [path.join(scripts, 'project-db.sh'), 'import', ...args],
+      { cwd, encoding: 'utf8', env: { ...process.env, PATH: `${dir}/bin:${process.env.PATH}`, WORKSPACE_SCRIPTS: scripts, WORKSPACE_ROOT: path.join(SCRIPTS, '..', '..'), CALLS: log } });
+    const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) : [];
+    if (fs.existsSync(log)) fs.unlinkSync(log);
+    return { out: r.stdout + r.stderr, calls, status: r.status };
+  };
+  const pg = ddevProject(dir, 'pgs', 'name: pgs\ntype: generic\ndatabase:\n  type: postgres\n  version: "15"\n');
+  const r = verb(pg, '/etc/hostname');
+  assert.strictEqual(r.status, 0, r.out);
+  assert.deepStrictEqual(r.calls, [CLOSE, END, 'ddev import-db --file=/etc/hostname', OPEN]);
+  const maria = ddevProject(dir, 'mar', 'name: mar\ntype: drupal11\n');
+  assert.deepStrictEqual(verb(maria, '/etc/hostname').calls, ['ddev import-db --file=/etc/hostname'], 'MariaDB: as before');
+  assert.match(verb(pg).out, /Usage: bash project-db\.sh import <dump>/);
+  const notes = path.join(dir, 'notes');
+  fs.mkdirSync(notes);
+  const n = verb(notes, '/etc/hostname');
+  assert.notStrictEqual(n.status, 0);
+  assert.deepStrictEqual(n.calls, []);
+  assert.match(n.out, /notes is not a project of the workspace: nothing was imported\./);
 });
 
 test('every backup script backs the database up through export_project_db', () => {

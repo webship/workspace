@@ -491,13 +491,27 @@ While a platform's own `<name>_export_db` or `<name>_import_db` runs, `ddev expo
 are DDEV's (or the runtime layer's) own: the hook is not asked again (`RT_DB_HOOK_ACTIVE`), so a platform
 that keeps a database of its own beside DDEV's can dump that one too, and never calls itself back.
 
+A platform whose database is DDEV's own PostgreSQL needs no hook to be put back while it is connected to it
+(webship/workspace#968): DDEV's import drops the database first, which PostgreSQL refuses while an application holds
+sessions on it, so the core's `rt_ddev_import_db` (`fun-project-db.sh`, through the runtime layer's `ddev import-db`)
+closes the database to new connections, ends its sessions, lets DDEV import, and opens the database again, whatever the
+import did. The application connects again by itself. A Restore from the backups list starts such a project again after
+the import. The reason is an application that sets itself up on an empty database when it starts, as OpenProject does
+(it seeds it): the Restore's start gives it the empty database it makes, the import replaces that database under it,
+and it stops answering until it is started again, then starts on the database the backup holds. DDEV cannot start a
+project's database alone, which would let the import come first. MariaDB and MySQL go to DDEV as before; a MariaDB or
+MySQL application with the same habit would need the same restart, in `restore_project_db` (`fun-project-db.sh`).
+
 Without these, everything is as it was. A project with no database at all (DDEV's `db` omitted, or the
 runtime's database `none`) and no hook is backed up without one: the backup says so, archives the folder
 and succeeds. A Restore from the backups list extracts the archive, then starts the project and imports
 the dump beside it in its folder (`core/scripts/project-db.sh restore`, webship/workspace#951): the
 platform's own `<archive>-db<extension>` when its plugin keeps the database, else `-db.sql.gz` or `-db.sql`,
 through the runtime layer's `ddev import-db` on DDEV as on the other runtimes, so the plugin reads it. A
-project with no dump beside its archive is only started. The row's Import lists, for a platform that keeps its database, that project's own dumps
+project with no database is only started. A Restore that does not put a project's database back ends with a line that
+says why and a code that is not 0: the project did not start, its import failed, or no dump is beside the archive that
+this workspace can read (an empty one says the project had no database when it was backed up). A start that fails is
+tried once more after 20 seconds, in case another start of the same project ran at the same moment (#968). The row's Import lists, for a platform that keeps its database, that project's own dumps
 in the workspace's backups (its format, and the SQL ones), and takes its export first in the same
 command, as a runtime's import does. On Docker Compose, Podman and Kubernetes the row's menu offers
 Export and Import when the runtime or the platform keeps a database, and neither when none does
