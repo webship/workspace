@@ -7,14 +7,15 @@
 ARG BASE_IMAGE=debian:bookworm-slim
 FROM ${BASE_IMAGE}
 USER root
-# The layer, with the base's own package manager: apt-get (Debian, Ubuntu) or apk (Alpine). An image with neither (a
+# The layer, with the base's own package manager: apt-get (Debian, Ubuntu) or apk (Alpine). setpriv starts the
+# application's server as www-data (util-linux's; Debian and Ubuntu have it, and BusyBox's has no --reuid). An image with neither (a
 # distroless one) cannot take it: the build says so and stops.
 RUN if command -v apt-get > /dev/null ; then \
       apt-get update && apt-get install -y --no-install-recommends git unzip curl ca-certificates less procps \
         mariadb-client postgresql-client msmtp-mta \
       && rm -rf /var/lib/apt/lists/* ; \
     elif command -v apk > /dev/null ; then \
-      apk add --no-cache bash git unzip curl ca-certificates less procps shadow runuser \
+      apk add --no-cache bash git unzip curl ca-certificates less procps shadow runuser setpriv \
         mariadb-client postgresql-client msmtp \
       && ln -sf /usr/bin/msmtp /usr/sbin/sendmail ; \
     else \

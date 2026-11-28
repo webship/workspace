@@ -67,8 +67,11 @@ test('Lando: a generic stack has no recipe; appserver is the stack\'s own image 
   const port = block.match(/\n {2}port: (\d+)/)[1];
   const appserver = lando.slice(lando.indexOf('\n  appserver:\n'), lando.indexOf('\n  database:\n'));
   assert.match(appserver, /\n {4}type: lando\n {4}services:\n {6}build:\n {8}context: \.\/\.webship\/runtime\n {8}args:\n {10}BASE_IMAGE: "python:3\.13-slim-bookworm"\n/);
-  assert.match(appserver, /\n {6}image: webship-glando-web\n {6}command: runuser -u www-data -- bash \/app\/\.webship\/runtime\/start\.sh\n/);
+  assert.match(appserver, /\n {6}image: webship-glando-web\n {6}command: setpriv --reuid=www-data --regid=www-data --init-groups -- bash \/app\/\.webship\/runtime\/start\.sh\n/);
   assert.match(appserver, /\n {8}WEBSHIP_RUNTIME: lando\n {8}WEBSHIP_PORT: "\d+"\n {8}WEBSHIP_DB_WAIT: "300"\n/);
+  // Lando's entrypoint execs the command when LANDO_NEEDS_EXEC is set: start.sh is then the first process, which the
+  // stop reaches (#983). Without it, the entrypoint stays the first process and the server is never asked to stop.
+  assert.match(appserver, /\n {6}environment:\n(?: {8}#[^\n]*\n)* {8}LANDO_NEEDS_EXEC: "1"\n {8}WEBSHIP_RUNTIME: lando\n/);
   assert.ok(appserver.includes(`- "127.0.0.1:${port}:8000"`), 'the address goes to the server\'s port');
   const database = lando.slice(lando.indexOf('\n  database:\n'), lando.indexOf('\n  mailpit:\n'));
   assert.match(database, /\n {4}type: compose\n {4}services:\n {6}image: postgres:16\n {6}command: docker-entrypoint\.sh postgres\n {6}environment:\n {8}POSTGRES_DB: db\n {8}POSTGRES_USER: db\n {8}POSTGRES_PASSWORD: db\n {6}volumes:\n {8}- db:\/var\/lib\/postgresql\/data\n {6}networks:\n {8}default:\n {10}aliases:\n {12}- db\n {4}volumes:\n {6}db:$/);
@@ -131,7 +134,7 @@ test('Docksal: a generic stack is Docksal\'s node stack: cli is the stack\'s ima
   assert.match(block, /\n {2}stack: generic\n {2}language: python\n {2}language_version: "3\.13"\n {2}serve_port: 8000\n {2}db_wait: 300\n {2}serve_grace: 1800\n/);
   const cli = yml.slice(yml.indexOf('\n  cli:\n'), yml.indexOf('\n  db:\n'));
   assert.match(cli, /\n {4}image: webship-gdocksal-web\n {4}build:\n {6}context: \$\{PROJECT_ROOT\}\/\.webship\/runtime\n {6}args:\n {8}BASE_IMAGE: "python:3\.13-slim-bookworm"\n/);
-  assert.match(cli, /\n {4}command: \["runuser", "-u", "www-data", "--", "bash", "\/var\/www\/\.webship\/runtime\/start\.sh"\]\n/);
+  assert.match(cli, /\n {4}command: \["setpriv", "--reuid=www-data", "--regid=www-data", "--init-groups", "--", "bash", "\/var\/www\/\.webship\/runtime\/start\.sh"\]\n/);
   assert.match(cli, /\n {6}- WEBSHIP_RUNTIME=docksal\n {6}- WEBSHIP_DB_WAIT=300\n {6}- WEBSHIP_SERVE_GRACE=1800\n/);
   assert.match(cli, /\n {6}- io\.docksal\.user=www-data\n {6}- io\.docksal\.virtual-port=8000\n {4}expose:\n {6}- "8000"\n/);
   assert.match(cli, /\n {4}healthcheck:\n {6}test: \["CMD", "bash", "\/var\/www\/\.webship\/runtime\/probe\.sh", "8000"\]\n/, 'the proxy routes to a healthy container only');

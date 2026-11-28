@@ -61,7 +61,7 @@ test('a generic stack on Docker Compose and Podman: the language\'s pinned image
     const port = block.match(/\n {2}port: (\d+)/)[1];
     const web = compose.slice(compose.indexOf('\n  web:\n'), compose.indexOf('\n  db:\n'));
     assert.match(web, /\n {8}BASE_IMAGE: "python:3\.13-slim-bookworm"\n/, `${runtime}: pinned to the version`);
-    assert.match(web, /\n {4}command: \["runuser", "-u", "www-data", "--", "bash", "\/var\/www\/html\/\.webship\/runtime\/start\.sh"\]\n {4}working_dir: \/var\/www\/html\n/, `${runtime}: the database wait, then the server (#850)`);
+    assert.match(web, /\n {4}command: \["setpriv", "--reuid=www-data", "--regid=www-data", "--init-groups", "--", "bash", "\/var\/www\/html\/\.webship\/runtime\/start\.sh"\]\n {4}working_dir: \/var\/www\/html\n/, `${runtime}: the database wait, then the server (#850)`);
     assert.match(web, /\n {6}WEBSHIP_DB_WAIT: "300"\n/, runtime);
     assert.ok(web.includes(`- "127.0.0.1:${port}:8000"`), `${runtime}: the address goes to the server's port`);
     assert.doesNotMatch(web, /APACHE_DOCUMENT_ROOT|PHP_VERSION/, `${runtime}: no Apache, no PHP`);
@@ -123,7 +123,7 @@ test('PostgreSQL on Kubernetes: a db deployment of its image, its data in a fold
   assert.match(stack, /\n {12}- \{name: PGDATA, value: \/var\/lib\/postgresql\/data\/pgdata\}\n/);
   assert.match(stack, /readinessProbe:\n {12}exec: \{command: \["pg_isready", "-U", "db", "-d", "db"\]\}/);
   assert.match(stack, /\n {2}ports: \[\{port: 5432\}\]\n/);
-  assert.match(stack, /\n {10}ports: \[\{containerPort: 8000\}\]\n {10}command: \["runuser", "-u", "www-data", "--", "bash", "\/var\/www\/html\/\.webship\/runtime\/start\.sh"\]\n {10}workingDir: \/var\/www\/html\n/);
+  assert.match(stack, /\n {10}ports: \[\{containerPort: 8000\}\]\n {10}command: \["setpriv", "--reuid=www-data", "--regid=www-data", "--init-groups", "--", "bash", "\/var\/www\/html\/\.webship\/runtime\/start\.sh"\]\n {10}workingDir: \/var\/www\/html\n/);
   assert.match(stack, /\n {2}ports: \[\{port: 80, nodePort: \d+, targetPort: 8000\}\]\n/);
   assert.doesNotMatch(stack, /mariadb/);
 });
@@ -234,7 +234,7 @@ test('rt_stack image: a pinned image that can take the stack\'s layer (a shell, 
 test('the generic stack takes the layer with apt-get or apk, and an image with neither stops the build with why', () => {
   const dockerfile = read(STACKS, 'generic', 'Dockerfile');
   assert.match(dockerfile, /if command -v apt-get > \/dev\/null ; then/);
-  assert.match(dockerfile, /elif command -v apk > \/dev\/null ; then \\\n {6}apk add --no-cache bash git unzip curl ca-certificates less procps shadow runuser/);
+  assert.match(dockerfile, /elif command -v apk > \/dev\/null ; then \\\n {6}apk add --no-cache bash git unzip curl ca-certificates less procps shadow runuser setpriv \\\n/, 'setpriv as well: BusyBox\'s has no --reuid (#983)');
   assert.match(dockerfile, /ln -sf \/usr\/bin\/msmtp \/usr\/sbin\/sendmail/, 'Alpine\'s msmtp as sendmail too');
   assert.match(dockerfile, /this image has neither \(webship\/workspace#841\)[^"]*" >&2 ; exit 1/);
 });

@@ -109,7 +109,7 @@ test('rt_daemon on Docker Compose and Podman: the task in the block, its script,
     const svc = compose.slice(compose.indexOf('\n  daemons:\n'), compose.indexOf('\nvolumes:\n'));
     assert.ok(svc.length > 0, `${runtime}: the service of the tasks`);
     assert.match(svc, /\n {4}image: webship-d\w+-web\n/, `${runtime}: the web service's image`);
-    assert.match(svc, / {4}command: \["runuser", "-u", "www-data", "--", "bash", "-c", "for f in \/var\/www\/html\/\.webship\/daemons\/\*\.sh ; do \[ -f \\"\$\$f\\" \] && bash \\"\$\$f\\" & done ; wait"\]\n/, `${runtime}: every task, as the web server's user, compose's $$`);
+    assert.match(svc, / {4}command: \["setpriv", "--reuid=www-data", "--regid=www-data", "--init-groups", "--", "bash", "\/var\/www\/html\/\.webship\/runtime\/daemons\.sh"\]\n/, `${runtime}: every task, as the web server's user, through the runner (#983)`);
     assert.match(svc, /\n {6}PHP_INI_SCAN_DIR: ":\/var\/www\/html\/\.webship\/php"\n/, `${runtime}: with the project's settings`);
     assert.match(svc, /\n {6}- \.:\/var\/www\/html\n/, `${runtime}: and its code`);
     assert.doesNotMatch(svc, /ports:/, `${runtime}: no port of the machine`);
@@ -132,7 +132,7 @@ test('rt_daemon on Kubernetes: a second container of the web pod, with its image
   const stack = read(k, 'k8s', 'stack.yaml');
   const web = stack.slice(stack.indexOf('  name: web\nspec:\n  replicas'));
   assert.match(web, /\n {8}- name: web\n/);
-  assert.match(web, /\n {8}- name: daemons\n {10}image: webship-dk-web\n {10}imagePullPolicy: Never\n {10}command: \["runuser", "-u", "www-data", "--", "bash", "-c", "for f in \/var\/www\/html\/\.webship\/daemons\/\*\.sh ; do \[ -f \\"\$f\\" \] && bash \\"\$f\\" & done ; wait"\]\n/);
+  assert.match(web, /\n {8}- name: daemons\n {10}image: webship-dk-web\n {10}imagePullPolicy: Never\n {10}command: \["setpriv", "--reuid=www-data", "--regid=www-data", "--init-groups", "--", "bash", "\/var\/www\/html\/\.webship\/runtime\/daemons\.sh"\]\n/);
   assert.match(web, /- name: daemons[\s\S]*?- \{name: PHP_INI_SCAN_DIR, value: ":\/var\/www\/html\/\.webship\/php"\}\n {10}volumeMounts: \[\{name: code, mountPath: \/var\/www\/html\}\]\n {6}volumes:/);
   assert.match(read(k, 'compose.yaml'), /^ {2}daemons: cron$/m);
   const logs = run(dir, k, 'ddev logs').calls.filter((c) => c.startsWith('kubectl'));
@@ -180,9 +180,15 @@ test('rt_daemon on Docksal: a program of cli\'s supervisor, where PHP runs, as t
   assert.match(yml, /\n {6}- \$\{PROJECT_ROOT\}\/\.webship\/runtime\/docksal-daemons\.conf:\/etc\/supervisor\/conf\.d\/webship-daemons\.conf:ro\n {2}# Mailpit/);
   const conf = read(p, '.webship', 'runtime', 'docksal-daemons.conf');
   // A script, not a command line: the supervisor reads " ;" as the start of a comment.
-  assert.match(conf, /^\[program:webship-daemons\]\ncommand = runuser -u docker -- bash \/var\/www\/\.webship\/runtime\/docksal-daemons\.sh\ndirectory = \/var\/www\nautorestart = true\n/m);
+  // setpriv and daemons.sh, as on the other runtimes (#983): the supervisor's stop reaches every task.
+  assert.match(conf, /^\[program:webship-daemons\]\ncommand = setpriv --reuid=docker --regid=docker --init-groups -- bash \/var\/www\/\.webship\/runtime\/daemons\.sh\ndirectory = \/var\/www\nautorestart = true\n/m);
   assert.doesNotMatch(conf.split('\n').filter((l) => !l.startsWith(';')).join('\n'), / ;/);
-  assert.match(read(p, '.webship', 'runtime', 'docksal-daemons.sh'), /\nfor f in \/var\/www\/\.webship\/daemons\/\*\.sh ; do \[ -f "\$f" \] && bash "\$f" & done\nwait\n$/);
+  assert.match(read(p, '.webship', 'runtime', 'daemons.sh'), /\ntrap 'for t in "\$\{tasks\[@\]\}" ; do kill -TERM -- "-\$\{t\}" 2> \/dev\/null ; done' TERM INT QUIT WINCH\n/);
+  assert.ok(!fs.existsSync(path.join(p, '.webship', 'runtime', 'docksal-daemons.sh')), 'not the script that ran them before');
+  // A project from before #983: its old script goes when the files are written again.
+  fs.writeFileSync(path.join(p, '.webship', 'runtime', 'docksal-daemons.sh'), 'wait\n');
   run(dir, p, 'ddev config --php-version=8.4');
   assert.match(read(p, '.docksal', 'docksal.yml'), /webship-daemons\.conf/, 'written again, the task stays');
+  assert.ok(!fs.existsSync(path.join(p, '.webship', 'runtime', 'docksal-daemons.sh')), 'the old script is gone');
+  assert.match(read(p, '.webship', 'runtime', 'docksal-daemons.conf'), /\ncommand = setpriv [^\n]+daemons\.sh\n/);
 });
