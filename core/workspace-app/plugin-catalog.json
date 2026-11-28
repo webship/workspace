@@ -67,7 +67,8 @@
         ["headless-ui", "Headless UI", "A builder for Headless UI apps, new or from a repository, with Node.js in their own container"],
         ["uptime-kuma", "Uptime Kuma", "A builder for Uptime Kuma monitoring apps, from its official image, its data in the project"],
         ["home-assistant", "Home Assistant", "A builder for Home Assistant apps, from its official image, its configuration in the project"],
-        ["grafana", "Grafana", "A builder for Grafana apps, from its official image, its data in the project"]
+        ["grafana", "Grafana", "A builder for Grafana apps, from its official image, its data in the project"],
+        ["mantisbt", "MantisBT", "A builder for MantisBT sites with a sample project on the php stack; its issues as work items"]
       ]
     },
     {
