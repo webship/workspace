@@ -583,6 +583,14 @@ test('a suggestion: what the front page shows, the packs that fit, and nothing i
   assert.deepStrictEqual(hits('<title>Home Assistant</title></head><body><ha-onboarding></ha-onboarding>'), ['home-assistant'], 'a new app\'s onboarding page');
   assert.deepStrictEqual(hits('<p>Our lights run on Home Assistant, the home automation platform.</p>'), [], 'a page that names the app in its text');
   assert.deepStrictEqual(hits('<pre>&lt;meta name="application-name" content="Home Assistant"&gt;</pre>'), [], 'the meta in a code sample');
+  // Grafana (2026-11-28, read on 13.3.2 and 12.4.16): every page its server draws, the login page a signed-out visitor
+  // is sent to first, boots the app from a script that sets window.grafanaBootData, the same on both lines. A page that
+  // names the app in its text, or the line in a code sample, is none.
+  const gfPage = '<div id="reactRoot"></div>\n\n    <script nonce="">\n      window.grafanaBootData = {\n        user: {"isSignedIn":false},';
+  assert.deepStrictEqual(hits(gfPage), ['grafana']);
+  assert.match(sp.detectPacks({ html: gfPage, headers: {} }, all).find((h) => h.pack.short === 'grafana').evidence, /window\.grafanaBootData =/, 'the boot data is the evidence');
+  assert.deepStrictEqual(hits('<p>Our dashboards run on Grafana, the observability platform.</p>'), [], 'a page that names the app in its text');
+  assert.deepStrictEqual(hits('<pre>window.grafanaBootData = { user: {} };</pre>'), [], 'the line in a code sample');
   assert.deepStrictEqual(hits('<html></html>', { 'x-powered-by': 'Craft CMS' }), ['craft-cms']);
   assert.deepStrictEqual(hits('<html><body>Hello</body></html>'), []);
 

@@ -66,7 +66,8 @@
         ["material-ui", "Material UI", "A builder for Material UI apps, new or from a repository, with Node.js in their own container"],
         ["headless-ui", "Headless UI", "A builder for Headless UI apps, new or from a repository, with Node.js in their own container"],
         ["uptime-kuma", "Uptime Kuma", "A builder for Uptime Kuma monitoring apps, from its official image, its data in the project"],
-        ["home-assistant", "Home Assistant", "A builder for Home Assistant apps, from its official image, its configuration in the project"]
+        ["home-assistant", "Home Assistant", "A builder for Home Assistant apps, from its official image, its configuration in the project"],
+        ["grafana", "Grafana", "A builder for Grafana apps, from its official image, its data in the project"]
       ]
     },
     {
